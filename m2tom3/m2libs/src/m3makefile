@@ -1,0 +1,36 @@
+% m3makefile for modula3 versions of modula2 standard library code.
+% As modified for newer Modula3 versions that have LONGINT and
+% LONGCARD built in. 
+
+import("m3core")
+import("libm3")
+
+Interface("CCALL")
+
+Module("SYSTEM")
+
+Module("M2UnixParam")
+Module("M2InOut")
+Module("M2String")
+Module("M2Convert")
+Module("M2Clock")
+Module("M2MathLib")
+Module("M2ConvertReal")
+
+
+% The modules below use, directly or indirectly, machine/OS-dependent code,
+% which is not fixed here, until it is needed.  See m2tom3/m2libs.
+
+%Module("M2Text")
+%Module("Storage")
+%Module("M2Directory")
+%Module("M2Directory")
+%Module("M2Files")
+%Module("M2Files")
+%Module("M2UnixDirectory")
+%Module("M2UnixDirectory")
+
+Library("libm2t")
+
+
+

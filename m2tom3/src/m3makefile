@@ -1,0 +1,13 @@
+% m3makefile for modula3 versions of modula2 standard library code.
+% As modified for newer Modula3 versions that have LONGINT and
+% LONGCARD built in. 
+
+import("m3core")
+import("libm3")
+
+module("SYSTEM")
+
+Library("libm2tom3")
+
+
+
