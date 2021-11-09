@@ -20,7 +20,7 @@
  UNSAFE MODULE StdIO;			(* buffered standard IO	*)
 
 
-FROM SYSTEM IMPORT M3LONGINT, M3LONGCARD;
+FROM SYSTEM IMPORT M2LONGINT, M2LONGCARD;
 FROM SYSTEM IMPORT SHORTINT;
 FROM IO	    IMPORT StdInput, StdOutput;
 
@@ -71,7 +71,7 @@ PROCEDURE ReadShort	(): SHORTINT =		(* shortint number ?	*)
       RETURN IO.ReadShort (StdInput);
    END ReadShort;
 
-PROCEDURE ReadLong	(): M3LONGINT  =		(* longint  number ?	*)
+PROCEDURE ReadLong	(): M2LONGINT  =		(* longint  number ?	*)
    BEGIN
       RETURN IO.ReadLong (StdInput);
    END ReadLong;
@@ -139,7 +139,7 @@ PROCEDURE WriteB	(b: BOOLEAN) =		(* boolean		*)
       IO.WriteB (StdOutput, b);
    END WriteB;
 
-PROCEDURE WriteN	(n: M3LONGCARD; FieldWidth, Base: Word.T) =
+PROCEDURE WriteN	(n: M2LONGCARD; FieldWidth, Base: Word.T) =
    BEGIN					(* number of base 'Base'*)
       IO.WriteN (StdOutput, n, FieldWidth, Base);
    END WriteN;
@@ -154,7 +154,7 @@ PROCEDURE WriteShort	(n: SHORTINT; FieldWidth: Word.T) =
       IO.WriteShort (StdOutput, n, FieldWidth);
    END WriteShort;
 
-PROCEDURE WriteLong	(n: M3LONGINT ; FieldWidth: Word.T) =
+PROCEDURE WriteLong	(n: M2LONGINT ; FieldWidth: Word.T) =
    BEGIN					(* longint  number ?	*)
       IO.WriteLong (StdOutput, n, FieldWidth);
    END WriteLong;

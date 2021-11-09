@@ -19,7 +19,7 @@
 
 UNSAFE INTERFACE  StdIO;			(* buffered standard IO	*)
 
-FROM SYSTEM IMPORT M3LONGINT, M3LONGCARD;
+FROM SYSTEM IMPORT M2LONGINT, M2LONGCARD;
 
 
 FROM SYSTEM IMPORT SHORTINT;
@@ -35,7 +35,7 @@ PROCEDURE ReadN		(Base: INTEGER): INTEGER;
 						(* number of base 'Base'*)
 PROCEDURE ReadS		(VAR s: ARRAY OF CHAR);	(* string		*)
 PROCEDURE ReadShort	(): SHORTINT;		(* shortint number ?	*)
-PROCEDURE ReadLong	(): M3LONGINT ;		(* longint  number ?	*)
+PROCEDURE ReadLong	(): M2LONGINT ;		(* longint  number ?	*)
 PROCEDURE ReadCard	(): Word.T;		(* cardinal number ?	*)
 PROCEDURE ReadNl()	;			(* new line		*)
 PROCEDURE UnRead()	;			(* backspace 1 char.	*)
@@ -54,12 +54,12 @@ PROCEDURE WriteI	(n: INTEGER ; FieldWidth: Word.T);
 PROCEDURE WriteR	(n: REAL; Before, After, Exp: Word.T);
 						(* real     number	*)
 PROCEDURE WriteB	(b: BOOLEAN);		(* boolean		*)
-PROCEDURE WriteN	(n: M3LONGCARD; FieldWidth, Base: Word.T);
+PROCEDURE WriteN	(n: M2LONGCARD; FieldWidth, Base: Word.T);
 						(* number of base 'Base'*)
 PROCEDURE WriteS	(READONLY s: ARRAY OF CHAR);	(* string		*)
 PROCEDURE WriteShort	(n: SHORTINT; FieldWidth: Word.T);
 						(* shortint number ?	*)
-PROCEDURE WriteLong	(n: M3LONGINT ; FieldWidth: Word.T);
+PROCEDURE WriteLong	(n: M2LONGINT ; FieldWidth: Word.T);
 						(* longint  number ?	*)
 PROCEDURE WriteCard	(n: Word.T; FieldWidth: Word.T);
 						(* cardinal number ?	*)

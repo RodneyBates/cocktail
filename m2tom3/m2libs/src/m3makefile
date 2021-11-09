@@ -30,7 +30,7 @@ Module("M2ConvertReal")
 %Module("M2UnixDirectory")
 %Module("M2UnixDirectory")
 
-Library("libm2t")
+Library("m2tom3")
 
 
 

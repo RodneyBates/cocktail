@@ -2,7 +2,7 @@
 
 (* $Log: DynArray.mi,v $
 
- * RMB 93/10/11 Added two type conversions of (General.)MaxAlign to M3LONGINT
+ * RMB 93/10/11 Added two type conversions of (General.)MaxAlign to M2LONGINT
        in AlignedSize to compile under WRL.
 
  * Revision 1.6  1992/08/07  14:45:20  grosch
@@ -32,23 +32,23 @@
 
  UNSAFE MODULE DynArray;
 
-FROM SYSTEM IMPORT M3LONGINT;
+FROM SYSTEM IMPORT M2LONGINT;
 FROM SYSTEM	IMPORT   ODD, WORD;
 FROM General	IMPORT Log2, Exp2, MaxAlign;
 FROM Memory	IMPORT Alloc, Free;
 FROM IO		IMPORT StdError, WriteS, WriteNl;
 
-(* INVARIANT ElmtCount * AlignedSize (ElmtSize) MOD TSIZE (M3LONGINT) = 0 *)
+(* INVARIANT ElmtCount * AlignedSize (ElmtSize) MOD TSIZE (M2LONGINT) = 0 *)
 
 PROCEDURE MakeArray    (VAR ArrayPtr	: ADDRESS	;
-			VAR ElmtCount	: M3LONGINT	;
-			    ElmtSize	: M3LONGINT)	 =
+			VAR ElmtCount	: M2LONGINT	;
+			    ElmtSize	: M2LONGINT)	 =
    BEGIN
       ElmtSize := AlignedSize (ElmtSize);
       CASE ElmtSize MOD 4 OF
       | 0   =>
       | 2   => IF ODD (ElmtCount) THEN INC (ElmtCount); END;
-      | 1, 3=> INC (ElmtCount, BYTESIZE (M3LONGINT) - 1 - ((ElmtCount - 1) MOD BYTESIZE (M3LONGINT)));
+      | 1, 3=> INC (ElmtCount, BYTESIZE (M2LONGINT) - 1 - ((ElmtCount - 1) MOD BYTESIZE (M2LONGINT)));
       END;
       ArrayPtr := Alloc (ElmtCount * ElmtSize);
       IF ArrayPtr = NIL THEN
@@ -57,12 +57,12 @@ PROCEDURE MakeArray    (VAR ArrayPtr	: ADDRESS	;
    END MakeArray;
 
 PROCEDURE ExtendArray  (VAR ArrayPtr	: ADDRESS	;
-			VAR ElmtCount	: M3LONGINT	;
-			    ElmtSize	: M3LONGINT)	 =
+			VAR ElmtCount	: M2LONGINT	;
+			    ElmtSize	: M2LONGINT)	 =
    VAR
       NewPtr		: ADDRESS;
-      Source, Target	: UNTRACED BRANDED REF  M3LONGINT;
-      i			: M3LONGINT;
+      Source, Target	: UNTRACED BRANDED REF  M2LONGINT;
+      i			: M2LONGINT;
    BEGIN
       ElmtSize := AlignedSize (ElmtSize);
       NewPtr := Alloc (ElmtCount * ElmtSize * 2);
@@ -71,10 +71,10 @@ PROCEDURE ExtendArray  (VAR ArrayPtr	: ADDRESS	;
       ELSE
 	 Source := ArrayPtr;
 	 Target := NewPtr;
-	 FOR i := 1 TO ElmtCount * ElmtSize DIV BYTESIZE (M3LONGINT) DO
+	 FOR i := 1 TO ElmtCount * ElmtSize DIV BYTESIZE (M2LONGINT) DO
 	    Target ^ := Source ^;
-	    Source := LOOPHOLE (LOOPHOLE (Source,ADDRESS) + BYTESIZE (M3LONGINT),ADDRESS);
-	    Target := LOOPHOLE (LOOPHOLE (Target,ADDRESS) + BYTESIZE (M3LONGINT),ADDRESS);
+	    Source := LOOPHOLE (LOOPHOLE (Source,ADDRESS) + BYTESIZE (M2LONGINT),ADDRESS);
+	    Target := LOOPHOLE (LOOPHOLE (Target,ADDRESS) + BYTESIZE (M2LONGINT),ADDRESS);
 	 END;
 	 Free (ElmtCount * ElmtSize, ArrayPtr);
 	 INC (ElmtCount, ElmtCount);
@@ -83,18 +83,18 @@ PROCEDURE ExtendArray  (VAR ArrayPtr	: ADDRESS	;
    END ExtendArray;
 
 PROCEDURE ReleaseArray (VAR ArrayPtr	: ADDRESS	;
-			VAR ElmtCount	: M3LONGINT	;
-			    ElmtSize	: M3LONGINT)	 =
+			VAR ElmtCount	: M2LONGINT	;
+			    ElmtSize	: M2LONGINT)	 =
    BEGIN
       ElmtSize := AlignedSize (ElmtSize);
       Free (ElmtCount * ElmtSize, ArrayPtr);
    END ReleaseArray;
 
-PROCEDURE AlignedSize  (ElmtSize: M3LONGINT): M3LONGINT =
-   VAR Align	: M3LONGINT;
+PROCEDURE AlignedSize  (ElmtSize: M2LONGINT): M2LONGINT =
+   VAR Align	: M2LONGINT;
    BEGIN
-      IF ElmtSize >= VAL (   MaxAlign,M3LONGINT ) THEN
-	 Align := VAL (   MaxAlign,M3LONGINT );
+      IF ElmtSize >= VAL (   MaxAlign,M2LONGINT ) THEN
+	 Align := VAL (   MaxAlign,M2LONGINT );
       ELSE
 	 Align := Exp2 (Log2 (ElmtSize + ElmtSize - 2));
       END;

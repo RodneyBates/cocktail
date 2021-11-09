@@ -16,13 +16,13 @@
 
 UNSAFE INTERFACE  Heap;
 
-FROM SYSTEM IMPORT M3LONGINT, M3LONGCARD;
+FROM SYSTEM IMPORT M2LONGINT, M2LONGCARD;
 
-VAR	  HeapUsed	: M3LONGCARD;
+VAR	  HeapUsed	: M2LONGCARD;
 			(* Holds the total amount of memory managed by	*)
 			(* this module.					*)
 
-PROCEDURE Alloc		(ByteCount: M3LONGINT) : ADDRESS;
+PROCEDURE Alloc		(ByteCount: M2LONGINT) : ADDRESS;
 			(* Returns a pointer to dynamically allocated	*)
 			(* space of size 'ByteCount' bytes.		*)
 

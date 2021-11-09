@@ -38,7 +38,7 @@
  UNSAFE MODULE Memory;
 
 
-FROM SYSTEM IMPORT M3LONGINT, M3LONGCARD;
+FROM SYSTEM IMPORT M2LONGINT, M2LONGCARD;
 FROM SYSTEM IMPORT BITSET;
 IMPORT Word;
 FROM General	IMPORT Log2, MaxAlign, AlignMasks;
@@ -56,7 +56,7 @@ TYPE
    tBlockPtr		= UNTRACED BRANDED REF  tBlock;
    tBlock		= RECORD
 			     Successor	: tBlockPtr	;
-			     Size	: M3LONGINT	;
+			     Size	: M2LONGINT	;
 			  END;
    tSmallBlockRange	= [MinSizeSmallBlock    .. MaxSizeSmallBlock   ];
    tLargeBlockRange	= [MinSizeLargeBlockLog .. MaxSizeLargeBlockLog];
@@ -72,7 +72,7 @@ VAR
 (* Returns a pointer to dynamically allocated	*)
 (* space of size 'ByteCount' bytes.		*)
 
-PROCEDURE Alloc	(ByteCount: M3LONGINT)		: ADDRESS =
+PROCEDURE Alloc	(ByteCount: M2LONGINT)		: ADDRESS =
 VAR
    BlockPtr		,
    CurrentBlock		,
@@ -81,14 +81,14 @@ VAR
    PredecessorBlock	: tBlockPtr;
    ChainNumber		: Word.T;
    CurrentBlockSize	,
-   BestBlockSize	: M3LONGINT;
+   BestBlockSize	: M2LONGINT;
    j			: tLargeBlockRange;
 BEGIN
    ByteCount 
      := LOOPHOLE 
-          (LOOPHOLE (ByteCount + VAL (   MaxAlign,M3LONGINT ) - 1,BITSET) 
+          (LOOPHOLE (ByteCount + VAL (   MaxAlign,M2LONGINT ) - 1,BITSET) 
            * AlignMasks [MaxAlign]
-          ,M3LONGINT);
+          ,M2LONGINT);
 
    IF ByteCount <= MaxSizeSmallBlock THEN	(* handle small block *)
       IF ByteCount < MinSizeSmallBlock THEN ByteCount := MinSizeSmallBlock; END;
@@ -99,10 +99,10 @@ BEGIN
            := BlockPtr^.Successor;
 	 RETURN BlockPtr;
       ELSE (* obtain block from storage pool *)
-	 IF LOOPHOLE (PoolEndPtr - PoolFreePtr,M3LONGINT) < ByteCount THEN
+	 IF LOOPHOLE (PoolEndPtr - PoolFreePtr,M2LONGINT) < ByteCount THEN
 						(* release old pool *)
-	    IF LOOPHOLE (PoolEndPtr - PoolFreePtr,M3LONGCARD) >= MinSizeSmallBlock THEN
-	       Free (LOOPHOLE (PoolEndPtr - PoolFreePtr,M3LONGINT), PoolFreePtr);
+	    IF LOOPHOLE (PoolEndPtr - PoolFreePtr,M2LONGCARD) >= MinSizeSmallBlock THEN
+	       Free (LOOPHOLE (PoolEndPtr - PoolFreePtr,M2LONGINT), PoolFreePtr);
 	    END;
 	    PoolFreePtr := Alloc (PoolSize);	(* allocate new pool *)
 	    PoolEndPtr  := PoolFreePtr + PoolSize;
@@ -164,10 +164,10 @@ BEGIN
       END;
 
       IF ByteCount < PoolSize THEN	(* 3. obtain block from storage pool *)
-	 IF LOOPHOLE (PoolEndPtr - PoolFreePtr,M3LONGINT) < ByteCount THEN
+	 IF LOOPHOLE (PoolEndPtr - PoolFreePtr,M2LONGINT) < ByteCount THEN
 						(* release old pool *)
-	    IF LOOPHOLE (PoolEndPtr - PoolFreePtr,M3LONGCARD) >= MinSizeSmallBlock THEN
-	       Free (LOOPHOLE (PoolEndPtr - PoolFreePtr,M3LONGINT), PoolFreePtr);
+	    IF LOOPHOLE (PoolEndPtr - PoolFreePtr,M2LONGCARD) >= MinSizeSmallBlock THEN
+	       Free (LOOPHOLE (PoolEndPtr - PoolFreePtr,M2LONGINT), PoolFreePtr);
 	    END;
 	    PoolFreePtr := Alloc (PoolSize);	(* allocate new pool *)
 	    PoolEndPtr  := PoolFreePtr + PoolSize;
@@ -177,7 +177,7 @@ BEGIN
 
       ELSE				(* 4. allocate individual block *)
 	 BlockPtr := SysAlloc (ByteCount);
-	 INC (MemoryUsed, VAL (   ByteCount,M3LONGCARD ) ); 
+	 INC (MemoryUsed, VAL (   ByteCount,M2LONGCARD ) ); 
 	 RETURN BlockPtr;
       END;
    END;
@@ -187,16 +187,16 @@ END Alloc;
 (* address 'a' of size 'ByteCount' bytes is	*)
 (* released.					*)
 
-PROCEDURE Free	(ByteCount: M3LONGINT; a: ADDRESS) =
+PROCEDURE Free	(ByteCount: M2LONGINT; a: ADDRESS) =
 VAR
    BlockPtr	: tBlockPtr;
    ChainNumber	: tLargeBlockRange;
 BEGIN
    ByteCount 
      := LOOPHOLE 
-          (LOOPHOLE (ByteCount + VAL (   MaxAlign,M3LONGINT ) - 1,BITSET) 
+          (LOOPHOLE (ByteCount + VAL (   MaxAlign,M2LONGINT ) - 1,BITSET) 
            * AlignMasks [MaxAlign]
-          ,M3LONGINT);
+          ,M2LONGINT);
 
    BlockPtr := a;
    IF ByteCount <= MaxSizeSmallBlock THEN

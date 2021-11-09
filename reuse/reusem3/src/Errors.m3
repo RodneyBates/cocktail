@@ -19,7 +19,7 @@
  UNSAFE MODULE Errors;
 
 
-FROM SYSTEM IMPORT M3LONGINT;
+FROM SYSTEM IMPORT M2LONGINT;
 FROM SYSTEM IMPORT SHORTCARD;
 FROM Memory     IMPORT Alloc;
 FROM IO         IMPORT tFile, StdError, WriteC, WriteNl, WriteS, WriteI,
@@ -145,7 +145,7 @@ PROCEDURE WriteInfo (InfoClass: Word.T; Info: ADDRESS) =
    VAR
       PtrToInteger      : UNTRACED BRANDED REF  INTEGER;
       PtrToShort        : UNTRACED BRANDED REF  SHORTCARD;
-      PtrToLong         : UNTRACED BRANDED REF  M3LONGINT;
+      PtrToLong         : UNTRACED BRANDED REF  M2LONGINT;
       PtrToReal         : UNTRACED BRANDED REF  REAL;
       PtrToBoolean      : UNTRACED BRANDED REF  BOOLEAN;
       PtrToCharacter    : UNTRACED BRANDED REF  CHAR;
@@ -230,7 +230,7 @@ PROCEDURE StoreMessage  (pIsErrorCode: BOOLEAN; pErrorCode, pErrorClass: Word.T;
    VAR
       PtrToInteger      : UNTRACED BRANDED REF  INTEGER    ;
       PtrToShort        : UNTRACED BRANDED REF  SHORTCARD  ;
-      PtrToLong         : UNTRACED BRANDED REF  M3LONGINT    ;
+      PtrToLong         : UNTRACED BRANDED REF  M2LONGINT    ;
       PtrToReal         : UNTRACED BRANDED REF  REAL       ;
       PtrToBoolean      : UNTRACED BRANDED REF  BOOLEAN    ;
       PtrToCharacter    : UNTRACED BRANDED REF  CHAR       ;

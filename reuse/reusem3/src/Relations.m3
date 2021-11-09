@@ -28,7 +28,7 @@ Initial revision
  UNSAFE MODULE Relations;
 
 
-FROM SYSTEM IMPORT M3LONGINT;
+FROM SYSTEM IMPORT M2LONGINT;
 FROM SYSTEM IMPORT SHORTCARD;
 FROM IO		IMPORT tFile, ReadI, ReadC, WriteI, WriteC;
 FROM DynArray	IMPORT MakeArray, ReleaseArray;
@@ -39,11 +39,11 @@ IMPORT Word, Sets;
 VAR i, j	: INTEGER;
 
 PROCEDURE MakeRelation	(VAR Rel: tRelation; Max1, Max2: INTEGER) =
-   VAR ElmtCount : M3LONGINT;
+   VAR ElmtCount : M2LONGINT;
    BEGIN
       Rel.Max1 := Max1;
       Rel.Max2 := Max2;
-      ElmtCount := VAL (   Max1 + 1,M3LONGINT ) ;
+      ElmtCount := VAL (   Max1 + 1,M2LONGINT ) ;
       MakeArray (Rel.ArrayPtr, ElmtCount, BYTESIZE (tSet));
       FOR i := 0 TO Rel.Max1 DO
 	 Sets.MakeSet (Rel.ArrayPtr^[i], Max2);
@@ -51,12 +51,12 @@ PROCEDURE MakeRelation	(VAR Rel: tRelation; Max1, Max2: INTEGER) =
    END MakeRelation;
 
 PROCEDURE ReleaseRelation (VAR Rel: tRelation) =
-   VAR ElmtCount : M3LONGINT;
+   VAR ElmtCount : M2LONGINT;
    BEGIN
       FOR i := 0 TO Rel.Max1 DO
 	 Sets.ReleaseSet (Rel.ArrayPtr^[i]);
       END;
-      ElmtCount := VAL (   Rel.Max1 + 1,M3LONGINT );
+      ElmtCount := VAL (   Rel.Max1 + 1,M2LONGINT );
       ReleaseArray (Rel.ArrayPtr, ElmtCount, BYTESIZE (tSet));
    END ReleaseRelation;
 
@@ -167,11 +167,11 @@ VAR PredCountPtr	: UNTRACED BRANDED REF  PredCount;
 VAR WithoutPred		: tSet;
 
 PROCEDURE IsCyclic	(Rel: tRelation): BOOLEAN =
-   VAR PredCountSize	: M3LONGINT;
+   VAR PredCountSize	: M2LONGINT;
    VAR WithPred		: tSet;
    VAR Result		: BOOLEAN;
    BEGIN				(* cycle test for graphs *)
-      PredCountSize	:= VAL (   Rel.Max1 + 1,M3LONGINT );
+      PredCountSize	:= VAL (   Rel.Max1 + 1,M2LONGINT );
       MakeArray (PredCountPtr, PredCountSize, BYTESIZE (SHORTCARD));
       Sets.MakeSet (WithoutPred, Rel.Max1);
       Sets.MakeSet (WithPred, Rel.Max1);

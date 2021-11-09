@@ -52,13 +52,13 @@ VAR
 (* Returns a pointer to dynamically allocated	*)
 (* space of size 'ByteCount' bytes.		*)
 
-PROCEDURE Alloc	(ByteCount: M3LONGINT): ADDRESS =
+PROCEDURE Alloc	(ByteCount: M2LONGINT): ADDRESS =
 VAR BlockPtr	: tBlockPtr;
 BEGIN
    ByteCount 
      := LOOPHOLE 
-          (LOOPHOLE (ByteCount + VAL(MaxAlign,M3LONGINT) - 1,BITSET) * AlignMasks [MaxAlign],M3LONGINT);
-   IF LOOPHOLE (PoolEndPtr - PoolFreePtr,M3LONGINT) < ByteCount THEN
+          (LOOPHOLE (ByteCount + VAL(MaxAlign,M2LONGINT) - 1,BITSET) * AlignMasks [MaxAlign],M2LONGINT);
+   IF LOOPHOLE (PoolEndPtr - PoolFreePtr,M2LONGINT) < ByteCount THEN
       BlockPtr	  := BlockList;
       BlockList	  := Memory.Alloc (BYTESIZE (tBlock));
       BlockList^.Successor := BlockPtr;

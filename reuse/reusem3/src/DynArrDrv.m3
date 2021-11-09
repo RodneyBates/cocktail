@@ -13,31 +13,31 @@
 
 UNSAFE MODULE DynArrDrv EXPORTS Main;
 
-FROM SYSTEM IMPORT M3LONGINT;
+FROM SYSTEM IMPORT M2LONGINT;
 IMPORT Word;
 FROM DynArray	IMPORT MakeArray, ExtendArray;
 FROM IO		IMPORT StdOutput, WriteC, WriteI, WriteNl, WriteS, WriteLong, CloseIO;
 
 
-VAR  i : M3LONGINT;
+VAR  i : M2LONGINT;
      j : Word.T;
 
-TYPE t = ARRAY [1 .. 100000] OF M3LONGINT;
+TYPE t = ARRAY [1 .. 100000] OF M2LONGINT;
 (* necessary to force index arithmetic to be done with long integers *)
 
 VAR  p : UNTRACED BRANDED REF  t;
-     s : M3LONGINT;
+     s : M2LONGINT;
 
 BEGIN
    s := 10;
 
-   MakeArray (p, s, BYTESIZE (M3LONGINT));
+   MakeArray (p, s, BYTESIZE (M2LONGINT));
    FOR i := 1 TO s DO
       p^[i] := i;
    END;
 
    FOR j := 1 TO 13 DO
-      ExtendArray (p, s, BYTESIZE (M3LONGINT));
+      ExtendArray (p, s, BYTESIZE (M2LONGINT));
 
       IF p = NIL THEN
 	 WriteS (StdOutput, ARRAY [0..12] OF CHAR{'E','x','t','e','n','d',' ','E','r','r','o','r','\000'}); WriteNl (StdOutput);

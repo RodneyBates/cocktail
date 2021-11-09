@@ -42,7 +42,7 @@
  UNSAFE MODULE IO;			(* buffered IO		*)
 
 
-FROM SYSTEM IMPORT M3LONGINT, M3LONGCARD;
+FROM SYSTEM IMPORT M2LONGINT, M2LONGCARD;
 FROM SYSTEM IMPORT SHORTINT;
 FROM	General	IMPORT Exp2	, Exp10	;
 FROM	Memory	IMPORT Alloc	, Free	;
@@ -181,7 +181,7 @@ PROCEDURE ReadI		(f: tFile): INTEGER =	(* integer  number	*)
 PROCEDURE ReadR		(f: tFile): REAL =	(* real     number	*)
    VAR
       n			: REAL;
-      Mantissa		: M3LONGCARD;
+      Mantissa		: M2LONGCARD;
       Exponent		: INTEGER;
       MantissaNeg	: BOOLEAN;
       ExponentNeg	: BOOLEAN;
@@ -210,7 +210,7 @@ PROCEDURE ReadR		(f: tFile): REAL =	(* real     number	*)
 	 IF Mantissa <= MaxIntDiv10 THEN
 	    Mantissa := 10 * Mantissa;
 	    IF Mantissa 
-               <= VAL (   MaxInt - (ORD (ch) - ORD ('0')),M3LONGCARD ) THEN
+               <= VAL (   MaxInt - (ORD (ch) - ORD ('0')),M2LONGCARD ) THEN
 	       INC (Mantissa, ORD (ch) - ORD ('0'));
 	    ELSE
 	       INC (TruncatedDigits);
@@ -227,7 +227,7 @@ PROCEDURE ReadR		(f: tFile): REAL =	(* real     number	*)
 	 IF Mantissa <= MaxIntDiv10 THEN
 	    Mantissa := 10 * Mantissa;
 	    IF Mantissa 
-               <= VAL (   MaxInt - (ORD (ch) - ORD ('0')),M3LONGCARD ) THEN
+               <= VAL (   MaxInt - (ORD (ch) - ORD ('0')),M2LONGCARD ) THEN
 	       INC (Mantissa, ORD (ch) - ORD ('0'));
 	    ELSE
 	       INC (TruncatedDigits);
@@ -318,9 +318,9 @@ PROCEDURE ReadShort	(f: tFile): SHORTINT =	(* shortint number	*)
       RETURN VAL (   ReadI (f),SHORTINT );
    END ReadShort;
 
-PROCEDURE ReadLong	(f: tFile): M3LONGINT =	(* longint  number	*)
+PROCEDURE ReadLong	(f: tFile): M2LONGINT =	(* longint  number	*)
    BEGIN
-      RETURN VAL (   ReadI (f),M3LONGINT );
+      RETURN VAL (   ReadI (f),M2LONGINT );
    END ReadLong;
 
 PROCEDURE ReadCard	(f: tFile): Word.T =	(* cardinal number	*)
@@ -471,7 +471,7 @@ PROCEDURE WriteR	(f: tFile; n: REAL; Before, After, Exp: Word.T) =
       Digits		: ARRAY [0 .. 200] OF Word.T;
       MaxCard		: REAL;
       MaxCardDiv10	: REAL;
-      Mantissa		: M3LONGCARD;
+      Mantissa		: M2LONGCARD;
       Exponent		: INTEGER;
    BEGIN
       MaxCard		:= FLOAT (MaxInt);
@@ -497,7 +497,7 @@ PROCEDURE WriteR	(f: tFile; n: REAL; Before, After, Exp: Word.T) =
 	    n := n * 10.0;
 	    DEC (Exponent);
 	 END;
-	 Mantissa := VAL (   TRUNC (n),M3LONGCARD );
+	 Mantissa := VAL (   TRUNC (n),M2LONGCARD );
 	 IF Mantissa < MaxPow10 THEN
 	    DEC (Exponent);
 	 END;
@@ -568,7 +568,7 @@ PROCEDURE WriteR	(f: tFile; n: REAL; Before, After, Exp: Word.T) =
 	 ELSE
 	    WriteC (f, '+');
 	 END;
-	 WriteN (f, VAL (   Exponent,M3LONGCARD ) , Exp - 1, 10);
+	 WriteN (f, VAL (   Exponent,M2LONGCARD ) , Exp - 1, 10);
       END;
    END WriteR;
 
@@ -580,7 +580,7 @@ PROCEDURE WriteB	(f: tFile; b: BOOLEAN) =	(* boolean		*)
       END;
    END WriteB;
 
-PROCEDURE WriteN	(f: tFile; n: M3LONGCARD; FieldWidth, Base: Word.T) =
+PROCEDURE WriteN	(f: tFile; n: M2LONGCARD; FieldWidth, Base: Word.T) =
    VAR						(* number of base 'Base'*)
       i		: INTEGER;
       length	: Word.T;
@@ -590,8 +590,8 @@ PROCEDURE WriteN	(f: tFile; n: M3LONGCARD; FieldWidth, Base: Word.T) =
       REPEAT
 	 INC (length);
 	 digits [length] 
-           := MyCHR [ VAL (   n MOD VAL (   Base,M3LONGCARD ),INTEGER ) ];
-	 n := n DIV VAL (   Base,M3LONGCARD );
+           := MyCHR [ VAL (   n MOD VAL (   Base,M2LONGCARD ),INTEGER ) ];
+	 n := n DIV VAL (   Base,M2LONGCARD );
       UNTIL n = 0;
       FOR i := 1 TO LOOPHOLE (FieldWidth - length,INTEGER) DO
 	 WriteC (f, '0');
@@ -623,7 +623,7 @@ PROCEDURE WriteShort	(f: tFile; n: SHORTINT; FieldWidth: Word.T) =
       WriteI (f, VAL (   n,INTEGER ) , FieldWidth);
    END WriteShort;
 
-PROCEDURE WriteLong	(f: tFile; n: M3LONGINT ; FieldWidth: Word.T) =
+PROCEDURE WriteLong	(f: tFile; n: M2LONGINT ; FieldWidth: Word.T) =
    BEGIN					(* longint  number	*)
       WriteI (f, VAL (   n,INTEGER ) , FieldWidth);
    END WriteLong;

@@ -36,7 +36,7 @@
 
 
 
-FROM SYSTEM IMPORT M3LONGINT;
+FROM SYSTEM IMPORT M2LONGINT;
 IMPORT Word;
 CONST
    cMaxFile	= 32;
@@ -44,7 +44,7 @@ CONST
    StdOutput	= 1;
    StdError	= 2;
 
-TYPE tFile	= INTEGER [-1 .. cMaxFile];
+TYPE tFile	= [-1 .. cMaxFile];
 
 			(* binary IO		*)
 
@@ -57,8 +57,8 @@ PROCEDURE IsCharacterSpecial (File: tFile): BOOLEAN;
 
 			(* calls other than IO	*)
 
-PROCEDURE SysAlloc	(ByteCount: M3LONGINT): ADDRESS;
-PROCEDURE Time		(): M3LONGINT;
+PROCEDURE SysAlloc	(ByteCount: M2LONGINT): ADDRESS;
+PROCEDURE Time		(): M2LONGINT;
 PROCEDURE GetArgCount	(): Word.T;
 PROCEDURE GetArgument	(ArgNum: INTEGER; VAR Argument: ARRAY OF CHAR);
 PROCEDURE PutArgs	(Argc: INTEGER; Argv: ADDRESS);
