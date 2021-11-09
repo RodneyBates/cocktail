@@ -1,0 +1,259 @@
+IMPLEMENTATION MODULE Tree2;
+
+
+
+IMPORT SYSTEM, System, General, Memory, DynArray, IO, Layout, StringMem, Strings, Idents, Texts, Sets, Positions;
+FROM Tree IMPORT tTree, NoTree, tProcTree, MakeTree, IsType, yyExit,
+Classes, 
+NoClass, 
+Class, 
+Attributes, 
+NoAttribute, 
+AttrOrAction, 
+Child, 
+Attribute, 
+ActionPart, 
+yyAlloc, yyPoolFreePtr, yyPoolMaxPtr, yyNodeSize;
+
+(* line 194 "" *)
+(* line 501 "" *)
+(* line 912 "" *)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+TYPE yyPtrtTree        = POINTER TO tTree;
+
+VAR yyf        : IO.tFile;
+VAR yyLabel    : SHORTCARD;
+VAR yyKind     : SHORTCARD;
+VAR yyc        : CHAR;
+VAR yys        : Strings.tString;
+
+CONST yyInitTreeStoreSize      = 32;
+
+VAR yyTreeStoreSize    : LONGINT;
+VAR yyTreeStorePtr     : POINTER TO ARRAY [0..50000] OF tTree;
+VAR yyLabelCount       : INTEGER;
+VAR yyRecursionLevel   : SHORTINT;
+
+PROCEDURE yyMapToLabel (yyTree: tTree): SHORTCARD;
+ VAR yyi       : INTEGER;
+ BEGIN
+  FOR yyi := 1 TO yyLabelCount DO
+   IF yyTreeStorePtr^[yyi] = yyTree THEN RETURN yyi; END;
+  END;
+  INC (yyLabelCount);
+  IF yyLabelCount = yyTreeStoreSize THEN
+   DynArray.ExtendArray (yyTreeStorePtr, yyTreeStoreSize, SYSTEM.TSIZE (tTree));
+  END;
+  yyTreeStorePtr^[yyLabelCount] := yyTree;
+  RETURN yyLabelCount;
+ END yyMapToLabel;
+
+PROCEDURE yyMapToTree (yyLabel: SHORTCARD): tTree;
+ BEGIN RETURN yyTreeStorePtr^[yyLabel]; END yyMapToTree;
+
+CONST yyNil    = 374C;
+CONST yyNoLabel        = 375C;
+CONST yyLabelDef       = 376C;
+CONST yyLabelUse       = 377C;
+
+PROCEDURE GetTree2 (yyyf: IO.tFile): tTree;
+ VAR yyt       : tTree;
+ BEGIN
+  yyf := yyyf;
+  IF yyRecursionLevel = 0 THEN yyLabelCount := 0; END;
+  INC (yyRecursionLevel);
+  yyGetTree2 (SYSTEM.ADR (yyt));
+  DEC (yyRecursionLevel);
+  RETURN yyt;
+ END GetTree2;
+
+PROCEDURE yyGetTree2 (yyt: yyPtrtTree);
+ BEGIN
+  LOOP
+   yyc := IO.ReadC (yyf);
+   CASE yyc OF
+   | yyNil     : yyt^ := NoTree; RETURN;
+   | yyLabelUse        : yyGet (yyLabel); yyt^ := yyMapToTree (yyLabel); RETURN;
+   | yyLabelDef        : yyGet (yyLabel); yyKind := ORD (IO.ReadC (yyf)); yyt^ := MakeTree (yyKind);
+    IF yyLabel # yyMapToLabel (yyt^) THEN IO.WriteS (IO.StdError, 'Tree2: error in GetTree2'); IO.WriteNl (IO.StdError); yyExit; END;
+   ELSE yyKind := ORD (yyc); yyt^ := MakeTree (yyKind);
+   END;
+
+   CASE yyKind OF
+| Class:
+yyGetIdent ( yyt^^.Class.Name ); 
+yyGet ( yyt^^.Class.Properties ); 
+yyGetTree2 ( SYSTEM.ADR (yyt^^.Class.Attributes) ); 
+yyGetTree2 ( SYSTEM.ADR (yyt^^.Class.Extensions) ); 
+yyGetTree2 ( SYSTEM.ADR (yyt^^.Class.BaseClass) ); 
+yyt := SYSTEM.ADR (yyt^^.Class.Next);
+| AttrOrAction:
+yyt := SYSTEM.ADR (yyt^^.AttrOrAction.Next);
+| Child:
+yyGetIdent ( yyt^^.Child.Name ); 
+yyGetIdent ( yyt^^.Child.Type ); 
+yyGet ( yyt^^.Child.Properties ); 
+yyt := SYSTEM.ADR (yyt^^.Child.Next);
+| Attribute:
+yyGetIdent ( yyt^^.Attribute.Name ); 
+yyGetIdent ( yyt^^.Attribute.Type ); 
+yyGet ( yyt^^.Attribute.Properties ); 
+yyt := SYSTEM.ADR (yyt^^.Attribute.Next);
+| ActionPart:
+yyt := SYSTEM.ADR (yyt^^.ActionPart.Next);
+   ELSE RETURN;
+   END;
+  END;
+ END yyGetTree2;
+
+PROCEDURE yyGet (VAR yyx: ARRAY OF SYSTEM.BYTE);
+ VAR yyi       : INTEGER;
+ BEGIN
+  yyi := IO.Read (yyf, SYSTEM.ADR (yyx), INTEGER (HIGH (yyx)) + 1);
+ END yyGet;
+
+PROCEDURE yyGetIdent (VAR yyi: Idents.tIdent);
+ VAR yys       : Strings.tString;
+ BEGIN
+  Strings.ReadL (yyf, yys);
+  yyi := Idents.MakeIdent (yys);
+ END yyGetIdent;
+
+PROCEDURE BeginTree2;
+ BEGIN
+(* line 376 "" *)
+(* line 839 "" *)
+ END BeginTree2;
+
+PROCEDURE CloseTree2;
+ BEGIN
+ END CloseTree2;
+
+BEGIN
+ yyRecursionLevel := 0;
+ yyTreeStoreSize := yyInitTreeStoreSize;
+ DynArray.MakeArray (yyTreeStorePtr, yyTreeStoreSize, SYSTEM.TSIZE (tTree));
+ BeginTree2;
+END Tree2.

@@ -1,0 +1,141 @@
+m
+TYPE
+yyIdent = RECORD Ident: tIdent; 
+END;
+yyOperator = RECORD Ident: tIdent; 
+END;
+yyIncOperator = RECORD Ident: tIdent; 
+END;
+yyCompoundOperator = RECORD Ident: tIdent; 
+END;
+yyTargetBlock = RECORD Text: tText; 
+END;
+yyString = RECORD StringRef: tStringRef; 
+END;
+yyNumber = RECORD StringRef: tStringRef; 
+END;
+yyTargetCode = RECORD StringRef: tStringRef; 
+END;
+yyWhiteSpace = RECORD StringRef: tStringRef; 
+END;
+(* '::' *) yy10 = RECORD StringRef: tStringRef; 
+END;
+(* '.' *) yy11 = RECORD StringRef: tStringRef; 
+END;
+(* '->' *) yy12 = RECORD StringRef: tStringRef; 
+END;
+
+tScanAttribute = RECORD
+Position: tPosition;
+CASE : SHORTCARD OF
+| 1: Ident: yyIdent;
+| 2: Operator: yyOperator;
+| 3: IncOperator: yyIncOperator;
+| 4: CompoundOperator: yyCompoundOperator;
+| 5: TargetBlock: yyTargetBlock;
+| 6: String: yyString;
+| 7: Number: yyNumber;
+| 8: TargetCode: yyTargetCode;
+| 9: WhiteSpace: yyWhiteSpace;
+| 10: (* '::' *) yy10: yy10;
+| 11: (* '.' *) yy11: yy11;
+| 12: (* '->' *) yy12: yy12;
+ END ;
+END ;
+
+PROCEDURE ErrorAttribute (Token: INTEGER; VAR pAttribute: tScanAttribute);
+%%
+PROCEDURE ErrorAttribute (Token: INTEGER; VAR pAttribute: tScanAttribute);
+BEGIN
+ pAttribute.Position := Attribute.Position;
+ CASE Token OF
+ | (* Ident *) 1: 
+ pAttribute.Ident.Ident       := NoIdent      ;
+ ;
+ | (* Operator *) 2: 
+ pAttribute.Operator.Ident       := NoIdent      ;
+ ;
+ | (* IncOperator *) 3: 
+ pAttribute.IncOperator.Ident       := NoIdent      ;
+ ;
+ | (* CompoundOperator *) 4: 
+ pAttribute.CompoundOperator.Ident       := NoIdent      ;
+ ;
+ | (* TargetBlock *) 5: 
+ MakeText (pAttribute.TargetBlock.Text); ;
+ ;
+ | (* String *) 6: 
+ pAttribute.String.StringRef   := GetStringRef (NoIdent);
+ ;
+ | (* Number *) 7: 
+ pAttribute.Number.StringRef   := GetStringRef (NoIdent);
+ ;
+ | (* TargetCode *) 8: 
+ pAttribute.TargetCode.StringRef   := GetStringRef (NoIdent);
+ ;
+ | (* WhiteSpace *) 9: 
+ pAttribute.WhiteSpace.StringRef   := GetStringRef (NoIdent);
+ ;
+ | (* '::' *) 10: 
+ pAttribute.yy10.StringRef   := GetStringRef (NoIdent);
+ ;
+ | (* '.' *) 11: 
+ pAttribute.yy11.StringRef   := GetStringRef (NoIdent);
+ ;
+ | (* '->' *) 12: 
+ pAttribute.yy12.StringRef   := GetStringRef (NoIdent);
+ ;
+ ELSE
+ END;
+END ErrorAttribute;
+%%
+1 S Ident Ident
+2 S Operator Operator
+3 S IncOperator IncOperator
+4 S CompoundOperator CompoundOperator
+5 S TargetBlock TargetBlock
+6 S String String
+7 S Number Number
+8 S TargetCode TargetCode
+9 S WhiteSpace WhiteSpace
+10 S yy10 '::'
+11 S yy11 '.'
+12 S yy12 '->'
+13 N TRAFO TRAFO
+14 N 'TREE' 'TREE'
+15 N ',' ','
+16 N PUBLIC PUBLIC
+17 N EXTERN EXTERN
+18 N ';' ';'
+19 N 'SPECWITH' 'SPECWITH'
+20 N 'BODYWITH' 'BODYWITH'
+21 N 'EXPORT' 'EXPORT'
+22 N 'IMPORT' 'IMPORT'
+23 N 'GLOBAL' 'GLOBAL'
+24 N 'BEGIN' 'BEGIN'
+25 N 'CLOSE' 'CLOSE'
+26 N PROCEDURE PROCEDURE
+27 N '(' '('
+28 N REF REF
+29 N ':' ':'
+30 N '[' '['
+31 N ']' ']'
+32 N '=>' '=>'
+33 N ')' ')'
+34 N 'LOCAL' 'LOCAL'
+35 N '..' '..'
+36 N ':>' ':>'
+37 N NIL NIL
+38 N '_' '_'
+39 N '{' '{'
+40 N '}' '}'
+41 N '^' '^'
+42 N ':=' ':='
+43 N '?' '?'
+44 N REJECT REJECT
+45 N FAIL FAIL
+46 N 'VAR' 'VAR'
+47 N NL NL
+48 N RETURN RETURN
+49 N 'FUNCTION' 'FUNCTION'
+50 N PREDICATE PREDICATE

@@ -1,0 +1,1602 @@
+
+(* $Id: Scanner.mi,v 2.11 1992/09/24 13:14:00 grosch rel $ *)
+
+(* Modified Rodney M. Bates 
+   Mar 94 to compile under WRL 
+   Mar 96 to fix a bug in PROCEDURE input 
+   Mar 96 to add functions UpperCase and LowerCase, to exploit
+          the arrays yyToUpper and yyToLower, already there.
+   Apr 96 to add yyTotalLineCount and TotalLineCount. 
+*) 
+
+IMPLEMENTATION MODULE Scanner;
+ 
+IMPORT SYSTEM, Checks, System, General, Positions, IO, DynArray, Strings, Source;
+(* line 81 "puma.rex" *)
+
+FROM SYSTEM     IMPORT ADR;
+FROM StringMem  IMPORT PutString;
+FROM Strings    IMPORT tString, Concatenate, Char, SubString,
+                        AssignEmpty, Length, WriteL;
+FROM Idents     IMPORT tIdent, MakeIdent, NoIdent, GetStringRef ;
+  (* NOTE: The references to GetStringRef (and no doubt others) 
+           come from code in puma.pars, but they are generated 
+           into Scanner.mi, whose imports come from here! *) 
+FROM Texts      IMPORT MakeText, Append;
+FROM Sets       IMPORT IsElement;
+FROM Tree       IMPORT Options, ErrorCount;
+FROM Positions  IMPORT tPosition;
+
+IMPORT Errors;
+
+VAR BraceNestingLevel , CommentNestingLevel : INTEGER; 
+VAR CommentPos, StringPos, TargetPos : tPosition;
+VAR InsideTarget , InsideExpr : BOOLEAN ; 
+
+PROCEDURE ErrorAttribute (Token: INTEGER; VAR pAttribute: tScanAttribute);
+BEGIN
+ pAttribute.Position := Attribute.Position;
+ CASE Token OF
+ | (* Ident *) 1: 
+ pAttribute.Ident.Ident       := NoIdent      ;
+ ;
+ | (* Operator *) 2: 
+ pAttribute.Operator.Ident       := NoIdent      ;
+ ;
+ | (* IncOperator *) 3: 
+ pAttribute.IncOperator.Ident       := NoIdent      ;
+ ;
+ | (* CompoundOperator *) 4: 
+ pAttribute.CompoundOperator.Ident       := NoIdent      ;
+ ;
+ | (* TargetBlock *) 5: 
+ MakeText (pAttribute.TargetBlock.Text); ;
+ ;
+ | (* String *) 6: 
+ pAttribute.String.StringRef   := GetStringRef (NoIdent);
+ ;
+ | (* Number *) 7: 
+ pAttribute.Number.StringRef   := GetStringRef (NoIdent);
+ ;
+ | (* TargetCode *) 8: 
+ pAttribute.TargetCode.StringRef   := GetStringRef (NoIdent);
+ ;
+ | (* WhiteSpace *) 9: 
+ pAttribute.WhiteSpace.StringRef   := GetStringRef (NoIdent);
+ ;
+ | (* '::' *) 10: 
+ pAttribute.yy10.StringRef   := GetStringRef (NoIdent);
+ ;
+ | (* '.' *) 11: 
+ pAttribute.yy11.StringRef   := GetStringRef (NoIdent);
+ ;
+ | (* '->' *) 12: 
+ pAttribute.yy12.StringRef   := GetStringRef (NoIdent);
+ ;
+ ELSE
+ END;
+END ErrorAttribute;
+ 
+
+PROCEDURE Error (Text: ARRAY OF CHAR; Position: tPosition);
+   BEGIN
+      Errors.Message (Text, Errors.Error, Position);
+      INC (ErrorCount);
+   END Error;
+
+PROCEDURE StringError (Text: tString; Position: tPosition);
+   BEGIN
+       Errors.StringMessage (Text, Errors.Error, Position);
+      INC (ErrorCount);
+   END StringError;
+
+PROCEDURE ErrorI (Text: ARRAY OF CHAR; Position: tPosition; Ident: tIdent);
+   BEGIN
+      Errors.MessageI (Text, Errors.Error, Position, Errors.Ident, ADR (Ident));
+      INC (ErrorCount);
+   END ErrorI;
+
+PROCEDURE Warning (Text: ARRAY OF CHAR; Position: tPosition);
+   BEGIN
+      IF NOT IsElement (ORD ('s'), Options) THEN
+         Errors.Message (Text, Errors.Warning, Position);
+      END;
+   END Warning;
+
+PROCEDURE StringWarning (Text: tString; Position: tPosition);
+   BEGIN
+      IF NOT IsElement (ORD ('s'), Options) THEN
+         Errors.StringMessage (Text, Errors.Warning, Position);
+      END;
+   END StringWarning;
+
+PROCEDURE WarningI (Text: ARRAY OF CHAR; Position: tPosition; Ident: tIdent);
+   BEGIN
+      IF NOT IsElement (ORD ('s'), Options) THEN
+         Errors.MessageI (Text, Errors.Warning, Position, Errors.Ident, ADR (Ident));
+      END;
+   END WarningI;
+
+ 
+CONST
+   yyTabSpace		= 8;
+   yyDNoState		= 0;
+   yyFileStackSize	= 16;
+   yyInitBufferSize	= 1024 * 8 + 256;
+yyFirstCh	= 0C;
+yyLastCh	= 177C;
+yyEolCh	= 12C;
+yyEobCh	= 177C;
+yyDStateCount	= 260;
+yyTableSize	= 2837;
+yyEobState	= 83;
+yyDefaultState	= 84;
+STD	= 1;
+CComment	= 3;
+M2Comment	= 5;
+Str1	= 7;
+Str2	= 9;
+CStr1	= 11;
+CStr2	= 13;
+targetcode	= 15;
+expr	= 17;
+ 
+TYPE
+   yyTableElmt		= SHORTCARD;
+   yyStateRange		= yyTableElmt [0 .. yyDStateCount];
+   yyTableRange		= yyTableElmt [0 .. yyTableSize];
+   yyCombType		= RECORD Check, Next: yyStateRange; END;
+   yyCombTypePtr	= POINTER TO yyCombType;
+   yytChBufferPtr	= POINTER TO ARRAY [0 .. 1000000] OF CHAR;
+   yyChRange		= [yyFirstCh .. yyLastCh];
+   yyFileStackPtrTyp    = SHORTCARD;
+   yyFileStackSubscript = yyFileStackPtrTyp [1 .. yyFileStackSize];
+
+VAR
+   yyBasePtr		: ARRAY yyStateRange	OF LONGCARD	;
+   yyDefault		: ARRAY yyStateRange	OF yyStateRange	;
+   yyComb		: ARRAY yyTableRange	OF yyCombType	;
+   yyEobTrans		: ARRAY yyStateRange	OF yyStateRange	;
+   yyToLower, yyToUpper	: ARRAY yyChRange	OF CHAR		;
+
+   yyStateStack		: POINTER TO ARRAY [0 .. 1000000] OF yyStateRange;
+   yyStateStackSize	: LONGINT;
+   yyStartState		: yyStateRange;
+   yyPreviousStart	: yyStateRange;
+   yyCh			: CHAR;
+ 
+   yySourceFile		: System.tFile;
+   yyEof		: BOOLEAN;
+   yyChBufferPtr	: yytChBufferPtr;
+   yyChBufferStart	: INTEGER;
+   yyChBufferSize	: LONGINT;
+   yyChBufferIndex	: INTEGER;
+   yyBytesRead		: INTEGER;
+   yyLineCount		: SHORTCARD; (* Number of the current line,
+                                        of the current file. *) 
+   yyTotalLineCount	: CARDINAL;  (* Number of lines already read,
+                                        of all files. *) 
+   yyLineStart		: INTEGER;
+
+   yyFileStackPtr	: yyFileStackPtrTyp;
+   yyFileStack		: ARRAY yyFileStackSubscript OF RECORD
+   			     SourceFile		: System.tFile;
+			     Eof		: BOOLEAN;
+   			     ChBufferPtr	: yytChBufferPtr;
+			     ChBufferStart	: INTEGER;
+			     ChBufferSize	: LONGINT;
+   			     ChBufferIndex	: INTEGER;
+   			     BytesRead		: INTEGER;
+   			     LineCount		: SHORTCARD;
+   			     LineStart		: INTEGER;
+			  END;
+
+PROCEDURE GetToken (): INTEGER;
+   VAR
+      yyState		: yyStateRange;
+      yyTablePtr	: yyCombTypePtr;
+      yyRestartFlag	: BOOLEAN;
+      yyi, yySource, yyTarget : INTEGER;
+      yyChBufferFree	: LONGINT;
+
+(* line 187 "puma.rex" *)
+ VAR Word, String, TargetCode: tString; 
+
+    PROCEDURE AccumComment ( ) ; 
+    BEGIN
+      IF InsideTarget AND ( BraceNestingLevel > 0 )
+      THEN 
+        GetWord (Word);
+        Concatenate (TargetCode, Word);
+      END (* IF *) 
+    END AccumComment; 
+
+  
+BEGIN
+   LOOP
+      yyState		:= yyStartState;
+      TokenLength 	:= 0;
+ 
+      (* ASSERT yyChBuffer [yyChBufferIndex] = first character *)
+ 
+      LOOP		(* eventually restart after sentinel *)
+	 LOOP		(* execute as many state transitions as possible *)
+	    					(* determine next state *)
+	    yyTablePtr := yyCombTypePtr (yyBasePtr [yyState] +
+	       VAL(LONGCARD,ORD (yyChBufferPtr^ [yyChBufferIndex]) )
+               * VAL(LONGCARD, SYSTEM.TSIZE (yyCombType)) );
+	    IF yyTablePtr^.Check # yyState THEN
+	       yyState := yyDefault [yyState];
+	       IF yyState = yyDNoState THEN EXIT; END;
+	    ELSE
+	       yyState := yyTablePtr^.Next;
+	       INC (TokenLength);
+	       yyStateStack^ [TokenLength] := yyState;	(* push state *)
+	       INC (yyChBufferIndex);		(* get next character *)
+	    END;
+	 END;
+ 
+	 LOOP					(* search for last final state *)
+CASE yyStateStack^ [TokenLength] OF
+|260
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 249 "puma.rex" *)
+
+                           IF BraceNestingLevel = 0 THEN
+                              MakeText (Attribute.TargetBlock.Text);
+                              AssignEmpty (TargetCode);
+                              TargetPos := Attribute.Position;
+                              InsideTarget := TRUE; 
+                           ELSE
+                              GetWord (Word);
+                              Concatenate (TargetCode, Word);
+                           END;
+                           INC (BraceNestingLevel);
+                        
+yyRestartFlag := FALSE; EXIT;
+|259
+:
+(* line 262 "puma.rex" *)
+
+                           DEC (BraceNestingLevel);
+                           IF BraceNestingLevel = 0 THEN
+                              yyStart (STD);
+                              InsideTarget := FALSE; 
+                              Append (Attribute.TargetBlock.Text, TargetCode);
+                              Attribute.Position := TargetPos;
+                              RETURN 5;
+                           ELSE
+                              GetWord (Word);
+                              Concatenate (TargetCode, Word);
+                           END;
+                        
+yyRestartFlag := FALSE; EXIT;
+|24
+,44
+,94
+,248
+,255
+:
+(* line 277 "puma.rex" *)
+
+                           IF BraceNestingLevel > 0 THEN
+                              GetWord (Word);
+                              Concatenate (TargetCode, Word);
+                           END;
+                        
+yyRestartFlag := FALSE; EXIT;
+|258
+:
+(* line 284 "puma.rex" *)
+
+                           IF BraceNestingLevel > 0 THEN
+                              Strings.Append (TargetCode, 11C);
+                           END;
+                           yyTab;
+                        
+yyRestartFlag := FALSE; EXIT;
+|257
+:
+(* line 291 "puma.rex" *)
+
+                           IF BraceNestingLevel > 0 THEN
+                              Append (Attribute.TargetBlock.Text, TargetCode);
+                              AssignEmpty (TargetCode);
+                           END;
+                           yyEol (0);
+                        
+yyRestartFlag := FALSE; EXIT;
+|25
+:
+(* line 299 "puma.rex" *)
+
+                           IF BraceNestingLevel > 0 THEN
+                              GetWord (Word);
+                              Strings.Append (TargetCode, Char (Word, 2));
+                           END;
+                        
+yyRestartFlag := FALSE; EXIT;
+|41
+:
+(* line 306 "puma.rex" *)
+
+                           IF BraceNestingLevel > 0 THEN
+                              Strings.Append (TargetCode, '\');
+                           END;
+                        
+yyRestartFlag := FALSE; EXIT;
+|254
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 313 "puma.rex" *)
+ AccumComment ( );
+                        CommentNestingLevel := 1; 
+                        CommentPos := Attribute.Position; 
+                        yyStart (M2Comment);
+                      
+yyRestartFlag := FALSE; EXIT;
+|253
+:
+(* line 319 "puma.rex" *)
+ INC (CommentNestingLevel); AccumComment ( ); 
+yyRestartFlag := FALSE; EXIT;
+|251
+:
+(* line 320 "puma.rex" *)
+ AccumComment ( ); DEC (CommentNestingLevel); 
+                        IF CommentNestingLevel = 0 THEN yyPrevious; END;
+                      
+yyRestartFlag := FALSE; EXIT;
+|30
+,47
+,89
+,250
+,252
+:
+(* line 323 "puma.rex" *)
+ AccumComment ( ); 
+yyRestartFlag := FALSE; EXIT;
+|247
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 326 "puma.rex" *)
+ AccumComment ( ); 
+                       yyStart (CComment); 
+                       CommentPos := Attribute.Position;
+                     
+yyRestartFlag := FALSE; EXIT;
+|245
+:
+(* line 330 "puma.rex" *)
+ AccumComment ( ); yyPrevious;
+yyRestartFlag := FALSE; EXIT;
+|31
+,48
+,88
+:
+(* line 331 "puma.rex" *)
+ AccumComment ( ); 
+yyRestartFlag := FALSE; EXIT;
+|244
+:
+(* line 334 "puma.rex" *)
+
+                           IF InsideTarget AND ( BraceNestingLevel > 0 ) 
+                           THEN
+                              Strings.Append (TargetCode, 11C);
+                           END;
+                           yyTab;
+                        
+yyRestartFlag := FALSE; EXIT;
+|243
+:
+(* line 343 "puma.rex" *)
+
+                           IF InsideTarget AND ( BraceNestingLevel > 0 ) 
+                           THEN
+                              Append (Attribute.TargetBlock.Text, TargetCode);
+                              AssignEmpty (TargetCode);
+                           END;
+                           yyEol (0);
+                        
+yyRestartFlag := FALSE; EXIT;
+|33
+:
+(* line 352 "puma.rex" *)
+
+yyRestartFlag := FALSE; EXIT;
+|32
+,49
+,50
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 356 "puma.rex" *)
+GetWord (Word);
+                            Attribute.Number.StringRef := PutString (Word);
+                            RETURN 7;
+yyRestartFlag := FALSE; EXIT;
+|242
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 360 "puma.rex" *)
+GetWord (String);
+                            StringPos := Attribute.Position;
+                            IF IsElement (ORD ('c'), Options)
+                            THEN yyStart (CStr1);
+                            ELSE yyStart (Str1);
+                            END;
+yyRestartFlag := FALSE; EXIT;
+|241
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 367 "puma.rex" *)
+GetWord (String);
+                            StringPos := Attribute.Position;
+                            IF IsElement (ORD ('c'), Options)
+                            THEN yyStart (CStr2);
+                            ELSE yyStart (Str2);
+                            END;
+yyRestartFlag := FALSE; EXIT;
+|29
+,90
+:
+(* line 377 "puma.rex" *)
+GetWord (Word); Concatenate (String, Word);
+yyRestartFlag := FALSE; EXIT;
+|28
+,91
+:
+(* line 377 "puma.rex" *)
+GetWord (Word); Concatenate (String, Word);
+yyRestartFlag := FALSE; EXIT;
+|27
+,46
+,70
+,92
+:
+(* line 377 "puma.rex" *)
+GetWord (Word); Concatenate (String, Word);
+yyRestartFlag := FALSE; EXIT;
+|26
+,45
+,69
+,93
+:
+(* line 377 "puma.rex" *)
+GetWord (Word); Concatenate (String, Word);
+yyRestartFlag := FALSE; EXIT;
+|240
+:
+(* line 380 "puma.rex" *)
+GetWord (Word); Concatenate (String, Word); yyEol (0);
+yyRestartFlag := FALSE; EXIT;
+|239
+:
+(* line 380 "puma.rex" *)
+GetWord (Word); Concatenate (String, Word); yyEol (0);
+yyRestartFlag := FALSE; EXIT;
+|238
+:
+(* line 383 "puma.rex" *)
+Strings.Append (String, Char (String, 1));
+                            yyPrevious;
+                            IF yyStartState = targetcode THEN
+                               Concatenate (TargetCode, String);
+                            ELSE
+                               Attribute.String.StringRef := PutString (String);
+                               RETURN 6;
+                            END;
+yyRestartFlag := FALSE; EXIT;
+|237
+:
+(* line 383 "puma.rex" *)
+Strings.Append (String, Char (String, 1));
+                            yyPrevious;
+                            IF yyStartState = targetcode THEN
+                               Concatenate (TargetCode, String);
+                            ELSE
+                               Attribute.String.StringRef := PutString (String);
+                               RETURN 6;
+                            END;
+yyRestartFlag := FALSE; EXIT;
+|236
+:
+(* line 392 "puma.rex" *)
+Strings.Append (String, 11C); yyTab;
+yyRestartFlag := FALSE; EXIT;
+|235
+:
+(* line 394 "puma.rex" *)
+Error ("unclosed string", Attribute.Position);
+                            Strings.Append (String, Char (String, 1));
+                            yyEol (0); yyPrevious;
+                            IF yyStartState = targetcode THEN
+                               Concatenate (TargetCode, String);
+                            ELSE
+                               Attribute.String.StringRef := PutString (String);
+                               RETURN 6;
+                            END;
+yyRestartFlag := FALSE; EXIT;
+|234
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 407 "puma.rex" *)
+RETURN 10                  ;
+yyRestartFlag := FALSE; EXIT;
+|81
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 409 "puma.rex" *)
+RETURN 11                   ;
+yyRestartFlag := FALSE; EXIT;
+|233
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 411 "puma.rex" *)
+RETURN 12                  ;
+yyRestartFlag := FALSE; EXIT;
+|139
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 413 "puma.rex" *)
+IF BraceNestingLevel = 0 
+                           THEN TargetPos := Attribute.Position; 
+                           END;
+                           yyStart (expr); 
+                           InsideExpr := TRUE; 
+                           INC (BraceNestingLevel); 
+                           RETURN 39;
+yyRestartFlag := FALSE; EXIT;
+|20
+,39
+,68
+,249
+,256
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 422 "puma.rex" *)
+GetWord (Word);
+                           Attribute.TargetCode.StringRef := PutString (Word);
+                           RETURN 8            ;
+yyRestartFlag := FALSE; EXIT;
+|232
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 426 "puma.rex" *)
+INC (BraceNestingLevel);
+                           GetWord (Word);
+                           Attribute.TargetCode.StringRef := PutString (Word);
+                           RETURN 8            ;
+yyRestartFlag := FALSE; EXIT;
+|231
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 431 "puma.rex" *)
+DEC (BraceNestingLevel);
+                           IF BraceNestingLevel = 0 THEN
+                              yyStart (STD);
+                              InsideExpr := FALSE; 
+                              RETURN 40;
+                           ELSE
+                              GetWord (Word);
+                              Attribute.TargetCode.StringRef := PutString (Word);
+                              RETURN 8;
+                           END                          ;
+yyRestartFlag := FALSE; EXIT;
+|229
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 442 "puma.rex" *)
+GetWord (Word);
+                           Attribute.TargetCode.StringRef := PutString (Word);
+                           RETURN 8            ;
+yyRestartFlag := FALSE; EXIT;
+|230
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 446 "puma.rex" *)
+GetWord (Word);
+                           Attribute.yy10.StringRef := PutString (Word);
+                           RETURN 10                  ;
+yyRestartFlag := FALSE; EXIT;
+|228
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 450 "puma.rex" *)
+GetWord (Word);
+                           Attribute.yy11.StringRef := PutString (Word);
+                           RETURN 11                   ;
+yyRestartFlag := FALSE; EXIT;
+|227
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 454 "puma.rex" *)
+GetWord (Word);
+                           Attribute.yy12.StringRef := PutString (Word);
+                           RETURN 12                  ;
+yyRestartFlag := FALSE; EXIT;
+|226
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 458 "puma.rex" *)
+GetWord (Word);
+                           Attribute.TargetCode.StringRef := PutString (Word);
+                           RETURN 8            ;
+yyRestartFlag := FALSE; EXIT;
+|21
+,95
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 462 "puma.rex" *)
+GetWord (Word);
+                           Attribute.WhiteSpace.StringRef := PutString (Word);
+                           RETURN 9            ;
+yyRestartFlag := FALSE; EXIT;
+|225
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 466 "puma.rex" *)
+GetWord (Word);
+                           Attribute.WhiteSpace.StringRef := PutString (Word);
+                           yyEol (0);
+                           RETURN 9            ;
+yyRestartFlag := FALSE; EXIT;
+|224
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 471 "puma.rex" *)
+GetWord (Word);
+                           Attribute.WhiteSpace.StringRef := PutString (Word);
+                           yyTab;
+                           RETURN 9            ;
+yyRestartFlag := FALSE; EXIT;
+|23
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 476 "puma.rex" *)
+GetWord (Word);
+                           SubString (Word, 2, 2, String);
+                           Attribute.TargetCode.StringRef 
+                             := PutString (String);
+                           RETURN 8            ;
+yyRestartFlag := FALSE; EXIT;
+|42
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 482 "puma.rex" *)
+GetWord (Word);
+                           Attribute.TargetCode.StringRef := PutString (Word);
+                           RETURN 8            ;
+yyRestartFlag := FALSE; EXIT;
+|205
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 486 "puma.rex" *)
+yyStart (targetcode); RETURN 19;
+yyRestartFlag := FALSE; EXIT;
+|197
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 487 "puma.rex" *)
+yyStart (targetcode); RETURN 20;
+yyRestartFlag := FALSE; EXIT;
+|172
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 488 "puma.rex" *)
+yyStart (targetcode); RETURN 24;
+yyRestartFlag := FALSE; EXIT;
+|167
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 489 "puma.rex" *)
+yyStart (targetcode); RETURN 25;
+yyRestartFlag := FALSE; EXIT;
+|190
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 490 "puma.rex" *)
+yyStart (targetcode); RETURN 21;
+yyRestartFlag := FALSE; EXIT;
+|178
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 491 "puma.rex" *)
+yyStart (targetcode); RETURN 23;
+yyRestartFlag := FALSE; EXIT;
+|184
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 492 "puma.rex" *)
+yyStart (targetcode); RETURN 22;
+yyRestartFlag := FALSE; EXIT;
+|148
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 493 "puma.rex" *)
+yyStart (targetcode); RETURN 34;
+yyRestartFlag := FALSE; EXIT;
+|34
+,51
+,52
+,53
+,54
+,55
+,56
+,57
+,58
+,71
+,150
+,246
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 529 "puma.rex" *)
+GetWord (Word);
+                           Attribute.Operator.Ident := MakeIdent (Word);
+                           RETURN 2              ;
+yyRestartFlag := FALSE; EXIT;
+|35
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 538 "puma.rex" *)
+GetWord (Word);
+                           Attribute.Operator.Ident := MakeIdent (Word);
+                           RETURN 4              ;
+yyRestartFlag := FALSE; EXIT;
+|37
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 542 "puma.rex" *)
+GetWord (Word);
+                           Attribute.IncOperator.Ident := MakeIdent (Word);
+                           RETURN 3           ;
+yyRestartFlag := FALSE; EXIT;
+|36
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 546 "puma.rex" *)
+GetWord (Word);
+                           SubString (Word, 2, Length (Word), String);
+                           Attribute.Operator.Ident := MakeIdent (String);
+                           RETURN 2              ;
+yyRestartFlag := FALSE; EXIT;
+|223
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 551 "puma.rex" *)
+ RETURN 13; 
+yyRestartFlag := FALSE; EXIT;
+|220
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 552 "puma.rex" *)
+ RETURN 14; 
+yyRestartFlag := FALSE; EXIT;
+|216
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 553 "puma.rex" *)
+ RETURN 15; 
+yyRestartFlag := FALSE; EXIT;
+|215
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 554 "puma.rex" *)
+ RETURN 16; 
+yyRestartFlag := FALSE; EXIT;
+|210
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 555 "puma.rex" *)
+ RETURN 17; 
+yyRestartFlag := FALSE; EXIT;
+|206
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 556 "puma.rex" *)
+ RETURN 18; 
+yyRestartFlag := FALSE; EXIT;
+|162
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 564 "puma.rex" *)
+ RETURN 26; 
+yyRestartFlag := FALSE; EXIT;
+|155
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 565 "puma.rex" *)
+ RETURN 27; 
+yyRestartFlag := FALSE; EXIT;
+|154
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 566 "puma.rex" *)
+ RETURN 28; 
+yyRestartFlag := FALSE; EXIT;
+|96
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 567 "puma.rex" *)
+ RETURN 29; 
+yyRestartFlag := FALSE; EXIT;
+|153
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 568 "puma.rex" *)
+ RETURN 30; 
+yyRestartFlag := FALSE; EXIT;
+|152
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 569 "puma.rex" *)
+ RETURN 31; 
+yyRestartFlag := FALSE; EXIT;
+|151
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 570 "puma.rex" *)
+ RETURN 32; 
+yyRestartFlag := FALSE; EXIT;
+|149
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 571 "puma.rex" *)
+ RETURN 33; 
+yyRestartFlag := FALSE; EXIT;
+|98
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 573 "puma.rex" *)
+ RETURN 35; 
+yyRestartFlag := FALSE; EXIT;
+|143
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 574 "puma.rex" *)
+ RETURN 36; 
+yyRestartFlag := FALSE; EXIT;
+|142
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 575 "puma.rex" *)
+ RETURN 37; 
+yyRestartFlag := FALSE; EXIT;
+|140
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 576 "puma.rex" *)
+ RETURN 38; 
+yyRestartFlag := FALSE; EXIT;
+|138
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 578 "puma.rex" *)
+ RETURN 40; 
+yyRestartFlag := FALSE; EXIT;
+|137
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 579 "puma.rex" *)
+ RETURN 41; 
+yyRestartFlag := FALSE; EXIT;
+|136
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 580 "puma.rex" *)
+ RETURN 42; 
+yyRestartFlag := FALSE; EXIT;
+|135
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 581 "puma.rex" *)
+ RETURN 43; 
+yyRestartFlag := FALSE; EXIT;
+|134
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 582 "puma.rex" *)
+ RETURN 44; 
+yyRestartFlag := FALSE; EXIT;
+|130
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 583 "puma.rex" *)
+ RETURN 45; 
+yyRestartFlag := FALSE; EXIT;
+|127
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 584 "puma.rex" *)
+ RETURN 46; 
+yyRestartFlag := FALSE; EXIT;
+|124
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 585 "puma.rex" *)
+ RETURN 47; 
+yyRestartFlag := FALSE; EXIT;
+|122
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 586 "puma.rex" *)
+ RETURN 48; 
+yyRestartFlag := FALSE; EXIT;
+|116
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 587 "puma.rex" *)
+ RETURN 49; 
+yyRestartFlag := FALSE; EXIT;
+|108
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 588 "puma.rex" *)
+ RETURN 50; 
+yyRestartFlag := FALSE; EXIT;
+|99
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 591 "puma.rex" *)
+RETURN 35                  ;
+yyRestartFlag := FALSE; EXIT;
+|97
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 592 "puma.rex" *)
+RETURN 43                   ;
+yyRestartFlag := FALSE; EXIT;
+|19
+,38
+,59
+,60
+,61
+,62
+,63
+,64
+,65
+,66
+,67
+,72
+,73
+,74
+,75
+,76
+,77
+,78
+,79
+,80
+,100
+,101
+,102
+,103
+,104
+,105
+,106
+,107
+,109
+,110
+,111
+,112
+,113
+,114
+,115
+,117
+,118
+,119
+,120
+,121
+,123
+,125
+,126
+,128
+,129
+,131
+,132
+,133
+,141
+,144
+,145
+,146
+,147
+,156
+,157
+,158
+,159
+,160
+,161
+,163
+,164
+,165
+,166
+,168
+,169
+,170
+,171
+,173
+,174
+,175
+,176
+,177
+,179
+,180
+,181
+,182
+,183
+,185
+,186
+,187
+,188
+,189
+,191
+,192
+,193
+,194
+,195
+,196
+,198
+,199
+,200
+,201
+,202
+,203
+,204
+,207
+,208
+,209
+,211
+,212
+,213
+,214
+,217
+,218
+,219
+,221
+,222
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 595 "puma.rex" *)
+GetWord (Word);
+                           Attribute.Ident.Ident := MakeIdent (Word);
+                           RETURN 1                 ;
+yyRestartFlag := FALSE; EXIT;
+|87
+:
+(* BlankAction *)
+WHILE yyChBufferPtr^ [yyChBufferIndex] = ' ' DO INC (yyChBufferIndex); END;
+yyRestartFlag := FALSE; EXIT;
+|86
+:
+(* TabAction *)
+DEC (yyLineStart, 7 - (yyChBufferIndex - yyLineStart - 2) MOD 8);
+yyRestartFlag := FALSE; EXIT;
+|85
+:
+(* EolAction *)
+INC (yyLineCount);
+yyLineStart := yyChBufferIndex - 1;
+yyRestartFlag := FALSE; EXIT;
+|1
+,2
+,3
+,4
+,5
+,6
+,7
+,8
+,9
+,10
+,11
+,12
+,13
+,14
+,15
+,16
+,17
+,18
+,22
+,40
+,43
+,82
+:
+	    (* non final states *)
+		  DEC (yyChBufferIndex);	(* return character *)
+		  DEC (TokenLength)		(* pop state *)
+ 
+| 84:
+		  Attribute.Position.Line   := yyLineCount;
+		  Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart);
+		  INC (yyChBufferIndex);
+		  TokenLength := 1;
+(* line 208 "puma.rex" *)
+ GetWord (Word);
+    Errors.MessageI 
+      ( "illegal character", Errors.Error
+      , Attribute.Position, Errors.String, ADR (Word)
+      );
+  
+	          yyRestartFlag := FALSE; EXIT;
+
+	    |  yyDNoState	:		(* automatic initialization *)
+		  yyGetTables;
+		  yyStateStack^ [0] := yyDefaultState; (* stack underflow sentinel *)
+		  IF yyFileStackPtr = 0 THEN
+		     yyInitialize;
+		     yySourceFile := System.StdInput;
+		  END;
+	          yyRestartFlag := FALSE; EXIT;
+
+| 83:
+		  DEC (yyChBufferIndex);	(* undo last state transition *)
+		  DEC (TokenLength);		(* get previous state *)
+		  IF TokenLength = 0 THEN
+		     yyState := yyStartState;
+		  ELSE
+		     yyState := yyStateStack^ [TokenLength];
+		  END;
+
+		  IF yyChBufferIndex # yyChBufferStart + yyBytesRead THEN
+		     yyState := yyEobTrans [yyState];	(* end of buffer sentinel in buffer *)
+		     IF yyState # yyDNoState THEN
+			INC (yyChBufferIndex);
+			INC (TokenLength);
+			yyStateStack^ [TokenLength] := yyState;
+			yyRestartFlag := TRUE; EXIT;
+		     END;
+		  ELSE				(* end of buffer reached *)
+
+		     (* copy initial part of token in front of input buffer *)
+
+		     yySource := yyChBufferIndex - TokenLength - 1;
+		     yyTarget := General.MaxAlign - TokenLength MOD General.MaxAlign - 1;
+		     IF yySource # yyTarget THEN
+			FOR yyi := 1 TO TokenLength DO
+			   yyChBufferPtr^ [yyTarget + yyi] := yyChBufferPtr^ [yySource + yyi];
+			END;
+			DEC (yyLineStart, yySource - yyTarget);
+			yyChBufferStart := yyTarget + TokenLength + 1;
+		     ELSE
+			yyChBufferStart := yyChBufferIndex;
+		     END;
+
+		     IF NOT yyEof THEN		(* read buffer and restart *)
+			yyChBufferFree 
+                          := VAL( LONGINT 
+                                , General.Exp2 
+                                  (General.Log2 
+                                     (yyChBufferSize - 4 - VAL(LONGINT,General.MaxAlign) -VAL(LONGINT, TokenLength))
+                                  )
+                                );
+			IF yyChBufferFree < yyChBufferSize DIV 8 THEN
+			   DynArray.ExtendArray (yyChBufferPtr, yyChBufferSize, SYSTEM.TSIZE (CHAR));
+			   IF yyChBufferPtr = NIL THEN yyErrorMessage (1); END;
+			   yyChBufferFree 
+                             := VAL ( LONGINT
+                                    , General.Exp2 
+                                        (General.Log2 
+                                           (yyChBufferSize - 4 - VAL(LONGINT,General.MaxAlign) - VAL(LONGINT,TokenLength))
+                                        )
+                                    );
+			   IF yyStateStackSize < yyChBufferSize THEN
+			      DynArray.ExtendArray (yyStateStack, yyStateStackSize, SYSTEM.TSIZE (yyStateRange));
+			      IF yyStateStack = NIL THEN yyErrorMessage (1); END;
+			   END;
+			END;
+			yyChBufferIndex := yyChBufferStart;
+			yyBytesRead := Source.GetLine 
+                                 (yySourceFile
+                                  , SYSTEM.ADR (yyChBufferPtr^ [yyChBufferIndex])
+                                  , VAL ( CARDINAL , yyChBufferFree )
+                                  );
+			IF yyBytesRead <= 0 THEN yyBytesRead := 0; yyEof := TRUE; END;
+			yyChBufferPtr^ [yyChBufferStart + yyBytesRead    ] := yyEobCh;
+			yyChBufferPtr^ [yyChBufferStart + yyBytesRead + 1] := 0C;
+			yyRestartFlag := TRUE; EXIT;
+		     END;
+
+		     IF TokenLength = 0 THEN	(* end of file reached *)
+			Attribute.Position.Line   := yyLineCount;
+			Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart);
+			CloseFile;
+			IF yyFileStackPtr = 0 THEN
+(* line 215 "puma.rex" *)
+
+   CASE yyStartState OF
+   | CComment , M2Comment : Error ("unclosed comment", CommentPos);
+     IF InsideTarget OR InsideExpr 
+     THEN Error ("unclosed target code", TargetPos);
+     END (* IF *) 
+   | expr       ,
+     targetcode : Error ("unclosed target code", TargetPos);
+   | CStr1, CStr2,
+     Str1, Str2 : Error ("unclosed string", StringPos);
+     IF InsideTarget OR InsideExpr 
+     THEN Error ("unclosed target code", TargetPos);
+     END (* IF *) 
+   ELSE
+   END;
+   BraceNestingLevel := 0; 
+   CommentNestingLevel := 0; 
+
+			END;
+			IF yyFileStackPtr = 0 THEN RETURN EofToken; END;
+			yyRestartFlag := FALSE; EXIT;
+		     END;
+		  END;
+	    ELSE
+	       yyErrorMessage (0);
+	    END;
+	 END;
+	 IF yyRestartFlag THEN ELSE EXIT; END;
+      END;
+   END;
+   END GetToken;
+ 
+PROCEDURE BeginFile (FileName: ARRAY OF CHAR);
+   BEGIN
+      IF yyStateStack^ [0] = yyDNoState THEN	(* have tables been read in ? *)
+	 yyGetTables;
+	 yyStateStack^ [0] := yyDefaultState;	(* stack underflow sentinel *)
+      END;
+      yyInitialize;
+      yySourceFile := Source.BeginSource (FileName);
+      IF yySourceFile < 0 THEN yyErrorMessage (5); END;
+   END BeginFile;
+
+PROCEDURE yyInitialize;
+   BEGIN
+      IF yyFileStackPtr >= yyFileStackSize THEN yyErrorMessage (3); END;
+      INC (yyFileStackPtr);			(* push file *)
+      WITH yyFileStack [yyFileStackPtr] DO
+	 SourceFile	:= yySourceFile		;
+	 Eof		:= yyEof		;
+	 ChBufferPtr	:= yyChBufferPtr	;
+	 ChBufferStart	:= yyChBufferStart	;
+	 ChBufferSize	:= yyChBufferSize	;
+	 ChBufferIndex	:= yyChBufferIndex	;
+	 BytesRead	:= yyBytesRead		;
+	 LineCount	:= yyLineCount		;
+	 LineStart	:= yyLineStart		;
+      END;
+						(* initialize file state *)
+      yyChBufferSize	:= yyInitBufferSize;
+      DynArray.MakeArray (yyChBufferPtr, yyChBufferSize, SYSTEM.TSIZE (CHAR));
+      IF yyChBufferPtr = NIL THEN yyErrorMessage (1); END;
+      yyChBufferStart	:= General.MaxAlign;
+      yyChBufferPtr^ [yyChBufferStart - 1] := yyEolCh; (* begin of line indicator *)
+      yyChBufferPtr^ [yyChBufferStart    ] := yyEobCh; (* end of buffer sentinel *)
+      yyChBufferPtr^ [yyChBufferStart + 1] := 0C;
+      yyChBufferIndex	:= yyChBufferStart;
+      yyEof		:= FALSE;
+      yyBytesRead	:= 0;
+      yyLineCount	:= 1;
+      yyTotalLineCount	:= 0;
+      yyLineStart	:= yyChBufferStart - 1;
+   END yyInitialize;
+
+PROCEDURE CloseFile;
+   BEGIN
+      IF yyFileStackPtr = 0 THEN yyErrorMessage (4); END;
+      Source.CloseSource (yySourceFile);
+      DynArray.ReleaseArray (yyChBufferPtr, yyChBufferSize, SYSTEM.TSIZE (CHAR));
+      WITH yyFileStack [yyFileStackPtr] DO	(* pop file *)
+	 yySourceFile	:= SourceFile		;
+	 yyEof		:= Eof			;
+	 yyChBufferPtr	:= ChBufferPtr		;
+	 yyChBufferStart:= ChBufferStart	;
+	 yyChBufferSize	:= ChBufferSize		;
+	 yyChBufferIndex:= ChBufferIndex	;
+	 yyBytesRead	:= BytesRead		;
+	 yyLineCount	:= LineCount		;
+	 yyLineStart	:= LineStart		;
+      END;
+      DEC (yyFileStackPtr);		
+   END CloseFile;
+
+PROCEDURE GetWord (VAR Word: Strings.tString);
+   VAR i, WordStart	: INTEGER;
+   BEGIN
+      WordStart := yyChBufferIndex - TokenLength - 1;
+      FOR i := 1 TO TokenLength DO
+	 Word.Chars [VAL(Strings.tStringIndex,i)] 
+           := yyChBufferPtr^ [WordStart + i];
+      END;
+      Word.Length := VAL(SHORTCARD,TokenLength);
+   END GetWord;
+ 
+PROCEDURE GetLower (VAR Word: Strings.tString);
+   VAR i, WordStart	: INTEGER;
+   BEGIN
+      WordStart := yyChBufferIndex - TokenLength - 1;
+      FOR i := 1 TO TokenLength DO
+	 Word.Chars [VAL(Strings.tStringIndex,i)] 
+           := yyToLower [yyChBufferPtr^ [WordStart + i]];
+      END;
+      Word.Length := VAL(SHORTCARD,TokenLength);
+   END GetLower;
+ 
+PROCEDURE GetUpper (VAR Word: Strings.tString);
+   VAR i, WordStart	: INTEGER;
+   BEGIN
+      WordStart := yyChBufferIndex - TokenLength - 1;
+      FOR i := 1 TO TokenLength DO
+	 Word.Chars [VAL(Strings.tStringIndex,i)] 
+           := yyToUpper [yyChBufferPtr^ [WordStart + i]];
+      END;
+      Word.Length := VAL(SHORTCARD,TokenLength);
+   END GetUpper;
+ 
+PROCEDURE yyStart (State: yyStateRange);
+   BEGIN
+      yyPreviousStart	:= yyStartState;
+      yyStartState	:= State;
+   END yyStart;
+ 
+PROCEDURE yyPrevious;
+   VAR s	: yyStateRange;
+   BEGIN
+      s		      := yyStartState;
+      yyStartState    := yyPreviousStart;
+      yyPreviousStart := s;
+   END yyPrevious;
+ 
+PROCEDURE yyEcho;
+   VAR i	: INTEGER;
+   BEGIN
+      FOR i := yyChBufferIndex - TokenLength TO yyChBufferIndex - 1 DO
+	 IO.WriteC (IO.StdOutput, yyChBufferPtr^ [i]);
+      END;
+   END yyEcho;
+ 
+PROCEDURE yyLess (n: INTEGER);
+   BEGIN
+      DEC (yyChBufferIndex, TokenLength - n);
+      TokenLength := n;
+   END yyLess;
+ 
+PROCEDURE yyTab;
+   BEGIN
+      DEC (yyLineStart, yyTabSpace - 1 - (yyChBufferIndex - yyLineStart - 2) MOD yyTabSpace);
+   END yyTab;
+
+PROCEDURE yyTab1 (a: INTEGER);
+   BEGIN
+      DEC (yyLineStart, yyTabSpace - 1 - (yyChBufferIndex - yyLineStart - TokenLength + a - 1) MOD yyTabSpace);
+   END yyTab1;
+
+PROCEDURE yyTab2 (a, b: INTEGER);
+   BEGIN
+      DEC (yyLineStart, yyTabSpace - 1 - (yyChBufferIndex - yyLineStart - TokenLength + a - 1) MOD yyTabSpace);
+   END yyTab2;
+
+PROCEDURE yyEol (Column: INTEGER);
+   BEGIN
+      INC (yyLineCount);
+      INC (yyTotalLineCount);
+      yyLineStart := yyChBufferIndex - 1 - Column;
+   END yyEol;
+
+PROCEDURE output (c: CHAR);
+   BEGIN
+      IO.WriteC (IO.StdOutput, c);
+   END output;
+
+PROCEDURE unput (c: CHAR);
+   BEGIN
+      DEC (yyChBufferIndex);
+      yyChBufferPtr^ [yyChBufferIndex] := c;
+   END unput;
+
+PROCEDURE input (): CHAR;
+   BEGIN
+      IF yyChBufferIndex = yyChBufferStart + yyBytesRead THEN
+	 IF NOT yyEof THEN
+	    DEC (yyLineStart, yyBytesRead);
+	    DEC (yyLineStart, yyChBufferStart); (* RMB *)
+	    yyChBufferIndex := 0;
+	    yyChBufferStart := 0;
+	    yyBytesRead := Source.GetLine 
+                    (yySourceFile, yyChBufferPtr
+                    , VAL(CARDINAL,General.Exp2 (General.Log2 (yyChBufferSize)))
+                    );
+	    IF yyBytesRead <= 0 THEN yyBytesRead := 0; yyEof := TRUE; END;
+	    yyChBufferPtr^ [yyBytesRead    ] := yyEobCh;
+	    yyChBufferPtr^ [yyBytesRead + 1] := 0C;
+	 END;
+      END;
+      IF yyChBufferIndex = yyChBufferStart + yyBytesRead THEN
+	 RETURN 0C;
+      ELSE
+	 INC (yyChBufferIndex);
+	 RETURN yyChBufferPtr^ [yyChBufferIndex - 1];
+      END
+   END input;
+
+(* VISIBLE: *) 
+PROCEDURE UpperCase ( Ch : CHAR ) : CHAR ; 
+   BEGIN
+     RETURN yyToUpper [ Ch ]; 
+   END UpperCase;
+
+(* VISIBLE: *) 
+PROCEDURE LowerCase ( Ch : CHAR ) : CHAR ; 
+   BEGIN
+     RETURN yyToLower [ Ch ]; 
+   END LowerCase;
+
+(* VISIBLE *) 
+PROCEDURE TotalLineCount ( ) : CARDINAL ;  
+   BEGIN
+     RETURN yyTotalLineCount 
+   END TotalLineCount;  
+
+PROCEDURE BeginScanner;
+   BEGIN
+(* line 201 "puma.rex" *)
+ BraceNestingLevel := 0; 
+    CommentNestingLevel := 0; 
+    InsideTarget := FALSE; 
+    InsideExpr := FALSE; 
+  
+   END BeginScanner;
+ 
+PROCEDURE CloseScanner;
+   BEGIN
+   END CloseScanner;
+ 
+PROCEDURE yyGetTables;
+   VAR
+      BlockSize, j, n	: CARDINAL;
+      TableFile	: System.tFile;
+      i		: yyStateRange;
+      Base	: ARRAY yyStateRange OF yyTableRange;
+   BEGIN
+      BlockSize	:= 64000 DIV SYSTEM.TSIZE (yyCombType);
+      TableFile := System.OpenInput (ScanTabName);
+      Checks.ErrorCheck ("yyGetTables.OpenInput", TableFile);
+      IF (yyGetTable (TableFile, SYSTEM.ADR (Base      )) DIV SYSTEM.TSIZE (yyTableElmt) - 1 
+         # yyDStateCount) OR
+         (yyGetTable (TableFile, SYSTEM.ADR (yyDefault )) DIV SYSTEM.TSIZE (yyTableElmt) - 1 
+         # yyDStateCount) OR
+         (yyGetTable (TableFile, SYSTEM.ADR (yyEobTrans)) DIV SYSTEM.TSIZE (yyTableElmt) - 1 
+         # yyDStateCount)
+	 THEN
+	 yyErrorMessage (2);
+      END;
+      n := 0;
+      j := 0;
+      WHILE j <= yyTableSize DO
+         INC (n, yyGetTable (TableFile, SYSTEM.ADR (yyComb [VAL(SHORTCARD,j)])) DIV SYSTEM.TSIZE (yyCombType));
+         INC (j, BlockSize);
+      END;
+      IF n # yyTableSize + 1 THEN yyErrorMessage (2); END;
+      System.Close (TableFile);
+
+      FOR i := 0 TO yyDStateCount DO
+	 yyBasePtr [i] := LONGCARD (SYSTEM.ADR (yyComb [Base [i]]));
+      END;
+   END yyGetTables;
+ 
+PROCEDURE yyGetTable (TableFile: System.tFile; Address: SYSTEM.ADDRESS): CARDINAL;
+   VAR
+      N		: INTEGER;
+      Length	: yyTableElmt;
+   BEGIN
+      N := System.Read (TableFile, SYSTEM.ADR (Length), SYSTEM.TSIZE (yyTableElmt));
+      Checks.ErrorCheck ("yyGetTable.Read1", N);
+      N := System.Read (TableFile, Address, VAL(INTEGER,Length));
+      Checks.ErrorCheck ("yyGetTable.Read2", N);
+      RETURN VAL(CARDINAL,Length);
+   END yyGetTable;
+ 
+PROCEDURE yyErrorMessage (ErrorCode: SHORTCARD);
+   BEGIN
+      Positions.WritePosition (IO.StdError, Attribute.Position);
+      CASE ErrorCode OF
+   | 0: IO.WriteS (IO.StdError, ": Scanner: internal error");
+   | 1: IO.WriteS (IO.StdError, ": Scanner: out of memory");
+   | 2: IO.WriteS (IO.StdError, ": Scanner: table mismatch");
+   | 3: IO.WriteS (IO.StdError, ": Scanner: too many nested include files");
+   | 4: IO.WriteS (IO.StdError, ": Scanner: file stack underflow (too many calls of CloseFile)");
+   | 5: IO.WriteS (IO.StdError, ": Scanner: cannot open input file");
+      END;
+      IO.WriteNl (IO.StdError); Exit;
+   END yyErrorMessage;
+ 
+PROCEDURE yyExit;
+   BEGIN
+      IO.CloseIO; System.Exit (1);
+   END yyExit;
+
+BEGIN
+   ScanTabName		:= "Scanner.Tab";
+   Exit			:= yyExit;
+   yyFileStackPtr	:= 0;
+   yyStartState		:= 1;			(* set up for auto init *)
+   yyPreviousStart	:= 1;
+   yyBasePtr [yyStartState] := LONGCARD (SYSTEM.ADR (yyComb [0]));
+   yyDefault [yyStartState] := yyDNoState;
+   yyComb [0].Check	:= yyDNoState;
+   yyChBufferPtr	:= SYSTEM.ADR (yyComb [0]);	(* dirty trick *)
+   yyChBufferIndex	:= 1;				(* dirty trick *)
+   yyStateStackSize	:= yyInitBufferSize;
+   DynArray.MakeArray (yyStateStack, yyStateStackSize, SYSTEM.TSIZE (yyStateRange));
+   yyStateStack^ [0]	:= yyDNoState;
+   
+   FOR yyCh := yyFirstCh TO yyLastCh DO yyToLower [yyCh] := yyCh; END;
+   yyToUpper := yyToLower;
+   FOR yyCh := 'A' TO 'Z' DO
+      yyToLower [yyCh] := CHR (ORD (yyCh) - ORD ('A') + ORD ('a'));
+   END;
+   FOR yyCh := 'a' TO 'z' DO
+      yyToUpper [yyCh] := CHR (ORD (yyCh) - ORD ('a') + ORD ('A'));
+   END;
+END Scanner.

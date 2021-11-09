@@ -1,0 +1,6 @@
+#!/bin/sh
+#script gmdcpp
+#called by Cocktail tools 
+cp -p $1 $1.cppin
+/lib/cpp -P $1 .$1
+mv .$1 $1

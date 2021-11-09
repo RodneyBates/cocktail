@@ -1,0 +1,27 @@
+     1 (* map final states to productions *)
+     2 
+     3 (* $Id: Final.md,v 1.1 1991/11/21 14:53:14 grosch rel $ *)
+     4 
+     5 (* $Log: Final.md,v $
+c    6  * Revision 1.1  1991/11/21  14:53:14  grosch
+c    7  * new version of RCS on SPARC
+c    8  *
+c    9  * Revision 1.0  88/10/04  14:36:13  vielsack
+c   10  * Initial revision
+c   11  * 
+c   12  *)
+    13 
+    14 DEFINITION MODULE Final;                                                      *
+    15 
+    16   PROCEDURE MakeFinalToProd;                                                  *
+    17 
+    18 END Final.                                                                   14
+Cross reference: * is declaration, = is assignment
+
+-F-
+ Final                           14*   18*
+
+-M-
+ MakeFinalToProd                 16*
+
+end cross reference, 3 occurrences of 2 identifiers.

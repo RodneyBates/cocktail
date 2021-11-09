@@ -1,0 +1,17 @@
+MODULE rpp;
+
+FROM Scanner	IMPORT BeginScanner, GetToken, EofToken, CloseScanner;
+FROM IO		IMPORT CloseIO;
+FROM System	IMPORT Exit;
+
+VAR Token	: INTEGER;
+
+BEGIN
+   BeginScanner;
+   REPEAT
+      Token := GetToken ();
+   UNTIL Token = EofToken;
+   CloseScanner;
+   CloseIO;
+   Exit (0);
+END rpp.

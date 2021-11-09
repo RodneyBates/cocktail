@@ -1,0 +1,127 @@
+
+reading work file Classes.md...
+	scanning Classes.md
+	parsing Classes.md
+generating import closure...
+	scanning Sets.md
+	parsing Sets.md
+	scanning IO.md
+	parsing IO.md
+	scanning SYSTEM.md
+	parsing SYSTEM.md
+	scanning System.md
+	parsing System.md
+
+reading work file DefTable.md...
+	scanning DefTable.md
+	parsing DefTable.md
+generating import closure...
+	scanning Idents.md
+	parsing Idents.md
+	scanning Strings.md
+	parsing Strings.md
+	scanning StringMem.md
+	parsing StringMem.md
+	scanning Tree.md
+	parsing Tree.md
+	scanning Texts.md
+	parsing Texts.md
+	scanning Lists.md
+	parsing Lists.md
+	scanning Positions.md
+	parsing Positions.md
+
+reading work file Dfa.md...
+	scanning Dfa.md
+	parsing Dfa.md
+generating import closure...
+
+reading work file Errors.md...
+	scanning Errors.md
+	parsing Errors.md
+generating import closure...
+
+reading work file GenTabs.md...
+	scanning GenTabs.md
+	parsing GenTabs.md
+generating import closure...
+
+reading work file Nfa.md...
+	scanning Nfa.md
+	parsing Nfa.md
+generating import closure...
+	scanning ScanTabs.md
+	parsing ScanTabs.md
+
+reading work file ScanGen.md...
+	scanning ScanGen.md
+	parsing ScanGen.md
+generating import closure...
+
+reading work file ScanTabs.md...
+
+reading work file Traces.md...
+	scanning Traces.md
+	parsing Traces.md
+generating import closure...
+
+reading work file Tree.md...
+
+linking identifiers...
+	linking identifiers of file SYSTEM.md
+m2tom3 warning: unable to resolve qualification 'Word' in line 38
+	linking identifiers of file System.md
+	linking identifiers of file IO.md
+	linking identifiers of file Sets.md
+	linking identifiers of file Classes.md
+	linking identifiers of file Strings.md
+	linking identifiers of file StringMem.md
+	linking identifiers of file Idents.md
+	linking identifiers of file Lists.md
+	linking identifiers of file Texts.md
+	linking identifiers of file Positions.md
+	linking identifiers of file Tree.md
+	linking identifiers of file DefTable.md
+	linking identifiers of file Dfa.md
+	linking identifiers of file Errors.md
+	linking identifiers of file GenTabs.md
+	linking identifiers of file ScanTabs.md
+	linking identifiers of file Nfa.md
+	linking identifiers of file ScanGen.md
+	linking identifiers of file Traces.md
+
+linking parameters...
+
+generating Modula-3 source...
+	transforming file Classes.md
+	transforming file Sets.md
+	transforming file IO.md
+	transforming file SYSTEM.md
+	transforming file System.md
+	transforming file DefTable.md
+	transforming file Idents.md
+	transforming file Strings.md
+	transforming file StringMem.md
+	transforming file Tree.md
+	transforming file Texts.md
+	transforming file Lists.md
+	transforming file Positions.md
+	transforming file Dfa.md
+	transforming file Errors.md
+	transforming file GenTabs.md
+	transforming file Nfa.md
+	transforming file ScanTabs.md
+	transforming file ScanGen.md
+	transforming file Traces.md
+
+saving generated source...
+	writing Modula-3 file ../tom3src/Classes.i3
+	writing Modula-3 file ../tom3src/DefTable.i3
+	writing Modula-3 file ../tom3src/Tree.i3
+	writing Modula-3 file ../tom3src/Dfa.i3
+	writing Modula-3 file ../tom3src/Errors.i3
+	writing Modula-3 file ../tom3src/GenTabs.i3
+	writing Modula-3 file ../tom3src/Nfa.i3
+	writing Modula-3 file ../tom3src/ScanTabs.i3
+	writing Modula-3 file ../tom3src/ScanGen.i3
+	writing Modula-3 file ../tom3src/Traces.i3

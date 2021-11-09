@@ -1,0 +1,847 @@
+     1 /* $Id: input.rex,v 2.4 1992/10/13 16:05:28 grosch rel $ */
+     2 
+     3 /* Rodney M. Bates 
+c    4    RMB Oct 96 - Changed to scan comments inside target code blocks properly.
+c    5                 (previously, a quote inside a comment inside target
+c    6                  code gave a spurious "unclosed string" message.) 
+c    7               - Plus various minor improvements to be more consistent with
+c    8                 other scanners in the Cocktail suite. 
+c    9               - Also make all tokens recognized in one of states 
+c   10                 STD, token, rule recognized in all of these states, to 
+c   11                 make many errors come out as syntax errors rather than 
+c   12                 scanner unrecognized character messsages. 
+c   13    RMB July 1999 Fixed bug computing position of C-style comments. 
+c   14 */ 
+    15 
+    16 /* $Log: input.rex,v $
+c   17  * Revision 2.4  1992/10/13  16:05:28  grosch
+c   18  * generate # line properly in case of strings in actions
+c   19  *
+c   20  * Revision 2.3  1992/08/07  15:15:11  grosch
+c   21  * allow several scanner and parsers; extend module Errors
+c   22  *
+c   23  * Revision 2.2  1991/12/04  16:21:41  grosch
+c   24  * unified escape conventions for all tools
+c   25  *
+c   26  * Revision 2.1  1991/11/21  14:47:50  grosch
+c   27  * new version of RCS on SPARC
+c   28  *
+c   29  * Revision 2.0  91/03/08  18:26:49  grosch
+c   30  * turned tables into initialized arrays (in C)
+c   31  * moved mapping tokens -> strings from Errors to Parser
+c   32  * changed interface for source position
+c   33  * 
+c   34  * Revision 1.3  90/06/11  18:47:51  grosch
+c   35  * allow keywords as token names, layout improvements
+c   36  * 
+c   37  * Revision 1.2  88/12/16  15:03:42  vielsack
+c   38  * identifier may now start with backslash ('\') which isn't significant
+c   39  * this can be used to define identifiers which are keywords
+c   40  * 
+c   41  * Revision 1.1  88/10/20  08:51:24  vielsack
+c   42  * use tScanAttribute instead of tAttribute
+c   43  * 
+c   44  * Revision 1.0  88/10/04  14:27:33  vielsack
+c   45  * Initial revision
+c   46  * 
+c   47  */
+    48 
+    49 EXPORT  {                                                                     *
+    50 
+    51 FROM StringMem  IMPORT tStringRef;                                            *     *     *     *
+    52 FROM Idents     IMPORT tIdent;                                               51     *    51     *
+    53 FROM Rules      IMPORT Expression;                                           52     *    52     *
+    54 FROM Lists      IMPORT tList;                                                53     *    53     *
+    55 FROM Positions  IMPORT tPosition;                                            54     *    54     *
+    56 
+    57 TYPE                                                                          *
+    58    AttributeMode = (Keys, Comment, Number, Action, Symbol, Coding, PrioPart, RightSi\     *     *     *     *     *     *
+                                                                                     *     *
+      \de, Empty);                                                                   *     *
+    59 
+    60    tScanAttribute=                                                            *
+    61       RECORD                                                                  *
+    62          Position: tPosition;                                                 *    55
+    63          CASE Mode: AttributeMode OF                                          *     *    58     *
+    64          | Comment: Comm        : tList;                                     58     *    54
+    65          | Number: Value        : CARDINAL;                                  58     *     *
+    66          | Action: Act  : tList;                                             58     *    64
+    67          | Symbol: Sym  : tIdent;                                            58     *    52
+    68          | Coding:                                                           58
+    69              HasCoding  : BOOLEAN ;                                           *     *
+    70              CodNumbPos : tPosition;                                          *    62
+    71              CodValue   : CARDINAL;                                           *    65
+    72          | PrioPart,                                                         58
+    73            RightSide:                                                        58
+    74              Expr:  Expression;                                               *    53
+    75              CASE HasPrio: BOOLEAN OF                                        63     *    69    63
+    76                TRUE:                                                          *
+    77                  PriSym : tIdent;                                             *    67
+    78                  PriSymPos      : tPosition;                                  *    70
+    79              END;                                                             *
+    80          END;                                                                79
+    81       END;                                                                   80
+    82 
+    83 PROCEDURE ErrorAttribute (Token: INTEGER; VAR Attr: tScanAttribute);          *     *     *     *     *     *    60
+    84 }
+    85 
+    86 GLOBAL  {                                                                     *
+    87 
+    88 FROM SYSTEM     IMPORT ADR, ADDRESS;                                         55     *    55     *     *
+    89 FROM Strings    IMPORT tString, ArrayToString, Concatenate,                  88     *    88     *     *     *
+    90                        SubString, AssignEmpty, Assign, Char, Length;          *     *     *     *     *
+    91 FROM StringMem  IMPORT tStringRef, PutString;                                89    51    89    51     *
+    92 FROM Idents     IMPORT MakeIdent;                                            91    52    91     *
+    93 FROM Lists      IMPORT tList, Append, MakeList;                              92    54    92    66     *     *
+    94 FROM Limits     IMPORT MaxShortCard;                                         93     *    93     *
+    95 FROM WriteTok   IMPORT tLanguage, Language;                                  94     *    94     *     *
+    96 FROM Errors     IMPORT eWarning, eError, eCharacter, eString,                95     *    95     *     *     *     *
+    97                        ErrorMessage, ErrorMessageI;                           *     *
+    98 FROM Positions  IMPORT tPosition;                                            96    55    96    78
+    99 
+   100 CONST                                                                         *
+   101   eCharIgnored  = 10;                                                         *
+   102   eEolString    = 11;                                                         *
+   103   eUnClAction   = 12;                                                         *
+   104   eUnClComment  = 13;                                                         *
+   105   eUnClString   = 14;                                                         *
+   106 
+   107   SymNull       =  0;                                                         *
+   108   SymEqual      =  1;                                                         *
+   109   SymColon      =  2;                                                         *
+   110   SymPoint      =  3;                                                         *
+   111   SymOr         =  4;                                                         *
+   112   SymStar       =  5;                                                         *
+   113   SymPlus       =  6;                                                         *
+   114   SymList       =  7;                                                         *
+   115   SymLBrace     =  8;                                                         *
+   116   SymRBrace     =  9;                                                         *
+   117   SymLBracket   = 10;                                                         *
+   118   SymRBracket   = 11;                                                         *
+   119   SymEXPORT     = 12;                                                         *
+   120   SymGLOBAL     = 13;                                                         *
+   121   SymLOCAL      = 14;                                                         *
+   122   SymBEGIN      = 15;                                                         *
+   123   SymCLOSE      = 16;                                                         *
+   124   SymTOKEN      = 17;                                                         *
+   125   SymOPER       = 18;                                                         *
+   126   SymNONE       = 19;                                                         *
+   127   SymLEFT       = 20;                                                         *
+   128   SymRIGHT      = 21;                                                         *
+   129   SymRULE       = 22;                                                         *
+   130   SymPREC       = 23;                                                         *
+   131   SymComment    = 24; (* Schreibweise wie in MODULA-2           *)            *
+   132   SymNumber     = 25; (* vorzeichenlose ganze Zahl              *)            *
+   133   SymAction     = 26; (* in '{' und '}' eingeschlossene Aktion  *)            *
+   134   SymIdentifier = 27; (* letter (digit | letter) *              *)            *
+   135   SymString     = 28; (* durch "'" oder '"' begrenzte Zeichenkette *)         *
+   136   SymScanner    = 29;                                                         *
+   137   SymParser     = 30;                                                         *
+   138 
+   139 VAR BraceNestingLevel , CommentNestingLevel : INTEGER;                       83     *     *    83
+   140 VAR CommentPos , StringPos , CodePos : tPosition;                           139     *     *     *    98
+   141 VAR InsideCode : BOOLEAN ;                                                  140     *    75
+   142 
+   143 PROCEDURE ErrorAttribute (Token: INTEGER; VAR Attr: tScanAttribute);         83    83    83   139   141    83    83
+   144   VAR s : tString;                                                          143     *    89
+   145   BEGIN                                                                       *
+   146     CASE Token OF                                                            75   143    75
+   147       SymNull : ;                                                           107
+   148     | SymEqual..SymPREC                                                     108   130
+   149       : Attr.Mode       := Keys;                                            143    63    58
+   150     | SymComment                                                            131
+   151       : Attr.Mode       := Comment;                                         149   149    64
+   152         MakeList (Attr.Comm);                                                93   151    64
+   153     | SymNumber                                                             132
+   154       : Attr.Mode       := Number;                                          152   151    65
+   155         Attr.Value:= MaxShortCard;                                          154    65    94
+   156     | SymAction                                                             133
+   157       : Attr.Mode       := Action;                                          155   154    66
+   158         MakeList (Attr.Act);                                                152   157    66
+   159     | SymIdentifier , SymString                                             134   135
+   160       : Attr.Mode       := Symbol;                                          158   157    67
+   161         ArrayToString ('-error-', s);                                        89   144
+   162         Attr.Sym        := MakeIdent (s);                                   160    67    92   161
+   163     END;                                                                     81
+   164   END ErrorAttribute;                                                       163   143
+   165 
+   166 PROCEDURE GetNumber (VAR Word: tString): CARDINAL;                          143     *   144     *   144    71
+   167   VAR i, n, d : CARDINAL;                                                   166     *     *     *   166
+   168    BEGIN                                                                    145
+   169       i := 0;                                                               167
+   170       n := 0;                                                               167
+   171       WHILE i < Length (Word) DO                                              *   169    90   166     *
+   172         i := i+1;                                                           171     *
+   173         d := (ORD(Char (Word, i))-ORD('0'));                                167     *    90   171   172     *
+   174         IF (n > MaxShortCard DIV 10) OR (n*10 > MaxShortCard - d) THEN        *   170   155     *     *     *     *   173
+                                                                                     *
+   175           RETURN MaxShortCard;                                                *   174
+   176         END;                                                                164
+   177         n := n*10 + d;                                                      174     *   174
+   178       END;                                                                  176
+   179       RETURN n;                                                             175   177
+   180    END GetNumber;                                                           178   166
+   181 }
+   182 
+   183 LOCAL                                                                         *
+   184   { VAR Word, String, LastWord: tString; c: CHAR; PrevState: SHORTCARD;     167   173     *     *   166     *     *     *
+                                                                                     *
+   185   }
+   186 
+   187 EOF                                                                           *
+   188   {
+   189     CASE yyStartState OF                                                    146     *   146
+   190     | code                                                                    *
+   191         : ErrorMessage (eUnClAction , eError, CodePos );                     97   103    96   140
+   192     | comment, comment2                                                       *     *
+   193         : ErrorMessage (eUnClComment, eError, CommentPos );                 191   104   191   140
+   194           IF InsideCode                                                     174   141
+   195           THEN                                                              174
+   196             ErrorMessage (eUnClAction , eError, CodePos );                  193   191   193   191
+   197           END (* IF *)                                                      180
+   198     | Str1, Str2, CStr1, CStr2                                                *     *     *     *
+   199         : ErrorMessage (eUnClString, eError, StringPos );                   196   105   196   140
+   200           IF InsideCode                                                     194   194
+   201           THEN                                                              195
+   202             ErrorMessage (eUnClAction , eError, CodePos );                  199   196   199   196
+   203           END (* IF *)                                                      197
+   204     ELSE                                                                      *
+   205     END;                                                                    203
+   206   }
+   207 
+   208 BEGIN                                                                       168
+   209   { BraceNestingLevel := 0 ; CommentNestingLevel := 0 ;                     139   139
+   210     InsideCode := FALSE ;                                                   200     *
+   211   }
+   212 
+   213 DEFINE                                                                        *
+   214   digit         = {0-9}         .                                             *
+   215   letter        = {a-z A-Z _}   .                                             *     *     *     *     *     *
+   216   cmt           = - {*(\t\n}    .                                             *     *   179
+   217   cmt2          = - {*\t\n}     .                                             *   216   216
+   218   codechar      = - {\\{\}\t\n'"(/} .                                         *   217   217
+   219   StrCh1        = - {'\t\n}     .                                             *
+   220   StrCh2        = - {"\t\n}     .                                             *
+   221   CStrCh1       = - {'\t\n\\}   .                                             *
+   222   CStrCh2       = - {"\t\n\\}   .                                             *
+   223 
+   224 START token, rule, code, Str1, Str2, CStr1, CStr2, comment, comment2          *     *     *   190   198   198   198   198
+                                                                                   192   192
+   225 
+   226 RULES                                                                         *
+   227 
+   228 /* These were #token#: */
+   229 
+   230 #STD, token, rule#      "="     : { Attribute.Mode := Keys; RETURN SymEqual     ; }       *   224   224     *   160   149
+                                                                                   179   148
+   231 #STD, token, rule#      OPER    : { Attribute.Mode := Keys; RETURN SymOPER      ; }     230   230   230     *   230   230
+                                                                                   230   230   125
+   232 #STD, token, rule#      NONE    : { Attribute.Mode := Keys; RETURN SymNONE      ; }     231   231   231     *   231   231
+                                                                                   231   231   126
+   233 #STD, token, rule#      LEFT    : { Attribute.Mode := Keys; RETURN SymLEFT      ; }     232   232   232     *   232   232
+                                                                                   232   232   127
+   234 #STD, token, rule#      RIGHT   : { Attribute.Mode := Keys; RETURN SymRIGHT     ; }     233   233   233     *   233   233
+                                                                                   233   233   128
+   235 #STD, token, rule#      RULE    : { Attribute.Mode := Keys; yyStart (rule); RETURN S\   234   234   234     *   234   234
+                                                                                   234     *     *   234
+      \ymRULE      ; }                                                             129
+   236 #STD, token, rule#      digit + :                                           235   235   235   214
+   237 {
+   238   Attribute.Mode := Number;                                                 235   235   154
+   239   GetWord (Word);                                                             *   184
+   240   Attribute.Sym := MakeIdent (Word);                                        238   162   162   239
+   241   Attribute.Value := GetNumber (Word);                                      240   155   180   240
+   242   RETURN SymNumber;                                                         235   153
+   243 }
+   244 
+   245 
+   246 /* These were #rule#: */ 
+   247 
+   248 #STD, token, rule#      ":"     : { Attribute.Mode := Keys; RETURN SymColon     ; }     236   236   236   241   238   235
+                                                                                   242   109
+   249 #STD, token, rule#      "."     : { Attribute.Mode := Keys; RETURN SymPoint     ; }     248   248   248   248   248   248
+                                                                                   248   110
+   250 #STD, token, rule#      "|"     : { Attribute.Mode := Keys; RETURN SymOr        ; }     249   249   249   249   249   249
+                                                                                   249   111
+   251 #STD, token, rule#      "*"     : { Attribute.Mode := Keys; RETURN SymStar      ; }     250   250   250   250   250   250
+                                                                                   250   112
+   252 #STD, token, rule#      "+"     : { Attribute.Mode := Keys; RETURN SymPlus      ; }     251   251   251   251   251   251
+                                                                                   251   113
+   253 #STD, token, rule#      "||"    : { Attribute.Mode := Keys; RETURN SymList      ; }     252   252   252   252   252   252
+                                                                                   252   114
+   254 #STD, token, rule#      "("     : { Attribute.Mode := Keys; RETURN SymLBrace    ; }     253   253   253   253   253   253
+                                                                                   253   115
+   255 #STD, token, rule#      ")"     : { Attribute.Mode := Keys; RETURN SymRBrace    ; }     254   254   254   254   254   254
+                                                                                   254   116
+   256 #STD, token, rule#      "["     : { Attribute.Mode := Keys; RETURN SymLBracket  ; }     255   255   255   255   255   255
+                                                                                   255   117
+   257 #STD, token, rule#      "]"     : { Attribute.Mode := Keys; RETURN SymRBracket  ; }     256   256   256   256   256   256
+                                                                                   256   118
+   258 #STD, token, rule#      PREC    : { Attribute.Mode := Keys; RETURN SymPREC      ; }     257   257   257     *   257   257
+                                                                                   257   257   148
+   259 
+   260 /* These were #STD#: */ 
+   261 
+   262 #STD, token, rule#      \SCANNER: { Attribute.Mode := Keys; RETURN SymScanner   ; }     258   258   258     *   258   258
+                                                                                   258   258   136
+   263 #STD, token, rule#      \PARSER : { Attribute.Mode := Keys; RETURN SymParser    ; }     262   262   262     *   262   262
+                                                                                   262   262   137
+   264 #STD, token, rule#      \EXPORT : { Attribute.Mode := Keys; RETURN SymEXPORT    ; }     263   263   263    49   263   263
+                                                                                   263   263   119
+   265 #STD, token, rule#      \GLOBAL : { Attribute.Mode := Keys; RETURN SymGLOBAL    ; }     264   264   264    86   264   264
+                                                                                   264   264   120
+   266 #STD, token, rule#      \LOCAL  : { Attribute.Mode := Keys; RETURN SymLOCAL     ; }     265   265   265   183   265   265
+                                                                                   265   265   121
+   267 #STD, token, rule#      \BEGIN  : { Attribute.Mode := Keys; RETURN SymBEGIN     ; }     266   266   266   208   266   266
+                                                                                   266   266   122
+   268 #STD, token, rule#      \CLOSE  : { Attribute.Mode := Keys; RETURN SymCLOSE     ; }     267   267   267     *   267   267
+                                                                                   267   267   123
+   269 #STD, token, rule#      TOKEN   : { Attribute.Mode := Keys; yyStart (token); RETURN \   268   268   268     *   268   268
+                                                                                   268   235     *   268
+      \SymTOKEN    ; }                                                             124
+   270 
+   271 
+   272 
+   273 #STD, token, rule#      \\ letter (letter | digit) *    :                   269   269   269   215     *   236
+   274 {
+   275   Attribute.Mode := Keys;                                                   269   269   269
+   276   GetWord (Word);                                                           239   241
+   277   SubString (Word, 2, Length (Word), String);                                90   276   171     *   184
+   278   Attribute.Sym := MakeIdent (String);                                      275   240   240   277
+   279   RETURN SymIdentifier;                                                     269   159
+   280 }
+   281 
+   282 #STD, token, rule#      letter (letter | digit) *       :                   273   273   273   273     *   273
+   283 {
+   284   Attribute.Mode := Keys;                                                   278   275   275
+   285   GetWord (Word);                                                           276   277
+   286   Attribute.Sym := MakeIdent (Word);                                        284   278   278   285
+   287   RETURN SymIdentifier;                                                     279   279
+   288 }
+   289 
+   290 #STD, token, rule# \f | \r :- {}                                            282   282   282     *     *
+   291 
+   292 #STD, token, rule#      - {\t\n\ {'"}      :                                290   290   290   218   218
+   293 {
+   294   GetWord (Word);                                                           285   286
+   295   c := Char (Word, 1);                                                      184   173   294
+   296   ErrorMessageI (eCharIgnored, eWarning, Attribute.Position, eCharacter, ADR (c));       97   101    96   286    62    96
+                                                                                    88   295
+   297 }
+   298 
+   299 /* Target code */ 
+   300 
+   301 #STD, token, rule#     "{"     :                                            292   292   292
+   302 {
+   303   PrevState := yyStartState;                                                184   189
+   304   CodePos := Attribute.Position;                                            202   296   296
+   305   yyStart (code);                                                           269   224
+   306   InsideCode := TRUE;                                                       210    76
+   307   GetWord (LastWord);                                                       294   184
+   308   Attribute.Mode := Action;                                                 304   284   157
+   309   MakeList (Attribute.Act);                                                 158   308   158
+   310   BraceNestingLevel := 1;                                                   209
+   311 }
+   312 
+   313 #code#  \\ ANY | "(" | "/" | codechar + :-                                  305     *   218
+   314 {
+   315   GetWord (Word);                                                           307   295
+   316   Concatenate (LastWord, Word);                                              89   307   315
+   317 }
+   318 
+   319 #code#  \\      :                                                           313
+   320 {
+   321   c := '\';                                                                 296
+   322   ErrorMessageI (eCharIgnored, eWarning, Attribute.Position, eCharacter, ADR (c));      296   296   296   309   304   296
+                                                                                   296   321
+   323 }
+   324 
+   325 #code#  \t      :-                                                          319   292
+   326 {
+   327   yyTab;                                                                      *
+   328   GetWord (Word);                                                           315   316
+   329   Concatenate (LastWord, Word);                                             316   316   328
+   330 }
+   331 
+   332 #code#  \n      :-                                                          325   292
+   333 {
+   334   GetWord (Word);                                                           328   329
+   335   Concatenate (LastWord, Word);                                             329   329   334
+   336   Append (Attribute.Act, ADDRESS (PutString (LastWord)));                    93   322   309    88    91   335
+   337   AssignEmpty (LastWord);                                                    90   336
+   338   yyEol (0);                                                                  *
+   339 }
+   340 
+   341 #code#  "{"     :-                                                          332
+   342 {
+   343   GetWord (Word);                                                           334   335
+   344   Concatenate (LastWord, Word);                                             335   337   343
+   345   INC (BraceNestingLevel);                                                    *   310
+   346 }
+   347 
+   348 #code#  "}"     :-                                                          341
+   349 {
+   350   GetWord (Word);                                                           343   344
+   351   Concatenate (LastWord, Word);                                             344   344   350
+   352   DEC (BraceNestingLevel);                                                    *   345
+   353   IF BraceNestingLevel = 0 THEN                                             200   352   201
+   354     yyStart (PrevState);                                                    305   303
+   355     Attribute.Position := CodePos;                                          336   322   304
+   356     Append (Attribute.Act, ADDRESS (PutString (LastWord)));                 336   355   336   336   336   351
+   357     InsideCode := FALSE;                                                    306   210
+   358     RETURN SymAction;                                                       287   156
+   359   END;                                                                      205
+   360 }
+   361 
+   362 /* Strings */ 
+   363 
+   364 #STD, token, rule, code# '                                                  301   301   301   348
+   365   : { GetWord (String);                                                     350   278
+   366       StringPos := Attribute.Position;                                      199   356   355
+   367       IF Language = C                                                       353    95     *
+   368       THEN yyStart (CStr1);                                                 353   354   224
+   369       ELSE yyStart (Str1);                                                  204   368   224
+   370       END;                                                                  359
+   371     }
+   372 
+   373 #STD, token, rule, code# \"                                                 364   364   364   364
+   374   : { GetWord (String);                                                     365   365
+   375       StringPos := Attribute.Position;                                      366   366   366
+   376       IF Language = C                                                       367   367   367
+   377       THEN yyStart (CStr2);                                                 368   369   224
+   378       ELSE yyStart (Str2);                                                  369   377   224
+   379       END;                                                                  370
+   380     }
+   381 
+   382 #Str1#  StrCh1  + | \'\'        ,                                           369   219
+   383 #Str2#  StrCh2  + | \"\"        ,                                           378   220
+   384 #CStr1# CStrCh1 + | \\ ANY ?    ,                                           368   221   313
+   385 #CStr2# CStrCh2 + | \\ ANY ?                                                377   222   384
+   386   :- {GetWord (Word); Concatenate (String, Word);}                          374   351   351   374     *
+   387 
+   388 #CStr1, CStr2#  \\ \n   :- {GetWord (Word); Concatenate (String, Word); yyEol (0);}     384   385   332   386   386   386
+                                                                                   386     *   338
+   389 
+   390 #Str1, CStr1# '         ,                                                   382   388
+   391 #Str2, CStr2# \"                                                            383   388
+   392   :- { Strings.Append (String, Char (String, 1));                            89   356   388   295     *
+   393        yyPrevious;                                                            *
+   394        IF InsideCode THEN                                                   376   357   377
+   395          Concatenate (LastWord, String);                                    388   356   392
+   396        ELSE                                                                 378
+   397          Attribute.Mode := Symbol;                                          375   308   160
+   398          Attribute.Sym := MakeIdent (String);                               397   286   286   395
+   399          RETURN SymString;                                                  358   159
+   400        END;                                                                 379
+   401      }
+   402 
+   403 #Str1, Str2, CStr1, CStr2# \t                                               390   391   390   391   325
+   404   :- {Strings.Append (String, 11C); yyTab;}                                 392   392   398   327
+   405 
+   406 #Str1, Str2, CStr1, CStr2# \n                                               403   403   403   403   388
+   407   : { ErrorMessage (eEolString, eError, StringPos);                         202   102   202   375
+   408       Strings.Append (String, Char (String, 1));                            404   404   404   392     *
+   409       yyEol (0);                                                            388
+   410       yyPrevious;                                                           393
+   411       IF InsideCode THEN                                                    394   394   394
+   412          Concatenate (LastWord, String);                                    395   395   408
+   413       ELSE                                                                  396
+   414          Attribute.Mode := Symbol;                                          398   397   397
+   415          Attribute.Sym := MakeIdent (String);                               414   398   398   412
+   416          RETURN SymString;                                                  399   399
+   417       END;}                                                                 400
+   418 
+   419 /* Modula2-style Comments */ 
+   420 
+   421 #STD, token, rule# "(*" :                                                   373   373   373
+   422 {
+   423   yyStart (comment);                                                        378   224
+   424   GetWord (LastWord);                                                       388   412
+   425   Attribute.Mode := Comment;                                                415   414   151
+   426   CommentPos := Attribute.Position;                                         193   425   375
+   427   MakeList (Attribute.Comm);                                                309   426   152
+   428   CommentNestingLevel := 1;                                                 209
+   429 }
+   430 
+   431 #code#             "(*" :                                                   373
+   432 {
+   433   yyStart (comment);                                                        423   423
+   434   GetWord (Word);                                                           424   388
+   435   Concatenate(LastWord, Word);                                              412   424   434
+   436   CommentPos := Attribute.Position;                                         426   427   426
+   437   CommentNestingLevel := 1;                                                 428
+   438 }
+   439 
+   440 #comment#       "(*"    :-                                                  433
+   441 {
+   442   GetWord (Word);                                                           434   435
+   443   Concatenate (LastWord, Word);                                             435   435   442
+   444   INC (CommentNestingLevel);                                                345   437
+   445 }
+   446 
+   447 #comment#       "*)"    :-                                                  440
+   448 {
+   449   GetWord (Word);                                                           442   443
+   450   Concatenate (LastWord, Word);                                             443   443   449
+   451   DEC (CommentNestingLevel);                                                352   444
+   452   IF CommentNestingLevel = 0 THEN                                           411   451   411
+   453     yyPrevious ( ) ;                                                        410
+   454     IF NOT InsideCode                                                       452     *   411
+   455     THEN                                                                    452
+   456       Append (Attribute.Comm, ADDRESS (PutString (LastWord)));              408   436   427   356   356   450
+   457       RETURN SymComment;                                                    416   150
+   458     END (* IF *);                                                           417
+   459   END;                                                                      458
+   460 }
+   461 
+   462 #comment#       "(" | "*" | cmt +       :-                                  447   216
+   463 {
+   464   GetWord (Word);                                                           449   450
+   465   Concatenate (LastWord, Word);                                             450   456   464
+   466 }
+   467 
+   468 #comment#       \t      :-                                                  462   403
+   469 {
+   470   yyTab;                                                                    404
+   471   GetWord (Word);                                                           464   465
+   472   Concatenate (LastWord, Word);                                             465   465   471
+   473 }
+   474 
+   475 #comment#       \n      :-                                                  468   406
+   476 {
+   477   GetWord (Word);                                                           471   472
+   478   Concatenate (LastWord, Word);                                             472   472   477
+   479   IF InsideCode                                                             454   454
+   480   THEN                                                                      455
+   481     Append (Attribute.Act, ADDRESS (PutString (LastWord)));                 456   456   356   456   456   478
+   482   ELSE                                                                      413
+   483     Append (Attribute.Comm, ADDRESS (PutString (LastWord)));                481   481   456   481   481   481
+   484   END (* IF *);                                                             459
+   485   AssignEmpty (LastWord);                                                   337   483
+   486   yyEol (0);                                                                409
+   487 }
+   488 
+   489 /* C-style Comments */ 
+   490 
+   491 #STD, token, rule# "/*" :                                                   421   421   421
+   492   { yyStart (comment2);                                                     433   224
+   493     CommentPos := Attribute.Position;                                       436   483   436
+   494   }
+   495 
+   496 #code# "/*"     :                                                           431
+   497 { yyStart (comment2);                                                       492   492
+   498   GetWord (Word);                                                           477   478
+   499   Concatenate(LastWord, Word);                                              478   485   498
+   500   CommentPos := Attribute.Position;                                         493   493   493
+   501 }
+   502 
+   503 #comment2#      "*/"                                                        497
+   504   :- { yyPrevious ( ) ;                                                     453
+   505        IF InsideCode                                                        479   479
+   506        THEN                                                                 480
+   507          GetWord (Word);                                                    498   499
+   508          Concatenate (LastWord, Word);                                      499   499   507
+   509        END (* IF *);                                                        484
+   510      }
+   511 
+   512 #comment2#      "*" | cmt2 +                                                503   217
+   513   :- { IF InsideCode                                                        505   505
+   514        THEN                                                                 506
+   515          GetWord (Word);                                                    507   508
+   516          Concatenate (LastWord, Word);                                      508   508   515
+   517        END (* IF *);                                                        509
+   518      }
+   519 
+   520 #comment2#      \t                                                          512   468
+   521   :- { IF InsideCode                                                        513   513
+   522        THEN                                                                 514
+   523          GetWord (Word);                                                    515   516
+   524          Concatenate (LastWord, Word);                                      516   516   523
+   525        END (* IF *) ;                                                       517
+   526        yyTab ( ) ;                                                          470
+   527      } 
+   528 
+   529 #comment2#      \n                                                          520   475
+   530   :- { IF InsideCode                                                        521   521
+   531        THEN                                                                 522
+   532          GetWord (Word);                                                    523   524
+   533          Concatenate (LastWord, Word);                                      524   524   532
+   534          Append (Attribute.Act, ADDRESS (PutString (LastWord)));            483   500   481   483   483   533
+   535        END (* IF *) ;                                                       525
+   536        yyEol ( 0 ) ;                                                        486
+   537      } 
+   538 
+   539 /* END of input.rex */ 
+   540 
+   541 
+   542 
+   543 
+   544 
+Cross reference: 
+
+-A-
+ A                              215 
+ a                              215 
+ Act                             66   158   309   336   356   481   534 
+ Action                          58    66   157   308 
+ ADDRESS                         88   336   356   456   481   483   534 
+ ADR                             88   296   322 
+ ANY                            313   384   385 
+ Append                          93   336   356   392   404   408   456   481   483   534 
+ ArrayToString                   89   161 
+ Assign                          90 
+ AssignEmpty                     90   337   485 
+ Attr                            83   143   149   151   152   154   155   157   158   160   162 
+ Attribute                      230   231   232   233   234   235   238   240   241   248   249   250   251   252   253   254   255 
+                                256   257   258   262   263   264   265   266   267   268   269   275   278   284   286   296   304 
+                                308   309   322   336   355   356   366   375   397   398   414   415   425   426   427   436   456 
+                                481   483   493   500   534 
+ AttributeMode                   58    63 
+
+-B-
+ BEGIN                          145   168   208   267 
+ BOOLEAN                         69    75   141 
+ BraceNestingLevel              139   209   310   345   352   353 
+
+-C-
+ C                              367   376 
+ c                              184   295   296   321   322 
+ CARDINAL                        65    71   166   167 
+ CASE                            63    75   146   189 
+ CHAR                           184 
+ Char                            90   173   295   392   408 
+ CLOSE                          268 
+ cmt                            216   462 
+ cmt2                           217   512 
+ code                           190   224   305   313   319   325   332   341   348   364   373   431   496 
+ codechar                       218   313 
+ CodePos                        140   191   196   202   304   355 
+ Coding                          58    68 
+ CodNumbPos                      70 
+ CodValue                        71 
+ Comm                            64   152   427   456   483 
+ Comment                         58    64   151   425 
+ comment                        192   224   423   433   440   447   462   468   475 
+ comment2                       192   224   492   497   503   512   520   529 
+ CommentNestingLevel            139   209   428   437   444   451   452 
+ CommentPos                     140   193   426   436   493   500 
+ Concatenate                     89   316   329   335   344   351   386   388   395   412   435   443   450   465   472   478   499 
+                                508   516   524   533 
+ CONST                          100 
+ CStr1                          198   224   368   384   388   390   403   406 
+ CStr2                          198   224   377   385   388   391   403   406 
+ CStrCh1                        221   384 
+ CStrCh2                        222   385 
+
+-D-
+ d                              167   173   174   177 
+ DEC                            352   451 
+ DEFINE                         213 
+ digit                          214   236   273   282 
+ DIV                            174 
+ DO                             171 
+
+-E-
+ eCharacter                      96   296   322 
+ eCharIgnored                   101   296   322 
+ eEolString                     102   407 
+ eError                          96   191   193   196   199   202   407 
+ ELSE                           204   369   378   396   413   482 
+ Empty                           58 
+ END                             79    80    81   163   164   176   178   180   197   203   205   359   370   379   400   417   458 
+                                459   484   509   517   525   535 
+ EOF                            187 
+ ErrorAttribute                  83   143   164 
+ ErrorMessage                    97   191   193   196   199   202   407 
+ ErrorMessageI                   97   296   322 
+ Errors                          96 
+ eString                         96 
+ eUnClAction                    103   191   196   202 
+ eUnClComment                   104   193 
+ eUnClString                    105   199 
+ eWarning                        96   296   322 
+ EXPORT                          49   264 
+ Expr                            74 
+ Expression                      53    74 
+
+-F-
+ f                              290 
+ FALSE                          210   357 
+ FROM                            51    52    53    54    55    88    89    91    92    93    94    95    96    98 
+
+-G-
+ GetNumber                      166   180   241 
+ GetWord                        239   276   285   294   307   315   328   334   343   350   365   374   386   388   424   434   442 
+                                449   464   471   477   498   507   515   523   532 
+ GLOBAL                          86   265 
+
+-H-
+ HasCoding                       69 
+ HasPrio                         75 
+
+-I-
+ i                              167   169   171   172   172   173 
+ Idents                          52    92 
+ IF                             174   194   200   353   367   376   394   411   452   454   479   505   513   521   530 
+ IMPORT                          51    52    53    54    55    88    89    91    92    93    94    95    96    98 
+ INC                            345   444 
+ InsideCode                     141   194   200   210   306   357   394   411   454   479   505   513   521   530 
+ INTEGER                         83   139   143 
+
+-K-
+ Keys                            58   149   230   231   232   233   234   235   248   249   250   251   252   253   254   255   256 
+                                257   258   262   263   264   265   266   267   268   269   275   284 
+
+-L-
+ Language                        95   367   376 
+ LastWord                       184   307   316   329   335   336   337   344   351   356   395   412   424   435   443   450   456 
+                                465   472   478   481   483   485   499   508   516   524   533   534 
+ LEFT                           233 
+ Length                          90   171   277 
+ letter                         215   273   273   282   282 
+ Limits                          94 
+ Lists                           54    93 
+ LOCAL                          183   266 
+
+-M-
+ MakeIdent                       92   162   240   278   286   398   415 
+ MakeList                        93   152   158   309   427 
+ MaxShortCard                    94   155   174   174   175 
+ Mode                            63   149   151   154   157   160   230   231   232   233   234   235   238   248   249   250   251 
+                                252   253   254   255   256   257   258   262   263   264   265   266   267   268   269   275   284 
+                                308   397   414   425 
+
+-N-
+ n                              167   170   174   174   177   177   179   216   217   218   292   332   388   406   475   529 
+ NONE                           232 
+ NOT                            454 
+ Number                          58    65   154   238 
+
+-O-
+ OF                              63    75   146   189 
+ OPER                           231 
+ OR                             174 
+ ORD                            173   173 
+
+-P-
+ PARSER                         263 
+ Position                        62   296   304   322   355   366   375   426   436   493   500 
+ Positions                       55    98 
+ PREC                           258 
+ PrevState                      184   303   354 
+ PrioPart                        58    72 
+ PriSym                          77 
+ PriSymPos                       78 
+ PROCEDURE                       83   143   166 
+ PutString                       91   336   356   456   481   483   534 
+
+-R-
+ r                              290 
+ RECORD                          61 
+ RETURN                         175   179   230   231   232   233   234   235   242   248   249   250   251   252   253   254   255 
+                                256   257   258   262   263   264   265   266   267   268   269   279   287   358   399   416   457 
+ RIGHT                          234 
+ RightSide                       58    73 
+ RULE                           235 
+ rule                           224   230   231   232   233   234   235   235   236   248   249   250   251   252   253   254   255 
+                                256   257   258   262   263   264   265   266   267   268   269   273   282   290   292   301   364 
+                                373   421   491 
+ RULES                          226 
+ Rules                           53 
+
+-S-
+ s                              144   161   162 
+ SCANNER                        262 
+ SHORTCARD                      184 
+ START                          224 
+ STD                            230   231   232   233   234   235   236   248   249   250   251   252   253   254   255   256   257 
+                                258   262   263   264   265   266   267   268   269   273   282   290   292   301   364   373   421 
+                                491 
+ Str1                           198   224   369   382   390   403   406 
+ Str2                           198   224   378   383   391   403   406 
+ StrCh1                         219   382 
+ StrCh2                         220   383 
+ String                         184   277   278   365   374   386   388   392   392   395   398   404   408   408   412   415 
+ StringMem                       51    91 
+ StringPos                      140   199   366   375   407 
+ Strings                         89   392   404   408 
+ SubString                       90   277 
+ Sym                             67   162   240   278   286   398   415 
+ SymAction                      133   156   358 
+ SymBEGIN                       122   267 
+ Symbol                          58    67   160   397   414 
+ SymCLOSE                       123   268 
+ SymColon                       109   248 
+ SymComment                     131   150   457 
+ SymEqual                       108   148   230 
+ SymEXPORT                      119   264 
+ SymGLOBAL                      120   265 
+ SymIdentifier                  134   159   279   287 
+ SymLBrace                      115   254 
+ SymLBracket                    117   256 
+ SymLEFT                        127   233 
+ SymList                        114   253 
+ SymLOCAL                       121   266 
+ SymNONE                        126   232 
+ SymNull                        107   147 
+ SymNumber                      132   153   242 
+ SymOPER                        125   231 
+ SymOr                          111   250 
+ SymParser                      137   263 
+ SymPlus                        113   252 
+ SymPoint                       110   249 
+ SymPREC                        130   148   258 
+ SymRBrace                      116   255 
+ SymRBracket                    118   257 
+ SymRIGHT                       128   234 
+ SymRULE                        129   235 
+ SymScanner                     136   262 
+ SymStar                        112   251 
+ SymString                      135   159   399   416 
+ SymTOKEN                       124   269 
+ SYSTEM                          88 
+
+-T-
+ t                              216   217   218   292   325   403   468   520 
+ THEN                           174   195   201   353   368   377   394   411   452   455   480   506   514   522   531 
+ tIdent                          52    67    77 
+ tLanguage                       95 
+ tList                           54    64    66    93 
+ TOKEN                          269 
+ Token                           83   143   146 
+ token                          224   230   231   232   233   234   235   236   248   249   250   251   252   253   254   255   256 
+                                257   258   262   263   264   265   266   267   268   269   269   273   282   290   292   301   364 
+                                373   421   491 
+ tPosition                       55    62    70    78    98   140 
+ TRUE                            76   306 
+ tScanAttribute                  60    83   143 
+ tString                         89   144   166   184 
+ tStringRef                      51    91 
+ TYPE                            57 
+
+-V-
+ Value                           65   155   241 
+ VAR                             83   139   140   141   143   144   166   167   184 
+
+-W-
+ WHILE                          171 
+ Word                           166   171   173   184   239   240   241   276   277   277   285   286   294   295   315   316   328 
+                                329   334   335   343   344   350   351   386   386   388   388   434   435   442   443   449   450 
+                                464   465   471   472   477   478   498   499   507   508   515   516   523   524   532   533 
+ WriteTok                        95 
+
+-Y-
+ yyEol                          338   388   409   486   536 
+ yyPrevious                     393   410   453   504 
+ yyStart                        235   269   305   354   368   369   377   378   423   433   492   497 
+ yyStartState                   189   303 
+ yyTab                          327   404   470   526 
+
+-Z-
+ Z                              215 
+ z                              215 
+
+-_-
+ _                              215 
+
+end cross reference, 1079 occurrences of 200 identifiers.

@@ -1,0 +1,15 @@
+cg.mi: 
+(* Modified Rodney M. Bates
+   RMB: Aug 1996 add -e to options summary. 
+               (generate parsing actions respecting attribute dependencies)
+        Nov 1997 alphabetize options (within groups) in usage messages.
+        Nov 1997 Add calls for Modula-3 generation. 
+        Nov 1997 accept -l dir, in addition to -ldir 
+        Dec 1997 Changes to support '-~' option: GnatConvert procedure 
+        Dec 1997 Fixed bugs in macro file generation
+        Dec 1997 Added <*LINE...*> pragma output with -# option to help options 
+        Jan 1999 Added html tree dumper generation with '-^' option 
+        Nov 1999 Changed to use the -l-supplied prefix to find to scripts
+                 gmdcpp, gmdupd, gmdrm.
+
+*)

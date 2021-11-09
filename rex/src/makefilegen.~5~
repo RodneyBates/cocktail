@@ -1,0 +1,119 @@
+INSTALLBIN	= $(INSTALLGMD)/bin
+INSTALLLIB	= $(INSTALLGMD)/lib
+
+BIN = ../../bintobuildwith
+REX = $(BIN)/rex
+LALR = $(BIN)/lalr
+CG = $(BIN)/cg
+
+MLIB	= ../../reuse/gen
+MC	= mocka_mtc
+MAKEINCLUDE = .
+
+DEFSMC	= Classes.md DefTable.md Dfa.md Errors.md Nfa.md GenTabs.md \
+	  ScanGen.md ScanTabs.md Traces.md Tree.md
+
+MODSMC	= Classes.mi DefTable.mi Dfa.mi Errors.mi Nfa.mi GenTabs.mi \
+	  ScanTabs.mi Traces.mi Tree.mi rex.mi
+
+#DEFSM2C	= Classes.def DefTable.def Dfa.def Errors.def Nfa.def GenTabs.def \
+#	  ScanGen.def ScanTabs.def Traces.def Tree.def
+
+#MODSM2C	= Classes.mod DefTable.mod Dfa.mod Errors.mod Nfa.mod GenTabs.mod \
+#	  ScanTabs.mod Traces.mod Tree.mod rex.mod
+
+MODULAGENS  = Scanner.md Scanner.mi Parser.md Parser.mi \
+              Tree0.md Tree0.mi Eval.md Eval.mi 
+
+OTHERGENS  = Scanner.Tab Parser.Tab 
+
+GENS    = $(MODULAGENS) $(OTHERGENS)
+EXE     = rex
+MOCKALIBS = -d $(MLIB)
+MOCKAFLAGS = 
+
+PLIB	= ScanDrv.c ScanDrv.mi \
+          Scanner.c Scanner.h Scanner.md Scanner.mi \
+          Source.c Source.h Source.md Source.mi 
+
+MODULASOURCES = Classes.md Classes.mi DefTable.md DefTable.mi \
+                Dfa.md Dfa.mi Errors.md Errors.mi GenTabs.md GenTabs.mi \
+                Nfa.md Nfa.mi ScanGen.md ScanGen.mi ScanTabs.md ScanTabs.mi \
+                Traces.md Traces.mi Tree.md Tree.mi rex.mi
+
+OTHERSOURCES = rex.rex rex.lalr rex.cg
+
+SOURCES = $(MODULASOURCES) $(OTHERSOURCES)
+
+include $(MAKEINCLUDE)/make.include
+
+# Generated sources:
+
+Scanner.mi Scanner.md Scanner.Tab:	../src/rex.rex
+	$(REX) -di ../src/rex.rex;
+
+# generation of the parser using 'lalr'
+
+Parser.mi Parser.md Parser.Tab:	../src/rex.lalr
+	$(LALR) -b -d ../src/rex.lalr;
+
+Tree0.md Tree0.mi:	../src/rex.cg
+	$(CG) -dimtwFDI ../src/rex.cg;
+
+Eval.md Eval.mi:	../src/rex.cg
+	$(CG) -DI ../src/rex.cg;
+
+#install_modula:	rex rex.sh $(INSTALLLIB)/rex
+#	if test $(INSTALLLIB) = $(INSTALLBIN); then echo error: INSTALLBIN = INSTALLLIB; false; else true; fi
+#	sed "s;LIB;$(INSTALLLIB);g" < rex.sh > $(INSTALLBIN)/rex
+#	chmod a+rx $(INSTALLBIN)/rex
+#	install -c -s -m 755 rex $(INSTALLLIB)/rex
+#	install -c -m 644 Scanner.Tab $(INSTALLLIB)/rex
+#	install -c -m 644 Parser.Tab $(INSTALLLIB)/rex
+#	cp ../lib/S*.[hc] ../lib/S*.m[di] $(INSTALLLIB)/rex
+#	chmod a+r $(INSTALLLIB)/rex/S*
+
+# installation directories
+
+#$(INSTALLLIB)/rex:	$(INSTALLLIB)
+#	sh -c "if test ! -d $(INSTALLLIB)/rex; then mkdir $(INSTALLLIB)/rex; else true; fi"
+
+# swap all byte pairs of the files Scanner.Tab and Parser.Tab
+
+bin.conv:
+	dd conv=swab < Scanner.Tab > .Scanner.Tab; mv .Scanner.Tab Scanner.Tab
+	dd conv=swab < Parser.Tab > .Parser.Tab; mv .Parser.Tab Parser.Tab
+
+# support for mkid
+
+rexId:	rex.rex
+	echo SCANNER rexId | cat - rex.rex | \
+	sed 's/\(RETURN.*Ident\)/yyEcho; IO.WriteNl (IO.StdOutput); \1/' | \
+	$(INSTALLBIN).t/rex -sdi;
+	sed 's/@/rexId/' < ../../front/src/Id.mi > rexIdDrv.mi
+	echo p rexIdDrv | mocka -d $(MLIB)
+	mv rexIdDrv rexId
+
+installId:	rexId $(INSTALLLIB)/Id
+	echo exec $(INSTALLLIB)/Id/rexId -l$(INSTALLLIB)/Id "2> /dev/null" > $(INSTALLBIN)/rexId
+	chmod a+rx $(INSTALLBIN)/rexId
+	install -c -m 644 rexId.Tab $(INSTALLLIB)/Id
+	install -c -s -m 755 rexId $(INSTALLLIB)/Id
+
+$(INSTALLLIB)/Id:	$(INSTALLLIB)
+	sh -c "if test ! -d $(INSTALLLIB)/Id; then mkdir $(INSTALLLIB)/Id; else true; fi"
+
+cleanId:
+	rm -f rexId*
+
+clean:	cleanId
+	rm -f core *.[dimor] *.def *.mod *.sym ERRORS LISTING _Debug rex *.bak
+
+.SUFFIXES:	.def .mod .md .mi
+
+.md.def:
+	ln $*.md $*.def
+
+.mi.mod:
+	ln $*.mi $*.mod
+

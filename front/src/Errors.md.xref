@@ -1,0 +1,210 @@
+     1 (* handle and log errors *)
+     2 
+     3 (* $Id: Errors.md,v 2.2 1992/08/07 15:13:51 grosch rel $ *)
+     4 
+     5 (* $Log: Errors.md,v $
+c    6  * Revision 2.2  1992/08/07  15:13:51  grosch
+c    7  * allow several scanner and parsers; extend module Errors
+c    8  *
+c    9  * Revision 2.1  1991/11/21  14:47:50  grosch
+c   10  * new version of RCS on SPARC
+c   11  *
+c   12  * Revision 2.0  91/03/08  18:26:15  grosch
+c   13  * turned tables into initialized arrays (in C)
+c   14  * moved mapping tokens -> strings from Errors to Parser
+c   15  * changed interface for source position
+c   16  * 
+c   17  * Revision 1.1  90/06/11  18:44:44  grosch
+c   18  * layout improvements
+c   19  * 
+c   20  * Revision 1.0  88/10/04  14:26:43  vielsack
+c   21  * Initial revision
+c   22  * 
+c   23  *)
+    24 
+    25 DEFINITION MODULE Errors;                                                     *
+    26 
+    27 FROM SYSTEM     IMPORT ADDRESS;                                               *     *
+    28 FROM Positions  IMPORT tPosition;                                             *     *
+    29 
+    30 CONST
+    31    NoText               = 0     ;                                             *
+    32    SyntaxError          = 1     ;       (* error codes          *)            *
+    33    ExpectedTokens       = 2     ;                                             *
+    34    RestartPoint         = 3     ;                                             *
+    35    TokenInserted        = 4     ;                                             *
+    36    WrongParseTable      = 5     ;                                             *
+    37    OpenParseTable       = 6     ;                                             *
+    38    ReadParseTable       = 7     ;                                             *
+    39 
+    40    Fatal                = 1     ;       (* error classes        *)            *
+    41    Restriction          = 2     ;                                             *
+    42    Error                = 3     ;                                             *
+    43    Warning              = 4     ;                                             *
+    44    Repair               = 5     ;                                             *
+    45    Note                 = 6     ;                                             *
+    46    Information          = 7     ;                                             *
+    47 
+    48    None                 = 0     ;                                             *
+    49    Integer              = 1     ;       (* info classes         *)            *
+    50    Short                = 2     ;                                             *
+    51    Long                 = 3     ;                                             *
+    52    Real                 = 4     ;                                             *
+    53    Boolean              = 5     ;                                             *
+    54    Character            = 6     ;                                             *
+    55    String               = 7     ;                                             *
+    56    Array                = 8     ;                                             *
+    57    Set                  = 9     ;                                             *
+    58    Ident                = 10    ;                                             *
+    59  
+    60 CONST   (* info classes *)
+    61   eInteger      =       1;                                                    *
+    62   eShort        =       2;                                                    *
+    63   eLong         =       3;                                                    *
+    64   eReal         =       4;                                                    *
+    65   eBoolean      =       5;                                                    *
+    66   eCharacter    =       6;                                                    *
+    67   eString       =       7;                                                    *
+    68   eArray        =       8;                                                    *
+    69   eSet          =       9;                                                    *
+    70   eIdent        =       10;                                                   *
+    71   eTermSet      =       11;                                                   *
+    72 
+    73 CONST   (* error classes *)
+    74   eFatal        =       1;                                                    *
+    75   eRestriction  =       2;                                                    *
+    76   eError        =       3;                                                    *
+    77   eWarning      =       4;                                                    *
+    78   eRepair       =       5;                                                    *
+    79   eNote         =       6;                                                    *
+    80   eInformation  =       7;                                                    *
+    81 
+    82 CONST
+    83   SysOffset     =       100;                                                  *
+    84   eInternal     =       15;                                                   *
+    85 
+    86 TYPE tReportMode        = (eImmediate, eNoListing, eListing);                 *     *     *     *
+    87 
+    88 CONST MaxErrorClass     = 7;                                                  *
+    89 
+    90 VAR ErrorCount  : ARRAY [0..MaxErrorClass] OF SHORTCARD;                      *    88     *
+    91 
+    92 PROCEDURE ErrorMessage  (ErrorCode, ErrorClass: CARDINAL; Position: tPosition);     *     *     *     *     *    28
+    93 PROCEDURE ErrorMessageI (ErrorCode, ErrorClass: CARDINAL; Position: tPosition;      *    92    92     *    92    28
+    94                          InfoClass: CARDINAL; Info: ADDRESS);                 *     *     *    27
+    95 PROCEDURE BeginErrors   ();                                                   *
+    96 PROCEDURE SetReportMode (mode: tReportMode);                                  *     *    86
+    97 PROCEDURE CloseErrors   ();                                                   *
+    98 
+    99 VAR
+   100   ReportClass : BITSET;                                                       *     *
+   101   ErrorTable  : ARRAY [0..255] OF CHAR;                                       *     *
+   102 
+   103 END Errors.                                                                  25
+Cross reference: * is declaration, = is assignment
+
+-A-
+ ADDRESS                         27*   94 
+ Array                           56*
+
+-B-
+ BeginErrors                     95*
+ BITSET                         100 
+ Boolean                         53*
+
+-C-
+ CARDINAL                        92    93    94 
+ CHAR                           101 
+ Character                       54*
+ CloseErrors                     97*
+
+-E-
+ eArray                          68*
+ eBoolean                        65*
+ eCharacter                      66*
+ eError                          76*
+ eFatal                          74*
+ eIdent                          70*
+ eImmediate                      86*
+ eInformation                    80*
+ eInteger                        61*
+ eInternal                       84*
+ eListing                        86*
+ eLong                           63*
+ eNoListing                      86*
+ eNote                           79*
+ eReal                           64*
+ eRepair                         78*
+ eRestriction                    75*
+ Error                           42*
+ ErrorClass                      92*   93*
+ ErrorCode                       92*   93*
+ ErrorCount                      90*
+ ErrorMessage                    92*
+ ErrorMessageI                   93*
+ Errors                          25*  103*
+ ErrorTable                     101*
+ eSet                            69*
+ eShort                          62*
+ eString                         67*
+ eTermSet                        71*
+ eWarning                        77*
+ ExpectedTokens                  33*
+
+-F-
+ Fatal                           40*
+
+-I-
+ Ident                           58*
+ Info                            94*
+ InfoClass                       94*
+ Information                     46*
+ Integer                         49*
+
+-L-
+ Long                            51*
+
+-M-
+ MaxErrorClass                   88*   90 
+ mode                            96*
+
+-N-
+ None                            48*
+ Note                            45*
+ NoText                          31*
+
+-O-
+ OpenParseTable                  37*
+
+-P-
+ Position                        92*   93*
+ Positions                       28*
+
+-R-
+ ReadParseTable                  38*
+ Real                            52*
+ Repair                          44*
+ ReportClass                    100*
+ RestartPoint                    34*
+ Restriction                     41*
+
+-S-
+ Set                             57*
+ SetReportMode                   96*
+ Short                           50*
+ SHORTCARD                       90 
+ String                          55*
+ SyntaxError                     32*
+ SysOffset                       83*
+ SYSTEM                          27*
+
+-T-
+ TokenInserted                   35*
+ tPosition                       28*   92    93 
+ tReportMode                     86*   96 
+
+-W-
+ Warning                         43*
+ WrongParseTable                 36*
+
+end cross reference, 85 occurrences of 74 identifiers.

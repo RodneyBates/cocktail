@@ -1,0 +1,659 @@
+     1 (* compute default states *)
+     2 
+     3 (* $Id: Default.mi,v 1.2 1991/11/21 14:53:14 grosch rel $ *)
+     4 
+     5 (* $Log: Default.mi,v $
+c    6  * Revision 1.2  1991/11/21  14:53:14  grosch
+c    7  * new version of RCS on SPARC
+c    8  *
+c    9  * Revision 1.1  90/06/12  16:54:01  grosch
+c   10  * renamed main program to lalr, added { } for actions, layout improvements
+c   11  * 
+c   12  * Revision 1.0  88/10/04  14:36:10  vielsack
+c   13  * Initial revision
+c   14  * 
+c   15  *)
+    16 
+    17 IMPLEMENTATION MODULE Default;                                                *     *
+    18 
+    19 FROM Automaton  IMPORT tStateIndex;                                           *     *
+    20 FROM DynArray   IMPORT MakeArray;                                             *     *
+    21 FROM Gen        IMPORT tTableLine, FirstTerminal, LastTerminal, FirstSymbol, LastSym\     *     *     *     *     *
+      \bol, LastReadState;                                                           *     *
+    22 FROM Memory     IMPORT Alloc;                                                 *     *
+    23 FROM Sets       IMPORT tSet, MakeSet, IsEqual, IsSubset, Include, Card;       *     *     *     *     *     *     *
+    24 FROM SYSTEM     IMPORT TSIZE;                                                 *     *
+    25 FROM TokenTab   IMPORT Vocabulary;                                            *     *
+    26 
+    27   CONST NoState  = 0;                                                         *
+    28 
+    29   TYPE
+    30     tTrans  = POINTER TO tTran;            (* Uebergange *)                   *     *
+    31 
+    32     tTran   = RECORD                       (* Uebergang*)                     *
+    33                 Voc   : Vocabulary;                                           *    25
+    34                 State : tStateIndex;       (* Folgezustand *)                 *    19
+    35                 Next  : tTrans;            (* weitere Uebergaenge *)          *    30
+    36               END;
+    37 
+    38     tLine   = RECORD                                                          *
+    39                 Transitions: tTrans;       (* Uebergaenge sortiert nach Voc *)      *    30
+    40                 Terms      : tSet;         (* Terminale fuer die es einen Uebergang \     *    23
+c     \gibt *)
+    41                 Succ       : tStateIndex;  (* Nachfolger in sortierter Liste *)     *    19
+    42                 DefaultState : tStateIndex;(* Defaultzustand *)               *    19
+    43                 Saving     : SHORTCARD;    (* Einsparung durch Defaultzustand *)          *     *
+    44                 NontermCount : SHORTCARD;                                     *     *
+    45                 ToTest     : BOOLEAN;                                         *     *
+    46                 InTest     : BOOLEAN;                                         *     *
+    47               END;
+    48 
+    49   VAR
+    50     TablePtr : POINTER TO ARRAY tStateIndex OF tLine;                         *    19    38
+    51                (* TablePtr^[NoState] bildet den Anker *)
+    52     TableSize : LONGINT;                                                      *     *
+    53 
+    54     TSorting  : POINTER TO ARRAY tStateIndex OF tStateIndex;                  *    19    19
+    55     TSortingSize : LONGINT;                                                   *     *
+    56 
+    57     NSorting  : POINTER TO ARRAY tStateIndex OF tStateIndex;                  *    19    19
+    58     NSortingSize : LONGINT;                                                   *     *
+    59 
+    60   PROCEDURE CreateDefaultList;                                                *
+    61 
+    62   (* Erzeugen / Initialisieren der Datenstruktur zur Berechnug der Defaultzustaende \
+c     \*)
+    63 
+    64   VAR State : tStateIndex;                                                   34    19
+    65   BEGIN
+    66     TableSize := LastReadState + 1;                                          52    21
+    67     MakeArray (TablePtr, TableSize, TSIZE (tLine));                          20    50    52    24    38
+    68     TSortingSize := LastReadState + 1;                                       55    21
+    69     MakeArray (TSorting, TSortingSize, TSIZE (tStateIndex));                 20    54    55    24    19
+    70     NSortingSize := LastReadState + 1;                                       58    21
+    71     MakeArray (NSorting, NSortingSize, TSIZE (tStateIndex));                 20    57    58    24    19
+    72     FOR State := 0 TO LastReadState DO                                       64    21
+    73       WITH TablePtr^[State] DO                                               50    64
+    74         Transitions := NIL;                                                  39     *
+    75         MakeSet (Terms, LastTerminal);                                       23    40    21
+    76         Succ := NoState;                                                     41    27
+    77         DefaultState := NoState;                                             42    27
+    78         Saving := 0;                                                         43
+    79         NontermCount := 0;                                                   44
+    80         ToTest := TRUE;                                                      45     *
+    81         InTest := FALSE;                                                     46     *
+    82       END;
+    83       TSorting^[State] := State;                                             54    64    64
+    84       NSorting^[State] := State;                                             57    64    64
+    85     END;
+    86   END CreateDefaultList;                                                     60
+    87 
+    88   PROCEDURE PutInDefaultList (ReadState: tStateIndex; VAR TableLine: tTableLine); (*\     *     *    19     *    21
+c     \ read only *)
+    89 
+    90   (* Eintragen der in TableLine enthaltenen Zeile in die Datenstruktur *)
+    91 
+    92   VAR
+    93     Trans : tTrans;                                                           *    30
+    94     TransSucc : tTrans;                                                       *    30
+    95     Voc   : Vocabulary;                                                      33    25
+    96     State : tStateIndex;                                                     64    19
+    97     Elements : SHORTCARD;                                                     *     *
+    98     Continue : BOOLEAN;                                                       *     *
+    99   BEGIN
+   100     WITH TablePtr^[ReadState] DO                                             50    88
+   101       Transitions := NIL;                                                    39     *
+   102       FOR Voc := LastSymbol TO FirstSymbol BY -1 DO                          95    21    21
+   103         IF TableLine [Voc] <> NoState THEN                                   88    95    27
+   104           Trans := Alloc (TSIZE (tTran));                                    93    22    24    32
+   105           Trans^.Voc   := Voc;                                               93    95    95
+   106           Trans^.State := TableLine [Voc];                                   93    96    88    95
+   107           Trans^.Next  := Transitions;                                       93    35    39
+   108           Transitions := Trans;                                              39    93
+   109           IF (Voc >= FirstTerminal) AND (Voc <= LastTerminal) THEN           95    21    95    21
+   110             Include (Terms, Voc);                                            23    40    95
+   111           ELSE
+   112             INC (NontermCount);                                               *    44
+   113           END;
+   114         END;
+   115       END;
+   116 
+   117       (* Einsortieren *)
+   118 
+   119       State := NoState;                                                      96    27
+   120       Elements := Card (Terms);                                              97    23    40
+   121 
+   122       (* Suche Element vor (State) bzw. nach (Succ) dem einzufuegenden Element *)
+   123 
+   124       LOOP
+   125         Succ := TablePtr^[State].Succ;                                       41    50    96    41
+   126         IF Succ = NoState THEN EXIT; END;                                    41    27
+   127         IF Elements > Card (TablePtr^[Succ].Terms) THEN EXIT;                97    23    50    41    40
+   128         ELSIF Elements = Card (TablePtr^[Succ].Terms) THEN                   97    23    50    41    40
+   129           Trans := Transitions;                                              93    39
+   130           TransSucc := TablePtr^[Succ].Transitions;                          94    50    41    39
+   131           Continue := TRUE;                                                  98     *
+   132           WHILE (Trans <> NIL) AND (TransSucc <> NIL) AND Continue DO        93     *    94     *    98
+   133             IF Trans^.Voc > TransSucc^.Voc THEN                              93    95    94    95
+   134               EXIT;
+   135             ELSIF Trans^.Voc < TransSucc^.Voc THEN                           93    95    94    95
+   136               Continue := FALSE;                                             98     *
+   137             END;
+   138             Trans := Trans^.Next;                                            93    93    35
+   139             TransSucc := TransSucc^.Next;                                    94    94    35
+   140           END;
+   141         END;
+   142         State := Succ;                                                       96    41
+   143       END;
+   144 
+   145       (* Einketten *)
+   146 
+   147       (* Als Nachfolger beim Vorgaenger eintragen *)
+   148       TablePtr^[State].Succ := ReadState;                                    50    96    41    88
+   149       (* Nachfolger ist bereits eingetragen *)
+   150     END;
+   151   END PutInDefaultList;                                                      88
+   152 
+   153   PROCEDURE ComputeDefaults;                                                  *
+   154 
+   155   (* Berechnung der variablen Defaultzustaende und entfernen, der dadurch
+c  156      in der Tabelle (Datenstruktur) ueberfluessigen Eintraege *)
+   157 
+   158   BEGIN
+   159     IF NoDefault THEN RETURN END;                                             *
+   160     ComputeBestDefaults;                                                      *
+   161     EliminateCycles;                                                          *
+   162   END ComputeDefaults;                                                      153
+   163 
+   164   PROCEDURE ComputeBestDefaults;                                              *
+   165 
+   166   (* Berechnug des besten Defaultzustandes ohne Ruecksicht auf Zyklen *)
+   167 
+   168   VAR
+   169     LastState : tStateIndex;                                                  *    19
+   170     State     : tStateIndex;                                                 96    19
+   171     DefState  : tStateIndex;                                                  *    19
+   172     DefSaving : SHORTCARD;                                                    *     *
+   173     backwards : BOOLEAN;                                                      *     *
+   174   BEGIN
+   175     LastState := NoState;                                                   169    27
+   176     State     := TablePtr^[LastState].Succ;                                 170    50   169    41
+   177     
+   178     WHILE State <> NoState DO                                               170    27
+   179       IF NOT IsEqual (TablePtr^[LastState].Terms, TablePtr^[State].Terms) THEN     23    50   169    40    50   170    40
+   180         LastState := State;                                                 169   170
+   181       END;
+   182 
+   183       (* Suche Defaultzustand *)
+   184 
+   185       DefState := LastState;                                                171   169
+   186       backwards := TRUE;                                                    173     *
+   187       LOOP
+   188         (* kein Default zu sich selbst *)
+   189         IF DefState = State THEN                                            171   170
+   190           DefState :=  TablePtr^[DefState].Succ;                            171    50   171    41
+   191           backwards := FALSE;                                               173     *
+   192         END;
+   193 
+   194         (* Listenende erreicht *)
+   195         IF DefState = NoState THEN EXIT; END;                               171    27
+   196 
+   197         (* keine Aussicht auf besseren Defaultzustand *)
+   198         IF Card (TablePtr^[DefState].Terms) <                                23    50   171    40
+   199            TablePtr^[State].Saving THEN EXIT; END;                           50   170    43
+   200 
+   201         DefSaving := ComputeSaving (State, DefState);                       172     *   170   171
+   202 
+   203         IF (DefSaving > 0) AND (DefSaving >= TablePtr^[State].Saving) THEN        172   172    50   170    43
+   204           TablePtr^[State].DefaultState := DefState;                         50   170    42   171
+   205           TablePtr^[State].Saving  := DefSaving;                             50   170    43   172
+   206           TablePtr^[State].ToTest  := backwards;                             50   170    45   173
+   207         END;
+   208 
+   209         DefState :=  TablePtr^[DefState].Succ;                              171    50   171    41
+   210       END;
+   211 
+   212       State     := TablePtr^[State].Succ;                                   170    50   170    41
+   213     END;
+   214 
+   215   END ComputeBestDefaults;                                                  164
+   216 
+   217   PROCEDURE ComputeSaving (State: tStateIndex; DefState: tStateIndex): SHORTCARD;         *   170    19   171    19     *
+   218   VAR
+   219     DefSaving : SHORTCARD;                                                  172     *
+   220     Trans, DefTrans : tTrans;                                                93     *    30
+   221   BEGIN
+   222     DefSaving := 0;                                                         219
+   223 
+   224     (* ist DefState als Defaultzustand brauchbar ? *)
+   225     IF IsSubset (TablePtr^[DefState].Terms, TablePtr^[State].Terms) THEN     23    50   217    40    50   217    40
+   226 
+   227       (* Berechne Einsparung *)
+   228       Trans := TablePtr^[State].Transitions;                                220    50   217    39
+   229       DefTrans := TablePtr^[DefState].Transitions;                          220    50   217    39
+   230 
+   231       WHILE (DefTrans <> NIL) AND (DefTrans^.Voc < LastTerminal) DO         220     *   220    95    21
+   232 
+   233         (* Zeichen, fuer die DefState keinen Eintrag hat,
+c  234            in State ueberlesen *)
+   235         WHILE Trans^.Voc <> DefTrans^.Voc DO                                220    95   220    95
+   236           Trans := Trans^.Next;                                             220   220    35
+   237         END;
+   238 
+   239         IF Trans^.State = DefTrans^.State THEN                              220   217   220   217
+   240           INC (DefSaving);                                                    *   219
+   241         END;
+   242 
+   243         DefTrans := DefTrans^.Next;                                         220   220    35
+   244         Trans := Trans^.Next;                                               220   220    35
+   245       END;
+   246     END;
+   247     RETURN DefSaving;                                                       219
+   248   END ComputeSaving;                                                        217
+   249 
+   250   PROCEDURE EliminateCycles;                                                  *
+   251   VAR
+   252     State       : tStateIndex;                                              217    19
+   253     WorstState  : tStateIndex;                                                *    19
+   254     WorstSaving : SHORTCARD;                                                  *     *
+   255     ActState    : tStateIndex;                                                *    19
+   256     FirstState  : tStateIndex;                                                *    19
+   257     DefState    : tStateIndex;                                              217    19
+   258     DefSaving   : SHORTCARD;                                                219     *
+   259   BEGIN
+   260 
+   261     (* Pruefe alle Zustaende *)
+   262 
+   263     State := GetNextState (NoState);                                        252     *    27
+   264     WHILE State <> NoState DO                                               252    27
+   265 
+   266       (* Zustand noch nicht geprueft *)
+   267 
+   268       IF TablePtr^[State].ToTest THEN                                        50   252    45
+   269         TablePtr^[State].ToTest := FALSE;                                    50   252    45     *
+   270         WorstSaving := TablePtr^[State].Saving;                             254    50   252    43
+   271         WorstState  := State;                                               253   252
+   272 
+   273         (* Pruefe ob Zyklus vorhanden *)
+   274 
+   275         TablePtr^[State].InTest := TRUE;                                     50   252    46     *
+   276         ActState := TablePtr^[State].DefaultState;                          255    50   252    42
+   277         WHILE (ActState <> NoState) AND NOT TablePtr^[ActState].InTest DO   255    27    50   255    46
+   278           TablePtr^[ActState].InTest := TRUE;                                50   255    46     *
+   279           ActState := TablePtr^[ActState].DefaultState;                     255    50   255    42
+   280         END;
+   281 
+   282         FirstState := ActState;                                             256   255
+   283 
+   284         (* Flags zuruecksetzen *)
+   285 
+   286         TablePtr^[State].InTest := FALSE;                                    50   252    46     *
+   287         ActState := TablePtr^[State].DefaultState;                          255    50   252    42
+   288         WHILE (ActState <> NoState) AND TablePtr^[ActState].InTest DO       255    27    50   255    46
+   289           TablePtr^[ActState].InTest := FALSE;                               50   255    46     *
+   290           ActState := TablePtr^[ActState].DefaultState;                     255    50   255    42
+   291         END;
+   292 
+   293         (* Falls Zyklus erkannt diesen aufbrechen *)
+   294 
+   295         IF FirstState = NoState THEN                                        256    27
+   296 
+   297           (* kein Zyklus - Zustand fortschalten *)
+   298           State := GetNextState (State);                                    252     *   252
+   299 
+   300         ELSE
+   301           WorstState  := FirstState;                                        253   256
+   302           WorstSaving := TablePtr^[WorstState].Saving;                      254    50   253    43
+   303 
+   304           ActState := TablePtr^[FirstState].DefaultState;                   255    50   256    42
+   305           WHILE ActState <> FirstState DO                                   255   256
+   306             IF TablePtr^[ActState].Saving < WorstSaving THEN                 50   255    43   254
+   307               WorstState  := ActState;                                      253   255
+   308               WorstSaving := TablePtr^[WorstState].Saving;                  254    50   253    43
+   309             END;
+   310             ActState := TablePtr^[ActState].DefaultState;                   255    50   255    42
+   311           END;
+   312 
+   313           (* Anfang fuer neu Defaultsuche festhalten *)
+   314 
+   315           DefState := TablePtr^[WorstState].DefaultState;                   257    50   253    42
+   316           DefState := TablePtr^[DefState].Succ;                             257    50   257    41
+   317 
+   318           TablePtr^[WorstState].DefaultState := NoState;                     50   253    42    27
+   319           TablePtr^[WorstState].Saving := 0;                                 50   253    43
+   320 
+   321 
+   322           (* Neuen Defaultzustand berechnen *)
+   323           
+   324           LOOP
+   325             (* kein Default zu sich selbst *)
+   326             IF DefState = WorstState THEN                                   257   253
+   327               DefState :=  TablePtr^[DefState].Succ;                        257    50   257    41
+   328             END;
+   329 
+   330             (* Listenende erreicht *)
+   331             IF DefState = NoState THEN EXIT; END;                           257    27
+   332 
+   333             (* keine Aussicht auf besseren Defaultzustand *)
+   334             IF Card (TablePtr^[DefState].Terms) <                            23    50   257    40
+   335                TablePtr^[WorstState].Saving THEN EXIT; END;                  50   253    43
+   336 
+   337             DefSaving := ComputeSaving (WorstState, DefState);              258   217   253   257
+   338 
+   339             IF (DefSaving > 0) AND (DefSaving >= TablePtr^[WorstState].Saving) THEN     258   258    50   253    43
+   340               TablePtr^[WorstState].DefaultState := DefState;                50   253    42   257
+   341               TablePtr^[WorstState].Saving  := DefSaving;                    50   253    43   258
+   342 
+   343             END;
+   344 
+   345             DefState :=  TablePtr^[DefState].Succ;                          257    50   257    41
+   346           END;
+   347 
+   348           IF TablePtr^[WorstState].DefaultState <> NoState THEN              50   253    42    27
+   349 
+   350             (* im naechsten Durchlauf noch einmal auf Zyklus pruefen *)
+   351             TablePtr^[State].ToTest  := TRUE;                                50   252    45     *
+   352 
+   353           END;
+   354         END;
+   355       ELSE
+   356         State := GetNextState (State);                                      252     *   252
+   357       END;
+   358     END;
+   359   END EliminateCycles;                                                      250
+   360 
+   361   PROCEDURE GetNextState (State: tStateIndex): tStateIndex;                   *   252    19    19
+   362   
+   363   (* Fortschalten des Zustandes nach festgelegter Strategie *)
+   364   (* Strategie : Zuerst Zustaende mit vielen Eintraegen *)
+   365 
+   366   BEGIN
+   367     RETURN TablePtr^[State].Succ;                                            50   361    41
+   368   END GetNextState;                                                         361
+   369 
+   370   PROCEDURE GetTSortState (State: tStateIndex): tStateIndex;                  *   361    19    19
+   371   
+   372   (* Fortschalten des Zustandes nach festgelegter Strategie *)
+   373   (* Strategie : Zuerst Zustaende mit vielen Eintraegen *)
+   374 
+   375   BEGIN
+   376     RETURN TSorting^[State];                                                 54   370
+   377   END GetTSortState;                                                        370
+   378 
+   379   PROCEDURE GetNSortState (State: tStateIndex): tStateIndex;                  *   370    19    19
+   380   
+   381   (* Fortschalten des Zustandes nach festgelegter Strategie *)
+   382   (* Strategie : Zuerst Zustaende mit vielen Eintraegen *)
+   383 
+   384   BEGIN
+   385     RETURN NSorting^[State];                                                 57   379
+   386   END GetNSortState;                                                        379
+   387 
+   388   PROCEDURE GetDefaultTableLine (ReadState: tStateIndex; VAR TableLine: tTableLine; \     *    88    19    88    21
+      \VAR Default: tStateIndex);                                                   17    19
+   389 
+   390   (* Auslesen der durch 'ReadState' bezeichneten Zeile aus der Datenstruktur *)
+   391 
+   392   VAR
+   393     Voc : Vocabulary;                                                        95    25
+   394     Trans : tTrans;                                                         220    30
+   395   BEGIN
+   396     FOR Voc := FirstSymbol TO LastSymbol DO                                 393    21    21
+   397       TableLine [Voc] := NoState;                                           388   393    27
+   398     END;
+   399     WITH TablePtr^[ReadState] DO                                             50   388
+   400       Default := DefaultState;                                              388    42
+   401       Trans := Transitions;                                                 394    39
+   402       WHILE Trans <> NIL DO                                                 394     *
+   403         TableLine [Trans^.Voc] := Trans^.State;                             388   394   393   394   379
+   404         Trans := Trans^.Next;                                               394   394    35
+   405       END;
+   406     END;
+   407 
+   408     (* Werte Default aus *)
+   409 
+   410     WITH TablePtr^[Default] DO                                               50   388
+   411       Trans := Transitions;                                                 394    39
+   412       WHILE (Trans <> NIL) AND (Trans^.Voc <= LastTerminal) DO              394     *   394   393    21
+   413         IF TableLine [Trans^.Voc] = Trans^.State THEN                       388   394   393   394   379
+   414           TableLine [Trans^.Voc] := NoState;                                388   394   393    27
+   415         END;
+   416         Trans := Trans^.Next;                                               394   394    35
+   417       END;
+   418     END;
+   419   END GetDefaultTableLine;                                                  388
+   420 
+   421   PROCEDURE SortTStates;                                                      *
+   422   VAR
+   423     sorted : BOOLEAN;                                                         *     *
+   424     I      : tStateIndex;                                                     *    19
+   425     State  : tStateIndex;                                                   379    19
+   426     Key, LastKey : SHORTCARD;                                                 *     *     *
+   427   BEGIN
+   428     LOOP
+   429       sorted := TRUE;                                                       423     *
+   430       State := TSorting^[1];                                                425    54
+   431       LastKey := Card (TablePtr^[State].Terms) - TablePtr^[State].Saving;   426    23    50   425    40    50   425    43
+   432       FOR I := 2 TO LastReadState DO                                        424    21
+   433         State := TSorting^[I];                                              425    54   424
+   434         Key := Card (TablePtr^[State].Terms) - TablePtr^[State].Saving;     426    23    50   425    40    50   425    43
+   435         IF LastKey < Key THEN                                               426   426
+   436           sorted := FALSE;                                                  423     *
+   437           TSorting^[I] := TSorting^ [I-1];                                   54   424    54   424
+   438           TSorting^[I-1] := State;                                           54   424   425
+   439         ELSE
+   440           LastKey := Key;                                                   426   426
+   441         END;
+   442       END;
+   443 
+   444       IF sorted THEN EXIT; END;                                             423
+   445 
+   446       sorted := TRUE;                                                       423     *
+   447       State := TSorting^[LastReadState];                                    425    54    21
+   448       LastKey := Card (TablePtr^[State].Terms) - TablePtr^[State].Saving;   426    23    50   425    40    50   425    43
+   449       FOR I := LastReadState - 1 TO 1 BY -1 DO                              424    21
+   450         State := TSorting^[I];                                              425    54   424
+   451         Key := Card (TablePtr^[State].Terms) - TablePtr^[State].Saving;     426    23    50   425    40    50   425    43
+   452         IF LastKey > Key THEN                                               426   426
+   453           sorted := FALSE;                                                  423     *
+   454           TSorting^[I] := TSorting^[I+1];                                    54   424    54   424
+   455           TSorting^[I+1] := State;                                           54   424   425
+   456         ELSE
+   457           LastKey := Key;                                                   426   426
+   458         END;
+   459       END;
+   460 
+   461       IF sorted THEN EXIT; END;                                             423
+   462     END;
+   463   END SortTStates;                                                          421
+   464 
+   465   PROCEDURE SortNStates;                                                      *
+   466   VAR
+   467     sorted : BOOLEAN;                                                       423     *
+   468     I      : tStateIndex;                                                   424    19
+   469     State  : tStateIndex;                                                   425    19
+   470     Key, LastKey : SHORTCARD;                                               426   426     *
+   471   BEGIN
+   472     LOOP
+   473       sorted := TRUE;                                                       467     *
+   474       State := NSorting^[1];                                                469    57
+   475       LastKey := TablePtr^[State].NontermCount;                             470    50   469    44
+   476       FOR I := 2 TO LastReadState DO                                        468    21
+   477         State := NSorting^[I];                                              469    57   468
+   478         Key := TablePtr^[State].NontermCount;                               470    50   469    44
+   479         IF LastKey < Key THEN                                               470   470
+   480           sorted := FALSE;                                                  467     *
+   481           NSorting^[I] := NSorting^[I-1];                                    57   468    57   468
+   482           NSorting^[I-1] := State;                                           57   468   469
+   483         ELSE
+   484           LastKey := Key;                                                   470   470
+   485         END;
+   486       END;
+   487 
+   488       IF sorted THEN EXIT; END;                                             467
+   489 
+   490       sorted := TRUE;                                                       467     *
+   491       State := NSorting^[LastReadState];                                    469    57    21
+   492       LastKey := TablePtr^[State].NontermCount;                             470    50   469    44
+   493       FOR I := LastReadState - 1 TO 1 BY -1 DO                              468    21
+   494         State := NSorting^[I];                                              469    57   468
+   495         Key := TablePtr^[State].NontermCount;                               470    50   469    44
+   496         IF LastKey > Key THEN                                               470   470
+   497           sorted := FALSE;                                                  467     *
+   498           NSorting^[I] := NSorting^[I+1];                                    57   468    57   468
+   499           NSorting^[I+1] := State;                                           57   468   469
+   500         ELSE
+   501           LastKey := Key;                                                   470   470
+   502         END;
+   503       END;
+   504 
+   505       IF sorted THEN EXIT; END;                                             467
+   506     END;
+   507   END SortNStates;                                                          465
+   508 
+   509 BEGIN
+   510   NoDefault := FALSE;                                                         *     *
+   511 END Default.                                                                388
+Cross reference: * is declaration, = is assignment
+
+-A-
+ ActState                       255*  276=  277   277   278   279=  279   282   287=  288   288   289   290=  290   304=  305   306 
+                                307   310=  310 
+ Alloc                           22*  104 
+ Automaton                       19*
+
+-B-
+ backwards                      173*  186=  191=  206 
+ BOOLEAN                         45    46    98   173   423   467 
+
+-C-
+ Card                            23*  120   127   128   198   334   431   434   448   451 
+ ComputeBestDefaults            160   164*  215 
+ ComputeDefaults                153*  162 
+ ComputeSaving                  201   217*  248   337 
+ Continue                        98*  131=  132   136=
+ CreateDefaultList               60*   86 
+
+-D-
+ Default                         17*  388*  400=  410   511 
+ DefaultState                    42*   77=  204=  276   279   287   290   304   310   315   318=  340=  348   400 
+ DefSaving                      172*  201=  203   203   205   219*  222=  240   247   258*  337=  339   339   341 
+ DefState                       171*  185=  189   190=  190   195   198   201   204   209=  209   217*  225   229   257*  315=  316=
+                                316   326   327=  327   331   334   337   340   345=  345 
+ DefTrans                       220*  229=  231   231   235   239   243=  243 
+ DynArray                        20*
+
+-E-
+ Elements                        97*  120=  127   128 
+ EliminateCycles                161   250*  359 
+
+-F-
+ FALSE                           81   136   191   269   286   289   436   453   480   497   510 
+ FirstState                     256*  282=  295   301   304   305 
+ FirstSymbol                     21*  102   396 
+ FirstTerminal                   21*  109 
+
+-G-
+ Gen                             21*
+ GetDefaultTableLine            388*  419 
+ GetNextState                   263   298   356   361*  368 
+ GetNSortState                  379*  386 
+ GetTSortState                  370*  377 
+
+-I-
+ I                              424*  432=  433   437   437   438   449=  450   454   454   455   468*  476=  477   481   481   482 
+                                493=  494   498   498   499 
+ IMPLEMENTATION                  17*
+ INC                            112   240 
+ Include                         23*  110 
+ InTest                          46*   81=  275=  277   278=  286=  288   289=
+ IsEqual                         23*  179 
+ IsSubset                        23*  225 
+
+-K-
+ Key                            426*  434=  435   440   451=  452   457   470*  478=  479   484   495=  496   501 
+
+-L-
+ LastKey                        426*  431=  435   440=  448=  452   457=  470*  475=  479   484=  492=  496   501=
+ LastReadState                   21*   66    68    70    72   432   447   449   476   491   493 
+ LastState                      169*  175=  176   179   180=  185 
+ LastSymbol                      21*  102   396 
+ LastTerminal                    21*   75   109   231   412 
+ LONGINT                         52    55    58 
+
+-M-
+ MakeArray                       20*   67    69    71 
+ MakeSet                         23*   75 
+ Memory                          22*
+
+-N-
+ Next                            35*  107=  138   139   236   243   244   404   416 
+ NIL                             74   101   132   132   231   402   412 
+ NoDefault                      159   510=
+ NontermCount                    44*   79=  112   475   478   492   495 
+ NoState                         27*   76    77   103   119   126   175   178   195   263   264   277   288   295   318   331   348 
+                                397   414 
+ NSorting                        57*   71    84=  385   474   477   481=  481   482=  491   494   498=  498   499=
+ NSortingSize                    58*   70=   71 
+
+-P-
+ PutInDefaultList                88*  151 
+
+-R-
+ ReadState                       88*  100   148   388*  399 
+
+-S-
+ Saving                          43*   78=  199   203   205=  270   302   306   308   319=  335   339   341=  431   434   448   451 
+ Sets                            23*
+ SHORTCARD                       43    44    97   172   217   219   254   258   426   470 
+ sorted                         423*  429=  436=  444   446=  453=  461   467*  473=  480=  488   490=  497=  505 
+ SortNStates                    465*  507 
+ SortTStates                    421*  463 
+ State                           34*   64*   72=   73    83    83    84    84    96*  106=  119=  125   142=  148   170*  176=  178 
+                                179   180   189   199   201   203   204   205   206   212=  212   217*  225   228   239   239   252*
+                                263=  264   268   269   270   271   275   276   286   287   298=  298   351   356=  356   361*  367 
+                                370*  376   379*  385   403   413   425*  430=  431   431   433=  434   434   438   447=  448   448 
+                                450=  451   451   455   469*  474=  475   477=  478   482   491=  492   494=  495   499 
+ Succ                            41*   76=  125=  125   126   127   128   130   142   148=  176   190   209   212   316   327   345 
+                                367 
+ SYSTEM                          24*
+
+-T-
+ TableLine                       88*  103   106   388*  397=  403=  413   414=
+ TablePtr                        50*   67    73   100   125   127   128   130   148=  176   179   179   190   198   199   203   204=
+                                205=  206=  209   212   225   225   228   229   268   269=  270   275=  276   277   278=  279   286=
+                                287   288   289=  290   302   304   306   308   310   315   316   318=  319=  327   334   335   339 
+                                340=  341=  345   348   351=  367   399   410   431   431   434   434   448   448   451   451   475 
+                                478   492   495 
+ TableSize                       52*   66=   67 
+ Terms                           40*   75   110   120   127   128   179   179   198   225   225   334   431   434   448   451 
+ tLine                           38*   50    67 
+ TokenTab                        25*
+ ToTest                          45*   80=  206=  268   269=  351=
+ Trans                           93*  104=  105=  106=  107=  108   129=  132   133   135   138=  138   220*  228=  235   236=  236 
+                                239   244=  244   394*  401=  402   403   403   404=  404   411=  412   412   413   413   414   416=
+                                416 
+ Transitions                     39*   74=  101=  107   108=  129   130   228   229   401   411 
+ TransSucc                       94*  130=  132   133   135   139=  139 
+ TRUE                            80   131   186   275   278   351   429   446   473   490 
+ tSet                            23*   40 
+ TSIZE                           24*   67    69    71   104 
+ TSorting                        54*   69    83=  376   430   433   437=  437   438=  447   450   454=  454   455=
+ TSortingSize                    55*   68=   69 
+ tStateIndex                     19*   34    41    42    50    54    54    57    57    64    69    71    88    96   169   170   171 
+                                217   217   252   253   255   256   257   361   361   370   370   379   379   388   388   424   425 
+                                468   469 
+ tTableLine                      21*   88   388 
+ tTran                           30    32*  104 
+ tTrans                          30*   35    39    93    94   220   394 
+
+-V-
+ Voc                             33*   95*  102=  103   105=  105   106   109   109   110   133   133   135   135   231   235   235 
+                                393*  396=  397   403   412   413   414 
+ Vocabulary                      25*   33    95   393 
+
+-W-
+ WorstSaving                    254*  270=  302=  306   308=
+ WorstState                     253*  271=  301=  302   307=  308   315   318   319   326   335   337   339   340   341   348 
+
+end cross reference, 779 occurrences of 86 identifiers.

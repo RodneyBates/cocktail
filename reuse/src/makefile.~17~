@@ -1,0 +1,64 @@
+#
+# Makefile for reuse/src
+# RMB 93/10/19 and earlier. 
+#     Modified for installation on local system
+#     Modified to support WRL compilation.
+#     Modified to support mocka_m2c compilation
+#
+TARGET	= SUN
+MC      = mocka_m2c
+OPT	= -O
+UNIX	= UNIX
+CFLAGS	= $(OPT) -D$(UNIX)
+CC	= cc
+BIN     = $(INSTALLGMD)/bin
+LIB     = $(INSTALLGMD)/lib 
+
+
+DEFS    = $(INSTALLGMD)/defs/gmd
+
+MODULAGENS    = 
+GENS    = 
+EXE     = Main
+MAKEINCLUDE = /usr/local/include
+MOCKAFLAGS = -index -range -noS -g -blip
+
+include $(MAKEINCLUDE)/makefilesrc.include
+
+defs :
+	for file in `ls *.md`; do mc -s `basename $$file .md` $(MOCKAFLAGS); done
+
+test : test_$(MC)
+
+install_modula:
+
+install_mocka: build_mocka_d
+	for file in `ls *.d`; do cp -p $$file $(DEFS); chmod a+r $(DEFS)/$$file; done
+
+build_mocka_d :
+	echo p force | mc $(MOCKAFLAGS)
+
+test_mocka:	System.o
+	echo p DynArrDrv| mc
+	echo p IODrv	| mc
+	echo p MemoryDrv| mc
+	echo p RelDrv	| mc
+	echo p SetsDrv	| mc
+	echo p SysIODrv	| mc
+
+lint:
+	lint -u *.c
+
+CLEAN:	clean
+	rm -f *.[dimor] *.sym *.def *.mod
+
+clean:
+	rm -f *Drv.[dimor] *Drv.sym *Drv Main.[dimor] Main t *.bak
+
+.c.o:
+	$(CC) $(CFLAGS) -c $*.c;
+
+
+
+
+

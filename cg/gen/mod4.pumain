@@ -1,0 +1,695 @@
+/* Ich, Doktor Josef Grosch, Informatiker, 19.6.1990 */
+
+TRAFO EvalMod2
+TREE Tree
+PUBLIC EvalImplMod
+
+GLOBAL {
+
+FROM SYSTEM	IMPORT ADR;
+FROM IO		IMPORT WriteS, WriteNl, WriteI, StdOutput;
+FROM StringMem	IMPORT WriteString;
+FROM Idents	IMPORT tIdent;
+FROM Texts	IMPORT WriteText;
+FROM Sets	IMPORT tSet, MakeSet, ReleaseSet, Include, Minimum, IsElement, WriteSet;
+FROM Relations	IMPORT IsRelated;
+FROM TreeMod2	IMPORT WriteLine;
+FROM EvalMod	IMPORT EvalImplHead;
+
+FROM Tree	IMPORT
+   NoTree	, tTree		, Referenced	, NoCodeClass	,
+   Computed	, Reverse	, Write		, Read		,
+   Inherited	, Synthesized	, Input		, Output	,
+   Stack	, Parameter	, Variable	,
+   CopyDef	, CopyUse	, Thread	, Virtual	,
+   Test		, Left		, Right		,
+   NonBaseComp	, First		, Dummy		, Trace		,
+   Demand	, Funct		, NoClass	, Options	,
+   TreeRoot	, iModule	, iMain		, itTree	,
+   ForallClasses, ForallAttributes, f		, WI	, WN	,
+   IdentifyAttribute, GrammarClass, cOAG	, MaxVisit	,
+   WriteInstance;
+
+VAR
+   Count, Start, Stop, Visit, ChildVisit, i, j, k	: SHORTCARD;
+   Node, Attr, Class, AttrClass, Child, Child2, ChildsClass	: tTree;
+
+PROCEDURE Representative (i: CARDINAL): CARDINAL;	(* Class	*)
+   VAR
+      s		: tSet;
+      r		: CARDINAL;
+      Stable	: BOOLEAN;
+      j, k	: CARDINAL;
+   BEGIN
+      WITH Class^.Class DO
+	 MakeSet (s, InstCount);
+	 Include (s, i);
+	 REPEAT
+	    Stable := TRUE;
+	    FOR j := 1 TO InstCount DO
+	       IF IsElement (j, s) THEN
+		  IF CopyDef IN Instance^[j].Properties THEN
+		     k := Instance^[j].CopyArg;
+		     IF (Parameter IN Instance^[k].Attribute^.Attribute.Properties) AND
+			NOT IsElement (k, s) THEN
+			Include (s, k);
+			Stable := FALSE;
+		     END;
+		  END;
+		  IF CopyUse IN Instance^[j].Properties THEN
+		     FOR k := 1 TO InstCount DO
+			IF (CopyDef IN Instance^[k].Properties) AND
+			   (Parameter IN Instance^[k].Attribute^.Attribute.Properties) AND
+			   (Instance^[k].CopyArg = j) AND
+			   NOT IsElement (k, s) THEN
+			   Include (s, k);
+			   Stable := FALSE;
+			END;
+		     END;
+		  END;
+	       END;
+	    END;
+	 UNTIL Stable;
+	 r := Minimum (s);
+	 IF r <= AttrCount THEN
+	    Stable := TRUE;
+	    j := r + 1;
+	    LOOP
+	       IF j > AttrCount THEN EXIT; END;
+	       IF IsElement (j, s) THEN Stable := FALSE; EXIT; END;
+	       INC (j);
+	    END;
+	    IF NOT Stable THEN
+	       j := 1;
+	       LOOP
+		  k := Instance^ [j].Order;
+		  IF (k <= AttrCount) AND IsElement (k, s) THEN r := k; EXIT; END;
+		  INC (j);
+	       END;
+	    END;
+	 END;
+	 ReleaseSet (s);
+	 RETURN r;
+      END;
+   END Representative;
+
+PROCEDURE GenAttribute (i: CARDINAL; repr: BOOLEAN);	(* Class = subtype, Node = current type, k	*)
+   BEGIN
+      IF repr THEN
+	 WITH Class^.Class.Instance^[i] DO
+	    IF (Parameter IN Attribute^.Attribute.Properties) AND
+	       (({CopyDef, CopyUse} * Properties) # {}) THEN
+	       i := Representative (i);
+	    END;
+	 END;
+      END;
+      WITH Class^.Class.Instance^[i] DO
+	 IF Virtual IN Properties THEN RETURN; END;
+	 IF Left IN Properties THEN					(* left		*)
+	    WITH Attribute^.Attribute DO
+	       IF Parameter IN Properties THEN
+		  IF IdentifyAttribute (Node, Name) = NoTree THEN
+		     WI (Class^.Class.Name); WriteS (f, "yy"); WI (Name);		(* local	*)
+		  ELSE
+		     WriteS (f, "yy"); WI (Name);					(* param	*)
+		  END;
+	       ELSIF Demand IN Properties THEN				(* demand	*)
+		  IF Funct IN Properties THEN
+		     AttrClass := GetClass (Class, Name);		(* function	*)
+		     WriteS (f, "y"); WI (AttrClass^.Class.Name); WriteS (f, "y"); WI (Name); WriteS (f, " (yyt)"); 
+		  ELSIF i # k THEN
+		     WI (Class^.Class.Name); WriteS (f, "yy"); WI (Name);		(* local	*)
+		  ELSE
+		     WriteS (f, "yy"); WI (Name);					(* param	*)
+		  END;
+	       ELSE							(* tree		*)
+		  WriteS (f, "yyt^."); WI (Class^.Class.Name); WriteS (f, "."); WI (Name);
+	       END;
+	    END;
+	 ELSE								(* right	*)
+	    WITH Attribute^.Attribute DO
+	       IF Parameter IN Properties THEN				(* param	*)
+		  WI (Class^.Class.Name); WriteS (f, "y"); WI (Selector^.Child.Name); WriteS (f, "y"); WI (Name);
+	       ELSIF Demand IN Properties THEN				(* demand	*)
+		  IF Funct IN Properties THEN				(* function	*)
+		     AttrClass := GetClass (Selector^.Child.Class, Name);
+		     WriteS (f, "y"); WI (AttrClass^.Class.Name); WriteS (f, "y"); WI (Name);
+		     WriteS (f, " (yyt^."); WI (Class^.Class.Name); WriteS (f, "."); WI (Selector^.Child.Name); WriteS (f, ")"); 
+		  ELSE
+		     WI (Class^.Class.Name); WriteS (f, "y"); WI (Selector^.Child.Name); WriteS (f, "y"); WI (Name);
+		  END;
+	       ELSE							(* tree		*)
+		  WriteS (f, "yyt^."); WI (Class^.Class.Name); WriteS (f, "."); WI (Selector^.Child.Name);
+		  WriteS (f, "^."); WI (Selector^.Child.Type); WriteS (f, "."); WI (Name);
+	       END;
+	    END;
+	 END;
+      END;
+   END GenAttribute;
+
+PROCEDURE GetClass (Class: tTree; Attribute: tIdent): tTree;
+   BEGIN
+      WHILE Class^.Kind # NoClass DO
+	 IF IdentifyAttribute (Class^.Class.Attributes, Attribute) # NoTree THEN RETURN Class; END;
+	 Class := Class^.Class.BaseClass;
+      END;
+      RETURN NoTree;
+   END GetClass;
+
+PROCEDURE CheckUsage (Usage: BITSET): BOOLEAN;	(* Class, Child, Start, Stop	*)
+   VAR i, i2: SHORTCARD;
+   BEGIN
+      FOR i := Start TO Stop DO
+	 i2 := Class^.Class.Instance^ [i].Order;
+	 WITH Class^.Class.Instance^ [i2] DO
+	    IF ({Synthesized, Right, First} <= Properties) AND
+	       (Child = Selector) AND
+	       (Attribute^.Child.Partition <= Selector^.Child.Class^.Class.Visits) AND
+	       (Attribute^.Child.Partition IN Usage) THEN
+	       RETURN TRUE;
+	    END;
+	    IF ({Inherited, Right} <= Properties) AND (i2 = j) THEN
+	       RETURN TRUE;
+	    END;
+	 END;
+      END;
+      RETURN FALSE;
+   END CheckUsage;
+}
+
+BEGIN	{ k := 0; }
+
+PROCEDURE EvalImplMod (t: Tree)
+	
+Ag (..) :- {
+	EvalImplHead (t);
+      IF NOT IsElement (ORD ('9'), Options) THEN
+	WriteNl (f);
+	WriteS (f, "PROCEDURE Eval (yyt: "); WI (iMain); WriteS (f, "."); WI (itTree); WriteS (f, ");"); WriteNl (f);
+	WriteS (f, " VAR"); WriteNl (f);
+	Node := Classes;
+	Class := Classes;
+	ForallAttributes (Class, GenTemposLocal);
+	WriteS (f, " BEGIN"); 
+	IF MaxVisit > 0 THEN
+	   Class := Classes;
+	   Visit := 1;
+	   WriteS (f, " yyVisit1"); WI (Class^.Class.Name); WriteS (f, " (yyt"); 
+	   ForallAttributes (Class, GenActualsLeft);
+	   WriteS (f, ");"); 
+	END;
+	WriteS (f, " END Eval;"); WriteNl (f);
+      ELSE
+	WriteNl (f);
+	WriteS (f, "VAR xxStack: CARDINAL;"); WriteNl (f);
+	WriteNl (f);
+	WriteS (f, "PROCEDURE Eval (yyt: "); WI (iMain); WriteS (f, "."); WI (itTree); WriteS (f, ");"); WriteNl (f);
+	WriteS (f, " VAR xxHigh: BOOLEAN;"); WriteNl (f);
+	Node := Classes;
+	Class := Classes;
+	ForallAttributes (Class, GenTemposLocal);
+	WriteS (f, "BEGIN "); WriteNl (f);
+	WriteS (f, " xxStack := MAX (INTEGER);"); WriteNl (f);
+	IF MaxVisit > 0 THEN
+	   Class := Classes;
+	   Visit := 1;
+	   WriteS (f, " yyVisit1"); WI (Class^.Class.Name); WriteS (f, " (yyt"); 
+	   ForallAttributes (Class, GenActualsLeft);
+	   WriteS (f, ");"); 
+	END; WriteNl (f);
+	WriteS (f, " IO.WriteS (IO.StdOutput, 'Stacksize ');"); WriteNl (f);
+	WriteS (f, " IO.WriteI (IO.StdOutput, CARDINAL (SYSTEM.ADR (xxHigh)) - xxStack, 0);"); WriteNl (f);
+	WriteS (f, " IO.WriteNl (IO.StdOutput);"); WriteNl (f);
+	WriteS (f, "END Eval;"); WriteNl (f);
+      END;
+	WriteNl (f);
+	ForallClasses (Classes, GenDemandProc);
+	ForallClasses (Classes, EvalImplMod);
+	WriteS (f, "PROCEDURE Begin"); WI (EvalName); WriteS (f, ";"); WriteNl (f);
+	WriteS (f, " BEGIN"); WriteNl (f);
+	WriteLine (EvalCodes^.Codes.BeginLine);
+	WriteText (f, EvalCodes^.Codes.Begin);
+	Node := Modules;
+	WHILE Node^.Kind = Tree.Module DO
+	   WriteLine (Node^.Module.EvalCodes^.Codes.BeginLine);
+	   WriteText (f, Node^.Module.EvalCodes^.Codes.Begin);
+	   Node := Node^.Module.Next;
+	END;
+	WriteS (f, " END Begin"); WI (EvalName); WriteS (f, ";"); WriteNl (f);
+	WriteNl (f);
+	WriteS (f, "PROCEDURE Close"); WI (EvalName); WriteS (f, ";"); WriteNl (f);
+	WriteS (f, " BEGIN"); WriteNl (f);
+	WriteLine (EvalCodes^.Codes.CloseLine);
+	WriteText (f, EvalCodes^.Codes.Close);
+	Node := Modules;
+	WHILE Node^.Kind = Tree.Module DO
+	   WriteLine (Node^.Module.EvalCodes^.Codes.CloseLine);
+	   WriteText (f, Node^.Module.EvalCodes^.Codes.Close);
+	   Node := Node^.Module.Next;
+	END;
+	WriteS (f, " END Close"); WI (EvalName); WriteS (f, ";"); WriteNl (f);
+	WriteNl (f);
+	WriteS (f, "BEGIN"); WriteNl (f);
+      IF IsElement (ORD ('X'), Options) THEN
+	WriteS (f, " yyf := IO.StdOutput;"); WriteNl (f);
+      END;
+	WriteS (f, "END "); WI (EvalName); WriteS (f, "."); WriteNl (f);
+}; .
+Class (..) :- {
+	IF (NoCodeClass * Properties) # {} THEN RETURN; END;
+	IF Referenced IN Properties THEN
+	   Generated := 0;
+	   ForallClasses (Extensions, Generated0);
+	   FOR Visit := 1 TO Visits DO
+	      WriteS (f, "PROCEDURE yyVisit"); WN (Visit); WI (Name); WriteS (f, " (yyt: "); WI (iMain); WriteS (f, "."); WI (itTree);
+	      Node := t;
+	      Class := t;
+	      ForallAttributes (t, GenFormals);
+	      WriteS (f, ");"); WriteNl (f);
+	      WriteS (f, " VAR yyTempo: RECORD CASE : INTEGER OF"); WriteNl (f);
+	      Node := t;
+	      GenTempos (t);
+	      ForallClasses (Extensions, GenTempos);
+	      WriteS (f, " END; END;"); WriteNl (f);
+	      WriteLine (TreeRoot^.Ag.EvalCodes^.Codes.LocalLine);
+	      WriteText (f, TreeRoot^.Ag.EvalCodes^.Codes.Local);
+	      Node := TreeRoot^.Ag.Modules;
+	      WHILE Node^.Kind = Tree.Module DO
+		 WriteLine (Node^.Module.EvalCodes^.Codes.LocalLine);
+		 WriteText (f, Node^.Module.EvalCodes^.Codes.Local);
+		 Node := Node^.Module.Next;
+	      END;
+      IF IsElement (ORD ('9'), Options) THEN
+	      WriteS (f, " VAR xxLow: BOOLEAN;"); WriteNl (f);
+	      WriteS (f, " BEGIN"); WriteNl (f);
+	      WriteS (f, "  xxStack := General.Min (xxStack, CARDINAL (SYSTEM.ADR (xxLow)));"); WriteNl (f);
+      ELSE
+	      WriteS (f, " BEGIN"); WriteNl (f);
+      END;
+	      WriteS (f, "  WITH yyTempo DO"); WriteNl (f);
+	      WriteS (f, "   CASE yyt^.Kind OF"); WriteNl (f);
+	      IF cOAG IN GrammarClass THEN		(* generate evaluator	*)
+		 Node := t;
+		 GenEvaluator (t);
+		 ForallClasses (Extensions, GenEvaluator);
+	      END;
+	      WriteS (f, "   ELSE"); WriteNl (f);
+      IF IsElement (ORD ('Z'), Options) THEN
+	      WriteS (f, "    yyVisitParent (yyt);"); WriteNl (f);
+      END;
+	      WriteS (f, "   END;"); WriteNl (f);
+	      WriteS (f, "  END;"); WriteNl (f);
+	      WriteS (f, " END yyVisit"); WN (Visit); WI (Name); WriteS (f, ";"); WriteNl (f);
+	      WriteNl (f);
+	   END;
+	END;
+}; .
+
+
+PROCEDURE WriteType (t: Tree)
+
+Class (..) :- {
+	IF (NoCodeClass * Properties) # {} THEN RETURN; END;
+	IF Trace IN Properties THEN
+	   WriteS (f, "| "); WI (iMain); WriteS (f, "."); WI (Name); WriteS (f, ": yyWriteS ('"); WI (Name); WriteS (f, "');"); WriteNl (f);
+	END;
+}; .
+
+
+PROCEDURE GenEvaluator	/* Node, Class (sometimes)	*/ (t: Tree)
+
+Class (..) :- {
+	IF (NoCodeClass * Properties) # {} THEN RETURN; END;
+	IF (Generated = InstCount) THEN RETURN; END;
+	WriteS (f, "| "); WI (iMain); WriteS (f, "."); WI (Name); WriteS (f, ":"); WriteNl (f);
+
+	Start := Generated + 1;
+	LOOP
+	   IF Generated = InstCount THEN EXIT; END;
+	   INC (Generated);
+	   WITH Instance^ [Instance^ [Generated].Order] DO
+	      IF (Left IN Properties) AND (Attribute^.Child.Partition > Visit) THEN
+	         DEC (Generated); EXIT;
+	      END;
+	   END;
+	END;
+	Stop := Generated;
+
+	Class := t;
+
+	FOR Start := Start TO Stop DO
+	   i := Instance^ [Start].Order;
+	   WITH Instance^ [i] DO
+	      IF ({Inherited, Right, First} <= Properties) AND ({Dummy, Virtual, Demand} * Properties = {}) THEN
+		 GenDemandEval (t);
+      IF IsElement (ORD ('X'), Options) AND (Trace IN t^.Class.Properties) THEN
+		 WriteS (f, "yyWriteEval (yyt, '"); WI (Selector^.Child.Name); WriteS (f, ":"); WI (Attribute^.Child.Name); WriteS (f, "');"); WriteNl (f);
+		 IF Action # ADR (Action) THEN GenEvaluator (Action); END; WriteNl (f);
+		 IF (Attribute^.Kind = Tree.Child) OR (Attribute^.Attribute.Type = itTree) THEN
+		    WriteS (f, "write"); WI (itTree); WriteS (f, " ("); GenAttribute (i, TRUE); WriteS (f, ")"); WriteNl (f);
+		 ELSE
+		    WriteS (f, "write"); WI (Attribute^.Child.Type); WriteS (f, " ("); GenAttribute (i, TRUE); WriteS (f, ") yyWriteNl;"); WriteNl (f);
+		 END;
+      ELSIF IsElement (ORD ('Y'), Options) AND (Trace IN t^.Class.Properties) THEN
+		 WriteS (f, "yyWriteEval (yyt, '"); WI (Selector^.Child.Name); WriteS (f, ":"); WI (Attribute^.Child.Name); WriteS (f, "');"); WriteNl (f);
+		 IF Action # ADR (Action) THEN GenEvaluator (Action); END;
+      ELSE
+		 IF Action # ADR (Action) THEN GenEvaluator (Action); END;
+      END;
+	      END;
+	      IF ({Synthesized, Left, First} <= Properties) AND ({Dummy, Virtual, Demand} * Properties = {}) THEN
+		 GenDemandEval (t);
+      IF IsElement (ORD ('X'), Options) AND (Trace IN t^.Class.Properties) THEN
+		 WriteS (f, "yyWriteEval (yyt, '"); WI (Attribute^.Child.Name); WriteS (f, "');"); WriteNl (f);
+		 IF Action # ADR (Action) THEN GenEvaluator (Action); END; WriteNl (f);
+		 IF Test IN Properties THEN
+		    WriteS (f, "writeBOOLEAN (yyb) yyWriteNl;"); WriteNl (f);
+		 ELSIF (Attribute^.Kind = Tree.Child) OR (Attribute^.Attribute.Type = itTree) THEN
+		    WriteS (f, "write"); WI (itTree); WriteS (f, " ("); GenAttribute (i, TRUE); WriteS (f, ")"); WriteNl (f);
+		 ELSE
+		    WriteS (f, "write"); WI (Attribute^.Child.Type); WriteS (f, " ("); GenAttribute (i, TRUE); WriteS (f, ") yyWriteNl;"); WriteNl (f);
+		 END;
+      ELSIF IsElement (ORD ('Y'), Options) AND (Trace IN t^.Class.Properties) THEN
+		 WriteS (f, "yyWriteEval (yyt, '"); WI (Attribute^.Child.Name); WriteS (f, "');"); WriteNl (f);
+		 IF Action # ADR (Action) THEN GenEvaluator (Action); END;
+      ELSE
+		 IF Action # ADR (Action) THEN GenEvaluator (Action); END;
+      END;
+	      END;
+	      IF ({Synthesized, Right, First} <= Properties) AND
+		 (Attribute^.Child.Partition <= Selector^.Child.Class^.Class.Visits) THEN
+      IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+		 WriteS (f, "yyWriteVisit (yyt, '"); WI (Selector^.Child.Name); WriteS (f, " "); 
+		 WN (Attribute^.Child.Partition); WriteS (f, "');"); WriteNl (f);
+      END;
+		 ChildVisit := Attribute^.Child.Partition;
+		 Child := Selector;
+		 WriteS (f, "yyVisit"); WN (ChildVisit); WI (Child^.Child.Type);
+		 WriteS (f, " (yyt^."); WI (Name); WriteS (f, "."); WI (Child^.Child.Name);
+		 ForallAttributes (Child^.Child.Class, GenActualsRight);
+		 WriteS (f, ");"); WriteNl (f);
+	      END;
+	   END;
+	END;
+      IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+	WriteS (f, "yyVisitParent (yyt);"); WriteNl (f);
+      END;
+}; .
+Assign (..) :- {
+	WriteLine (Pos);
+	GenEvaluator (Results); WriteS (f, ":="); GenEvaluator (Arguments); WriteS (f, ";"); WriteNl (f);
+}; .
+Copy (..) :- {
+	j := Class^.Class.Instance^[i].CopyArg;
+	IF (Parameter IN Class^.Class.Instance^[i].Attribute^.Attribute.Properties) AND
+	   (Parameter IN Class^.Class.Instance^[j].Attribute^.Attribute.Properties) THEN
+	   IF (Left IN Class^.Class.Instance^[i].Properties) AND
+	      (Left IN Class^.Class.Instance^[j].Properties) THEN
+
+	      WriteLine (Pos);
+	      GenAttribute (i, FALSE); WriteS (f, " :="); GenEvaluator (Arguments); WriteS (f, ";"); WriteNl (f);
+	   END;
+	ELSE
+	   WriteLine (Pos);
+	   GenEvaluator (Results); WriteS (f, ":="); GenEvaluator (Arguments); WriteS (f, ";"); WriteNl (f);
+	END;
+}; .
+TargetCode (..) :- {
+	WriteLine (Pos);
+	GenEvaluator (Code); WriteNl (f);
+}; .
+Check (..) :- {
+	WriteLine (Pos);
+	IF Condition # NoTree THEN
+      IF IsElement (ORD ('X'), Options) THEN
+	   WriteS (f, "yyb := "); GenEvaluator (Condition); WriteS (f, "; IF NOT yyb THEN "); 
+      ELSE
+	   WriteS (f, "IF NOT ("); GenEvaluator (Condition); WriteS (f, ") THEN "); 
+      END;
+	   GenEvaluator (Statement); WriteNl (f);
+	   IF Actions^.Kind = Tree.Check THEN
+	      WriteS (f, "ELSE "); GenEvaluator (Actions);
+	   END;
+	   WriteS (f, " END;"); WriteNl (f);
+	ELSE
+      IF IsElement (ORD ('X'), Options) THEN
+	   WriteS (f, "yyb := FALSE; "); 
+      END;
+	   GenEvaluator (Statement); WriteS (f, ";"); WriteNl (f);
+	   GenEvaluator (Actions);
+	END;
+}; .
+Designator (..) :- {
+	Child2 := IdentifyAttribute (Class, Selector);
+	IF Child2 # NoTree THEN
+	   ChildsClass := Child2^.Child.Class;
+	   Attr := IdentifyAttribute (ChildsClass, Attribute);
+	   IF Attr # NoTree THEN
+	      GenAttribute (Class^.Class.AttrCount + Child2^.Child.InstOffset + Attr^.Attribute.AttrIndex, TRUE);
+	   ELSE
+	      WI (Selector); WriteS (f, ":"); WI (Attribute);
+	   END;
+	ELSE
+	   WI (Selector); WriteS (f, ":"); WI (Attribute);
+	END;
+	GenEvaluator (Next);
+}; .
+Ident (..) :- {
+	Attr := IdentifyAttribute (Class, Attribute);
+	IF Attr # NoTree THEN
+	   GenAttribute (Attr^.Attribute.AttrIndex, TRUE);
+	ELSE
+	   WI (Attribute);
+	END;
+	GenEvaluator (Next);
+}; .
+Any (..) :- {
+	WriteString (f, Code);
+	GenEvaluator (Next);
+}; .
+Anys (..) :- {
+	GenEvaluator (Layouts);
+	GenEvaluator (Next);
+}; .
+LayoutAny (..) :- {
+	WriteString (f, Code);
+	GenEvaluator (Next);
+}; .
+
+
+PROCEDURE Generated0 (t: Tree)
+
+Class (..) :- {
+	Generated := 0;
+}; .
+
+
+PROCEDURE GenFormals	/* Node, Class, Visit	*/ (t: Tree)
+
+Attribute (..) :- {
+	IF (Parameter IN Properties) AND (Visit IN Usage) THEN
+	   WriteS (f, "; VAR "); GenAttribute (AttrIndex, FALSE); WriteS (f, ": "); WI (Type);
+	END;
+}; .
+
+
+PROCEDURE GenActualsRight	/* Node = current type, Class = subtype, Child, ChildVisit	*/ (t: Tree)
+
+Attribute (..) :- {
+	IF (Parameter IN Properties) AND (ChildVisit IN Usage) THEN
+	   WriteS (f, ", "); GenAttribute (Class^.Class.AttrCount + Child^.Child.InstOffset + AttrIndex, TRUE);
+	END;
+}; .
+
+
+PROCEDURE GenActualsLeft	/* Node = current type, Class = subtype, Visit	*/ (t: Tree)
+
+Attribute (..) :- {
+	IF (Parameter IN Properties) AND (Visit IN Usage) THEN
+	   WriteS (f, ", "); GenAttribute (AttrIndex, FALSE);
+	END;
+}; .
+
+
+PROCEDURE GenTempos	/* Node, Class (sometimes), Visit, k	*/ (t: Tree)
+
+Class (..) :- {
+	IF (NoCodeClass * Properties) # {} THEN RETURN; END;
+	Start := Generated + 1;
+	LOOP
+	   IF Generated = InstCount THEN EXIT; END;
+	   INC (Generated);
+	   WITH Instance^ [Instance^ [Generated].Order] DO
+	      IF (Left IN Properties) AND (Attribute^.Child.Partition > Visit) THEN
+	         DEC (Generated); EXIT;
+	      END;
+	   END;
+	END;
+	Stop := Generated;
+	Generated := Start - 1;
+
+	Count := 0;
+	Class := t;
+	ForallAttributes (t, CountTempos);
+	IF Count > 0 THEN
+	   WriteS (f, " | "); WI (iMain); WriteS (f, "."); WI (Name); WriteS (f, ":"); WriteNl (f);
+	   Class := t;
+	   ForallAttributes (t, GenTempos);
+	END;
+}; .
+Child (..) :- {
+	Child := t;
+	ForallAttributes (Class, GenTemposChildren);
+}; .
+Attribute (..) :- {
+	IF (Parameter IN Properties) AND (IdentifyAttribute (Node, Name) = NoTree) AND (Visit IN Usage) OR
+	   (Demand IN Properties) AND NOT (Funct IN Properties) AND (AttrIndex # k) THEN
+	   WriteS (f, "  "); GenAttribute (AttrIndex, FALSE); WriteS (f, ": "); WI (Type); WriteS (f, ";"); WriteNl (f);
+	END;
+}; .
+
+
+PROCEDURE GenTemposChildren	/* Node, Class, Child	*/ (t: Tree)
+
+Attribute (..) :- {
+	IF (Parameter IN Properties) OR
+	   (Demand IN Properties) AND NOT (Funct IN Properties) THEN
+	   j := Class^.Class.AttrCount + Child^.Child.InstOffset + AttrIndex;
+	   IF (Demand IN Properties) OR
+	      (({CopyDef, CopyUse} * Class^.Class.Instance^[j].Properties) = {}) OR
+	      (j = Representative (j)) THEN
+	      IF CheckUsage (Usage) THEN
+		 WriteS (f, "  "); GenAttribute (j, FALSE); WriteS (f, ": "); WI (Type); WriteS (f, ";"); WriteNl (f);
+	      END;
+	   END;
+	END;
+}; .
+
+
+PROCEDURE CountTempos	/* Node, Class (sometimes), Visit, k	*/ (t: Tree)
+
+Child (..) :- {
+	Child := t;
+	ForallAttributes (Class, CountTemposChildren);
+}; .
+Attribute (..) :- {
+	IF (Parameter IN Properties) AND (IdentifyAttribute (Node, Name) = NoTree) AND (Visit IN Usage) OR
+	   (Demand IN Properties) AND NOT (Funct IN Properties) AND (AttrIndex # k) THEN
+	   INC (Count);
+	END;
+}; .
+
+
+PROCEDURE CountTemposChildren	/* Node, Class, Child	*/ (t: Tree)
+
+Attribute (..) :- {
+	IF (Parameter IN Properties) OR
+	   (Demand IN Properties) AND NOT (Funct IN Properties) THEN
+	   j := Class^.Class.AttrCount + Child^.Child.InstOffset + AttrIndex;
+	   IF (Demand IN Properties) OR
+	      (({CopyDef, CopyUse} * Class^.Class.Instance^[j].Properties) = {}) OR
+	      (j = Representative (j)) THEN
+	      IF CheckUsage (Usage) THEN INC (Count); END;
+	   END;
+	END;
+}; .
+
+
+PROCEDURE GenTemposLocal	/* Node, Class	*/ (t: Tree)
+
+Attribute (..) :- {
+	IF Parameter IN Properties THEN
+	   WriteS (f, "  "); GenAttribute (AttrIndex, FALSE); WriteS (f, ": "); WI (Type); WriteS (f, ";"); WriteNl (f);
+	END;
+}; .
+
+
+PROCEDURE GenDemandProc	/* Node, Class	*/ (t: Tree)
+
+Class (..) :- {
+	IF (NoCodeClass * Properties) # {} THEN RETURN; END;
+	Node := t;
+	ForallAttributes (Attributes, GenDemandProc);
+}; .
+Attribute (..) :- {
+	IF Demand IN Properties THEN
+	   Class := Node;
+	   k := AttrIndex;
+	   IF Funct IN Properties THEN
+	      WriteS (f, "PROCEDURE y"); WI (Class^.Class.Name); WriteS (f, "y"); WI (Name);
+	      WriteS (f, " (yyt: "); WI (iMain); WriteS (f, "."); WI (itTree); WriteS (f, "): "); WI (Type); WriteS (f, ";"); WriteNl (f);
+	   ELSE
+	      WriteS (f, "PROCEDURE y"); WI (Class^.Class.Name); WriteS (f, "y"); WI (Name);
+	      WriteS (f, " (yyt: "); WI (iMain); WriteS (f, "."); WI (itTree); WriteS (f, "; VAR "); GenAttribute (AttrIndex, FALSE); WriteS (f, ": "); WI (Type); WriteS (f, ");"); WriteNl (f);
+	   END;
+	   WriteS (f, " VAR yyTempo: RECORD CASE : INTEGER OF"); WriteNl (f);
+	   GenTempos (Class);
+	   ForallClasses (Class^.Class.Extensions, GenTempos);
+	   WriteS (f, " END; END;"); WriteNl (f);
+	   WriteS (f, " BEGIN"); WriteNl (f);
+	   WriteS (f, "  WITH yyTempo DO"); WriteNl (f);
+	   WriteS (f, "   CASE yyt^.Kind OF"); WriteNl (f);
+	   IF cOAG IN GrammarClass THEN
+	      i := AttrIndex;
+	      Class := Node;
+	      GenDemandProc2 (Class);
+	      ForallClasses (Class^.Class.Extensions, GenDemandProc2);
+	      Class := Node;
+	   END;
+	   WriteS (f, "   ELSE"); WriteNl (f);
+	   WriteS (f, "   END;"); WriteNl (f);
+	   WriteS (f, "  END;"); WriteNl (f);
+	   WriteS (f, " END y"); WI (Class^.Class.Name); WriteS (f, "y"); WI (Name); WriteS (f, ";"); WriteNl (f);
+	   WriteNl (f);
+	   k := 0;
+	END;
+}; .
+
+
+PROCEDURE GenDemandProc2	/* Node, Class, i	*/ (t: Tree)
+
+Class (..) :- {
+	WriteS (f, "| "); WI (iMain); WriteS (f, "."); WI (Name); WriteS (f, ":"); WriteNl (f);
+	WITH Instance^ [i] DO
+	   Class := t;
+	   GenDemandEval (t);
+	   IF Funct IN Properties THEN
+	      GenDemandProc2 (Action);
+	   ELSE
+	      GenEvaluator (Action); WriteNl (f);
+	   END;
+	END;
+}; .
+Assign (..) :- {
+	WriteS (f, "RETURN "); GenEvaluator (Arguments); WriteS (f, ";"); WriteNl (f);
+}; .
+Copy (..) :- {
+	WriteS (f, "RETURN "); GenEvaluator (Arguments); WriteS (f, ";"); WriteNl (f);
+}; .
+TargetCode (..) :- {
+	WriteS (f, "NoBlockStatementForDemandFunctionAttributes;"); WriteNl (f);
+}; .
+
+
+PROCEDURE GenDemandEval	/* Node, Class, i	*/ (t: Tree)
+
+Class (..) :- {
+	FOR j := 1 TO InstCount DO
+	   WITH Instance^ [j] DO
+	      IF IsRelated (i, j, DP) AND 
+		 (Demand IN Properties) AND NOT (Funct IN Properties) THEN
+		 IF Left IN Properties THEN
+		    AttrClass := GetClass (t, Attribute^.Child.Name);
+		    WriteS (f, "    y"); WI (AttrClass^.Class.Name); WriteS (f, "y"); WI (Attribute^.Child.Name);
+		    WriteS (f, " (yyt, "); GenAttribute (j, FALSE); WriteS (f, ");"); WriteNl (f);
+		 ELSE
+		    AttrClass := GetClass (Selector^.Child.Class, Attribute^.Child.Name);
+		    WriteS (f, "    y"); WI (AttrClass^.Class.Name); WriteS (f, "y"); WI (Attribute^.Child.Name);
+		    WriteS (f, " (yyt^."); WI (Name); WriteS (f, "."); WI (Selector^.Child.Name);
+		    WriteS (f, ", "); GenAttribute (j, FALSE); WriteS (f, ");"); WriteNl (f);
+		 END;
+	      END;
+	   END;
+	END;
+}; .
+

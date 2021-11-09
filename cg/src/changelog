@@ -1,0 +1,417 @@
+cg.mi: 
+(* Modified Rodney M. Bates
+   RMB: Aug 1996 add -e to options summary. 
+               (generate parsing actions respecting attribute dependencies)
+        Nov 1997 alphabetize options (within groups) in usage messages.
+        Nov 1997 Add calls for Modula-3 generation. 
+        Nov 1997 accept -l dir, in addition to -ldir 
+        Dec 1997 Changes to support '-~' option: GnatConvert procedure 
+        Dec 1997 Fixed bugs in macro file generation
+        Dec 1997 Added <*LINE...*> pragma output with -# option to help options 
+        Jan 1999 Added html tree dumper generation with '-^' option 
+        Nov 1999 Changed to use the -l-supplied prefix to find to scripts
+                 gmdcpp, gmdupd, gmdrm.
+
+*)
+cg.rex:
+(* 
+   Rodney M. Bates Jun 96 Added Modula-2 style comments (* ... *) , 
+     including nesting thereof.  
+   RMB Oct 96 Changed to scan comments inside target code blocks properly.
+              (previously, a quote inside a comment inside target
+               code gave a spurious "unclosed string" message.) 
+   RMB Jun 98 Added property 'LINK'
+   RMB July 98 Changed to recognize only "==>" as a cg arrow, and
+               make "=>" always a target code operator, since the latter
+               is one in Ada and Modula-3.  Both can appear in the
+               same context, inside target code, where the 
+               REMOTE construct of cg, which involves a cg arrow,
+               can appear.
+   RMB July 1999 Fixed bugs in positions for comments and strings. 
+*) 
+cg.lalr:
+(* Rodney M. Bates Modifications:
+
+   Jul 96 modified mCodes to also initialize fields for
+     SPECWITH and BODYWITH target code sections for Ada. 
+   Sep 97 quoted cg keywords which are also lalr keywords.  Changes
+     to front/src/input.rex made this necessary. 
+   Jun 98 Added property 'LINK' and Link
+   July 99 Changed mDesignator call to add AttributePos field. 
+*)
+cg.cg:
+(* Rodney Bates 6-94 Added ForAllClassesPreAndPost, to support max 
+     subclass #s. *)
+(* Rodney Bates 11-95 Added attributes Class.ClassChildCount and 
+     Child.ChildIndex, to support generating parsers which respect 
+     attribute dependencies. *)
+(* Rodney M. Bates: Feb 96 added SpecWith and BodyWith
+     target code texts to support Ada. *)
+(* Rodney M. Bates: Jul 96 added MustBeLabel field to VarUse to 
+     support allow/require ':' or ':>' after label in pattern (-u switch) *) 
+(* Rodney M. Bates: May 97 split DontCare[1]{Explicit|Internal} *)
+(* Rodney M. Bates: May 97 gave TreeName an EmptyType field in MODULE Puma *)
+(* Rodney M. Bates: Jun 97 Added puma node BinaryCompound to support Ada's
+     AND THEN and OR ELSE operators. *) 
+(* Rodney M. Bates: Jun 97 Rename 'Then' to 'ThenPart' and 'Else' to 
+     'ElsePart', to avoid conflicts with new case-insensitive recognition
+     of Ada operators THEN and ELSE *) 
+(* Rodney M. Bates: Sept 97 Add field Object to Ident, for use in replacing
+     the -w WITH generation with explicit paths. *) 
+(* Rodney M. Bates: Sept 97 use C comment delimiters to hide some cpp
+     macro definitions which were formerly hidden just by not being in
+     col 1.  GNU cpp recognizes them even with leading blanks. *)
+(* Rodney M. Bates: Sept 97 change backslash chars from quote-backslash-quote
+     to 134C, which is still modula-2 but doesn`t give cpp heartburn. *) 
+(* Rodney M. Bates: Nov 97 Add ForAllClassesExtensions, which does 
+   extensions first.  This makes it work for generation of Modula-3 
+   TYPECASE statements. Some existing code (particularly, oag.puma) 
+   apparently depend on doing extensions last, so that version 
+     remains. *) 
+(* Rodney M. Bates Jun 98 Add attribute property Link. *) 
+(* Rodney M. Bates Sep 98 Add IsProperlyNarrowed to ConsType. *) 
+(* Rodney M. Bates Sep 98 Add UniversalClass to TreeName, 
+             add Depth to Class, add new subclass RoutineFormal . *) 
+(* Rodney M. Bates May 1999 Add IsProperlyNarrowed to Decompose and NilTest. *) 
+(* Rodney M. Bates July 1999 Add tPosition fields NamePos for LHS of NamedExpr
+             and AttributePos for RHS of AttrDesc and Designator. *)
+(* Rodney M. Bates Aug 1999 Puma changes for more general labels:
+             Give all Expr a Selector and a Widen.
+             Give NilTest, DontCare1, and Value a Selector. 
+             Give NilTest a Widen. *) 
+(* Rodney M. Bates Aug 1999 Puma changes:
+             Change TargetType and DeclaredTypeIsGuaranteed of
+             RoutineFormal to INPUT attributes.
+             Add children Hides and DeclPos to Formal. 
+             Add HasDelimiter to VarDef. *) 
+(* Rodney M. Bates Nov 1999 Puma changes:
+             Rename field "Name" of VarDef to "Selector". *) 
+
+IOUtils.mi:
+(* Module IOUtils.  Utility procedures for IO. 
+   Written to get backslashes out of .puma files.  puma sends its output
+   through cpp.  The cpp on Linux treats '\' and "...\" as unclosed
+   literals with disasterous consequences.  cpp's and Modula-2's rules
+   are irreconciliable. 
+   Rodney M. Bates Sept 97
+*) 
+
+IOUtile.md:
+(* Module IOUtils.  Utility procedures for IO. 
+   Written to get backslashes out of .puma files.  puma sends its output
+   through cpp.  The cpp on Linux treats '\' and "...\" as unclosed
+   literals with disasterous consequences.  cpp's and Modula-2's rules
+   are irreconciliable. 
+   Rodney M. Bates Sept 97
+*) 
+sem.puma:
+(* Rodney Bates 11-95.  Compute Class.ClassChildCount and Child.ChildIndex. 
+   RMB Aug 96 
+     when constructing new actions for inserted copy rules in CopyRule, 
+     1) put each new action into a separate ActionPart 
+        (Otherwise, separate action subtrees, as pointed to by the Action
+         field of an instance,  get linked together, which is ok when they
+         are located starting with the Actions field of an ActionsPart,
+         but causes emission of duplicate actions when instances are
+         used to generate output.  
+     2) give each new action part a ParsIndex and a Name field. 
+        (Otherwise conventional generation of lalr is bad.) 
+   RMB Jun 98 Add use of Link property of a child to cause the child
+       not to be involved in automatic generation of attribute copy
+   RMB Oct 98 Add a colon to a label. 
+       rules. 
+   RMB July 99 Change mDesignator calls to add AttributePos field.
+   RMB July 99 change # include to reflect new build location
+   RMB July 99 Add VAR to rule local decls. 
+*)
+
+oag.puma:
+(* Modified Rodney M. Bates: 
+   July 98: Rationalized indentation and shortened lines.
+   Oct 98:  Added colons to labels 
+   July 99 change # include to reflect new build location
+   July 99 Add VAR to rule local decls. 
+
+*) 
+
+c0.puma:
+(* file c.mod0 
+   Rodney M. Bates Modifications: 
+   9-97 Changed to use IOUtils.WriteBackslash 
+  10-97 Removed unused import of TreeIO
+*) 
+
+c1.puma:
+/* Rodney M. Bates Modifications: 
+   6-96.  Split procedure TreeImplC into
+     TreeImplC and TreeImplC1, because puma was getting
+     memory or segment faults, but removing either half of
+     the body of the one rule in TreeImplC would make
+     the problem go away. 
+   9-97 Changed to use IOUtils.WriteBackslash 
+   7-99  Added handling of LINK attributes to Query. 
+*/ 
+
+c2.puma:
+/* Modified Rodney M. Bates: 
+   July 1999 changed procedure name yWriteNode to yyyWriteNode, to avoid
+            possible conflict with yWrite<Class>, where <Class> = "Node"
+   July 1999 Added cases to Mark, WriteTREEm to follow LINK Attributes 
+
+*/ 
+
+c3.puma:
+(* Modified Rodney M. Bates: 
+
+   July 99 Add VAR to rule local decls. 
+*)
+
+c4.puma:
+
+c5.puma:
+(* Modified, Rodney M. Bates: 
+
+   10-1998: Added colons to labels. 
+   July 99 Add VAR to rule local decls. 
+
+*)
+
+mod0.puma: 
+(* Modified Rodney M. Bates: 
+  10-95: Put new line after each record field
+         of generated node types, so as to not choke lalr with input
+         lines longer that 255 chars.
+  11-95: Wrote modified parser generator procedure GrammarDep and its
+         subordinate procedures ClassListDep, ChildDep, ActionsDep, 
+         which respect attribute dependencies. However, it is not
+         clear this is what is wanted, since they can then perform
+         semantic actions in an order which violates their placement 
+         in the rules.  
+         -e option uses the new generation method. 
+   9-97: Changed to use IOUtils.WriteBackslash 
+  10-97: Removed unused IMPORT of TreeIO
+  10-97: Eliminated the record variants in parse and scan attributes for 
+         Modula-3 (i.e. flatten the records)
+  
+*)
+
+mod1.puma: 
+/* file mod1.puma 
+   Rodney M. Bates Modifications: 
+       - Added generation of declaration and import
+         of constants <Node>Max, with option '+'. 
+       - Added generation of declaration and import
+         of types p<Node>, with option '^'. 
+       - Put IsType in generated imports list. 
+   9-97  Changed to use IOUtils.WriteBackslash 
+   10-97 Changed generated yyStoreOldToNew and yyMapOldToNew to use element zero. 
+   7-99  Added handling of LINK attributes to Check. 
+   7-99  Added handling of LINK attributes to Query. 
+*/
+
+mod2.puma: 
+/* Modified Rodney M. Bates: 
+   RMB Dec 95: Made tree writer reduce the amount of space on the
+               left of deeply indented lines by replacing whole
+               multiples of yyIndentFactor (initially = 20) blanks
+               by a modula-2 style comment containing a count of 
+               the blanks replaced. 
+   July 1999 changed procedure name yWriteNode to yyyWriteNode, to avoid
+            possible conflict with yWrite<Class>, where <Class> = "Node"
+   July 1999 Added cases to Mark, WriteTREEm to follow LINK Attributes 
+
+*/ 
+
+mod3.puma: 
+(* Changes: Rodney M. Bates
+   July 99 Add VAR to rule local decls. 
+*) 
+
+mod4.puma: 
+
+mod5.puma: 
+(* Modified, Rodney M. Bates: 
+
+   10-1998: Added colons to labels. 
+   July 99 Add VAR to rule local decls. 
+
+*)
+
+
+MThree0.puma: 
+MThree1.puma: 
+(* file MThree1.puma 
+   Modula-3 generation of Tree module, etc. 
+   Rodney M. Bates Sep 97 
+   Extensively modified from file mod1.puma, which had these header comments:  
+         Ich, Doktor Josef Grosch, Informatiker, 22.3.1989 
+         Rodney M. Bates Modifications: 
+             - Added generation of declaration and import
+               of constants <Node>Max, with option '+'. 
+             - Added generation of declaration and import
+               of types p<Node>, with option '^'. 
+             - Put IsType in generated imports list. 
+         Sep 1997  Changed to use IOUtils.WriteBackslash 
+         Dec 1997  Changes to support '~' option: GnatConvert procedure 
+         Dec 1997  Added <*OBSOLETE*> pragmas for certain routines 
+   Modified: Rodney M. Bates: 
+   Jan 1999 Added html tree dumper generation with option '^'
+   Jan 1999 Added cases to Check and Query to follow LINK Attributes 
+*)
+
+MThree2.puma: 
+(* Modula-3 generation of Tree io, etc. 
+   Rodney M. Bates Oct 1997 
+   Extensively modified from file mod2.puma, which had these header comments:  
+     (* Ich, Doktor Josef Grosch, Informatiker, 26.1.1989 *)
+     (* Modified Rodney M. Bates: 
+        RMB Dec 1995: Made tree writer reduce the amount of space on the
+                      left of deeply indented lines by replacing whole
+                      multiples of yyIndentFactor (initially = 20) blanks
+                      by a modula-2 style comment containing a count of 
+                      the blanks replaced. 
+
+     *)
+   Dec 1997 Added <*LINE...*> pragma output with -# option  
+   Jan 1999 Added html tree dumper generation 
+   Jan 1999 Added cases to Mark, WriteTREEm and WriteTREEHtml to follow 
+            LINK Attributes 
+   Jan 1999 changed procedure name yWriteNode to yyyWriteNode, to avoid
+            possible conflict with yWrite<Class>, where <Class> = "Node"
+*)
+
+MThree3.puma: 
+(* file MThree3.puma 
+   Modula-3 generation of simple attribute evaluator. 
+   Rodney M. Bates Oct 97 
+   Extensively modified from file mod3.puma, which had these header comments:  
+     /* Ich, Doktor Josef Grosch, Informatiker, 23.5.1989 */
+   July 99 Add VAR to rule local decls. 
+*)
+
+MThree4.puma: 
+(* file MThree4.puma 
+   Modula-3 generation of attribute evaluator with optimized attribute storage. 
+   Rodney M. Bates Oct 97 
+   Extensively modified from file mod4.puma, which had these header comments:  
+     /* Ich, Doktor Josef Grosch, Informatiker, 19.6.1990 */
+*)
+
+MThree5.puma: 
+(* file MThree5.puma 
+   Modula-3 generation of lazy attribute evaluator. 
+   Rodney M. Bates Oct 97 
+   Extensively modified from file mod5.puma, which had these header comments:  
+   /* Ich, Doktor Josef Grosch, Informatiker, 4.3.1992 */
+*) 
+
+(* Modified, Rodney M. Bates: 
+
+   10-1998: Added colons to labels. 
+   July 99 Add VAR to rule local decls. 
+
+*)
+
+MThree6.puma: 
+(* file MThree6.puma 
+
+   Generation of specialized tree converter from Gnat tree to 
+   semantically equivalent cg tree. 
+   Rodney M. Bates 10-97 
+
+*)
+
+
+Ada0.puma:
+/* Rodney Bates 10-95: Modified to put new line after each record field
+              of node types, so as to not choke lalr with input
+              lines longer that 255 chars.
+   11-95: 
+     wrote modified parser generator procedure GrammarDep and its
+     subordinate procedures ClassListDep, ChildDep, ActionsDep, 
+     which respect attribute dependencies. However, it is not
+     clear this is what is wanted, since they can then perform
+     semantic actions in an order which violates their placement 
+     in the rules.  This is suspected of having additional bugs 
+     as well.  
+     -e option uses the new generation method. 
+
+   4-97: 
+     Converted from mod0.puma to ada0.puma, to generate Ada 
+   9-97 Changed to use IOUtils.WriteBackslash 
+  10-97 Removed unused import of TreeIO
+*/
+
+Ada1.puma:
+(* file ada1.puma 
+   Rodney M. Bates, modifications: 
+   (Changes made to precursor file mod1.puma:) 
+      - Added generation of declaration and import
+        of constants <Node>Max, with option '+'. 
+      - Added generation of declaration and import
+        of types p<Node>, with option '^'. 
+      - Put IsType in generated imports list. 
+   (Changes to file ada1.puma:)
+   4-97  Copied from mod1.puma to ada1.puma and just began 
+         the conversion to produce Ada output. 
+   9-97  Changed to use IOUtils.WriteBackslash 
+   7-99  Added handling of LINK attributes to Check. 
+   7-99  Added handling of LINK attributes to Query. 
+   6-2000 Changed generated yyStoreOldToNew and yyMapOldToNew to use 
+          element zero. 
+   6-2000 Partial conversion to Ada output.  Did not implement these
+          command line options: -f - F -o -w -r -p -g -q -t -b -R -y 
+          These routines (which help to implement the above options)
+          are not called and not converted to Ada output:
+            TraverseTD TraverseBU Reverse1 Reverse2 
+            ReleaseAttributes1 ReleaseAttributes2 Copy
+            InitNodeSize QueryAttributes IsEqualAttributes 
+*)
+
+Ada2.puma:
+(* file ada2.puma *) 
+
+(* Ada generation of Tree io, etc. 
+   Rodney M. Bates Jul 2000  
+   Extensively modified from file MThree2.puma, which had these header comments:  
+     Extensively modified from file mod2.puma, which had these header comments:  
+       (* Ich, Doktor Josef Grosch, Informatiker, 26.1.1989 *)
+       (* Modified Rodney M. Bates: 
+          RMB Dec 1995: Made tree writer reduce the amount of space on the
+                        left of deeply indented lines by replacing whole
+                        multiples of yyIndentFactor (initially = 20) blanks
+                        by a modula-2 style comment containing a count of 
+                        the blanks replaced. 
+
+       END of mod2.puma changelog. *)
+     Dec 1997 Added <*LINE...*> pragma output with -# option  
+     Jan 1999 Added html tree dumper generation 
+     Jan 1999 Added cases to Mark, WriteTREEm and WriteTREEHtml to follow 
+              LINK Attributes 
+     Jan 1999 changed procedure name yWriteNode to yyyWriteNode, to avoid
+              possible conflict with yWrite<Class>, where <Class> = "Node"
+  END of MThree2.puma changelog. *)
+
+(* ada2.puma changelog: 
+
+  Rodney M. Bates Jul 2000.  Initial creation from MThree2.puma
+
+*) 
+
+
+y0.puma:
+/* Modified Rodney M. Bates
+  10-97 Removed unused import of TreeIO
+*/
+
+
+
+
+
+
+
+
+
+
+
+

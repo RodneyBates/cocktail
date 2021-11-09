@@ -1,0 +1,15 @@
+| GrammarIsInNormalForm 	: WriteS (StdError, "GrammarIsInNormalForm");
+| GrammarIsNotInNormalForm 	: WriteS (StdError, "GrammarIsNotInNormalForm");
+| SwitchedOnOptionL 	: WriteS (StdError, "SwitchedOnOptionL");
+| GrammarIsSAG 	: WriteS (StdError, "GrammarIsSAG");
+| GrammarIsLAG 	: WriteS (StdError, "GrammarIsLAG");
+| GrammarIsOAG 	: WriteS (StdError, "GrammarIsOAG");
+| GrammarIsDNC 	: WriteS (StdError, "GrammarIsDNC");
+| GrammarIsSNC 	: WriteS (StdError, "GrammarIsSNC");
+| GrammarIsWAG 	: WriteS (StdError, "GrammarIsWAG");
+| GrammarIsNotWAG 	: WriteS (StdError, "GrammarIsNotWAG");
+| CycleInSNC 	: WriteS (StdError, "CycleInSNC");
+| CycleInDNC 	: WriteS (StdError, "CycleInDNC");
+| CycleInOAG 	: WriteS (StdError, "CycleInOAG");
+| InternalErrorCompOAG 	: WriteS (StdError, "InternalErrorCompOAG");
+| CycleInWAG 	: WriteS (StdError, "CycleInWAG");

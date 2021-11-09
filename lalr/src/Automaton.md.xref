@@ -1,0 +1,311 @@
+     1 (* handle LR automaton *)
+     2 
+     3 (* $Id: Automaton.md,v 1.4 1992/08/07 15:22:49 grosch rel $ *)
+     4 
+     5 (* $Log: Automaton.md,v $
+c    6  * Revision 1.4  1992/08/07  15:22:49  grosch
+c    7  * allow several scanner and parsers; extend module Errors
+c    8  *
+c    9  * Revision 1.3  1991/11/21  14:53:14  grosch
+c   10  * new version of RCS on SPARC
+c   11  *
+c   12  * Revision 1.2  90/06/12  16:53:35  grosch
+c   13  * renamed main program to lalr, added { } for actions, layout improvements
+c   14  * 
+c   15  * Revision 1.1  89/01/12  18:08:36  vielsack
+c   16  * supply a line number for each action
+c   17  * 
+c   18  * Revision 1.0  88/10/04  14:35:49  vielsack
+c   19  * Initial revision
+c   20  * 
+c   21  *)
+    22 
+    23 DEFINITION MODULE Automaton;                                                  *
+    24   
+    25 FROM Lists      IMPORT tList;                                                 *     *
+    26 FROM SYSTEM     IMPORT WORD;                                                  *     *
+    27 FROM Sets       IMPORT tSet;                                                  *     *
+    28 FROM TokenTab   IMPORT PosType, cMAXNonTerm, Prio, Terminal, NonTerminal, Vocabulary\     *     *     *     *     *     *
+                                                                                     *
+      \;
+    29 
+    30 CONST Infinite  = 65535;                                                      *
+    31 CONST Infinite2 = 1000000;                                                    *
+    32 
+    33 TYPE
+    34     tStateIndex = SHORTCARD [0..Infinite];                                    *     *    30
+    35     tItemIndex  = LONGCARD;                                                   *     *
+    36     tProdIndex  = SHORTCARD [0..Infinite];                                    *     *    30
+    37     tIndex      = LONGCARD;                                                   *     *
+    38 
+    39     tIndexList = RECORD                                                       *
+    40         Used    : LONGINT;                                                    *     *
+    41         Array   : POINTER TO ARRAY [1..Infinite] OF tIndex;                   *    30    37
+    42         Count   : LONGINT;                                                    *     *
+    43       END;
+    44 
+    45     tItemIndexList = RECORD                                                   *
+    46         Used    : LONGINT;                                                   40     *
+    47         Array   : POINTER TO ARRAY [1..Infinite] OF tItemIndex;              41    30    35
+    48         Count   : LONGINT;                                                   42     *
+    49       END;
+    50 
+    51     tProdListElmt = RECORD                                                    *
+    52         Index   : tProdIndex;                                                 *    36
+    53         Value   : SHORTCARD;                                                  *     *
+    54       END;
+    55 
+    56     tProdIndexList = RECORD                                                   *
+    57         Used    : LONGINT;                                                   46     *
+    58         Array   : POINTER TO ARRAY [1..Infinite] OF tProdListElmt;           47    30    51
+    59         Count   : LONGINT;                                                   48     *
+    60       END;
+    61 
+    62     tAss = (right,left,none,nonassoc);                                        *     *     *     *     *
+    63 
+    64     tOper = RECORD                                                            *
+    65       Pri       : Prio;                                                       *    28
+    66       Ass       : tAss;                                                       *    62
+    67     END;
+    68 
+    69     (*****************************)
+    70     (*   A C H T U N G !!        *)
+    71     (*                           *)
+    72     (* tProduction muss zu       *)
+    73     (* tDummyProduction und      *)
+    74     (* tRigth4 im                *)
+    75     (* Implementationteil passen *)
+    76     (*****************************)
+    77 
+    78     tProduction =                                                             *
+    79       POINTER TO RECORD
+    80         ProdNo  : tIndex;                                                     *    37
+    81         Reduce  : tIndexList;                                                 *    39
+    82         Act     : tList;                                                      *    25
+    83         ActPos  : PosType;                                                    *    28
+    84         Ass     : tAss;                                                      66    62
+    85         Pri     : Prio;                                                      65    28
+    86         Len     : tIndex;                                                     *    37
+    87         Left    : NonTerminal;                                                *    28
+    88         Right   : ARRAY [1..Infinite] OF SHORTCARD [0..cMAXNonTerm];          *    30     *    28
+    89       END;
+    90 
+    91     tRep  =                                                                   *
+    92       (NoRep,        (* kein Repraesentant *)                                 *
+    93        TermRep,      (* Repraesentant fuer einen Terminaluebergang *)         *
+    94        NonTermRep,   (* Repraesentant fuer einen Nichtterminaluebergang *)          *
+    95        RedRep);      (* Repraesentant fuer eine  Reduktion *)                 *
+    96      
+    97     tStateKind =                                                              *
+    98       (sNone,         (* nicht eingetragen *)                                 *
+    99        sRead,         (* Read *)                                              *
+   100        sTerm,         (* Read Terminal, Reduce *)                             *
+   101        sNonterm);     (* Read Nonterminal, Reduce *)                          *
+   102 
+   103     tItem =                                                                   *
+   104       RECORD
+   105         Next    : tStateIndex;    (* Folgezustand *)                          *    34
+   106         Prod    : tProdIndex;     (* Index der Produktion *)                  *    36
+   107         Pos     : tIndex;         (* Position innerhalb der Produktion *)     *    37
+   108         RepNo   : tItemIndex;     (* Itemindex des zug. Repraesentanten *)          *    35
+   109         Rep     : tRep;           (* Art des Uebergans falls Repraesentant *)       *    91
+   110         EmptyReadSet    : BOOLEAN;(* Read-Set ist leer *)                     *     *
+   111         Set     : tSet;           (* DR / Read / Follow bzw Look AheadSet *)        *    27
+   112         ReadSet : tSet;           (* Read fuer Fehlerbehandlung *)            *    27
+   113         Relation: tItemIndexList; (* reads / includes bzw. lookback *)        *    45
+   114         Read    : Vocabulary;     (* Symbol hinter dem Punkt *)               *    28
+   115         Number  : SHORTCARD;      (* Marke fuer Digraph *)                    *     *
+   116       END;
+   117     
+   118     tState =                                                                  *
+   119       RECORD
+   120         Size    : tIndex;                                                     *    37
+   121         Items   : tItemIndex;                                                 *    35
+   122         NewNumber: tIndex;                                                    *    37
+   123         Kind    : tStateKind;                                                 *    97
+   124       END;
+   125     
+   126 VAR
+   127     IsBnf       : BOOLEAN;                                                    *     *
+   128     ProdArrayPtr: POINTER TO ARRAY    (* alle Produktionen *)                 *
+   129                      tProdIndex OF WORD;                                     36    26
+   130     ProdIndex   : LONGINT;            (* Index akt. bzw naechste P. *)        *     *
+   131     ProdCount   : CARDINAL;           (* Anzahl Produktionen *)               *     *
+   132     ItemArrayPtr: POINTER TO ARRAY    (* alle Items *)                        *
+   133                      [1..Infinite2] OF tItem;                                31   103
+   134     ItemIndex   : LONGINT;            (* Index akt. bzw. naechstes I *)       *     *
+   135     StateArrayPtr: POINTER TO ARRAY    (* alle States *)                      *
+   136                      [1..Infinite] OF tState;                                30   118
+   137     StateIndex  : LONGINT;            (* Index akt. bzw. naechste S. *)       *     *
+   138     ProdList    : ARRAY               (* enthaelt Liste von Produk- *)        *
+   139                      NonTerminal OF      (* tionen mit gleicher linken *)    28
+   140                      tProdIndexList;         (* Seite *)                     56
+   141     OperArray   : ARRAY Terminal OF tOper;                                    *    28    64
+   142     StartSymbol : NonTerminal;        (* neues Startsymbol, das nur in        *    28
+c  143                                             einer Regel auftritt *)
+   144 
+   145 PROCEDURE InitAutomaton;                                                      *
+   146 
+   147   (* Zur Initialisierung werden die Produktionen vom Module Rules
+c  148      eingelesen, hierbei wird (nebenbei) geprueft ob es sich nur 
+c  149      um BNF hendelt (IsBnf wird entsprechend gesetzt). Es wird geprueft
+c  150      ob die Regeln semantische Ankopplungen besitzen, die nicht am
+c  151      Ende der Regel stehen. Falls dies der Fall ist werden die 
+c  152      Regeln entspechend zerlegt *)
+   153 
+   154 PROCEDURE MakeFirstState (): tStateIndex;                                     *    34
+   155 
+   156   (* Der erste Zustand wird gebildet und sein Index zurueckgegeben *)
+   157      
+   158 PROCEDURE GotoSet (i: tStateIndex; VAR s: tSet);                              *     *    34     *    27
+   159 
+   160   (* Es wird die Menge der Vocabularzeichen 's' bestimmt fuer die ein
+c  161      von Zustand 'i' ein Folgezustand besteht *)
+   162 
+   163 PROCEDURE Goto (i: tStateIndex; s: Vocabulary; VAR new: BOOLEAN): tStateIndex;      *   158    34   158    28     *     *
+                                                                                    34
+   164 
+   165   (* Der Folgezustand von Zustand 'i' bei Eingabe 's' wird gebildet
+c  166      'new' gibt an ob es sich dabei um einen neuen Zustand handel,
+c  167      der zum ersten mal gebildet wurde *)
+   168 
+   169 PROCEDURE NextProdIndex (Index: tProdIndex): tProdIndex;                      *    52    36    36
+   170 
+   171   (* liefert den naechsten naechst groesseren ProdIndex *)
+   172 
+   173 END Automaton.                                                               23
+Cross reference: * is declaration, = is assignment
+
+-A-
+ Act                             82*
+ ActPos                          83*
+ Array                           41*   47*   58*
+ Ass                             66*   84*
+ Automaton                       23*  173*
+
+-B-
+ BOOLEAN                        110   127   163 
+
+-C-
+ CARDINAL                       131 
+ cMAXNonTerm                     28*   88 
+ Count                           42*   48*   59*
+
+-E-
+ EmptyReadSet                   110*
+
+-G-
+ Goto                           163*
+ GotoSet                        158*
+
+-I-
+ i                              158*  163*
+ Index                           52*  169*
+ Infinite                        30*   34    36    41    47    58    88   136 
+ Infinite2                       31*  133 
+ InitAutomaton                  145*
+ IsBnf                          127*
+ ItemArrayPtr                   132*
+ ItemIndex                      134*
+ Items                          121*
+
+-K-
+ Kind                           123*
+
+-L-
+ Left                            87*
+ left                            62*
+ Len                             86*
+ Lists                           25*
+ LONGCARD                        35    37 
+ LONGINT                         40    42    46    48    57    59   130   134   137 
+
+-M-
+ MakeFirstState                 154*
+
+-N-
+ new                            163*
+ NewNumber                      122*
+ Next                           105*
+ NextProdIndex                  169*
+ nonassoc                        62*
+ none                            62*
+ NonTerminal                     28*   87   139   142 
+ NonTermRep                      94*
+ NoRep                           92*
+ Number                         115*
+
+-O-
+ OperArray                      141*
+
+-P-
+ Pos                            107*
+ PosType                         28*   83 
+ Pri                             65*   85*
+ Prio                            28*   65    85 
+ Prod                           106*
+ ProdArrayPtr                   128*
+ ProdCount                      131*
+ ProdIndex                      130*
+ ProdList                       138*
+ ProdNo                          80*
+
+-R-
+ Read                           114*
+ ReadSet                        112*
+ RedRep                          95*
+ Reduce                          81*
+ Relation                       113*
+ Rep                            109*
+ RepNo                          108*
+ Right                           88*
+ right                           62*
+
+-S-
+ s                              158*  163*
+ Set                            111*
+ Sets                            27*
+ SHORTCARD                       34    36    53    88   115 
+ Size                           120*
+ sNone                           98*
+ sNonterm                       101*
+ sRead                           99*
+ StartSymbol                    142*
+ StateArrayPtr                  135*
+ StateIndex                     137*
+ sTerm                          100*
+ SYSTEM                          26*
+
+-T-
+ tAss                            62*   66    84 
+ Terminal                        28*  141 
+ TermRep                         93*
+ tIndex                          37*   41    80    86   107   120   122 
+ tIndexList                      39*   81 
+ tItem                          103*  133 
+ tItemIndex                      35*   47   108   121 
+ tItemIndexList                  45*  113 
+ tList                           25*   82 
+ TokenTab                        28*
+ tOper                           64*  141 
+ tProdIndex                      36*   52   106   129   169   169 
+ tProdIndexList                  56*  140 
+ tProdListElmt                   51*   58 
+ tProduction                     78*
+ tRep                            91*  109 
+ tSet                            27*  111   112   158 
+ tState                         118*  136 
+ tStateIndex                     34*  105   154   158   163   163 
+ tStateKind                      97*  123 
+
+-U-
+ Used                            40*   46*   57*
+
+-V-
+ Value                           53*
+ Vocabulary                      28*  114   163 
+
+-W-
+ WORD                            26*  129 
+
+end cross reference, 176 occurrences of 96 identifiers.

@@ -1,0 +1,64 @@
+     1 (* generate output procedure for tokens *)
+     2 
+     3 (* $Id: WriteTok.md,v 1.3 1991/11/21 14:47:50 grosch rel $ *)
+     4 
+     5 (* $Log: WriteTok.md,v $
+c    6  * Revision 1.3  1991/11/21  14:47:50  grosch
+c    7  * new version of RCS on SPARC
+c    8  *
+c    9  * Revision 1.2  90/06/11  18:45:51  grosch
+c   10  * layout improvements
+c   11  * 
+c   12  * Revision 1.1  89/01/12  17:45:26  vielsack
+c   13  * supply source file name
+c   14  * 
+c   15  * Revision 1.0  88/10/04  14:27:28  vielsack
+c   16  * Initial revision
+c   17  * 
+c   18  *)
+    19 
+    20 DEFINITION MODULE WriteTok;                                                   *
+    21 
+    22   FROM IO IMPORT tFile;                                                       *     *
+    23 
+    24   TYPE tLanguage = ( Modula2, C );                                            *     *     *
+    25   
+    26   VAR
+    27     Language  : tLanguage;                                                    *    24
+    28     SourceFileName : ARRAY [0..255] OF CHAR;                                  *     *
+    29 
+    30   PROCEDURE GenWrTo (f : tFile);                                              *     *    22
+    31 
+    32 END WriteTok.                                                                20
+Cross reference: * is declaration, = is assignment
+
+-C-
+ C                               24*
+ CHAR                            28 
+
+-F-
+ f                               30*
+
+-G-
+ GenWrTo                         30*
+
+-I-
+ IO                              22*
+
+-L-
+ Language                        27*
+
+-M-
+ Modula2                         24*
+
+-S-
+ SourceFileName                  28*
+
+-T-
+ tFile                           22*   30 
+ tLanguage                       24*   27 
+
+-W-
+ WriteTok                        20*   32*
+
+end cross reference, 14 occurrences of 11 identifiers.

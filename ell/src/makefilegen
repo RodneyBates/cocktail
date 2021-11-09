@@ -1,0 +1,130 @@
+#
+#	ell2 - a redesign of ell
+#
+#	purpose:	make and install ell
+#
+#	revised makefile RMB 11-3-93
+#
+
+ifndef INSTALLGMD
+  INSTALLGMD=/usr/local
+endif
+export INSTALLGMD
+
+INSTALLLIB	= $(INSTALLGMD)/lib
+INSTALLBIN	= $(INSTALLGMD)/bin
+
+INCLUDE = .
+
+BIN = ../../bintobuildwith
+REX = $(BIN)/rex
+ELL = $(BIN)/ell
+CG = $(BIN)/cg
+ESTRA = $(BIN)/estra
+MPP = $(BIN)/mpp
+
+ESTRAFLAGS = -dibW
+
+GENDEFS	= Parser.md Scanner.md Semantics.md Tree.md CodeC.md CodeM2.md 
+GENIMPS	= Parser.mi Scanner.mi Semantics.mi Tree.mi CodeC.mi CodeM2.mi \
+          ArgCheck.mi
+MODULAGENS    = $(GENIMPS) $(GENDEFS)
+GENS    = $(MODULAGENS) 
+
+DEFS	= ArgCheck.md Codes.md Derivable.md First.md Follow.md Info.md \
+	  Nullable.md Reachable.md SupC.md SupM2.md Table.md Types.md
+IMPS	= Codes.mi Derivable.mi First.mi Follow.mi Info.mi \
+	  Nullable.mi Reachable.mi SupC.mi SupM2.mi Table.mi Types.mi \
+          ell.mi
+
+MODULASOURCES = $(DEFS) $(IMPS)
+OTHERSOURCES = ell.rex ell.ell ell.ast Sem.estra \
+  CodeC.estra CodeM2.estra ArgCheck.MI
+SOURCES = $(MODULESOURCES) $(OTHERSOURCES) 
+
+EXE     = ell
+MOCKAFLAGS =
+MOCKALIBS = -d ../../common/gen -d ../../reuse/gen
+MC      = mocka_mtc
+
+include $(INCLUDE)/make.include
+
+# Generation of sources:
+
+Scanner.mi Scanner.md Scanner.Tab : ../src/ell.rex
+	$(REX) -d ../src/ell.rex;
+
+Parser.mi Parser.md Parser.Tab : ../src/ell.ell
+	$(ELL) -di ../src/ell.ell;
+
+Tree.mi Tree.md : ../src/ell.ast
+	$(CG) -dimR ../src/ell.ast;
+
+Semantics.md Semantics.mi Semantics.tab : ../src/Sem.estra
+	$(ESTRA) $(ESTRAFLAGS) ../src/Sem.estra;
+
+CodeC.md CodeC.mi CodeC.tab : ../src/CodeC.estra
+#4-1999, estra wont read from stdin
+	$(MPP) < ../src/CodeC.estra > CodeC.aftermpp 
+	$(ESTRA) $(ESTRAFLAGS) CodeC.aftermpp
+
+CodeM2.md CodeM2.mi CodeM2.tab : ../src/CodeM2.estra
+	$(MPP) < ../src/CodeM2.estra > CodeM2.aftermpp
+	$(ESTRA) $(ESTRAFLAGS) CodeM2.aftermpp
+
+ArgCheck.mi : ../src/ArgCheck.MI 
+	$(MPP) < ../src/ArgCheck.MI > ArgCheck.mi
+
+install_mocka:
+
+install_modula:
+
+# install
+#install_modula : ell ../lib/ell.sh ../gen/Scanner.Tab 
+#install_modula : ../lib/ErrorTab ../gen/Parser.Tab ../gen/Semantics.tab 
+#install_modula : ../gen/CodeC.tab ../gen/CodeM2.tab $(INSTALLLIB)/ell
+#	if test $(INSTALLLIB) = $(INSTALLBIN); then echo error: INSTALLBIN = INSTALLLIB; false; else true; fi
+#	sed "s;LIB;$(INSTALLLIB);" < ../lib/ell.sh > $(INSTALLBIN)/ell
+#	chmod a+rx $(INSTALLBIN)/ell
+#	chmod u+w ../lib/ErrorTab
+#	install -c -s -m 755 ell $(INSTALLLIB)/ell
+#	install -c -m 644 ../gen/Scanner.Tab $(INSTALLLIB)/ell
+#	install -c -m 644 ../gen/Parser.Tab $(INSTALLLIB)/ell
+#	install -c -m 644 ../lib/ErrorTab $(INSTALLLIB)/ell
+#	install -c -m 644 ../gen/Semantics.tab $(INSTALLLIB)/ell
+#	install -c -m 644 ../gen/CodeC.tab $(INSTALLLIB)/ell
+#	install -c -m 644 ../gen/CodeM2.tab $(INSTALLLIB)/ell
+
+# installation directories
+
+$(INSTALLLIB)/ell:	$(INSTALLLIB)
+	sh -c "if test ! -d $(INSTALLLIB)/ell; then mkdir $(INSTALLLIB)/ell; else true; fi"
+
+# swap all byte pairs of the file Scanner.Tab
+# reverse all BITSETs / INTEGERs of the files Parser.Tab CodeC.tab CodeM2.tab Semantics.tab
+
+bin.conv:	convert
+	dd conv=swab < Scanner.Tab > .Scanner.Tab; mv .Scanner.Tab Scanner.Tab
+	dd conv=swab < Parser.Tab | convert > .Parser.Tab; mv .Parser.Tab Parser.Tab
+	dd conv=swab < CodeC.tab | convert > .CodeC.tab; mv .CodeC.tab CodeC.tab
+	dd conv=swab < CodeM2.tab | convert > .CodeM2.tab; mv .CodeM2.tab CodeM2.tab
+	dd conv=swab < Semantics.tab | convert > .Semantics.tab; mv .Semantics.tab Semantics.tab
+
+clean:
+	rm -f core ERRORS LISTING *.[dimor] ell convert $(GENS)
+
+CLEAN:	clean
+	rm -f ArgCheck.mi			\
+	Scanner.m[di] Scanner.Tab		\
+	Parser.m[di] Parser.Tab			\
+	Tree.m[di]				\
+	Semantics.m[di] Semantics.tab		\
+	CodeM2.m[di] CodeM2.tab			\
+	CodeC.m[di] CodeC.tab			\
+	SupM2.mi SupC.mi
+
+.SUFFIXES:	.MI .mi
+
+.MI.mi:;	mpp < $*.MI > $*.mi;
+
+

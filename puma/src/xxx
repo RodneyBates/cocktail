@@ -1,0 +1,409 @@
+M2.puma: 
+
+(* Ich, Doktor Josef Grosch, Informatiker, 29.4.1991 *)
+(* Modified, RMB: 
+    3-97 To put the WITH statement in (-w option) when there is a 
+         return expr or result parameter exprs. 
+    5-97 To work with explicit/internal distinguished dont cares. 
+    5-97 Changed trafo name to M2, since Mod clashes with an Ada
+         operator, now recognized by puma. 
+    5-97 Added writing a blank line after each call to WriteText, which
+         can leave things not at BOL if the target code section is
+         omitted.  This caused a bug in the case of GLOBAL, which is
+         followed by a # include, which cpp misses if not at BOL. 
+    6-97 Rename 'Then' to 'ThenPart' and 'Else' to 'ElsePart',
+         to avoid conflicts with new case-insensitive recognition
+         of Ada operators THEN and ELSE 
+    9-97 Take backslashes out of !...! constructs and instead call
+         IOUtils.WriteBackslash.  The cpp on Linux interprets the 
+         backslashes as escaping the following closing quote, but 
+         modula-2 does not.  IOUtils never goes through puma and thus
+         not through cpp either. 
+    1-98 Fixed -w option (Tg2,Tg3) to generate WITH statements for all
+         nested patterns. 
+    9-98 Took Var, ConsType, and Field out of ImplMod and put into
+         WritePath, for special handling to ignore a ConsType at the
+         top (i.e. right end) of a path.  I am changing Semantics to
+         produce these, which are of interest only to object oriented
+         target language generation.
+   10-98 Changes to go with new subtype RoutineFormal. 
+  7-1999 Eliminate type system violations grouping PreOperator and
+         PostOperator 
+  7-1999 Added 'VAR' to local declarations of rules. 
+ 10-9999 Changed ImplMod, Ident to use Object instead of recalling
+         IdentifyVar. 
+*) 
+
+
+M3.puma: 
+
+
+(* file M3.puma *) 
+
+(*  Modula-3 generation of puma tree transformations 
+   Rodney M. Bates Jan 98 
+   Extensively modified from file M2.puma, which had these header comments: 
+
+    (* Ich, Doktor Josef Grosch, Informatiker, 29.4.1991 *) 
+    (* Modified, RMB: 
+        3-97 To put the WITH statement in (-w option) when there is a 
+             return expr or result parameter exprs. 
+        5-97 To work with explicit/internal distinguished dont cares. 
+        5-97 Changed trafo name to M2, since Mod clashes with an Ada
+             operator, now recognized by puma. 
+        5-97 Added writing a blank line after each call to WriteText, which
+             can leave things not at BOL if the target code section is
+             omitted.  This caused a bug in the case of GLOBAL, which is
+             followed by a # include, which cpp misses if not at BOL. 
+        6-97 Rename 'Then' to 'ThenPart' and 'Else' to 'ElsePart',
+             to avoid conflicts with new case-insensitive recognition
+             of Ada operators THEN and ELSE 
+        9-97 Take backslashes out of !...! constructs and instead call
+             IOUtils.WriteBackslash.  The cpp on Linux interprets the 
+             backslashes as escaping the following closing quote, but 
+             modula-2 does not.  IOUtils never goes through puma and thus
+             not through cpp either. 
+    *) 
+
+   Modified, RMB: 
+      8-1998 Add trailing semicolon after END (* Test... *) 
+
+      9-1998 Changes to fix bug where a TYPECASE-bound identifier was
+             assumed, but the TYPECASE statement could have been optimized
+             away, if it was not a proper narrow.  For now, the M3 generation
+             always does TYPECASE on a formal, even if its puma-declared type
+             is equal to the type being tested for, because the M3 routine
+             formal is of type tTree, which is broader, and references to
+             fields of the puma-declared type would give M3 compilation 
+             errors.  Later, fix semantics to give a routine formal an
+             additional field which is the Class for the type its M3 
+             declaration should have.  If _this_ type is narrow enough,
+             then we can omit the TYPECASE check. 
+
+     10-1998 Changes to go with new subtype RoutineFormal. 
+     12-1998 Bug fix: missing module name qualifier on type of compose temp. 
+      5-1999 Changes to properly utilize IsProperlyNarrowed, 
+             Eliminate unnecessary TYPECASE when not properly
+             narrower.
+      7-1999 Eliminate type system violations grouping PreOperator and
+             PostOperator 
+      7-1999 Misc identifier renames, much reformatting to shorten lines.
+      7-1999 Added 'VAR' to local declarations of rules. 
+
+*) 
+ 
+TRAFO M3
+
+
+ada.puma: 
+
+
+(* Ich, Doktor Josef Grosch, Informatiker, 29.4.1991 *)
+(* Rodney M. Bates Jan '96 *) 
+(* File Ada.puma: generate Ada code. Extensively modified from Mod.puma *) 
+(* Modified, RMB: 
+    3-97 Fixed a generation bug which put Ada parameter IN OUT mode in
+         the wrong place. 
+    3-97 To put the renaming declarations (-w option, equivalent of Modula-2's
+         WITH statement) in when there is a return expr or result
+         parameter exprs. 
+    4-97 Fixed a generation error when a renaming decl of a field (-w option) 
+         has the same name as the pointer to the containing node. 
+    5-97 To work with explicit/internal distinguished dont cares. 
+    5-97 Added writing a blank line after each call to WriteText, which
+         can leave things not at BOL if the target code section is
+         omitted.  This caused a bug in the case of GLOBAL, which is
+         followed by a # include, which cpp misses if not at BOL. 
+    6-97 Added writing of Ada compound operators (AND THEN, OR ELSE)
+         from BinaryCompound nodes. 
+    6-97 Rename 'Then' to 'ThenPart' and 'Else' to 'ElsePart',
+         to avoid conflicts with new case-insensitive recognition
+         by puma of Ada operators THEN and ELSE 
+    7-97 Further fixes on the problem of 4-97.
+    1-98 Fixed -w option (Tg2,Tg3) to generate the renames for all
+         nested patterns. 
+   10-98 Changes to go with new subtype RoutineFormal. 
+    7-99 Added 'VAR' to local declarations of rules. 
+    7-99 Took Var, ConsType, and Field out of PackBody and put into
+         WritePath, for special handling to ignore a ConsType at the
+         top (i.e. right end) of a path.  I have changed Semantics to
+         produce these, which are of interest only to object oriented
+         target language generation. 
+   10-99?Changed PackBody, Ident to use Object instead of recalling
+         IdentifyVar. 
+
+*) 
+
+TRAFO Ada
+
+
+c.puma: 
+
+(* Ich, Doktor Josef Grosch, Informatiker, 21.6.1991 *)
+(* Modified, RMB: 
+    5-97 To work with explicit/internal distinguished dont cares. 
+    5-97 Added writing a blank line after each call to WriteText, which
+         can leave things not at BOL if the target code section is
+         omitted.  This caused a bug in the case of GLOBAL, which is
+         followed by a # include, which cpp misses if not at BOL. 
+    6-97 Rename 'Then' to 'ThenPart' and 'Else' to 'ElsePart',
+         to avoid conflicts with new case-insensitive recognition
+         of Ada operators THEN and ELSE 
+    9-97 Take backslashes out of !...! constructs and instead call
+         IOUtils.WriteBackslash.  The cpp on Linux interprets the 
+         backslashes as escaping the following closing quote, but 
+         modula-2 does not.  IOUtils never goes through puma and thus
+         not through cpp either. 
+   10-98 Added one colon to a label.
+   10-98 Changes to go with new subtype RoutineFormal. 
+    7-99 Added 'VAR' to local declarations of rules. 
+    7-99 Took Var, ConsType, and Field out of ImplC and put into
+         WritePath, for special handling to ignore a ConsType at the
+         top (i.e. right end) of a path.  I have changed Semantics to
+         produce these, which are of interest only to object oriented
+ 10-9999 Changed ImplC, Ident to use Object instead of recalling
+         target language generation.
+*) 
+ 
+
+TRAFO C
+ 
+
+opt.puma: 
+
+
+(* File opt.puma puma optimization of tests in rules. *) 
+
+(* Ich, Doktor Josef Grosch, Informatiker, 10.12.1991 *)
+
+(* Rodney M. Bates Modifications: 
+
+   RMB Nov 96 made the minimum number of alternatives for conversion
+              of IF statments to a CASE statement a named constant
+              (MinCases) and set the value to 2. 
+
+   RMB Dec 96 fixed bug in ElimDeadTests. It was changing the Types
+              in the test in the original Tests list, while leaving
+              Types in the new test in the Decisions tree unchanged,
+              which is backwards.  Tests is not used after this, while
+              Decisions is. 
+   RMB May 97 Minor changes to match changes to puma.cg, name change
+              of Mod to M2
+   RMB Jun 97 Rename 'Then' to 'ThenPart' and 'Else' to 'ElsePart',
+              to avoid conflicts with new case-insensitive recognition
+              of Ada operators THEN and ELSE 
+   RMB Sep 98 Changed to match added ConsType field IsProperlyNarrowed
+   RMB Sep 98 Temporarily made it always narrow for Modula-3 
+   RMB Oct 98 Changed to match new field UniversalClass of TreeName 
+   RMB Oct 98 Added ':' after all labels 
+   RMB May 99 Added Dontcares to match added IsProperlyNarrowed fields 
+   RMB July 99 Added 'VAR' to local declarations of rules and one "(..)"
+   RMB Aug 99 Removed temporary always narrow for Modula-3 (Sep 98) 
+   RMB Aug 99 Small changes to positional patterns to match node
+              changes for more flexible labels on patterns. 
+   RMB Aug 99 Changed some nonlinear refs which had ':_' to just ':'
+              in IsSameType 
+
+*)
+
+TRAFO Optimize 
+
+
+puma.pars: 
+
+PARSER
+
+(* Ich, Doktor Josef Grosch, Informatiker, 28.9.1990 - 14.11.1991 *)
+(* Rodney M. Bates Dec 1995.  Propagated Tree attribute when an empty
+     statement, i.e. semicolon alone, appears. (was this really necessary?) *)
+(* RMB Feb 1996 added SPECWITH and BODYWITH target code sections for Ada. *)
+(* RMB Jul 1996 Initialized Codes so absent code sections work. *)
+(* RMB Sept 1996 Added types as expressions (for use in patterns) *)  
+(* RMB May 1997 Changed building of DontCare[1] to 
+       DontCare[1]{Explicit|Internal},
+       to support making child names of explicit dont cares visible. *) 
+(* RMB June 1997 Replaced imported mTargetExpr and mTargetStmt with local
+       procedures of same names which initialize UsedNames.  The -3 option
+       (& possibly others?) can cause a data structure dump when these fields
+       are not in use in the normal way, and did not used to be initialized,
+       causing a crash. *) 
+(* RMB Sep 1998 Changed occurrences of => to ==>, to match change made to cg's
+       scanning (cg.rex) of Jul 98 *)
+(* RMB Sep 1998 Changed parsing of TargetCodes to build Any instead of Ident,
+       when an identifier follows '.' or '->', so it will not be replaced
+       by an expanded referencing path *)
+(* RMB Jult, 1999 Allowed declarations to begin with 'VAR'.  Changed
+       Position of a Statement which contains a declaration, from the
+       trailing semicolon to the first declared identifier. *)
+(* RMB July 1999 Allowed ':' ahead of the result type of a function.
+       Took position of result from ':'. Without the ':', took
+       position of result from result type. *)  
+(* RMB July 1999 Add initialization of tPosition fields NamePos of NamedExpr
+       and AttributePos of AttrDesc and Designator. *) 
+(* RMB July 1999 Made "( )" equivalent to "( .. )" *) 
+(* RMB July 1999 Warn on puma action declaration without 'VAR'. *) 
+(* RMB July 1999 Change to not make Ident:Ident into a labelled
+       Compose, unless -p option supplied. *) 
+(* RMB Aug. 1999 Changes in parsing to new tree structure, for more
+       general use of labels. *) 
+(* RMB Aug. 1999 Allow ".." after named associations. *) 
+
+
+puma.scan: 
+
+
+(* Ich, Doktor Josef Grosch, Informatiker, 20.3.1989 *)
+(* Rodney M. Bates Feb 96. Added SPECWITH and BODYWITH sections. *)
+(* RMB Jun 96 Added Modula-2 style comments (* ... *) , including
+              nesting thereof.  
+   RMB Oct 96 Changed to scan comments inside target code blocks properly.
+              (previously, a quote inside a comment inside target
+               code gave a spurious "unclosed string" message.) 
+   RMB Apr 97 Added Ada expression operators. 
+   RMB Jun 97 Added CompoundOperator for the THEN/ELSE of Ada 
+              AND THEN and OR ELSE 
+   RMB Sep 98 Changed to deliver tokens '.' and '->' in state expr,
+              so parser can distinguish occurences of Ident following them
+   RMB July 1999 Fixed a bug in postion of comments
+   RMB Aug 1999 Added StringError and StringWarning
+       
+*) 
+
+
+sem.puma: 
+
+(* file sem.puma of puma *) 
+
+(* Ich, Doktor Josef Grosch, Informatiker, 19.4.1991 *)
+
+(* Rodney M. Bates, modified:
+     2-96 allow the patterns in a rule to be too few, even when
+          they are only specified positionally.  (If there is any
+          named pattern, this already was allowed.)  Just act as if
+          there were a , .. following.  This is enabled by the -g
+          option.
+     6-96 Made error message texts more explicit.
+     7-96 Allow a label alone (i.e. which matches anything) in a pattern  
+          to be followed by ( ':' | ':>' ) [ '_' ]. 
+          Also add a switch (-u) to require the ( ':' | ':>' ) . 
+     7-96 Fix so when a deconstructor which applies to a routine
+          parameter (i.e. not a child+ of a routine parameter),
+          appears in a pattern, the meaning of the parameter name
+          is narrowed to the type of the deconstructor, for the
+          remainder of the rule. 
+     9-96 Change TransformPattern-Compose and TransformExpr-Compose
+          to not call TransformExpr(Expr) in cases where it already
+          recognized the name Expr.  The existing call produces
+          bad looking trees, although apparently they were not used,
+          so it didn't hurt yet. 
+    10-96 Change to allow types as decomposers in patterns. 
+          Do this here by expanding the full cartesian product
+          into separate rules.  Types with more than one node
+          kind in actuals to out parameters of puma routine calls
+          would require changes in the code generating modules
+          (which is not being done now), so they generate error
+          messages. 
+     3-97 Further expanded messages on type incompatibilities. 
+     4-97 Made it illegal for a call on a user procedure (i.e. not 
+          a puma routine) to have patterns following '=>' . 
+     5-97 Naming environment changes created by matched patterns. 
+          Each child name of an explicit decomposer is declared for
+          the remainder of the rule, EXCEPT if the corresponding
+          child pattern is:
+            a) omitted altogether (this can happen with both positional 
+               and named notation).
+            b) A label alone 
+            c) A label on a '_'.  
+          I plan to eventually eliminate exception c). 
+          Note that this change also makes occurrences of these
+          identifiers in target code as well generate full
+          referencing designators, so the -w option should not be
+          needed any more.  I guess it could break existing code
+          which relied on target code _not_ being interpreted in
+          a -w context, i.e. these identifiers had other meanings.
+     9-97 Filled in field Object of node Ident.  Later discovered
+          that the generation files (c.puma, M2.puma, ada.puma, etc.)
+          don't need this because they have Decls available and can
+          call IdentifyVar ( Decls, Attribute ) to recompute the 
+          value Object now has.  Still, it seems like a possibly
+          worthwhile idea, so I left it in. 
+     9-97 Fixed a bug where a statement which is a call with a dot-
+          qualified name had uninitialized Object fields in the two
+          VarUse nodes of the qualified name.  
+     9-97 Added an error message when a statement is a node constructor. 
+     1-98 Minor error message text improvements, removed some unused code,
+          added some comments. 
+     1-98 Fixed bug where CheckPattern,Value passed dummy formals instead of
+          the real ones to CheckExprVar, causing DontCare1:Tempo to be set but
+          DontCare1:TypeDesc not, so tempo decl didn't have a type in generated
+          code. 
+     1-98 In CheckExpr:PreOperator,PostOperator, changed Formals in call to
+          CheckExprVar to dFormals, to be consistent with binary operators. 
+     1-98 Changed CheckExprVar to demand a real formal on a DontCare1.  All 
+          cases where a dummy formal can happen look meaningless for dont care.
+     1-98 Added a TransformPatternRecurse to just recurse on Tree.Parents, 
+          instead of making it a Value, which was failing when a DontCare1
+          was inside the Parents.  We want to allow DontCare1 as a Value, 
+          for matching attributes which have a label.
+     7-98 Changed ClassFormals:Attribute to recognize a tree type of an
+          attribute, so patterns can match these. 
+     7-98 Further fix to last change of 1-98.  It was putting a Parents node
+          into the pattern subtree, but this was crashing later code,
+          notably M2.puma.  It also broke ordinary (i.e. not DontCare)
+          patterns of attributes.  Eliminated the Parents in case of
+          DontCare1 inside the parentheses and changed back to put in 
+          the Value node in all other cases. 
+     9-98 Changed to put ConsType at the top (i.e. right end) of paths rooted
+          at Formal nodes, and give ConsType nodes IsProperlyNarrowed.
+          Object-oriented target language generation needs these changes.
+    10-98 Added colons on labels in this file. 
+    10-98 Added computation of RoutineFormal and its new fields, PlainFormal.
+    10-98 Misc. comments and error message text changes. 
+     1-99 Fixed bug to properly evaluate expressions in the presence of
+          DontCare[x]Internal nodes. 
+     1-99 Fixed to treat <KnownLabelOfTreeType> '.' <ValidField>, not in
+          target code, as <KnownLabelOfTreeType> "::" <ValidField> 
+     4-99 Fixed 3 places where mistakenly assumed that an ident in LabelNames
+          would also be found by IdentifyVar
+     5-99 Changes to compute IsProperlyNarrowed of Decompose and NilTest,
+          Properly compute field Name of ConsType node corresponding to 
+          a DontCare, misc. restructuring 
+     7-99 Misc small format and naming improvements. 
+     7-99 Recognize declared identifiers (other than tree/node names) in
+          patterns, including forward refs to puma routines. 
+     7-99 Add type check to AttrDesc ("::" in puma expression) against
+          expected type. 
+     7-99 Add child name to warning "child name hides another declaration"
+     7-99 Add and use in messages, position fields for LHS of NamedExpr
+          and both sides of AttrDesc and Designator. 
+     7-99 Change to accept Label and/or '_' followed by "( .. )", or 
+          "( _ , .. )", etc. as equivalent to the prefix alone.  
+     7-99 Add VAR to rule local decls. 
+     7-99 Warn when a free identifier in a pattern would have a meaning
+          which depends on the -u option. 
+     8-99 Reworked CheckPattern for DontCare.. to
+          1) Do not set Path in DontCare-multiple nodes
+          2) Do not add a decl for -Internal nodes
+     8-99 Renamed a label to work with -j instead of -w option
+     8-99 Changes for new tree grammar for more general labels.
+     8-99 Rework nonlinear references to not have colons.
+     8-99 Make TargetType and DeclaredTypeIsGuaranteed into
+          INPUT attributes. 
+     8-99 Add Hides and DeclPos to Formal, and use to generate warnings
+          when a hiding declaration is used. 
+     8-99 Changes to handle ".." after keyword patterns  
+     8-99 Fix a bug in CheckExpr, AttrDesc, trying to check type using 
+          a dummy formal. Also fixed Check, Designator to check 
+          Object <> NIL, like AttrDesc. 
+     8-99 Allow NIL in a (non-target) pattern matching a user type. 
+    11-99 Renamed field Name of VarDef to Selector, so it can be made
+          common to parent node Pattern.
+    11-99 Use a single noDesignator node (nNoDesignator), instead of
+          creating multiple copies. 
+     
+*)
+
+TRAFO Semantics PUBLIC Semantics RemoveTreeTypes
+
+
+

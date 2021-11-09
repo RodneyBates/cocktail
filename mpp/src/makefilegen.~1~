@@ -1,0 +1,53 @@
+#
+# Revised makefile for mpp RMB Nov-93
+#
+
+DEFS	= Parser.md Scanner.md Table.md
+IMPS	= Parser.mi Scanner.mi Table.mi
+LIB	= $(INSTALLGMD)/lib
+BIN	= $(INSTALLGMD)/bin
+
+MC      = m2c
+MOCKAFLAGS = 
+MOCKALIBS = -d ../../common/src -d ../../reuse/src
+
+SOURCES = Scanner.md Scanner.mi Table.md Table.mi mpp.mi
+ 
+MODULAGENS    = Parser.md Parser.mi 
+GENS    = $(MODULAGENS) Parser.Tab
+EXE     = mpp
+
+include ../../makefilesrc.include
+
+# Generated sources:
+
+Parser.mi Parser.md Parser.Tab:	mpp.ell
+	ell -di mpp.ell;
+
+install_modula: mpp mpp.sh Parser.Tab $(LIB)/mpp
+	sed 's;LIB;$(LIB);' < mpp.sh > $(BIN)/mpp
+	chmod a+rx $(BIN)/mpp
+	install -c -s -m 755 mpp $(LIB)/mpp
+	install -c -m 644 Parser.Tab $(LIB)/mpp
+
+# installation directories
+
+$(LIB)/mpp:	$(LIB)
+	sh -c "if test ! -d $(LIB)/mpp; then mkdir $(LIB)/mpp; else true; fi"
+
+# swap all byte pairs of the file Scanner.Tab
+# reverse all BITSETs (long words) of the file Parser.Tab
+
+bin.conv:	convert
+	dd conv=swab < Parser.Tab | convert > .Parser.Tab; mv .Parser.Tab Parser.Tab
+
+convert:	convert.o
+	cc -o convert convert.o
+
+clean:
+	rm -f *.[dimor] mpp *.bak
+
+CLEAN:	clean
+	rm -f Parser.m[di] Parser.Tab
+
+

@@ -1,0 +1,526 @@
+
+(* Ich, Doktor Josef Grosch, Informatiker, 21.3.1989 *)
+(* Rodney M. Bates Modifications:
+
+   Jul 96 modified mCodes to also initialize fields for
+     SPECWITH and BODYWITH target code sections for Ada. 
+   Sep 97 quoted cg keywords which are also lalr keywords.  Changes
+     to front/src/input.rex made this necessary. 
+   Jun 98 Added property 'LINK' and Link
+*)
+
+GLOBAL {
+
+FROM StringMem	IMPORT GetString;
+FROM Strings	IMPORT tString, SubString, Length, ArrayToString, IntToString, Concatenate;
+FROM Idents	IMPORT tIdent, NoIdent, MakeIdent;
+FROM Texts	IMPORT MakeText;
+FROM Scanner	IMPORT BeginScanner, tScanAttribute, Attribute;
+FROM Positions	IMPORT NoPosition;
+
+IMPORT Idents;
+
+FROM Tree	IMPORT
+   iInteger	, Reverse	, Link          , MakeTree	,
+   Input	,
+   Output	, Synthesized	, Inherited	, String	,
+   Nonterminal	, Terminal	, Explicit	, HasSelector	,
+   Thread	, Virtual	, Stack		, Demand	,
+   Funct	, Ignore	, Abstract	, nNoAction	,
+   nNoProp	, nNoAttribute	, nNoClass	, nNoDecl	,
+   nNoDesignator, nNoLayout	, nNoModule	, nNoName	,
+   nNoPrec	, NoTree	, tTree		, TreeRoot	, ViewName	,
+   SubUnit	, mAg		, mClass	, mChild	,
+   mAttribute	, mActionPart	, mLeftAssoc	, mRightAssoc	,
+   mNonAssoc	, mAssign	, mCopy		, mTargetCode	,
+   mOrder	, mCheck	, mDesignator	, mIdent	, mRemote	,
+   mAny		, mAnys		, mLayoutAny	, mModule	,
+   mDecl	, mName		, mProp		, mSelect	,
+   ReverseTree	, BeginTree	, Codes		, CloseTree	;
+
+TYPE
+   tParsAttribute = RECORD
+      CASE : INTEGER OF
+      | 1: Scan		: Scanner.tScanAttribute;
+           Properties	: BITSET;
+      | 2: Tree		: tTree;
+	   Ident	: tIdent;
+      END;
+   END;
+
+VAR
+   Properties, InitProperties	: BITSET;
+   String1, String2		: tString;
+   ClassCount			: INTEGER;
+   i				: CARDINAL;
+   ClassIdent, ModuleIdent	: tIdent;
+   ParserName, TreeName, EvalName: tIdent;
+
+PROCEDURE mCodes (): tTree;
+   VAR t: tTree;
+   BEGIN
+      t := MakeTree (Codes);
+      WITH t^.Codes DO
+	 MakeText (Export);
+	 MakeText (Import);
+	 MakeText (Global);
+	 MakeText (SpecWith);
+	 MakeText (BodyWith);
+	 MakeText (Local);
+	 MakeText (Begin);
+	 MakeText (Close);
+	 ExportLine := NoPosition;
+	 ImportLine := NoPosition;
+	 GlobalLine := NoPosition;
+	 SpecWithLine := NoPosition;
+	 BodyWithLine := NoPosition;
+	 LocalLine  := NoPosition;
+	 BeginLine  := NoPosition;
+	 CloseLine  := NoPosition;
+      END;
+      RETURN t;
+   END mCodes;
+
+PROCEDURE UpdateName (VAR Name: tIdent; Ident: tIdent);
+   BEGIN
+      IF Name = NoIdent THEN Name := Ident; END
+   END UpdateName;
+}
+
+BEGIN	{
+   BeginScanner;
+   ClassCount	  := 0;
+   InitProperties := {Input};
+   ModuleIdent	  := NoIdent;
+   SubUnit	  := NoIdent;
+   ViewName	  := NoIdent;
+   ParserName	  := NoIdent;
+   TreeName	  := NoIdent;
+   EvalName	  := NoIdent;
+}
+
+TOKEN
+   Ident	= 1
+   Integer	= 2
+   String	= 3
+   TargetCode	= 4
+   Code		= 5
+   WhiteSpace	= 7
+
+   'LEFT'	= 37
+   'NONE'	= 39
+   'PREC'	= 36
+   'RIGHT'	= 38
+   'RULE'	= 22
+   AFTER	= 24
+   BEFORE	= 25
+   'BEGIN'	= 10
+   BODYWITH     = 80 
+   CHECK	= 26
+   'CLOSE'	= 11
+   DECLARE	= 12
+   DEMAND	= 28
+   END		= 13
+   EVAL		= 14
+   'EXPORT'	= 15
+   FOR		= 71
+   FUNCTION	= 6
+   'GLOBAL'	= 16
+   IGNORE	= 72
+   IMPORT	= 30
+   INHERITED	= 34
+   INPUT	= 31
+   'LINK'       = 81
+   'LOCAL'	= 18
+   MODULE	= 19
+   OUTPUT	= 32
+   'PARSER'	= 35
+   PROPERTY	= 70
+   REMOTE	= 76
+   REVERSE	= 21
+   'SCANNER'	= 77
+   SELECT	= 74
+   SPECWITH     = 79 
+   STACK	= 20
+   SUBUNIT	= 75
+   SYNTHESIZED	= 33
+   THREAD	= 27
+   TREE		= 23
+   VIEW		= 78
+   VIRTUAL	= 17
+
+   '('		= 40
+   ')'		= 41
+   '['		= 42
+   ']'		= 43
+   '{'		= 44
+   '}'		= 45
+   ','		= 46
+   ';'		= 47
+   '.'		= 48
+   ':'		= 49
+   '='		= 50
+   ':='		= 52
+   '<'		= 57
+   '>'		= 58
+   '->'		= 59
+   ':-'		= 60
+   '=>'		= 61 /* Scanner also recognizes '==>' for this token code. */
+   '<-'		= 62
+
+RULE
+
+Cg	:
+	  ScannerName ParserCodes TreeCodes EvalCodes PrecPart PropPart DeclPart RulePart Modules
+	{ TreeRoot := mAg (NoIdent, $1.Ident, ParserName, $2.Tree, TreeName, $3.Tree, EvalName, $4.Tree, $5.Tree, $6.Tree, $7.Tree, $8.Tree, ReverseTree ($9.Tree)); }
+	| MODULE Ident
+	{ ModuleIdent := $0.Scan.Ident; }
+	  ScannerName ParserCodes TreeCodes EvalCodes PrecPart PropPart DeclPart RulePart END Ident Modules
+	{ TreeRoot := mAg ($2.Scan.Ident, $4.Ident, ParserName, $5.Tree, TreeName, $6.Tree, EvalName, $7.Tree, $8.Tree, $9.Tree, $10.Tree, $11.Tree, ReverseTree ($14.Tree)); }
+	.
+ScannerName:
+	{ $$.Ident := NoIdent; }
+	| 'SCANNER'
+	{ ArrayToString ("Scanner", String1);
+	  $$.Ident := MakeIdent (String1); }
+	| 'SCANNER' Name0
+	{ $$.Ident := $2.Scan.Ident; }
+	.
+ParserCodes:
+	{ $$.Tree := mCodes (); }
+	| 'PARSER'       Codes
+	{ $$.Tree := $2.Tree; }
+	| 'PARSER' Name0 Codes
+	{ $$.Tree := $3.Tree; UpdateName (ParserName, $2.Scan.Ident); }
+	.
+TreeCodes:	     SubUnit
+	{ $$.Tree := mCodes (); }
+	| TREE       SubUnit Codes
+	{ $$.Tree := $3.Tree; }
+	| TREE Name0 SubUnit Codes
+	{ $$.Tree := $4.Tree; UpdateName (TreeName, $2.Scan.Ident); }
+	.
+EvalCodes:
+	{ $$.Tree := mCodes (); }
+	| EVAL       Codes
+	{ $$.Tree := $2.Tree; }
+	| EVAL Name0 Codes
+	{ $$.Tree := $3.Tree; UpdateName (EvalName, $2.Scan.Ident); }
+	.
+Codes	:
+	{ $$.Tree := mCodes (); }
+	| Codes SPECWITH TargetCode
+	{ $$.Tree := $1.Tree;
+	  $$.Tree^.Codes.SpecWith	    := $3.Scan.Text;
+	  $$.Tree^.Codes.SpecWithLine := $3.Scan.Position; }
+	| Codes BODYWITH TargetCode
+	{ $$.Tree := $1.Tree;
+	  $$.Tree^.Codes.BodyWith	    := $3.Scan.Text;
+	  $$.Tree^.Codes.BodyWithLine := $3.Scan.Position; }
+	| Codes 'EXPORT' TargetCode
+	{ $$.Tree := $1.Tree;
+	  $$.Tree^.Codes.Export	    := $3.Scan.Text;
+	  $$.Tree^.Codes.ExportLine := $3.Scan.Position; }
+	| Codes IMPORT TargetCode
+	{ $$.Tree := $1.Tree;
+	  $$.Tree^.Codes.Import     := $3.Scan.Text;
+	  $$.Tree^.Codes.ImportLine := $3.Scan.Position; }
+	| Codes 'GLOBAL' TargetCode
+	{ $$.Tree := $1.Tree;
+	  $$.Tree^.Codes.Global     := $3.Scan.Text;
+	  $$.Tree^.Codes.GlobalLine := $3.Scan.Position; }
+	| Codes 'LOCAL'  TargetCode
+	{ $$.Tree := $1.Tree;
+	  $$.Tree^.Codes.Local      := $3.Scan.Text;
+	  $$.Tree^.Codes.LocalLine  := $3.Scan.Position; }
+	| Codes 'BEGIN'  TargetCode
+	{ $$.Tree := $1.Tree;
+	  $$.Tree^.Codes.Begin      := $3.Scan.Text;
+	  $$.Tree^.Codes.BeginLine  := $3.Scan.Position; }
+	| Codes 'CLOSE'  TargetCode
+	{ $$.Tree := $1.Tree;
+	  $$.Tree^.Codes.Close      := $3.Scan.Text;
+	  $$.Tree^.Codes.CloseLine  := $3.Scan.Position; }
+	.
+SubUnit	:
+	| SubUnit SUBUNIT Name0
+	{ UpdateName (SubUnit, $3.Scan.Ident); }
+	| SubUnit VIEW Name0
+	{ UpdateName (ViewName, $3.Scan.Ident); }
+	.
+PrecPart:
+	{ $$.Tree := nNoPrec; }
+	| 'PREC' Precs 
+	{ $$.Tree := ReverseTree ($2.Tree); }
+	.
+Precs	:
+	{ $$.Tree := nNoPrec; }
+	| Precs 'LEFT'  Names
+	{ $$.Tree := mLeftAssoc  (ReverseTree ($3.Tree), $1.Tree); }
+	| Precs 'RIGHT' Names
+	{ $$.Tree := mRightAssoc (ReverseTree ($3.Tree), $1.Tree); }
+	| Precs 'NONE'  Names
+	{ $$.Tree := mNonAssoc   (ReverseTree ($3.Tree), $1.Tree); }
+	.
+PropPart:
+	  Props 
+	{ $$.Tree := ReverseTree ($1.Tree); }
+	.
+Props	:
+	{ $$.Tree := nNoProp; }
+	| Props PROPERTY Properties
+	{ $$.Tree := mProp ($3.Properties, mName (ModuleIdent, NoPosition, nNoName), $1.Tree);
+	  InitProperties := {}; }
+	| Props PROPERTY Properties FOR Names
+	{ $$.Tree := mProp ($3.Properties, ReverseTree ($5.Tree), $1.Tree);
+	  InitProperties := {}; }
+	| Props SELECT Names
+	{ $$.Tree := mSelect (ReverseTree ($3.Tree), $1.Tree);
+	  InitProperties := {}; }
+	.
+DeclPart:
+	{ $$.Tree := nNoDecl; }
+	| DECLARE Decls
+	{ $$.Tree := ReverseTree ($2.Tree); }
+	.
+Decls	:
+	{ $$.Tree := nNoDecl; }
+	| Decls Names '='
+	{ Properties := InitProperties; }
+	  AttrDecls '.'
+	{ $$.Tree := mDecl (ReverseTree ($2.Tree), ReverseTree ($5.Tree), {Nonterminal, Explicit}, $1.Tree); }
+	| Decls Names ':'
+	{ Properties := InitProperties; }
+	  AttrDecls '.'
+	{ $$.Tree := mDecl (ReverseTree ($2.Tree), ReverseTree ($5.Tree), {Terminal, Explicit}, $1.Tree); }
+	.
+Names	:
+	{ $$.Tree := nNoName; }
+	| Names Name1
+	{ $$.Tree := mName ($2.Scan.Ident, $2.Scan.Position, $1.Tree); }
+	| Names ','
+	{ $$.Tree := $1.Tree; }
+	.
+RulePart:
+	{ $$.Tree := nNoClass; }
+	| 'RULE' Types
+	{ $$.Tree := ReverseTree ($2.Tree); }
+	.
+Types	:
+	{ $$.Tree := nNoClass; }
+
+	| Types BaseTypes '='
+	{ Properties := InitProperties; }
+	  AttrDecls Prec Extensions '.'
+	{ INC (ClassCount); IntToString (ClassCount, String2); ArrayToString ("yy", String1);
+	  Concatenate (String1, String2); ClassIdent := MakeIdent (String1);
+	  $$.Tree := mClass (ClassIdent, {Nonterminal, Explicit}, ReverseTree ($5.Tree),
+	  $7.Tree, $1.Tree, ClassIdent, $3.Scan.Position, 0, $6.Scan.Ident, $2.Tree); }
+
+	| Types Name1 BaseTypes '='
+	{ Properties := InitProperties; }
+	  AttrDecls Prec Extensions '.'
+	{ $$.Tree := mClass ($2.Scan.Ident, {Nonterminal, Explicit} + $2.Properties,
+	     ReverseTree ($6.Tree), $8.Tree, $1.Tree, $2.Scan.Ident, $2.Scan.Position, 0,
+	     $7.Scan.Ident, $3.Tree); }
+
+	| Types Name1 BaseTypes ':'
+	{ Properties := InitProperties; }
+	  TokenCode TypeProperties AttrDecls Prec Extensions '.'
+	{ $$.Tree := mClass ($2.Scan.Ident, {Terminal, Explicit} + $2.Properties + $7.Properties,
+	     ReverseTree ($8.Tree), $10.Tree, $1.Tree, $2.Scan.Ident, $2.Scan.Position,
+	     $6.Scan.Integer, $9.Scan.Ident, $3.Tree); }
+
+	| Types Name1 Ident BaseTypes ':'
+	{ Properties := InitProperties; }
+	  TokenCode TypeProperties AttrDecls Prec Extensions '.'
+	{ $$.Tree := mClass ($2.Scan.Ident, {Terminal, Explicit, HasSelector} + $2.Properties + $8.Properties,
+	     ReverseTree ($9.Tree), $11.Tree, $1.Tree, $3.Scan.Ident, $2.Scan.Position,
+	     $7.Scan.Integer, $10.Scan.Ident, $4.Tree); }
+
+	| Types Name1 BaseTypes ':='
+	{ Properties := InitProperties; }
+	  AttrDecls Prec Extensions '.'
+	{ $$.Tree := mClass ($2.Scan.Ident, {Abstract, Explicit} + $2.Properties,
+	     ReverseTree ($6.Tree), $8.Tree, $1.Tree, $2.Scan.Ident, $2.Scan.Position, 0,
+	     $7.Scan.Ident, $3.Tree); }
+	.
+BaseTypes:
+	{ $$.Tree := nNoName; }
+	| '<-' Names
+	{ $$.Tree := ReverseTree ($2.Tree); }
+	.
+TokenCode:
+	{ $$.Scan.Integer := 0; }
+	| Integer
+	{ $$.Scan.Integer := $1.Scan.Integer; }
+	.
+Prec	:
+	{ $$.Scan.Ident := NoIdent; }
+	| 'PREC' Name1
+	{ $$.Scan.Ident := $2.Scan.Ident; }
+	.
+Extensions:
+	{ $$.Tree := nNoClass; }
+	| '<' Types '>'
+	{ $$.Tree := ReverseTree ($2.Tree); }
+	.
+AttrDecls:
+	{ $$.Tree := nNoAttribute; }
+	| AttrDecls '->'
+	{ $$.Tree := $1.Tree; Properties := {}; }
+	| AttrDecls '[' Name1           Properties ']'
+	{ IF Thread IN $4.Properties THEN
+	     Idents.GetString ($3.Scan.Ident, String1);
+	     ArrayToString ("In", String2);
+	     Concatenate (String1, String2);
+	     $$.Tree := mAttribute ($1.Tree, MakeIdent (String1), iInteger, Properties + $4.Properties + {Inherited}, $3.Scan.Position);
+	     Idents.GetString ($3.Scan.Ident, String1);
+	     ArrayToString ("Out", String2);
+	     Concatenate (String1, String2);
+	     $$.Tree := mAttribute ($$.Tree, MakeIdent (String1), iInteger, Properties + $4.Properties + {Synthesized}, $3.Scan.Position);
+	  ELSE
+	     $$.Tree := mAttribute ($1.Tree, $3.Scan.Ident, iInteger, Properties + $4.Properties, $3.Scan.Position);
+	  END;
+	}
+	| AttrDecls '[' Name1 ':' Name1 Properties ']'
+	{ IF Thread IN $6.Properties THEN
+	     Idents.GetString ($3.Scan.Ident, String1);
+	     ArrayToString ("In", String2);
+	     Concatenate (String1, String2);
+	     $$.Tree := mAttribute ($1.Tree, MakeIdent (String1), $5.Scan.Ident, Properties + $6.Properties + {Inherited}, $3.Scan.Position);
+	     Idents.GetString ($3.Scan.Ident, String1);
+	     ArrayToString ("Out", String2);
+	     Concatenate (String1, String2);
+	     $$.Tree := mAttribute ($$.Tree, MakeIdent (String1), $5.Scan.Ident, Properties + $6.Properties + {Synthesized}, $3.Scan.Position);
+	  ELSE
+	     $$.Tree := mAttribute ($1.Tree, $3.Scan.Ident, $5.Scan.Ident, Properties + $6.Properties, $3.Scan.Position);
+	  END;
+	}
+	| AttrDecls '('           Name1 Properties ')'
+	{ $$.Tree := mChild ($1.Tree, $3.Scan.Ident, $3.Scan.Ident, Properties + $4.Properties, $3.Scan.Position); }
+	| AttrDecls '(' Name1 ':' Name1 Properties ')'
+	{ $$.Tree := mChild ($1.Tree, $3.Scan.Ident, $5.Scan.Ident, Properties + $6.Properties, $3.Scan.Position); }
+	| AttrDecls               Name1 Properties
+	{ $$.Tree := mChild ($1.Tree, $2.Scan.Ident, $2.Scan.Ident, Properties + $3.Properties, $2.Scan.Position); }
+	| AttrDecls     Name1 ':' Name1 Properties
+	{ $$.Tree := mChild ($1.Tree, $2.Scan.Ident, $4.Scan.Ident, Properties + $5.Properties, $2.Scan.Position); }
+	| AttrDecls     '{' Actions '}'
+	{ $$.Tree := mActionPart ($1.Tree, ReverseTree ($3.Tree)); }
+	.
+TypeProperties:
+	{ $$.Properties := {}; }
+	.
+Properties:
+	{ $$.Properties := {}; }
+	| Properties REVERSE
+	{ $$.Properties := $1.Properties + {Reverse	}; }
+	| Properties 'LINK'
+	{ $$.Properties := $1.Properties + {Link	}; }
+	| Properties INPUT
+	{ $$.Properties := $1.Properties + {Input	}; }
+	| Properties OUTPUT
+	{ $$.Properties := $1.Properties + {Output	}; }
+	| Properties SYNTHESIZED
+	{ $$.Properties := $1.Properties + {Synthesized	}; }
+	| Properties INHERITED
+	{ $$.Properties := $1.Properties + {Inherited	}; }
+	| Properties THREAD
+	{ $$.Properties := $1.Properties + {Thread	}; }
+	| Properties VIRTUAL
+	{ $$.Properties := $1.Properties + {Virtual	}; }
+	| Properties STACK
+	{ $$.Properties := $1.Properties + {Stack	}; }
+	| Properties DEMAND
+	{ $$.Properties := $1.Properties + {Demand	}; }
+	| Properties FUNCTION
+	{ $$.Properties := $1.Properties + {Funct	}; }
+	| Properties IGNORE
+	{ $$.Properties := $1.Properties + {Ignore	}; }
+	.
+Actions	:
+	{ $$.Tree := nNoAction; }
+	| Actions Exprs ':=' Exprs ';'
+	{ $$.Tree := mAssign ($1.Tree, $3.Scan.Position, ReverseTree ($2.Tree), ReverseTree ($4.Tree)); }
+	| Actions Exprs ':-' Exprs ';'
+	{ $$.Tree := mCopy ($1.Tree, $3.Scan.Position, ReverseTree ($2.Tree), ReverseTree ($4.Tree)); }
+	| Actions Exprs ':=' Exprs '{' Exprs '}' Exprs ';'
+	{ $$.Tree := mTargetCode ($1.Tree, $3.Scan.Position, ReverseTree ($2.Tree), ReverseTree ($6.Tree)); }
+	| Actions Exprs AFTER Exprs ';'
+	{ $$.Tree := mOrder ($1.Tree, NoPosition, ReverseTree ($2.Tree), ReverseTree ($4.Tree)); }
+	| Actions Exprs BEFORE Exprs ';'
+	{ $$.Tree := mOrder ($1.Tree, NoPosition, ReverseTree ($4.Tree), ReverseTree ($2.Tree)); }
+	| Actions Checks ';'
+	{ $$.Tree := $2.Tree; $$.Tree^.Check.Next := $1.Tree; }
+	| Actions Exprs ';'
+	{ $$.Tree := mTargetCode ($1.Tree, Attribute.Position, nNoDesignator, ReverseTree ($2.Tree)); }
+	| Actions Exprs
+	{ $$.Tree := mTargetCode ($1.Tree, Attribute.Position, nNoDesignator, ReverseTree ($2.Tree)); }
+	.
+Checks	: Check
+	{ $$.Tree := $1.Tree; }
+	| Check Checks
+	{ $$.Tree := $1.Tree; $$.Tree^.Check.Actions := $2.Tree; }
+	.
+Check	:
+	   	      '=>' Exprs
+	{ $$.Tree := mCheck (nNoAction, NoPosition, NoTree, ReverseTree ($2.Tree), nNoAction); }
+	|  	      '=>' Exprs '{' Exprs '}' Space
+	{ $$.Tree := mCheck (nNoAction, NoPosition, NoTree, ReverseTree ($4.Tree), nNoAction); }
+	| CHECK Exprs
+	{ $$.Tree := mCheck (nNoAction, $1.Scan.Position, ReverseTree ($2.Tree), NoTree, nNoAction); }
+	| CHECK Exprs '=>' Exprs
+	{ $$.Tree := mCheck (nNoAction, $1.Scan.Position, ReverseTree ($2.Tree), ReverseTree ($4.Tree), nNoAction); }
+	| CHECK Exprs '=>' Exprs '{' Exprs '}' Space
+	{ $$.Tree := mCheck (nNoAction, $1.Scan.Position, ReverseTree ($2.Tree), ReverseTree ($6.Tree), nNoAction); }
+	.
+Exprs	:
+	{ $$.Tree := nNoDesignator; }
+	| Exprs Name1 Space ':' Space Ident
+	{ $$.Tree := mDesignator ($2.Scan.Ident, $6.Scan.Ident, $2.Scan.Position, $1.Tree); }
+	| Exprs Name1 Space ':' Space
+	{ $$.Tree := mIdent ($2.Scan.Ident, $2.Scan.Position, $1.Tree);
+	  $$.Tree := mAnys (ReverseTree ($3.Tree), $$.Tree);
+	  $$.Tree := mAny ($4.Scan.StringRef, $$.Tree);
+	  $$.Tree := mAnys (ReverseTree ($5.Tree), $$.Tree); }
+	| Exprs Name1 Space
+	{ $$.Tree := mIdent ($2.Scan.Ident, $2.Scan.Position, $1.Tree);
+	  $$.Tree := mAnys (ReverseTree ($3.Tree), $$.Tree); }
+	| Exprs ':'
+	{ $$.Tree := mAny ($2.Scan.StringRef, $1.Tree); }
+	| Exprs REMOTE Exprs '=>' Space Ident Space ':' Space Ident
+	{ $$.Tree := mRemote (ReverseTree ($3.Tree), $6.Scan.Ident, $10.Scan.Ident, $10.Scan.Position, $1.Tree); }
+	| Exprs Code
+	{ $$.Tree := mAny ($2.Scan.StringRef, $1.Tree); }
+	| Exprs WhiteSpace
+	{ $$.Tree := mAny ($2.Scan.StringRef, $1.Tree); }
+	.
+Modules	:
+	{ $$.Tree := nNoModule; }
+	| Modules MODULE Ident
+	{ ModuleIdent := $0.Scan.Ident; }
+	  ParserCodes TreeCodes EvalCodes PropPart DeclPart RulePart END Ident
+	{ $$.Tree := mModule ($3.Scan.Ident, $5.Tree, $6.Tree, $7.Tree, $8.Tree, $9.Tree, $10.Tree, $1.Tree); }
+	.
+Name0	:
+	  Ident
+	{ $$.Scan := $1.Scan; }
+	| String
+	{ $$.Scan := $1.Scan; GetString ($1.Scan.StringRef, String1);
+	  SubString (String1, 2, Length (String1) - 1, String2);
+	  $$.Scan.Ident := MakeIdent (String2); }
+	.
+Name1	:
+	  Ident
+	{ $$.Scan := $1.Scan;
+	  $$.Properties := {}; }
+	| String
+	{ $$.Scan := $1.Scan; GetString ($1.Scan.StringRef, String1);
+	  $$.Scan.Ident := MakeIdent (String1);
+	  $$.Properties := {String}; }
+	.
+Space	:
+	{ $$.Tree := nNoLayout; }
+	| Space WhiteSpace
+	{ $$.Tree := mLayoutAny ($2.Scan.StringRef, $1.Tree); }
+	.

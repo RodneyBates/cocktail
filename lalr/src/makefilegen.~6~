@@ -1,0 +1,69 @@
+# $Id: Makefile,v 2.6 1992/09/24 13:14:46 grosch rel $
+ifndef INSTALLGMD
+  INSTALLGMD=/usr/local
+endif
+export INSTALLGMD
+
+INSTALLLIB	= $(INSTALLGMD)/lib
+INSTALLBIN	= $(INSTALLGMD)/bin
+MC	= mocka_mtc
+
+MAKEINCLUDE = .
+
+MLIB	= ../../reuse/gen
+FRONT	= ../../front/gen
+MOCKALIBS = -d $(FRONT) -d $(MLIB)
+MOCKAFLAGS	= -noindex -norange
+
+PLIB	= ParserDrv.mi Parser.md Parser.mi Errors.md Errors.mi \
+          Scanner.md Scanner.mi ParserDrv.c Parser.c Parser.h \
+          Errors.c Errors.h Scanner.c Scanner.h \
+          lalr.cat lalr.syn
+PLIBD = $(patsubst %,../lib/%,$(PLIB)) 
+
+MODULASOURCES = ArgCheck.md ArgCheck.mi Automaton.md Automaton.mi \
+                Check.md Check.mi Compress.md Compress.mi \
+                Continue.md Continue.mi Debug.md Debug.mi \
+                Default.md Default.mi Final.md Final.mi Gen.md Gen.mi \
+                GenLang.md GenLang.mi Infos.md Infos.mi LR.md LR.mi \
+                Lookahead.md Lookahead.mi Reduce.md Reduce.mi lalr.mi
+
+OTHERSOURCES = 
+SOURCES = $(MODULASOURCES) $(OTHERSOURCES)
+
+
+MODULAGENS    =
+OTHERGENS    =
+GENS    = $(MODULAGENS) $(OTHERGENS)
+EXE     = lalr
+
+include $(MAKEINCLUDE)/make.include
+
+install_modula:
+
+install_mocka:
+
+#install_modula:	lalr lalr.sh $(INSTALLLIB)/lalr $(PLIBD)
+#	if test $(INSTALLLIB) = $(INSTALLBIN); then echo error: INSTALLBIN = INSTALLLIB; false; else true; fi
+#	sed 's;LIB;$(INSTALLLIB);' < lalr.sh > $(INSTALLBIN)/lalr
+#	chmod a+rx $(INSTALLBIN)/lalr
+#	install -c -s -m 755 lalr $(INSTALLLIB)/lalr
+#	cp $(PLIBD) $(INSTALLLIB)/lalr
+#	cd $(INSTALLLIB)/lalr; chmod a+r $(PLIB)
+
+# installation directories
+
+$(INSTALLLIB)/lalr:	$(INSTALLLIB)
+	sh -c "if test ! -d $(INSTALLLIB)/lalr; then mkdir $(INSTALLLIB)/lalr; else true; fi"
+
+clean:
+	rm -f core *.[dimor] *.def *.mod *.sym ERRORS LISTING _Debug *.bak
+
+.SUFFIXES:	.def .mod .md .mi
+
+.md.def:
+	ln $*.md $*.def
+
+.mi.mod:
+	ln $*.mi $*.mod
+

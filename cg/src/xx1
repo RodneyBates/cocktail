@@ -1,0 +1,8 @@
+           !       IF TNode . ! WI ( Name ) ; ! = NIL!
+           !       OR NOT ISTYPE ( TNode . ! WI ( Name ) ; ! , ! 
+                                   NodeType ( Class ) ; ! )!
+           @       THEN yyCheckMessage ( yyt , TNode . @ WI ( Name ) ; 
+                                       @ , "@ WI (Name); @" ) ;@
+           !            yyResult := FALSE ; !
+           !       END (* IF *) ; !
+           !       yyResult := yyCheck! WI ( iModule ) ; ! ( TNode . ! WI ( Name ) ; ! ) AND yyResult ;!

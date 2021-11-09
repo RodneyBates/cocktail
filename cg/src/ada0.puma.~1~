@@ -1,0 +1,756 @@
+/* Rodney Bates 10-95: Modified to put new line after each record field
+              of node types, so as to not choke lalr with input
+              lines longer that 255 chars.
+*/
+/* Rodney Bates 11-95: 
+     wrote modified parser generator procedure GrammarDep and its
+     subordinate procedures ClassListDep, ChildDep, ActionsDep, 
+     which respect attribute dependencies. However, it is not
+     clear this is what is wanted, since they can then perform
+     semantic actions in an order which violates their placement 
+     in the rules.  This is suspected of having additional bugs 
+     as well.  
+     -e option uses the new generation method. 
+*/
+
+TRAFO GramMod
+TREE Tree
+PUBLIC ParsSpec ScanSpec
+
+GLOBAL {
+
+FROM IO		IMPORT WriteS, WriteNl;
+FROM Strings	IMPORT tString, ArrayToString;
+FROM StringMem	IMPORT WriteString;
+FROM Idents	IMPORT NoIdent, tIdent, MakeIdent;
+FROM Texts	IMPORT WriteText;
+FROM Sets	IMPORT IsElement, Include;
+FROM TreeMod2	IMPORT TreeIO;
+FROM SYSTEM     IMPORT ADR;
+
+FROM Tree	IMPORT Left , Right , First , Dummy , 
+   NoTree	, tTree		, Input		, Reverse	,
+   Class	, NoClass	, Child		, Attribute	,
+   ActionPart	, HasSelector	, HasAttributes	, NoCodeAttr	,
+   Referenced	, Options	, TreeRoot	, QueryTree	,
+   ClassCount	, iNoTree	, itTree	, Generated	,
+   f		, WI, WE, WN	, ForallClasses	, ForallAttributes,
+   Nonterminal	, Terminal	, IdentifyAttribute,
+   String	, iPosition	;
+
+IMPORT Strings;
+
+VAR
+   Node, ActClass, TheClass, TheAttr	: tTree;
+   iOper, iLeft, iRight, iNone, iPrec, iRule	: tIdent;
+   ActActionIndex, PrevActionIndex, i	: SHORTCARD;
+   IsImplicit				: BOOLEAN;
+   s					: tString;
+
+PROCEDURE GetBaseClass (Class: tTree): tTree;
+   BEGIN
+      WHILE Class^.Class.BaseClass^.Kind # NoClass DO
+	 Class := Class^.Class.BaseClass;
+      END;
+      RETURN Class;
+   END GetBaseClass;
+
+PROCEDURE IsLast (Class, Action: tTree): BOOLEAN;
+   VAR Found, Last: BOOLEAN;
+   BEGIN
+      IsLast2 (Class, Action, Found, Last);
+      RETURN Last;
+   END IsLast;
+
+PROCEDURE IsLast2 (t, Action: tTree; VAR pFound, pLast: BOOLEAN);
+   VAR Found, Last: BOOLEAN;
+   BEGIN
+      CASE t^.Kind OF
+      | Class:
+	    IsLast2 (t^.Class.Attributes, Action, pFound, pLast);
+	    IF pFound OR NOT pLast THEN RETURN; END;
+	    IsLast2 (t^.Class.BaseClass, Action, pFound, pLast);
+      | Child:
+	    IsLast2 (t^.Child.Next, Action, Found, Last);
+	    pFound := Found;
+	    IF Found THEN
+	       pLast := Last;
+	    ELSE
+	       pLast := FALSE;
+	    END;
+      | Attribute:
+	    IsLast2 (t^.Attribute.Next, Action, pFound, pLast);
+      | ActionPart:
+	    IsLast2 (t^.ActionPart.Next, Action, Found, Last);
+	    pFound := Found OR (Action = t);
+	    IF Found THEN
+	       pLast := Last;
+	    ELSE
+	       pLast := Last AND (Action = t);
+	    END;
+      ELSE
+	    pFound := FALSE;
+	    pLast  := TRUE;
+      END;
+   END IsLast2;
+}
+
+BEGIN {
+   ArrayToString ("OPER"	, s); iOper	:= MakeIdent (s);
+   ArrayToString ("RIGHT"	, s); iRight	:= MakeIdent (s);
+   ArrayToString ("LEFT"	, s); iLeft	:= MakeIdent (s);
+   ArrayToString ("NONE"	, s); iNone	:= MakeIdent (s);
+   ArrayToString ("PREC"	, s); iPrec	:= MakeIdent (s);
+   ArrayToString ("RULE"	, s); iRule	:= MakeIdent (s);
+}
+
+PROCEDURE ParsSpec (t: Tree)
+
+Ag (..) :- {
+	IF ScannerName # NoIdent THEN
+	   !SCANNER ! WI (ScannerName);
+	END;
+	! PARSER ! WI (ParserName); !!
+	!GLOBAL {!
+	WriteText (f, ParserCodes^.Codes.Global);
+	Node := Modules;
+	WHILE Node^.Kind = Tree.Module DO
+	   WriteText (f, Node^.Module.ParserCodes^.Codes.Global);
+	   Node := Node^.Module.Next;
+	END;
+	!TYPE!
+        ParsVariant (Classes);
+	!!
+	!tParsAttribute = RECORD CASE : SHORTCARD OF!
+	!  0: Scan: ! 
+	IF ScannerName # NoIdent THEN WI (ScannerName); ELSE !Scanner! END;
+	!.tScanAttribute;!
+	i := 0;
+	Node := Classes;
+	WHILE Node^.Kind = Class DO
+	  WITH Node^.Class DO
+	     IF {Nonterminal, Referenced, HasAttributes} <= Properties THEN
+	       INC (i);
+	       !| ! WN (i); !: ! 
+	       IF (String IN Properties) AND NOT (HasSelector IN Properties) THEN
+		 !(* ! WE (Name); ! *) yy! WN (Name);
+		 !: yy! WN (Name); !;!
+	       ELSE
+		 WI (Selector); !: yy! WI (Selector); !;!
+	       END;
+	     END;
+	     Node := Next;
+	  END;
+	END;
+	!END; END;!
+	!}!
+	!!
+	!EXPORT {!
+	WriteText (f, ParserCodes^.Codes.Export);
+	Node := Modules;
+	WHILE Node^.Kind = Tree.Module DO
+	  WriteText (f, Node^.Module.ParserCodes^.Codes.Export);
+	  Node := Node^.Module.Next;
+	END;
+	!}!
+	!!
+	!LOCAL {!
+	WriteText (f, ParserCodes^.Codes.Local);
+	Node := Modules;
+	WHILE Node^.Kind = Tree.Module DO
+	  WriteText (f, Node^.Module.ParserCodes^.Codes.Local);
+	  Node := Node^.Module.Next;
+	END;
+	!}!
+	!!
+	!BEGIN {!
+	WriteText (f, ParserCodes^.Codes.Begin);
+	Node := Modules;
+	WHILE Node^.Kind = Tree.Module DO
+	  WriteText (f, Node^.Module.ParserCodes^.Codes.Begin);
+	  Node := Node^.Module.Next;
+	END;
+	!}!
+	!!
+	!CLOSE {!
+	WriteText (f, ParserCodes^.Codes.Close);
+	Node := Modules;
+	WHILE Node^.Kind = Tree.Module DO
+	  WriteText (f, Node^.Module.ParserCodes^.Codes.Close);
+	  Node := Node^.Module.Next;
+	END;
+	!}!
+	!!
+	!TOKEN!
+	!!
+	ForallClasses (Classes, Token);
+	!!
+	!OPER!
+	!!
+	PrecDefs (Precs);
+	!!
+	!RULE!
+	!!
+	ForallClasses (Classes, ParsSpec);
+}; .
+Class (..) :- {
+	IF {Nonterminal, Referenced} <= Properties THEN
+	   TheClass := t;
+           IF IsElement ( ORD ( 'e' ) , Options )
+           THEN
+	     GrammarDep (t)
+           ELSE
+	     Grammar (t)
+           END 
+	END;
+}; .
+
+
+PROCEDURE ScanSpec (t: Tree)
+
+Ag (..) :- {
+	!m!
+	!TYPE!
+	ForallClasses (Classes, ScanVariant);
+	!!
+	!tScanAttribute = RECORD!
+	!Position: tPosition;!
+	!CASE : SHORTCARD OF!
+	ForallClasses (Classes, ScanAttr);
+	!END; END;!
+	!!
+	!PROCEDURE ErrorAttribute (Token: INTEGER; VAR pAttribute: tScanAttribute);!
+	!%%!
+	!PROCEDURE ErrorAttribute (Token: INTEGER; VAR pAttribute: tScanAttribute);!
+	!BEGIN!
+	! pAttribute.Position := Attribute.Position;!
+	! CASE Token OF!
+	ForallClasses (Classes, ErrorActions);
+	! ELSE!
+	! END;!
+	!END ErrorAttribute;!
+	!%%!
+	ForallClasses (Classes, ScanSpec);
+}; .
+Class (..) :- {
+	IF {Terminal, Referenced} <= Properties THEN
+	   WN (Code);
+	   IF HasAttributes IN Properties THEN	! S ! 
+	   ELSE					! N ! 
+	   END;
+	   IF (String IN Properties) AND NOT (HasSelector IN Properties) THEN
+	      !yy! WN (Code);
+	   ELSE
+	      WI (Selector);
+	   END;
+	   ! ! WI (Name); !!
+	END;
+}; .
+
+
+PROCEDURE ErrorActions (t: Tree)
+
+Class (..) :- {
+	IF {Terminal, Referenced, HasAttributes} <= Properties THEN
+	  ! | (* ! WE (Name); ! *) ! WN (Code); !: !
+	  TheClass := t;
+	  ForallAttributes (t, ErrorActions);
+	END;
+}; .
+ActionPart (..) :- {
+	ErrorActions (Actions);
+}; .
+Assign (..) :- {
+	ErrorActions (Results); !:=! ErrorActions (Arguments); !;!
+	ErrorActions (Next);
+}; .
+Copy (..) :- {
+	ErrorActions (Results); ! := ! ErrorActions (Arguments); !;!
+	ErrorActions (Next);
+}; .
+TargetCode (..) :- {
+	ErrorActions (Code); !;!
+	ErrorActions (Next);
+}; .
+Order (..) :- {
+	ErrorActions (Next);
+}; .
+Check (..) :- {
+	IF Statement # NoTree THEN
+	   IF Condition # NoTree THEN
+	      !IF NOT (! ErrorActions (Condition); !) THEN ! ErrorActions (Statement); !; END;!
+	   ELSE
+	      ErrorActions (Statement); !;!
+	   END;
+	ELSE
+	   !IF ! ErrorActions (Condition); ! THEN END;!
+	END;
+	ErrorActions (Next);
+}; .
+Designator (..) :- {
+	WI (Selector); !:! WI (Attribute);
+	ErrorActions (Next);
+}; .
+Ident (..) :- {
+	TheAttr := IdentifyAttribute (TheClass, Attribute);
+	IF TheAttr # NoTree THEN
+	   !pAttribute! 
+	   IF Attribute = iPosition THEN
+           ELSIF (String IN TheClass^.Class.Properties) AND NOT (HasSelector IN TheClass^.Class.Properties) THEN
+	      !.yy! WN (TheClass^.Class.Code);
+	   ELSE
+	      !.! WI (TheClass^.Class.Selector);
+	   END;
+	   !.! 
+	END;
+	WI (Attribute);
+	ErrorActions (Next);
+}; .
+Any (..) :- {
+	WriteString (f, Code);
+	ErrorActions (Next);
+}; .
+Anys (..) :- {
+	ErrorActions (Layouts);
+	ErrorActions (Next);
+}; .
+LayoutAny (..) :- {
+	WriteString (f, Code);
+	ErrorActions (Next);
+}; .
+
+
+PROCEDURE ScanVariant (t: Tree)
+
+Class (..) :- {
+	IF {Terminal, Referenced, HasAttributes} <= Properties THEN
+          IF (String IN Properties) AND NOT (HasSelector IN Properties) THEN
+	    !(* ! WE (Name); ! *) yy! WN (Code); ! = RECORD ! 
+	  ELSE
+	    !yy! WI (Selector); ! = RECORD ! 
+	  END;
+	  TheClass := t;
+	  ForallAttributes (t, RecordField);
+	  !END;!
+	END;
+}; .
+
+
+PROCEDURE ScanAttr (t: Tree)
+
+Class (..) :- {
+	IF {Terminal, Referenced, HasAttributes} <= Properties THEN
+	  !| ! WN (Code); !: ! 
+          IF (String IN Properties) AND NOT (HasSelector IN Properties) THEN
+	    !(* ! WE (Name); ! *) yy! WN (Code); !: yy! WN (Code); !;!
+	  ELSE
+	    WI (Selector); !: yy! WI (Selector); !;!
+	  END;
+	END;
+}; .
+
+
+PROCEDURE ParsVariant (t: Tree)
+
+Class (..) :- {
+	IF {Nonterminal, Referenced, HasAttributes} <= Properties THEN
+          IF (String IN Properties) AND NOT (HasSelector IN Properties) THEN
+	    !(* ! WE (Name); ! *) yy! WN (Name); ! = RECORD ! 
+	  ELSE
+	    !yy! WI (Selector); ! = RECORD ! 
+	  END;
+	  TheClass := t;
+	  ForallAttributes (Attributes, RecordField);
+	  GenExt (Extensions);
+	  !END;!
+	END;
+	ParsVariant (Next);
+}; .
+
+
+PROCEDURE GenExt (t: Tree)
+
+Class (..) :- {
+	ForallAttributes (Attributes, RecordField);
+	GenExt (Extensions);
+	GenExt (Next);
+}; .
+
+
+PROCEDURE Token (t: Tree)
+
+Class (..) :- {
+	IF {Terminal, Referenced} <= Properties THEN
+	   WriteName (Name); ! = ! WN (Code); !!
+	END;
+}; .
+
+
+PROCEDURE RecordField	/* TheClass	*/ (t: Tree)
+
+Attribute (..) :- {
+	IF (NoCodeAttr * Properties) = {} THEN 
+	   IF (Nonterminal IN TheClass^.Class.Properties) OR (Name # iPosition) THEN
+	      WI (Name); !: ! WI (Type); !; !
+	   END;
+	END;
+}; .
+
+
+PROCEDURE PrecDefs (t: Tree)
+
+LeftAssoc (..) :- {
+	!LEFT ! PrecDefs (Names); !!
+	PrecDefs (Next);
+}; .
+RightAssoc (..) :- {
+	!RIGHT! PrecDefs (Names); !!
+	PrecDefs (Next);
+}; .
+NonAssoc (..) :- {
+	!NONE ! PrecDefs (Names); !!
+	PrecDefs (Next);
+}; .
+Name (..) :- {
+	! ! WI (Name);
+	PrecDefs (Next);
+}; .
+
+
+/* Original Grammar, Rule, Implicit: */
+
+PROCEDURE Grammar (t: Tree)
+
+Class (..) :- {
+	IF Extensions^.Kind = Tree.NoClass THEN		(* Low ? *)
+	   WITH TheClass^.Class DO
+	      IF String IN Properties THEN !yy! WN (Name); ELSE WriteName (Name); END;
+	   END;
+	   ! : ! 
+	   ActClass := t;
+	   PrevActionIndex := 0;
+	   IsImplicit := FALSE;
+	   ForallAttributes (t, Rule);
+	   IF Prec # NoIdent THEN !PREC ! WI (Prec); ! ! END;
+	   !.!
+	   PrevActionIndex := 0;
+	   IsImplicit := TRUE;
+	   ForallAttributes (t, Implicit);
+	ELSE
+	   Rule (Extensions);
+	END;
+}; .
+
+
+PROCEDURE Rule (t: Tree)
+
+Class (..) :- {
+	Grammar (t);
+	Rule (Next);
+}; .
+Child (..) :- {
+	IF {String, Nonterminal} <= Class^.Class.Properties THEN !yy! WN (Type); ELSE WriteName (Type); END; ! ! 
+}; .
+ActionPart (..) :- {
+	IF IsLast (ActClass, t) THEN
+	   !{! 
+	   IF PrevActionIndex # 0 THEN
+	      Node := GetBaseClass (TheClass);
+	      WITH Node^.Class DO
+		 IF HasAttributes IN Properties THEN
+		    ! $$.! 
+		    IF String IN Properties THEN !yy! WN (Name); ELSE WI (Name); END;
+		    ! := $! WN (PrevActionIndex); !.! 
+		    IF String IN Properties THEN !yy! WN (Name); ELSE WI (Name); END;
+		    !;!
+		 END;
+	      END;
+	   END;
+	   Rule (Actions);
+	   !} ! 
+	ELSE
+	   !xx! WN (Name); ! ! 
+	END;
+	PrevActionIndex := ParsIndex;
+}; .
+Assign (..) :- {
+	Rule (Results); !:=! Rule (Arguments); !;!
+	Rule (Next);
+}; .
+Copy (..) :- {
+	Rule (Results); ! := ! Rule (Arguments); !;!
+	Rule (Next);
+}; .
+TargetCode (..) :- {
+	Rule (Code); !;!
+	Rule (Next);
+}; .
+Order (..) :- {
+	Rule (Next);
+}; .
+Check (..) :- {
+	IF Statement # NoTree THEN
+	   IF Condition # NoTree THEN
+	      !IF NOT (! Rule (Condition); !) THEN ! Rule (Statement); !; END;!
+	   ELSE
+	      Rule (Statement); !;!
+	   END;
+	ELSE
+	   !IF ! Rule (Condition); ! THEN END;!
+	END;
+	Rule (Next);
+}; .
+Designator (..) :- {
+	TheAttr := IdentifyAttribute (ActClass, Selector);
+	IF TheAttr # NoTree THEN
+	  Node := TheAttr^.Child.Class;
+	  IF Node # NoTree THEN
+	    !$! 
+	    IF NOT IsImplicit THEN
+	       WN (TheAttr^.Child.ParsIndex);
+	    ELSE
+	       WN (SHORTINT (TheAttr^.Child.ParsIndex + 1 - ActActionIndex));
+	    END;
+	    IF Nonterminal IN Node^.Class.Properties THEN	(* nonterminal *)
+	      Node := GetBaseClass (Node);
+	      IF (String IN Node^.Class.Properties) AND NOT (HasSelector IN Node^.Class.Properties) THEN
+	        !.yy! WN (Node^.Class.Name);
+	      ELSE
+	        !.! WI (Node^.Class.Name);
+	      END;
+	    ELSE						(* terminal *)
+	      !.Scan! 
+	      IF Attribute = iPosition THEN
+	      ELSIF (String IN Node^.Class.Properties) AND NOT (HasSelector IN Node^.Class.Properties) THEN
+	        !.yy! WN (Node^.Class.Code);
+	      ELSE
+	        !.! WI (Node^.Class.Selector);
+	      END;
+	    END;
+	    !.! WI (Attribute);
+	  ELSE
+	    WI (Selector); !:! WI (Attribute);
+	  END;
+	ELSE
+	  WI (Selector); !:! WI (Attribute);
+	END;
+	Rule (Next);
+}; .
+Ident (..) :- {
+	TheAttr := IdentifyAttribute (ActClass, Attribute);
+	Node := GetBaseClass (TheClass);
+	IF TheAttr # NoTree THEN
+	  IF (String IN Node^.Class.Properties) AND NOT (HasSelector IN Node^.Class.Properties) THEN
+	    !$$.yy! WN (Node^.Class.Name); !.! WI (Attribute);
+	  ELSE
+	    !$$.! WI (Node^.Class.Name); !.! WI (Attribute);
+	  END;
+	ELSE
+	  WI (Attribute);
+	END;
+	Rule (Next);
+}; .
+Any (..) :- {
+	WriteString (f, Code);
+	Rule (Next);
+}; .
+Anys (..) :- {
+	Rule (Layouts);
+	Rule (Next);
+}; .
+LayoutAny (..) :- {
+	WriteString (f, Code);
+	Rule (Next);
+}; .
+
+
+PROCEDURE Implicit (t: Tree)
+
+ActionPart (..) :- {
+	IF NOT (Generated IN Properties) AND NOT IsLast (ActClass, t) THEN
+	   INCL (Properties, Generated);
+	   ActActionIndex := ParsIndex;
+	   !xx! WN (Name); ! : {! 
+	   IF PrevActionIndex # 0 THEN
+	      Node := GetBaseClass (TheClass);
+	      WITH Node^.Class DO
+		 IF HasAttributes IN Properties THEN
+		    ! $$.! 
+		    IF String IN Properties THEN !yy! WN (Name); ELSE WI (Name); END;
+		    ! := $! WN (SHORTINT (PrevActionIndex + 1 - ActActionIndex)); !.! 
+		    IF String IN Properties THEN !yy! WN (Name); ELSE WI (Name); END;
+		    !;!
+		 END;
+	      END;
+	   END;
+	   Rule (Actions);
+	   !} .!
+	END;
+	PrevActionIndex := ParsIndex;
+}; .
+
+/* New GrammarDep, ClassListDep, ChildDep, ActionsDep: */
+
+PROCEDURE ClassListDep (t: Tree)
+
+Class (..) :- {
+	GrammarDep (t);
+	ClassListDep (Next);
+}; .
+
+PROCEDURE GrammarDep (t: Tree)
+
+LOCAL { VAR i : SHORTCARD ; VAR BracesGenerated : BOOLEAN ; } 
+
+Class (..) :- {
+	IF Extensions^.Kind = Tree.NoClass THEN		(* Low ? *)
+	   WITH TheClass^.Class DO
+	      IF String IN Properties 
+              THEN !yy! WN (Name); ELSE WriteName (Name); END;
+	   END;
+	   ! : ! 
+	   ForallAttributes (t, ChildDep);
+           !!
+           BracesGenerated := FALSE ; 
+           FOR i := 1 TO InstCount
+           DO
+             WITH Instance ^ [ Instance ^ [ i ] . Order ] 
+             DO
+               IF ( { Left , First } <= Properties )
+                  AND NOT ( Dummy IN Properties ) 
+                  AND ( Action <> ADR ( Action ) ) 
+               THEN
+                 ActClass := t ; 
+                 IF BracesGenerated
+                 THEN 
+                   !   ! 
+                 ELSE  
+                   ! { ! 
+                   BracesGenerated := TRUE ; 
+                 END ; 
+                 ActionsDep ( Action ) ; 
+                 !!
+               END 
+             END
+           END ; 
+           IF BracesGenerated
+           THEN
+             ! } !
+           END ; 
+	   IF Prec # NoIdent THEN !PREC ! WI (Prec); ! ! END;
+	   !.!
+	ELSE
+	   ClassListDep (Extensions);
+	END;
+}; .
+
+
+PROCEDURE ChildDep (t: Tree)
+
+Child (..) :- { 
+	IF {String, Nonterminal} <= Class^.Class.Properties 
+        THEN !yy! WN (Type); ELSE WriteName (Type); END; ! ! 
+}; .
+
+PROCEDURE ActionsDep (t: Tree)
+
+Assign (..) :- { 
+	ActionsDep (Results); !:=! ActionsDep (Arguments); !;!
+	ActionsDep (Next);
+}; .
+Copy (..) :- {  
+	ActionsDep (Results); ! := ! ActionsDep (Arguments); !;!
+	ActionsDep (Next);
+}; .
+TargetCode (..) :- {  
+	ActionsDep (Code); !;!
+	ActionsDep (Next);
+}; .
+Order (..) :- {  
+	ActionsDep (Next);
+}; .
+Check (..) :- {  
+	IF Statement # NoTree THEN
+	   IF Condition # NoTree THEN
+	      !IF NOT (! ActionsDep (Condition); !) THEN ! ActionsDep (Statement); !; END;!
+	   ELSE
+	      ActionsDep (Statement); !;!
+	   END;
+	ELSE
+	   !IF ! ActionsDep (Condition); ! THEN END;!
+	END;
+	ActionsDep (Next);
+}; .
+Designator (..) :- { 
+	TheAttr := IdentifyAttribute (ActClass, Selector);
+	IF TheAttr # NoTree THEN
+	  Node := TheAttr^.Child.Class;
+	  IF Node # NoTree THEN
+	    !$! 
+            WN ( TheAttr^.Child.ChildIndex ) ; 
+	    IF Nonterminal IN Node^.Class.Properties THEN  (* nonterminal *)
+	      Node := GetBaseClass (Node);
+	      IF (String IN Node^.Class.Properties) 
+                 AND NOT (HasSelector IN Node^.Class.Properties) THEN
+	        !.yy! WN (Node^.Class.Name);
+	      ELSE
+	        !.! WI (Node^.Class.Name);
+	      END;
+	    ELSE						(* terminal *)
+	      !.Scan! 
+	      IF Attribute = iPosition THEN
+	      ELSIF (String IN Node^.Class.Properties) 
+                    AND NOT (HasSelector IN Node^.Class.Properties) THEN
+	        !.yy! WN (Node^.Class.Code);
+	      ELSE
+	        !.! WI (Node^.Class.Selector);
+	      END;
+	    END;
+	    !.! WI (Attribute);
+	  ELSE
+	    WI (Selector); !:! WI (Attribute);
+	  END;
+	ELSE
+	  WI (Selector); !:! WI (Attribute);
+	END;
+	ActionsDep (Next);
+}; .
+Ident (..) :- { 
+	TheAttr := IdentifyAttribute (ActClass, Attribute);
+	IF TheAttr # NoTree THEN
+          Node := GetBaseClass (TheClass);
+	  IF (String IN Node^.Class.Properties) 
+             AND NOT (HasSelector IN Node^.Class.Properties) THEN
+	    !$$.yy! WN (Node^.Class.Name); !.! WI (Attribute);
+	  ELSE
+	    !$$.! WI (Node^.Class.Name); !.! WI (Attribute);
+	  END;
+	ELSE
+	  WI (Attribute);
+	END;
+	ActionsDep (Next);
+}; .
+Any (..) :- { 
+	WriteString (f, Code); 
+	ActionsDep (Next);
+}; .
+Anys (..) :- { 
+	ActionsDep (Layouts); 
+	ActionsDep (Next);
+}; .
+LayoutAny (..) :- { 
+	WriteString (f, Code); 
+	ActionsDep (Next);
+}; .
+
+
+PROCEDURE WriteName (Name: tIdent)
+
+(iOper);
+(iLeft);
+(iRight);
+(iNone);
+(iPrec);
+(iRule)	:-	!\! WI (Name); .
+_	:-	    WI (Name); .
+

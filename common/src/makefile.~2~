@@ -1,0 +1,15 @@
+#
+# Makefile for ./common/src
+# RMB modified 92/10/19
+#
+
+MC      = m2c
+GENS    =
+EXE     = Main
+MOCKALIBS = -d ../../reuse/src
+MOCKAFLAGS = -O -noindex -norange
+
+include ../../makefilesrc.include
+
+clean:
+	rm -f *.[dimor]

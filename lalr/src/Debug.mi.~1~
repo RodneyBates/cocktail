@@ -1,0 +1,1093 @@
+(* compute debugging information *)
+
+(* $Id: Debug.mi,v 1.6 1992/09/24 13:12:31 grosch rel $ *)
+
+(* $Log: Debug.mi,v $
+ * Revision 1.6  1992/09/24  13:12:31  grosch
+ * added option -f
+ *
+ * Revision 1.5  1992/08/07  15:22:49  grosch
+ * allow several scanner and parsers; extend module Errors
+ *
+ * Revision 1.4  1991/11/21  14:53:14  grosch
+ * new version of RCS on SPARC
+ *
+ * Revision 1.3  90/06/12  16:53:54  grosch
+ * renamed main program to lalr, added { } for actions, layout improvements
+ * 
+ * Revision 1.2	 89/05/02  14:35:37  vielsack
+ * new option: -v (verbose)
+ * NoTrace is used instead of NoDebug
+ * 
+ * Revision 1.1	 89/01/12  18:11:43  vielsack
+ * to supress the trace of a read reduce conflict
+ * the left hand side must be the same too
+ * 
+ * Revision 1.0	 88/10/04  14:36:05  vielsack
+ * Initial revision
+ * 
+ *)
+
+IMPLEMENTATION MODULE Debug;
+
+FROM Automaton	IMPORT tAss, tRep, tItem, tState, tIndex, tProduction, Infinite,
+    			StartSymbol, ProdList, StateArrayPtr, tStateIndex,
+    			ItemArrayPtr, tItemIndex, ItemIndex, ProdArrayPtr, tProdIndex;
+FROM Continue	IMPORT Value;
+FROM DynArray	IMPORT ExtendArray, MakeArray, ReleaseArray;
+FROM IO		IMPORT tFile, WriteC, WriteS, WriteI, WriteNl;
+FROM Sets	IMPORT tSet, Extract, Include, Exclude, MakeSet, ReleaseSet,
+			Assign, Intersection, IsElement, IsEmpty;
+FROM Strings	IMPORT Length, Char, tString;
+FROM Idents	IMPORT tIdent, GetString;
+FROM SYSTEM	IMPORT ADR, TSIZE;
+FROM TokenTab	IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Terminal,
+			NonTerminal, Vocabulary, TokenError, TokenToSymbol;
+  
+  CONST
+    InitTab = 0;
+    MaxTabA = 40;
+    MaxTabB = 30;
+    MaxTabC = 50;
+    MaxTabD = 40;
+    InitChainLength = 50;
+
+  TYPE
+    tItemPath = RECORD
+	count  : SHORTCARD;
+	max    : LONGINT;
+	path   : POINTER TO ARRAY [1..Infinite] OF tItemIndex;
+      END;
+    
+    tProdPathElmt = RECORD
+	Prod : tProdIndex;
+	Pos  : tIndex;
+      END;
+
+    tProdPath = RECORD
+	count : SHORTCARD;
+	max   : LONGINT;
+	path  : POINTER TO ARRAY [1..Infinite] OF tProdPathElmt;
+      END;
+
+    tItemChainElmt = RECORD
+	Item : tItemIndex;
+	Last : tIndex;
+      END;
+    
+    tItemChain = RECORD
+	reached : tSet;
+	level	: LONGINT;
+	count	: LONGINT;
+	max	: LONGINT;
+	chain	: POINTER TO ARRAY [1..Infinite] OF tItemChainElmt;
+      END;
+
+  VAR
+    PathA : tProdPath;
+    PathC : tItemPath;
+    PathB : tItemPath;
+    ChainD: tItemChain;
+    PathD : tProdPath;
+
+PROCEDURE InformIgnored (Item: tItemIndex; t: Terminal);
+    BEGIN
+      WriteS (dFile,'ignored                 ');
+      WriteItem (Item,t);
+    END InformIgnored;
+
+PROCEDURE InformLowPri (Item: tItemIndex; t: Terminal);
+    BEGIN
+      WriteS (dFile,'ignored (precedence)    ');
+      WriteItem (Item,t);
+    END InformLowPri;
+
+PROCEDURE InformRightAss (Item: tItemIndex; t: Terminal);
+    BEGIN
+      WriteS (dFile,'ignored (associativity) ');
+      WriteItem (Item,t);
+    END InformRightAss;
+
+PROCEDURE InformLeftAss (Item: tItemIndex; t: Terminal);
+    BEGIN
+      WriteS (dFile,'ignored (associativity) ');
+      WriteItem (Item,t);
+    END InformLeftAss;
+
+PROCEDURE InformKept (Item: tItemIndex; t: Terminal);
+    BEGIN
+      WriteS (dFile,'retained                ');
+      WriteItem (Item,t);
+    END InformKept;
+
+PROCEDURE InformConflict (kind: tConflict);
+    BEGIN
+      CASE kind OF
+	ShRed	 : WriteS (dFile, 'there is a read reduce conflict');
+      | RedRed	 : WriteS (dFile, 'there is a reduce reduce conflict');
+      | ShRedRed : WriteS (dFile, 'there is a read-reduce-reduce conflict');
+      ELSE;
+      END;
+      WriteNl (dFile);
+    END InformConflict;
+
+PROCEDURE NewLine;
+    BEGIN
+      WriteNl (dFile);
+    END NewLine;
+    
+PROCEDURE WriteItem (Item: tItemIndex; t: Terminal);
+    VAR
+      length : CARDINAL;
+      i : tIndex;
+      p : tProduction;
+    BEGIN
+      WITH ItemArrayPtr^[Item] DO
+	p := ADR (ProdArrayPtr^[Prod]);
+	WriteVoc (p^.Left,length);
+	WriteS (dFile,' -> ');
+	length := 0;
+	WITH p^ DO
+	  IF Len = 0 THEN
+	    WriteS (dFile,'-Epsilon-.');
+	  ELSE
+	    IF Pos = 0 THEN
+	      WriteS (dFile,'.');
+	    END;
+	    FOR i:=1 TO Len DO
+	      WriteVoc (Right[i],length);
+	      IF Pos = i THEN
+		WriteS (dFile,'.');
+	      ELSE
+		WriteS (dFile,' ');
+	      END;
+	    END;
+	  END;
+	END;
+	IF Pos = p^.Len THEN
+	  WriteS (dFile,' {');
+	  WriteVoc (t,length);
+	  WriteS (dFile,'}');
+	END;
+
+	WriteNl (dFile);
+      END;
+    END WriteItem;
+
+PROCEDURE DebugHead (State: tStateIndex);
+    BEGIN
+      IF NoTrace THEN RETURN END;
+      WriteS (dFile,'State ');
+      WriteI (dFile,State,1);
+      WriteNl (dFile);
+      WriteNl (dFile);
+    END DebugHead;
+  
+PROCEDURE DebugEnd;
+    BEGIN
+      IF NoTrace THEN RETURN END;
+      WriteNl (dFile);
+    END DebugEnd;
+
+  PROCEDURE DebugState
+    (	  State : tStateIndex;	       (* inconsitent State *)
+      VAR CS	: tSet);	       (* Conflict Set *)
+
+  (* Erzeuge Zusatzinformation zum Zustand 'State' mit Konfliktmenge 'Set' *)
+  (* wird fuer jeden inkonsitenten Zustand ausgefuehrt *)
+
+    VAR
+      Item : tItemIndex;
+      s : tSet;
+      EI: tSet;		 (* Explained Items *)
+    BEGIN
+      IF NoTrace THEN RETURN END;
+      WriteNl (dFile);
+      MakeSet (s,MAXTerm);
+
+      (* finde alle Reduktionen die an einem Konflikt beteiligt sind *)
+
+      WITH StateArrayPtr^[State] DO
+	MakeSet (EI,Size-1);
+	FOR Item := Items TO Items+Size-1 DO
+	WITH ItemArrayPtr^[Item] DO
+	  IF Rep = RedRep THEN
+	    Assign (s,CS);
+	    Intersection (s,Set);
+	    IF NOT IsEmpty (s) THEN
+
+	      (* Bearbeite konfliktbeladene Reduktion *)
+
+	      DebugRedItem (State, CS, Item, EI);
+	    END;
+	  END;
+	END;
+	END;
+	ReleaseSet (EI);
+      END;
+      ReleaseSet (s);
+    END DebugState;
+
+  PROCEDURE DebugRedItem 
+    (	  State : tStateIndex;	   (* Zustand in dem der Konflikt auftritt *)
+      VAR CS	: tSet;		   (* Conflict Set *)
+	  Item	: tItemIndex;	   (* am Konflikt beteiligte Reduktion *)
+      VAR EI	: tSet);	   (* Explained Items *)
+  
+    VAR
+      T : tSet;
+      cs : tSet;
+      i : tItemIndex;
+      I : tItemIndex;
+      d : CARDINAL;
+      t : Terminal;
+      prod : tProduction;
+    BEGIN
+      MakeSet (cs,MAXTerm);
+      Assign (cs,CS);
+      FindPathC (cs,Item);    (* fuer Part C *)
+      UnRepPathC;
+      MakeSet (T,MAXTerm);
+
+      i := PathC.path^[PathC.count];
+      WHILE NOT IsEmpty (cs) DO
+	t := Extract(cs);
+	WITH ItemArrayPtr^[i] DO
+	  WITH StateArrayPtr^[Next] DO
+	    I := Items;
+	    LOOP
+	      IF I >= Items+Size THEN EXIT END;
+
+	      (* Pruefe ob Terminal t moeglich *)
+
+	      IF Possible (I,t) THEN
+		
+		d := InitTab;  (* akt. Randabstand *)
+
+		IF NOT Fast THEN
+		   (* wie kommt man von Startsymbol zum Problem *)
+		   prod := ADR (ProdArrayPtr^[ItemArrayPtr^[I].Prod]);
+		   WritePartA (d,prod^.Left);
+		END;
+
+		(* wie kommt man zu Vorschauzeichen *)
+		WritePartB (d,I);
+
+		(* wie kommt man zur linken Seite der Red *)
+		WritePartC (d,Item,t);
+
+		(* womit kollidiert die Reduktion *)
+		WritePartD (d,State,t,Item,EI);
+
+		WriteNl (dFile);
+		WriteNl (dFile);
+
+		ReleaseArray (PathB.path,PathB.max,TSIZE(tItemIndex));
+		EXIT;
+
+	      END;
+	      INC (I);
+	    END;
+	  END;
+	END;
+      END;
+      ReleaseSet (T);
+      ReleaseSet (cs);
+      ReleaseArray (PathC.path,PathC.max,TSIZE(tItemIndex));
+    END DebugRedItem;
+
+PROCEDURE Possible (Item: tItemIndex; t: Terminal) : BOOLEAN;
+    TYPE triaer = (yes,no,maybe);
+    VAR 
+      state : tStateIndex;
+      prod  : tProdIndex;
+      pos   : tIndex;
+      reached : tSet;
+    
+    PROCEDURE Poss (state: tStateIndex; prod: tProdIndex; pos: tIndex; depth: CARDINAL) : triaer;
+      VAR
+	res : triaer;
+	nt  : NonTerminal;
+	item : tItemIndex;
+	Item : tItemIndex;
+	production : tProduction;
+      BEGIN
+
+	(* finde zugh. item *)
+
+	WITH StateArrayPtr^[state] DO
+	  Item := Items;
+	  LOOP
+	    WITH ItemArrayPtr^[Item] DO
+	      IF (Prod = prod) AND (Pos = pos) THEN
+		EXIT;
+	      END;
+	      INC (Item);
+	    END;
+	  END;
+	END;
+
+	IF IsElement (Item,reached) THEN RETURN no; END;
+
+	Include (reached, Item);
+
+	WITH ItemArrayPtr^[Item] DO
+	  CASE GetRep(Item) OF
+	  | TermRep:
+	      IF t = Read THEN
+		  PathB.count := depth;
+		  PathB.max := depth;
+		  MakeArray (PathB.path,PathB.max,TSIZE(tItemIndex));
+		  PathB.path^[depth] := Item;
+		Exclude (reached,Item);
+		RETURN yes;
+	      ELSE
+		Exclude (reached,Item);
+		RETURN no;
+	      END;
+	  | RedRep:
+	      Exclude (reached,Item);
+	      RETURN maybe;
+	  | NonTermRep:
+	      res := no;
+	      nt := Read;
+	      WITH StateArrayPtr^[state] DO
+		FOR item := Items TO Items+Size-1 DO
+		  WITH ItemArrayPtr^[item] DO
+		    production := ADR (ProdArrayPtr^[Prod]);
+		    IF production^.Left = nt THEN
+		      CASE Poss (state,Prod,Pos,depth+1) OF
+		      | yes:  
+			 PathB.path^[depth] := Item;
+			 Exclude (reached,Item);
+			 RETURN yes;
+		      | no:
+			 ;
+		      | maybe:
+			 CASE Poss (ItemArrayPtr^[Item].Next,
+				    prod,pos+1,depth) OF
+			 | yes:
+			   Exclude (reached,Item);
+			   RETURN yes;
+			 | no:
+			    ;
+			 | maybe:
+			     res := maybe;
+			 END;
+		      END;
+		    END;
+		  END;
+		END;
+	      END;
+	      Exclude (reached,Item);
+	      RETURN res;
+	  END;
+	END;
+      END Poss;
+    
+PROCEDURE GetRep (Item: tItemIndex) : tRep;
+    
+    (* Bestimme die zu Item gehoerige Repraesentantenart unabhaenig
+       vom Eintrag, es muss TermRep, NonTermRep oder RedRep
+       zurueckgeliefert werden, NoRep ist nicht zulaessig *)
+       
+      VAR prod : tProduction;
+      BEGIN
+	WITH ItemArrayPtr^[Item] DO
+	  prod := ADR (ProdArrayPtr^[Prod]);
+	  WITH prod^ DO
+	    IF Pos = Len THEN
+	      RETURN RedRep;
+	    ELSIF (Right [Pos+1] >= MINTerm) AND (Right[Pos+1] <= MAXTerm) THEN
+	      RETURN TermRep;
+	    ELSE
+	      RETURN NonTermRep;
+	    END;
+	  END;
+	END;
+      END GetRep;
+
+    BEGIN
+      WITH ItemArrayPtr^[Item] DO
+	state := Number;
+	prod := Prod;
+	pos := Pos;
+      END;
+      MakeSet (reached,ItemIndex);
+      IF (Poss (state,prod,pos,1) = yes) THEN
+	ReleaseSet (reached);
+	RETURN TRUE;
+      ELSE
+	ReleaseSet (reached);
+	RETURN FALSE;
+      END;
+    END Possible;
+
+  PROCEDURE FindPathC (VAR cs: tSet; Item: tItemIndex);
+    VAR
+      maxdepth : CARDINAL;
+      found : BOOLEAN;
+      i,u : tIndex;
+    BEGIN
+      maxdepth := 0;
+      found := FALSE;
+      REPEAT
+	INC (maxdepth);
+	WITH ItemArrayPtr^[Item].Relation DO
+	  i := 1;
+	  u := Used;
+	  WHILE (i <= u) AND NOT found DO
+	    SearchPathC (cs,maxdepth,0,Array^[i],found);
+	    INC (i);
+	  END;
+	END;
+      UNTIL found;
+    END FindPathC;
+
+PROCEDURE SearchPathC (VAR cs	   : tSet; maxdepth : CARDINAL; depth	   : CARDINAL;
+	  Item: tItemIndex; VAR found: BOOLEAN);
+    VAR
+      s : tSet;
+      i,u : tIndex;
+    BEGIN
+      WITH ItemArrayPtr^[Item] DO
+	INC (depth);
+	MakeSet (s,MAXTerm);
+	IF NOT EmptyReadSet THEN
+	  Assign (s,ReadSet);
+	END;
+	Intersection (s,cs);
+	found := NOT IsEmpty (s);
+	IF found THEN
+	  Assign (cs,s);
+	END;
+	ReleaseSet (s);
+	IF found THEN
+	  PathC.count := depth;
+	  PathC.max := depth;
+	  MakeArray (PathC.path,PathC.max,TSIZE(tItemIndex));
+	  PathC.path^[depth] := Item;
+	ELSIF depth < maxdepth THEN
+	  WITH ItemArrayPtr^[Item].Relation DO
+	    i := 1;
+	    u := Used;
+	    WHILE (i <= u) AND NOT found DO
+	      SearchPathC (cs,maxdepth,depth,Array^[i],found);
+	      INC (i);
+	    END;
+	    IF found THEN
+	      PathC.path^[depth] := Item;
+	    END;
+	  END;
+	END;
+      END;
+    END SearchPathC;
+
+PROCEDURE UnRepPathC;
+    VAR
+      State : tStateIndex;
+      PathItem, Item : tItemIndex;
+      i,j : CARDINAL;
+      prod : tProduction;
+      PathVal,val : tIndex;
+
+    (* Waehle moeglichst kurz zu beendende Items aus *)
+
+    BEGIN
+      WITH PathC DO
+	FOR i:=1 TO count-1 DO
+	  PathItem := path^[i];
+	  prod := ADR (ProdArrayPtr^[ItemArrayPtr^[PathItem].Prod]);
+	  PathVal := 0;
+	  FOR j := ItemArrayPtr^[PathItem].Pos+1 TO prod^.Len DO
+	    INC (PathVal,Value[prod^.Right[j]]);
+	  END;
+	  State := ItemArrayPtr^[PathItem].Number;
+	  WITH StateArrayPtr^[State] DO
+	    FOR Item := Items TO Items+Size-1 DO
+	      IF ItemArrayPtr^[Item].RepNo = ItemArrayPtr^[PathItem].RepNo THEN
+		prod := ADR (ProdArrayPtr^[ItemArrayPtr^[Item].Prod]);
+		val := 0;
+		FOR j := ItemArrayPtr^[Item].Pos+1 TO prod^.Len DO
+		  INC (val,Value[prod^.Right[j]]);
+		END;
+		IF val < PathVal THEN
+		  PathItem := Item;
+		  PathVal := val;
+		END;
+	      END;
+	    END;
+	  END;
+	  path^[i] := PathItem;
+	END;
+      END;
+    END UnRepPathC;
+
+PROCEDURE WritePartA (VAR d: CARDINAL; N: NonTerminal);
+  
+  (* Drucke den Trace vom Startsymbol zum Nichtterminal N *)
+
+    VAR i,j : CARDINAL;
+    BEGIN
+      FindPathA (N);
+      WITH PathA DO
+	FOR i:=1 TO count DO
+	  WriteTab (d);
+	  WriteProd (path^[i].Prod,path^[i].Pos,d);
+	  WriteNl (dFile);
+	  IF (d > MaxTabA) OR ((i = count) AND (d > InitTab)) THEN 
+	    WriteTab(InitTab);
+	    FOR j:=InitTab+1 TO d DO
+	      WriteC (dFile,'.');
+	    END;
+	    WriteC  (dFile,':');
+	    WriteNl (dFile);
+	    d := InitTab;
+	    WriteTab (d);
+	    WriteC (dFile,':');
+	    WriteNl (dFile);
+	  END;
+	END;
+      END;
+      ReleaseArray (PathA.path,PathA.max,TSIZE(tProdPathElmt));
+    END WritePartA;
+
+PROCEDURE FindPathA (N: NonTerminal);
+    VAR
+      maxdepth : CARDINAL;
+      found    : BOOLEAN;
+      rNTs : tSet;  (* reached Nonterminals *)
+    BEGIN
+      maxdepth := 0;
+      found := FALSE;
+      MakeSet (rNTs,MAXNonTerm);
+
+      REPEAT
+	INC (maxdepth);
+	SearchPathA (StartSymbol,N,maxdepth,0,found,rNTs);
+      UNTIL found;
+      ReleaseSet (rNTs);
+    END FindPathA;
+  
+  PROCEDURE SearchPathA (From: NonTerminal; To: NonTerminal;
+	 maxdepth: CARDINAL; depth: CARDINAL; VAR found: BOOLEAN; VAR rNTs: tSet);
+    VAR
+      prod : tProduction;
+      prodindex : tProdIndex;
+      pos : tIndex;
+      i,u : tIndex;
+    BEGIN
+      IF From = To THEN
+	WITH PathA DO
+	  count := depth;
+	  max	:= depth;
+	  MakeArray (path,max,TSIZE(tProdPathElmt));
+	  found := TRUE;
+	END;
+      ELSIF depth < maxdepth THEN
+
+	(* Betrachte alle zu From gehoerige Produktionen *)
+
+	WITH ProdList[From] DO
+	  u := Used;
+	  FOR i := 1 TO u DO
+	    
+	    (* Betrachte eine einzelne Produktion *)
+
+	    prodindex := Array^[i].Index;
+	    prod := ADR (ProdArrayPtr^[prodindex]);
+	    WITH prod^ DO
+	      FOR pos := 1 TO Len DO
+		IF (Right[pos] >= MINNonTerm) 
+		   AND (Right[pos] <= MAXNonTerm) THEN
+
+		  (* Nichtterminale auf der rechten Seite weiterverfolgen *)
+
+		  IF NOT IsElement (Right[pos],rNTs) THEN
+
+		    Include (rNTs,Right[pos]);
+		    SearchPathA (Right[pos],To,maxdepth,depth+1,found,rNTs);
+		    Exclude (rNTs,Right[pos]);
+
+		  END;
+
+		  IF found THEN
+		    
+		    (* Pfad festhalten *)
+
+		    PathA.path^[depth+1].Prod := prodindex;
+
+		    (* Position vor dem Nichtterminal angeben *)
+
+		    PathA.path^[depth+1].Pos := pos-1;
+
+		    RETURN;
+		  END;
+		END;
+	      END;
+	    END;
+	  END;
+	END;
+      END;
+    END SearchPathA;
+
+PROCEDURE WritePartB (VAR d: CARDINAL; I: tItemIndex);
+    VAR
+      p : tProdIndex;
+      l : tIndex;
+      l1 : tIndex;
+      length : CARDINAL;
+      i,j : CARDINAL;
+      d1 : CARDINAL;
+      prod : tProduction;
+    BEGIN
+      p := ItemArrayPtr^[I].Prod;
+      l := ItemArrayPtr^[I].Pos-1;
+      l1 := ItemArrayPtr^[PathB.path^[1]].Pos;
+      d1 := 0;
+      WriteTab (d);
+
+      prod := ADR(ProdArrayPtr^[p]);
+      WITH prod^ DO
+	FOR i:=1 TO Len DO
+	  WriteVoc (Right[i],length);
+	  WriteS (dFile,' ');
+	  IF i <= l THEN
+	    INC (d,length+1);
+	  ELSIF i <= l1 THEN
+	    INC (d1,length+1);
+	  END;
+	END;
+      END;
+
+      DEC (d1);	  (* Laenge von ':' *)
+      WriteNl (dFile);
+
+      WITH PathB DO
+	FOR i:=2 TO count DO
+	  IF (d+d1+1 > MaxTabB) AND (d1>1) THEN 
+	    WriteTab(d);
+	    WriteS (dFile,': ');
+	    FOR j:=2 TO d1 DO
+	      WriteC (dFile,'.');
+	    END;
+	    WriteC (dFile,':');
+	    WriteNl (dFile);
+	    WriteTab(d);
+	    WriteS (dFile,': :');
+	    WriteNl (dFile);
+	    d1 := 1;
+	  END;
+	  p := ItemArrayPtr^[path^[i]].Prod;
+	  l := ItemArrayPtr^[path^[i]].Pos;
+	  WriteTab (d);
+	  WriteC (dFile,':');
+	  WriteTab (d1);
+	  WriteProd (p,l,d1);
+	  WriteNl (dFile);
+	END;
+      END;
+      WriteTab (d);
+      WriteC (dFile,':');
+      WriteNl (dFile);
+    END WritePartB;
+
+PROCEDURE WritePartC (VAR d: CARDINAL; I: tItemIndex; t: Terminal);
+    VAR
+      i,j : CARDINAL;
+      p : tProdIndex;
+      l : CARDINAL;
+      prod : tProduction;
+      d1 : CARDINAL;
+    BEGIN
+      WITH PathC DO
+	FOR i:=count-1 TO 1 BY -1 DO
+	  IF d > MaxTabC THEN 
+	    WriteTab(InitTab);
+	    FOR j:=InitTab+1 TO d DO
+	      WriteC (dFile,'.');
+	    END;
+	    WriteC  (dFile,':');
+	    WriteNl (dFile);
+	    d := InitTab;
+	    WriteTab (d);
+	    WriteC (dFile,':');
+	    WriteNl (dFile);
+	  END;
+	  p := ItemArrayPtr^[path^[i]].Prod;
+	  l := ItemArrayPtr^[path^[i]].Pos;
+	  WriteTab (d);
+	  WriteProd (p,l,d);
+	  WriteNl (dFile);
+	END;
+      END;
+
+      (* Fortsetzung fuer Reduce *)
+
+      prod := ADR (ProdArrayPtr^[ItemArrayPtr^[I].Prod]);
+      d1 := d;
+      p := ItemArrayPtr^[I].Prod;
+      l := ItemArrayPtr^[I].Pos;
+      WriteTab (d1);
+      WriteProd (p,l,d1);
+      WriteNl (dFile);
+
+      (* erlaeutere Reduce *)
+
+      l := VocLength (prod^.Left);
+      IF d >= 4+7+l THEN 
+	DEC (d,4+7+l);	    (* Laenge Text 'reduce ' + Laenge linke Seite *)
+      ELSE		    (* = Laenge ' -> ' *)
+	WriteTab (d);
+	WriteC (dFile,':');
+	FOR j:=d+1 TO 4+7+l DO
+	  WriteC (dFile,'.');
+	END;
+	WriteNl (dFile);
+	WriteTab (4+7+l);
+	WriteC (dFile,':');
+	WriteNl (dFile);
+	d := 0;
+      END;
+
+      WITH prod^ DO
+	WriteTab (d);
+	WriteS (dFile,'reduce ');
+	WriteVoc (Left,l);
+	WriteS (dFile,' -> ');
+	IF Len = 0 THEN
+	  WriteS (dFile,'-Epsilon-');
+	ELSE
+	  FOR i:=1 TO Len DO
+	    WriteVoc (Right[i],l);
+	    IF i < Len THEN
+	      WriteC (dFile,' ');
+	    END;
+	  END;
+	END;
+	WriteS (dFile,'. {');
+	WriteVoc (t,l);
+	WriteS (dFile,'} ?');
+	WriteNl(dFile);
+      END;
+    END WritePartC;
+
+PROCEDURE WritePartD (dist: CARDINAL; State: tStateIndex; t: Terminal; RedItem: tItemIndex; EI: tSet);
+  VAR
+      Item : tItemIndex;
+      prod : tProduction;
+      i,j,l   : CARDINAL;
+      d : CARDINAL;
+      RedProd : tProduction;
+  BEGIN
+    RedProd := ADR (ProdArrayPtr^ [ItemArrayPtr^ [RedItem].Prod]);
+    WITH StateArrayPtr^[State] DO
+      FOR Item := Items TO Items+Size-1 DO
+	WITH ItemArrayPtr^[Item] DO
+	  IF (Read = t) AND NOT IsElement (Item-Items, EI) THEN
+	    Include (EI, Item-Items);
+	    d := InitTab;
+
+	    prod := ADR (ProdArrayPtr^[Prod]);
+	    WITH prod^ DO
+	      IF (Pos # ItemArrayPtr^[RedItem].Pos) OR
+		 (Left # RedProd^.Left) THEN
+		(* Drucke Trace fuer Read - Ableitung von Startzustand *)
+
+		WriteNl (dFile);
+		FindPathD (Left,State);
+
+		WITH PathD DO
+		  FOR i:=1 TO count - 1 DO
+		    WriteTab (d);
+		    WriteProd (path^[i].Prod,path^[i].Pos,d);
+		    WriteNl (dFile);
+		    IF d > MaxTabD THEN 
+		      WriteTab(InitTab);
+		      FOR j:=InitTab+1 TO d DO
+			WriteC (dFile,'.');
+		      END;
+		      WriteC  (dFile,':');
+		      WriteNl (dFile);
+		      d := InitTab;
+		      WriteTab (d);
+		      WriteC (dFile,':');
+		      WriteNl (dFile);
+		    END;
+		  END;
+		END;
+		ReleaseArray (PathD.path,PathD.max,TSIZE(tProdPathElmt));
+
+		WriteTab (d);
+		WriteProd (Prod,0,d);
+		WriteNl (dFile);
+
+		l := VocLength (Left);
+		IF d >= 4+7+l THEN 
+		  DEC (d,4+7+l);      (* Laenge Text 'read   ' *)
+				      (* + Laenge linke Seite *)
+		ELSE		      (* + Laenge ' -> ' *)
+		  WriteTab (d);
+		  WriteC (dFile,':');
+		  FOR j:=d+1 TO 4+7+l DO
+		    WriteC (dFile,'.');
+		  END;
+		  WriteNl (dFile);
+		  WriteTab (4+7+l);
+		  WriteC (dFile,':');
+		  WriteNl (dFile);
+		  d := 0;
+		END;
+	      ELSE
+		(* Trace der Reduktion passt zum Read *)
+		(* selbe Distanz wie bei Reduktion verwenden *)
+
+		d := dist;
+	      END;
+
+	      (* erlaeutere Read *)
+
+	      WriteTab (d);
+	      WriteS (dFile,'read   ');
+	      WriteVoc (Left,l);
+	      WriteS (dFile,' -> ');
+	      IF Pos = 0 THEN
+		WriteC (dFile,'.');
+	      END;
+	      FOR i:=1 TO Len DO
+		WriteVoc (Right[i],l);
+		IF i = Pos THEN
+		  WriteC (dFile,'.');
+		ELSIF i < Len THEN
+		  WriteC (dFile,' ');
+		END;
+	      END;
+	      WriteS (dFile,' ?');
+	    END;
+	    WriteNl (dFile);
+	  END;
+	END;
+      END;
+    END;
+    END WritePartD;
+
+PROCEDURE MakeChainD;
+  VAR
+    LastCount : LONGINT;
+    Item, I : tItemIndex;
+    State : tStateIndex;
+    read  : Vocabulary;
+    prod  : tProduction;
+
+    PROCEDURE PutInChain (Item: tItemIndex; Last: tIndex);
+    VAR
+      prod  : tProduction;
+      State : tStateIndex;
+      I	    : tItemIndex;
+    BEGIN
+
+      (* Zum Item gehoerige Produktion *)
+
+      prod := ADR (ProdArrayPtr^[ItemArrayPtr^[Item].Prod]);
+
+      (* Betrachte alle zur Produktion gehoerigen Items *)
+
+      WHILE (ItemArrayPtr^[Item].Pos < prod^.Len) AND
+	    NOT IsElement (Item, ChainD.reached) DO
+
+	(* Item in Kette eintragen *)
+
+	WITH ChainD DO
+	  INC (count);
+	  IF count > max THEN
+	    ExtendArray (chain, max, TSIZE (tItemChainElmt));
+	  END;
+	  chain^ [count].Last := Last;
+	  chain^ [count].Item := Item;
+	  Include (reached, Item);
+	END;
+
+	(* Punkt nach rechts schieben *)
+
+	State := ItemArrayPtr^[Item].Next;    (* Folgezustand *)
+	I := StateArrayPtr^[State].Items;     (* erstes Item *)
+
+	(* suche Item mit selber Produktion und um 1 groesserer Position *)
+	WHILE (ItemArrayPtr^[I].Prod # ItemArrayPtr^[Item].Prod) OR
+	      (ItemArrayPtr^[I].Pos # ItemArrayPtr^[Item].Pos+1) DO
+	  INC (I);
+	END;
+	Item := I;
+      END;
+    END PutInChain;
+
+  BEGIN
+
+    (* Chain initialisieren *)
+
+    WITH ChainD DO
+      max := InitChainLength;
+      count := 0;
+      level := 0;
+      MakeArray (chain, max, TSIZE (tItemChainElmt));
+      MakeSet (reached, ItemIndex);
+      PutInChain (1, 0);
+
+      LOOP 
+	WITH ChainD DO
+	  LastCount := count;
+
+	  IF level = LastCount THEN EXIT END;
+
+	  WHILE level < LastCount DO
+	    INC (level);
+	    Item := chain^ [level].Item;
+
+	    (* Falls Nichtterminal nach dem Punkt steht, wird
+	       weiterverfolgt *)
+
+	    read := ItemArrayPtr^[Item].Read;
+	    IF (read >= MINNonTerm) AND (read <= MAXNonTerm) THEN
+
+	      (* moegliche Fortsetzungen betrachten *)
+
+	      State := ItemArrayPtr^[Item].Number;
+	      FOR I := StateArrayPtr^[State].Items TO
+		       StateArrayPtr^[State].Items + StateArrayPtr^[State].Size - 1 DO
+		WITH ItemArrayPtr^ [I] DO
+		  prod := ADR (ProdArrayPtr^[Prod]);
+		  IF (prod^.Left = read) AND 
+		     (ItemArrayPtr^[I].Pos = 0) THEN
+
+		    PutInChain (I, level);
+		   
+		  END;
+		END;
+	      END;
+	    END;
+	  END;
+	END;
+      END;
+    END;
+  END MakeChainD;
+
+PROCEDURE FindPathD (NT: NonTerminal; EndState: tStateIndex);
+    VAR 
+      last, level : LONGINT;
+      prod : tProduction;
+      I : tItemIndex;
+      Depth : tIndex;
+  BEGIN
+
+    (* evtl. (d.h. beim ersten mal) Kette aufbauen *)
+
+    IF ChainD.max = 0 THEN
+      MakeChainD;
+    END;
+
+    WITH ChainD DO;
+
+      (* Item suchen *)
+
+      last := 0;
+      LOOP
+	INC (last);
+	I := chain^ [last].Item;
+	IF (ItemArrayPtr^[I].Number = EndState) THEN
+	  prod := ADR (ProdArrayPtr^[ItemArrayPtr^[I].Prod]);
+	  IF NT = prod^.Left THEN
+	    EXIT;
+	  END;
+	END;
+      END;
+
+      (* Tiefe bestimmen *)
+
+      Depth := 0;
+      level := last;
+
+      WHILE level # 0 DO
+	INC (Depth);
+	level := chain^ [level].Last;
+      END;
+
+      (* Chain in Path uebertragen *)
+   
+      WITH PathD DO
+	count := Depth;
+	max   := Depth;
+	MakeArray (path, max, TSIZE (tProdPathElmt));
+      END;
+
+      level := last;
+      WHILE Depth > 0 DO
+	I := chain^ [level].Item;
+	PathD.path^ [Depth].Prod := ItemArrayPtr^[I].Prod;
+	PathD.path^ [Depth].Pos	 := ItemArrayPtr^[I].Pos;
+	DEC (Depth);
+	level := chain^[level].Last;
+      END;
+    END;
+  END FindPathD;
+
+PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: CARDINAL);
+    VAR
+      prod : tProduction;
+      i : tIndex;
+      length  : CARDINAL;
+    BEGIN
+      prod := ADR(ProdArrayPtr^[p]);
+      WITH prod^ DO
+	IF Len = 0 THEN
+	  WriteS (dFile,'-Epsilon-');
+	ELSE
+	  FOR i:=1 TO Len DO
+	    WriteVoc (Right[i],length);
+	    WriteS (dFile,' ');
+	    IF i <= l THEN
+	      INC (d,length+1);
+	    END;
+	  END;
+	END;
+      END;
+    END WriteProd;
+
+PROCEDURE WriteVoc (voc: Vocabulary; VAR length: CARDINAL);
+    VAR
+      sym : tIdent;
+      str : tString;
+      err : TokenError;
+      i : CARDINAL;
+    BEGIN
+      sym := TokenToSymbol (voc,err);
+      GetString (sym,str);
+      length := Length (str);
+      FOR i := 1 TO length DO
+	WriteC (dFile,Char (str, i));
+      END;
+    END WriteVoc;
+
+PROCEDURE VocLength (voc: Vocabulary): CARDINAL;
+    VAR
+      sym : tIdent;
+      str : tString;
+      err : TokenError;
+    BEGIN
+      sym := TokenToSymbol (voc,err);
+      GetString (sym,str);
+      RETURN Length (str);
+    END VocLength;
+    
+PROCEDURE WriteTab (d: CARDINAL);
+    VAR i : CARDINAL;
+    BEGIN
+      FOR i := 1 TO d DO
+	WriteC (dFile,' ');
+      END;
+    END WriteTab;
+
+BEGIN
+  NoTrace := FALSE;
+  Fast := FALSE;
+  ChainD.max := 0;
+END Debug.

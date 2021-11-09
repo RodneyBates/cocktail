@@ -1,0 +1,106 @@
+#
+# Makefile for reuse/src
+# RMB 93/10/19 and earlier. 
+#     Modified for installation on local system
+#     Modified to support WRL compilation.
+#     Modified to support mocka_mtc compilation
+#     Apr 1999 Rework for new directory org
+#     Aug 2000 (WSU) rework for movable install directories. 
+#
+ifndef INSTALLGMD
+  INSTALLGMD=/usr/local
+endif
+export INSTALLGMD
+
+TARGET	= SUN
+MC      = mocka_mtc
+OPT	= -O
+UNIX	= UNIX
+CFLAGS	= $(OPT) -D$(UNIX)
+CC	= gcc
+
+INSTALLMOCKASYM    = $(INSTALLGMD)/lib/reuse/mockasym
+INSTALLDEFS    = $(INSTALLGMD)/lib/reuse/m2def
+
+MODULADEFS = Arguments.md Checks.md \
+          DynArray.md \
+          Errors.md General.md Heap.md \
+          IO.md Idents.md Layout.md \
+          Lists.md Memory.md \
+          Positions.md Relations.md \
+          Sets.md SetsC.md Sort.md \
+          Source.md StdIO.md StringMem.md \
+          Strings.md System.md Texts.md \
+          Times.md  
+MODULAIMPS = Checks.mi DynArrDrv.mi \
+          DynArray.mi \
+          Errors.mi General.mi Heap.mi \
+          IO.mi IODrv.mi Idents.mi Layout.mi \
+          Lists.mi Main.mi Memory.mi MemoryDrv.mi \
+          Positions.mi RelDrv.mi Relations.mi \
+          Sets.mi SetsC.mi SetsDrv.mi Sort.mi \
+          Source.mi StdIO.mi StringMem.mi \
+          Strings.mi SysIODrv.mi Texts.mi \
+          Times.mi force.mi
+MODULASOURCES = $(MODULADEFS) $(MODULAIMPS)
+OTHERSOURCES = 
+SOURCES = $(MODULASOURCES) $(OTHERSOURCES)
+
+OTHERMTCSOURCES = SYSTEM_.h SYSTEM_.c
+
+MODULAGENS    = 
+GENS    = 
+EXE     = Main
+MAKEINCLUDE = .
+MOCKAFLAGS = -index -range -noS -g -blip
+include $(MAKEINCLUDE)/make.include
+
+#DEFS :
+#	for file in `ls *.md`; do mocka -s `basename $$file .md` $(MOCKAFLAGS); done
+
+test : test_$(MC)
+
+# Create install directories: 
+
+$(INSTALLMOCKASYM) : $(INSTALLGMD)
+	sh -c "if test ! -d $(INSTALLMOCKASYM) ; then mkdir --parents $(INSTALLMOCKASYM); else true; fi"
+
+$(INSTALLDEFS) : $(INSTALLGMD)
+	sh -c "if test ! -d $(INSTALLDEFS) ; then mkdir --parents $(INSTALLDEFS); else true; fi"
+
+install_modula: $(INSTALLDEFS)
+	cp -p $(MODULADEFS) $(INSTALLDEFS)
+
+install_mocka: $(INSTALLMOCKASYM) build_mocka_d
+#	for file in `ls *.d`; do cp -p $$file $(INSTALLMOCKASYM); chmod a+r $(INSTALLMOCKASYM)/$$file; done
+	for file in $(MODULADEFS); do cp -p `basename $$file .md`.d $(INSTALLMOCKASYM); chmod a+r $(INSTALLMOCKASYM)/`basename $$file .md`.d; done
+	for file in $(MODULAIMPS); do cp -p `basename $$file .mi`.r $(INSTALLMOCKASYM); chmod a+r $(INSTALLMOCKASYM)/`basename $$file .mi`.r; done
+	cp -p System.r $(INSTALLMOCKASYM); chmod a+r $(INSTALLMOCKASYM)/System.r
+
+build_mocka_d :
+	echo p force | mocka $(MOCKAFLAGS)
+
+test_mocka:	System.o
+	echo p DynArrDrv| mc
+	echo p IODrv	| mc
+	echo p MemoryDrv| mc
+	echo p RelDrv	| mc
+	echo p SetsDrv	| mc
+	echo p SysIODrv	| mc
+
+lint:
+	lint -u *.c
+
+CLEAN:	clean
+	rm -f *.[dimor] *.sym *.def *.mod
+
+clean:
+	rm -f *Drv.[dimor] *Drv.sym *Drv Main.[dimor] Main t *.bak
+
+.c.o:
+	$(CC) $(CFLAGS) -c $*.c;
+
+
+
+
+

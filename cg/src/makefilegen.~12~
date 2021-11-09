@@ -1,0 +1,235 @@
+INSTALLBIN	= $(INSTALLGMD)/bin
+INSTALLLIB	= $(INSTALLGMD)/lib
+
+INCLUDE = .
+
+MC	= mocka_mtc
+BIN = ../../bintobuildwith
+REX = $(BIN)/rex
+LALR = $(BIN)/lalr
+CG = $(BIN)/cg
+PUMA = $(BIN)/puma
+PUMAFLAGS = -dinuw
+
+SED	= sed -e 's/!!$$/WriteNl (f);/' \
+	      -e 's/!\([^!]*\)!$$/WriteS (f, "\1"); WriteNl (f);/' \
+	      -e 's/!\([^!]*\)!/WriteS (f, "\1");/g' \
+	      -e "s/@\([^@]*\)@$$/WriteS (f, '\1'); WriteNl (f);/" \
+	      -e "s/@\([^@]*\)@/WriteS (f, '\1');/g"
+
+MODULAGENS	= Scanner.mi Scanner.md Errors.mi \
+	  Parser.md Parser.mi Tree.md Tree.mi Tree2.md Tree2.mi GramMod.md \
+	  GramMod.mi Semantics.md Semantics.mi Order.md Order.mi \
+          Optimize.md Optimize.mi Dialog.mi TreeMod1.md TreeMod1.mi \
+          TreeMod2.md TreeMod2.mi EvalMod.md EvalMod.mi EvalMod2.md EvalMod2.mi \
+          EvalMod3.md EvalMod3.mi TreeMThree1.md TreeMThree1.mi \
+          TreeMThree2.md TreeMThree2.mi EvalMThree.md EvalMThree.mi \
+          EvalMThree2.md EvalMThree2.mi EvalMThree3.md EvalMThree3.mi \
+          TreeAda1.md TreeAda1.mi TreeAda2.md TreeAda2.mi \
+          GenGnat.md GenGnat.mi \
+	  GramC.md GramC.mi TreeC1.md TreeC1.mi TreeC2.md TreeC2.mi \
+          EvalC.md EvalC.mi EvalC2.md EvalC2.mi EvalC3.md EvalC3.mi cg.mi \
+	  GramYacc.md GramYacc.mi
+
+OTHERGENS = Scanner.Tab Parser.Tab Tree.TS oag sem \
+            consts1 consts2 \
+            writes01 writes02 writes1 writes2
+
+GENS = $(MODULAGENS) $(OTHERGENS)
+
+MODULASOURCES = Dialog.md Errors.md IOUtils.md IOUtils.mi \
+                Positions.md Positions.mi Queue.md Queue.mi \
+                cg.mi
+
+OTHERSOURCES = Dialog.mi0 Errors.mi0 cg.mi0 \
+               cg.sed2 cg.awk1 cg.awk2
+
+SOURCES = $(MODULESOURCES) $(OTHERSOURCES) 
+
+EXE     = cg
+MOCKAFLAGS =
+MOCKALIBS  = -d ../../reuse/gen
+
+include $(INCLUDE)/make.include
+
+# Source code generations:
+
+Scanner.md Scanner.mi:	../src/cg.rex
+	$(REX) -d ../src/cg.rex;
+
+Parser.md:	../src/cg.lalr
+	$(LALR) -b -d ../src/cg.lalr;
+
+Parser.mi:	../src/cg.lalr
+	$(LALR) -b -v ../src/cg.lalr;
+
+Errors.mi:	../src/Errors.mi0 \
+	consts1 writes1 consts2 writes2
+	/lib/cpp -P ../src/Errors.mi0 > Errors.mi
+
+Tree.md:	../src/cg.cg
+	@echo '********** Be sure puma is rebuilt with this new version of cg.cg.'
+	echo SELECT AstIn Ast Common Cg Ag ChildCt | cat - ../src/cg.cg | $(CG) -diqmR
+
+Tree.mi:	../src/cg.cg
+	echo SELECT AstIn Ast Common Cg Ag ChildCt | cat - ../src/cg.cg | $(CG) -iqmR
+
+Tree2.md:	../src/cg.cg
+	echo SUBUNIT Tree2 SELECT AstIn Ast | cat - ../src/cg.cg | $(CG) -dip
+
+Tree2.mi:	../src/cg.cg
+	echo SUBUNIT Tree2 SELECT AstIn Ast | cat - ../src/cg.cg | $(CG) -ip
+
+Tree.TS:	../src/cg.cg
+	echo SELECT AstIn Ast Common Cg Ag ChildCt | cat - ../src/cg.cg | $(CG) -4
+
+GramMod.md GramMod.mi:	../src/mod0.puma Tree.TS 
+	$(SED) < ../src/mod0.puma | tee mod0.pumain | $(PUMA) $(PUMAFLAGS);
+
+GramC.md GramC.mi:	../src/c0.puma Tree.TS
+	$(SED) < ../src/c0.puma | tee c0.pumain | $(PUMA) $(PUMAFLAGS);
+
+GramYacc.md GramYacc.mi:	../src/y0.puma Tree.TS
+	$(SED) < ../src/y0.puma | tee y0.pumain | $(PUMA) $(PUMAFLAGS);
+
+Semantics.md Semantics.mi consts1 writes1:  ../src/sem.puma Tree.TS 
+	awk -f ../src/cg.awk1 < ../src/sem.puma > sem
+	/lib/cpp -P < sem | tee sem.pumain | $(PUMA) $(PUMAFLAGS);
+	sed -f ../src/cg.sed2 < writes01 > writes1
+
+Order.md Order.mi consts2 writes2:	../src/oag.puma Tree.TS 
+	awk -f ../src/cg.awk2 < ../src/oag.puma > oag
+	/lib/cpp -P < oag | tee oag.pumain | $(PUMA) $(PUMAFLAGS);
+	sed -f ../src/cg.sed2 < writes02 > writes2
+
+Optimize.md Optimize.mi:	../src/opt.puma Tree.TS
+	/lib/cpp -P < ../src/opt.puma | tee opt.pumain | $(PUMA) $(PUMAFLAGS);
+
+Dialog.mi:	../src/Dialog.mi0
+	$(SED) < ../src/Dialog.mi0 > Dialog.mi
+
+TreeMod1.md TreeMod1.mi:	../src/mod1.puma Tree.TS
+	$(SED) < ../src/mod1.puma | tee mod1.pumain | $(PUMA) $(PUMAFLAGS);
+
+TreeMod2.md TreeMod2.mi:	../src/mod2.puma Tree.TS
+	$(SED) < ../src/mod2.puma | tee mod2.pumain | $(PUMA) $(PUMAFLAGS);
+
+EvalMod.md EvalMod.mi:	../src/mod3.puma Tree.TS
+	$(SED) < ../src/mod3.puma | tee mod3.pumain | $(PUMA) $(PUMAFLAGS);
+
+EvalMod2.md EvalMod2.mi:	../src/mod4.puma Tree.TS
+	$(SED) < ../src/mod4.puma | tee mod4.pumain | $(PUMA) $(PUMAFLAGS);
+
+EvalMod3.md EvalMod3.mi:	../src/mod5.puma Tree.TS
+	$(SED) < ../src/mod5.puma | tee mod5.pumain | $(PUMA) $(PUMAFLAGS);
+
+TreeMThree1.md TreeMThree1.mi:	../src/MThree1.puma Tree.TS
+	$(SED) < ../src/MThree1.puma | tee MThree1.pumain | $(PUMA) $(PUMAFLAGS);
+
+TreeMThree2.md TreeMThree2.mi:	../src/MThree2.puma Tree.TS
+	$(SED) < ../src/MThree2.puma | tee MThree2.pumain | $(PUMA) $(PUMAFLAGS);
+
+EvalMThree.md EvalMThree.mi:	../src/MThree3.puma Tree.TS
+	$(SED) < ../src/MThree3.puma | tee MThree3.pumain | $(PUMA) $(PUMAFLAGS);
+
+EvalMThree2.md EvalMThree2.mi:	../src/MThree4.puma Tree.TS
+	$(SED) < ../src/MThree4.puma | tee MThree4.pumain | $(PUMA) $(PUMAFLAGS);
+
+EvalMThree3.md EvalMThree3.mi:	../src/MThree5.puma Tree.TS
+	$(SED) < ../src/MThree5.puma | tee MThree5.pumain | $(PUMA) $(PUMAFLAGS);
+
+TreeAda1.md TreeAda1.mi:	../src/ada1.puma Tree.TS
+	$(SED) < ../src/ada1.puma | tee ada1.pumain | $(PUMA) $(PUMAFLAGS);
+
+TreeAda2.md TreeAda2.mi:	../src/ada2.puma Tree.TS
+	$(SED) < ../src/ada2.puma | tee ada2.pumain | $(PUMA) $(PUMAFLAGS);
+
+GenGnat.md GenGnat.mi:	../src/MThree6.puma Tree.TS
+	$(SED) < ../src/MThree6.puma | tee MThree6.pumain | $(PUMA) $(PUMAFLAGS);
+
+TreeC1.md TreeC1.mi:	../src/c1.puma Tree.TS
+	$(SED) < ../src/c1.puma | tee c1.pumain | $(PUMA) $(PUMAFLAGS);
+
+TreeC2.md TreeC2.mi:	../src/c2.puma Tree.TS
+	$(SED) < ../src/c2.puma | tee c2.pumain | $(PUMA) $(PUMAFLAGS);
+
+EvalC.md EvalC.mi:	../src/c3.puma Tree.TS
+	$(SED) < ../src/c3.puma | tee c3.pumain | $(PUMA) $(PUMAFLAGS);
+
+EvalC2.md EvalC2.mi:	../src/c4.puma Tree.TS
+	$(SED) < ../src/c4.puma | tee c4.pumain | $(PUMA) $(PUMAFLAGS);
+
+EvalC3.md EvalC3.mi:	../src/c5.puma Tree.TS
+	$(SED) < ../src/c5.puma | tee c5.pumain | $(PUMA) $(PUMAFLAGS);
+
+cg.mi:	../src/cg.mi0
+	$(SED) < ../src/cg.mi0 > cg.mi
+
+install_mocka:
+
+#install_modula : ../lib/gmdcp ../lib/gmdcpp ../lib/gmdupd ../lib/gmdrm 
+#install_modula : cg cg.sh $(INSTALLLIB)/cg Scanner.Tab Parser.Tab \
+                  TypeTab.a TypeTab.c TypeTab.m TypeTab.m3
+#	if test $(INSTALLLIB) = $(INSTALLBIN); then echo error: INSTALLBIN = INSTALLLIB; false; else true; fi
+#	sed 's;LIB;$(INSTALLLIB);g' < cg.sh > $(INSTALLBIN)/cg
+#	cp $(BIN )/cg $(INSTALLBIN)/ag
+#	cp $(INSTALLBIN)/cg $(INSTALLBIN)/ast
+#	chmod a+rx $(INSTALLBIN)/cg $(INSTALLBIN)/ast $(INSTALLBIN)/ag
+#	install -c -m 755 gmdcp $(INSTALLLIB)/cg
+#	install -c -m 755 gmdcpp $(INSTALLLIB)/cg
+#	install -c -m 755 gmdupd $(INSTALLLIB)/cg
+#	install -c -m 755 gmdrm $(INSTALLLIB)/cg
+#	install -c -s -m 755 cg $(INSTALLLIB)/cg
+#	install -c -m 644 Scanner.Tab $(INSTALLLIB)/cg
+#	install -c -m 644 Parser.Tab $(INSTALLLIB)/cg
+#	install -c -m 644 TypeTab.a $(INSTALLLIB)/cg
+#	install -c -m 644 TypeTab.c $(INSTALLLIB)/cg
+#	install -c -m 644 TypeTab.m $(INSTALLLIB)/cg
+#	install -c -m 644 TypeTab.m3 $(INSTALLLIB)/cg
+
+#install_org:
+#	cd ../../rebuild/cg/m2c; make install
+
+# swap all byte pairs of the files Scanner.Tab and Parser.Tab
+
+bin.conv:
+	dd conv=swab < Scanner.Tab > .Scanner.Tab; mv .Scanner.Tab Scanner.Tab
+	dd conv=swab < Parser.Tab > .Parser.Tab; mv .Parser.Tab Parser.Tab
+
+# saving generated sources 
+
+savegens :
+	cp -p $(GENS) genbackup
+
+# installation directories
+
+$(INSTALLLIB)/cg:	$(INSTALLLIB)
+	sh -c "if test ! -d $(INSTALLLIB)/cg; then mkdir $(INSTALLLIB)/cg; else true; fi"
+
+#/tmp/cg:	/tmp
+#	sh -c "if test ! -d /tmp/cg; then mkdir /tmp/cg; else true; fi"
+
+# support for mkid
+
+cgId:	cg.rex
+	echo SCANNER cgId | cat - cg.rex | \
+	sed 's/\(RETURN.*Ident\)/yyEcho; IO.WriteNl (IO.StdOutput); \1/' | \
+	$(INSTALLBIN).t/rex -sd;
+	sed 's/@/cgId/' < ../../front/src/Id.mi > cgIdDrv.mi
+	echo p cgIdDrv | mocka -d ../../reuse/gen
+	mv cgIdDrv cgId
+
+installId:	cgId $(INSTALLLIB)/Id
+	echo exec $(INSTALLLIB)/Id/cgId -l$(INSTALLLIB)/Id "2> /dev/null" > $(INSTALLBIN)/cgId
+	chmod a+rx $(INSTALLBIN)/cgId
+	install -c -m 644 cgId.Tab $(INSTALLLIB)/Id
+	install -c -s -m 755 cgId $(INSTALLLIB)/Id
+
+$(INSTALLLIB)/Id:	$(INSTALLLIB)
+	sh -c "if test ! -d $(INSTALLLIB)/Id; then mkdir $(INSTALLLIB)/Id; else true; fi"
+
+cleanId:
+	rm -f cgId*
+
+clean:	cleanId
+	rm -f _Debug core *.[dior] $(GENS) 

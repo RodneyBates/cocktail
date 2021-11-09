@@ -1,0 +1,96 @@
+INSTALLBIN	= $(INSTALLGMD)/bin
+INSTALLLIB	= $(INSTALLGMD)/lib
+MC      = mocka_mtc
+
+INCLUDE = .
+
+MOCKAFLAGS = -noindex -norange
+MOCKALIBS = -d ../../reuse/gen
+EXE     = GetImports 
+
+BIN = ../../bintobuildwith
+REX = $(BIN)/rex
+ELL = $(BIN)/ell
+
+#SRCM	   = Errors.md Errors.mi GetImports.mi
+MODULAGENS = Parser.md Parser.mi Scanner.md Scanner.mi
+OTHERGENS  = Scanner.Tab Parser.Tab
+GENS       = $(MODULAGENS) $(OTHERGENS)
+#MTCSOURCES = Errors.h Errors.c GetImports.c Parser.h Parser.c Scanner.h Scanner.c
+
+MODULASOURCES = \
+   Errors.md Errors.mi GetImports.mi 
+
+OTHERSOURCES = modula.ell modula.rex
+SOURCES = $(MODULESOURCES) $(OTHERSOURCES) 
+
+include $(INCLUDE)/make.include
+
+# Generated sources:
+
+Scanner.md Scanner.mi Scanner.Tab : ../src/modula.rex
+	$(REX) -d ../src/modula.rex;
+
+Parser.md Parser.mi Parser.Tab : ../src/modula.ell
+	$(ELL) -di ../src/modula.ell;
+
+#install_modula: GetImports ../lib/makemake.sh $(INSTALLBIN) $(INSTALLLIB)/makemake \
+#        ../gen/Scanner.Tab ../gen/Parser.Tab ../lilb/makemake.awk
+#	if test $(INSTALLLIB) = $(INSTALLBIN); then echo error: INSTALLBIN = INSTALLLIB; false; else true; fi
+#	sed 's;^LIB=.*;LIB=$(INSTALLLIB);' < ../lib/makemake.sh > $(INSTALLBIN)/makemake
+#	chmod a+rx $(INSTALLBIN)/makemake
+#	install -c -s -m 755 GetImports $(INSTALLLIB)/makemake
+#	install -c -m 644 ../gen/Scanner.Tab $(INSTALLLIB)/makemake
+#	install -c -m 644 ../gen/Parser.Tab $(INSTALLLIB)/makemake
+#	install -c -m 644 ../lib/makemake.awk $(INSTALLLIB)/makemake
+
+# installation directories
+
+$(INSTALLBIN):
+	sh -c "if test ! -d $(INSTALLBIN); then mkdir $(INSTALLBIN); else true; fi"
+
+$(INSTALLLIB):
+	sh -c "if test ! -d $(INSTALLLIB); then mkdir $(INSTALLLIB); else true; fi"
+
+$(INSTALLLIB)/makemake:	$(INSTALLLIB)
+	sh -c "if test ! -d $(INSTALLLIB)/makemake; then mkdir $(INSTALLLIB)/makemake; else true; fi"
+
+# swap all byte pairs of the file Scanner.Tab
+# reverse all BITSETs (long words) of the file Parser.Tab
+
+bin.conv:	convert
+	dd conv=swab < Scanner.Tab > .Scanner.Tab; mv .Scanner.Tab Scanner.Tab
+	dd conv=swab < Parser.Tab | convert > .Parser.Tab; mv .Parser.Tab Parser.Tab
+
+convert:	convert.o
+	cc -o convert convert.o
+
+# support for mkid
+# RMB This builds command modId, which appears to read a modula-2 source file
+# and write the sequence of identifier occurrences, one per line, to std  out.
+
+modId:	modula.rex
+	echo SCANNER modId | cat - modula.rex | \
+	sed 's/\(RETURN.*Ident\)/yyEcho; IO.WriteNl (IO.StdOutput); \1/' | \
+	$(INSTALLBIN).t/rex -sd;
+	sed 's/@/modId/' < ../../front/src/Id.mi > modIdDrv.mi
+	echo p modIdDrv | mocka -d ../../reuse/gen
+	mv modIdDrv modId
+
+installId:	modId $(INSTALLLIB)/Id
+	echo exec $(INSTALLLIB)/Id/modId -l$(INSTALLLIB)/Id "2> /dev/null" > $(INSTALLBIN)/modId
+	chmod a+rx $(INSTALLBIN)/modId
+	install -c -m 644 modId.Tab $(INSTALLLIB)/Id
+	install -c -s -m 755 modId $(INSTALLLIB)/Id
+
+$(INSTALLLIB)/Id:	$(INSTALLLIB)
+	sh -c "if test ! -d $(INSTALLLIB)/Id; then mkdir $(INSTALLLIB)/Id; else true; fi"
+
+cleanId:
+	rm -f modId*
+
+clean:	cleanId
+	rm -f *.[dimor] core ERRORS LISTING convert *.bak
+
+CLEAN:	clean
+	rm -f [A-Z]*.[hc] Parser.m? Scanner.m? GetImports Scanner.Tab Parser.Tab

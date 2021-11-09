@@ -1,0 +1,139 @@
+     1 (* map final states to productions *)
+     2 
+     3 (* $Id: Final.mi,v 2.1 1991/11/21 14:53:14 grosch rel $ *)
+     4 
+     5 (* $Log: Final.mi,v $
+c    6  * Revision 2.1  1991/11/21  14:53:14  grosch
+c    7  * new version of RCS on SPARC
+c    8  *
+c    9  * Revision 2.0  91/03/08  18:31:41  grosch
+c   10  * turned tables into initialized arrays (in C)
+c   11  * moved mapping tokens -> strings from Errors to Parser
+c   12  * changed interface for source position
+c   13  * 
+c   14  * Revision 1.1  90/06/12  16:54:07  grosch
+c   15  * renamed main program to lalr, added { } for actions, layout improvements
+c   16  * 
+c   17  * Revision 1.0  88/10/04  14:36:14  vielsack
+c   18  * Initial revision
+c   19  * 
+c   20  *)
+    21 
+    22 IMPLEMENTATION MODULE Final;                                                  *     *
+    23 
+    24   FROM Automaton IMPORT                                                       *
+    25     tProduction,                                                              *
+    26     ProdArrayPtr,                                                             *
+    27     tStateKind,                                                               *
+    28     tStateIndex,                                                              *
+    29     StateArrayPtr, StateIndex,                                                *     *
+    30     tItemIndex,                                                               *
+    31     ItemArrayPtr;                                                             *
+    32 
+    33   FROM DynArray IMPORT MakeArray;                                             *     *
+    34 
+    35   FROM Gen IMPORT                                                             *
+    36     ElmtSize,                                                                 *
+    37     NoState,                                                                  *
+    38     ReduceOffset,                                                             *
+    39     FinalToProd,                                                              *
+    40     FinalToProdCount,                                                         *
+    41     FirstReadTermState,                                                       *
+    42     LastReadNonTermState;                                                     *
+    43   
+    44   FROM SYSTEM IMPORT ADR,TSIZE;                                               *     *     *
+    45 
+    46   PROCEDURE MakeFinalToProd;                                                  *
+    47     VAR
+    48       state, maxState : tStateIndex;                                          *     *    28
+    49       prod : tProduction;                                                     *    25
+    50     BEGIN
+    51       FinalToProdCount := LastReadNonTermState-FirstReadTermState+1;         40    42    41
+    52       MakeArray (FinalToProd,FinalToProdCount,ElmtSize);                     33    39    40    36
+    53       FOR state := FirstReadTermState TO LastReadNonTermState DO             48    41    42
+    54         FinalToProd^[state-FirstReadTermState] := NoState;                   39    48    41    37
+    55       END;
+    56 
+    57       (* Betrachte alle Zustaende *)
+    58 
+    59       maxState := StateIndex;                                                48    29
+    60       FOR state := 1 TO maxState DO                                          48    48
+    61       WITH StateArrayPtr^[state] DO                                          29    48
+    62 
+    63         (* Final Zustaende *)
+    64 
+    65         IF (* ((Kind = sTerm) OR (Kind = sNonterm)) AND *)
+    66            (FirstReadTermState <= NewNumber) AND                             41     *
+    67            (NewNumber <= LastReadNonTermState) THEN                           *    42
+    68 
+    69           prod := ADR (ProdArrayPtr^[ItemArrayPtr^[Items].Prod]);            49    44    26    31     *     *
+    70           FinalToProd^[NewNumber-FirstReadTermState] := prod^.ProdNo + ReduceOffset;     39     *    41    49     *    38
+    71         END;
+    72 
+    73       END;
+    74       END;
+    75 
+    76     END MakeFinalToProd;                                                     46
+    77 
+    78 END Final.                                                                   22
+Cross reference: * is declaration, = is assignment
+
+-A-
+ ADR                             44*   69 
+ Automaton                       24*
+
+-D-
+ DynArray                        33*
+
+-E-
+ ElmtSize                        36*   52 
+
+-F-
+ Final                           22*   78 
+ FinalToProd                     39*   52    54=   70=
+ FinalToProdCount                40*   51=   52 
+ FirstReadTermState              41*   51    53    54    66    70 
+
+-G-
+ Gen                             35*
+
+-I-
+ IMPLEMENTATION                  22*
+ ItemArrayPtr                    31*   69 
+ Items                           69 
+
+-L-
+ LastReadNonTermState            42*   51    53    67 
+
+-M-
+ MakeArray                       33*   52 
+ MakeFinalToProd                 46*   76 
+ maxState                        48*   59=   60 
+
+-N-
+ NewNumber                       66    67    70 
+ NoState                         37*   54 
+
+-P-
+ Prod                            69 
+ prod                            49*   69=   70 
+ ProdArrayPtr                    26*   69 
+ ProdNo                          70 
+
+-R-
+ ReduceOffset                    38*   70 
+
+-S-
+ state                           48*   53=   54    60=   61 
+ StateArrayPtr                   29*   61 
+ StateIndex                      29*   59 
+ SYSTEM                          44*
+
+-T-
+ tItemIndex                      30*
+ tProduction                     25*   49 
+ TSIZE                           44*
+ tStateIndex                     28*   48 
+ tStateKind                      27*
+
+end cross reference, 68 occurrences of 32 identifiers.

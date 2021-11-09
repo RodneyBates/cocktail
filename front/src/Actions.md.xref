@@ -1,0 +1,143 @@
+     1 (* handle global actions and comments *)
+     2 
+     3 (* $Id: Actions.md,v 1.4 1992/08/07 15:13:51 grosch rel $ *)
+     4 
+     5 (* $Log: Actions.md,v $
+c    6  * Revision 1.4  1992/08/07  15:13:51  grosch
+c    7  * allow several scanner and parsers; extend module Errors
+c    8  *
+c    9  * Revision 1.3  1991/12/04  16:21:41  grosch
+c   10  * unified escape conventions for all tools
+c   11  *
+c   12  * Revision 1.2  1991/11/21  14:47:50  grosch
+c   13  * new version of RCS on SPARC
+c   14  *
+c   15  * Revision 1.1  90/06/11  18:44:35  grosch
+c   16  * layout improvements
+c   17  * 
+c   18  * Revision 1.0  88/10/04  14:26:32  vielsack
+c   19  * Initial revision
+c   20  * 
+c   21  *)
+    22 
+    23 DEFINITION MODULE Actions;                                                    *
+    24 
+    25 FROM TokenTab   IMPORT PosType;                                               *     *
+    26 FROM StringMem  IMPORT tStringRef;                                            *     *
+    27 FROM Strings    IMPORT tString;                                               *     *
+    28 FROM Idents     IMPORT tIdent;                                                *     *
+    29 FROM IO         IMPORT tFile;                                                 *     *
+    30 FROM Lists      IMPORT tList;                                                 *     *
+    31 
+    32 TYPE tActionMode = (Export, Global, Local, Begin, Close);                     *     *     *     *     *     *
+    33 
+    34 VAR ScannerName : tIdent;                                                     *    28
+    35 VAR ParserName  : tIdent;                                                     *    28
+    36 
+    37 PROCEDURE PutComment (kind: tActionMode; kp: PosType; c: tList; cp: PosType);       *     *    32     *    25     *    30
+                                                                                     *    25
+    38 
+    39 (* Eintragen des zum Abschnitt DECL gehoerigen Kommentars *)
+    40 
+    41 PROCEDURE GetComment (kind: tActionMode; VAR kp: PosType; VAR c: tList; VAR cp: PosT\     *    37    32    37    25    37
+                                                                                    30    37
+      \ype);                                                                        25
+    42 
+    43 (* Lesen des zum Abschnitt DECL gehoerigen Kommentars *)
+    44 
+    45 PROCEDURE PutAction (kind: tActionMode; a: tList; ap: PosType; c: tList; cp: PosType\     *    41    32     *    30     *
+                                                                                    25    41    30    41    25
+      \);
+    46 
+    47 (* Eintragen einer Semantischen Aktion mit zugh. Kommentar *)
+    48 
+    49 PROCEDURE GetAction (kind: tActionMode; VAR a: tList; VAR ap: PosType; VAR c: tList;\     *    45    32    45    30    45
+                                                                                    25    45    30
+      \ VAR cp: PosType);                                                           45    25
+    50 
+    51 (* Lesen einer Semantischen Aktion mit zugh. Kommentar *)
+    52 
+    53 PROCEDURE WriteActions (kind: tActionMode; f: tFile; Line: BOOLEAN);          *    49    32     *    29     *     *
+    54 
+    55 (* Ausgabe der gesamten Deklaration des angegebenen Abschnitts auf eine Datei *)
+    56 
+    57 PROCEDURE WriteSemanticAction (f: tFile; a: tList; t: CARDINAL);              *    53    29    49    30     *     *
+    58 
+    59 (* Ausgabe der Semantischen Aktion 'a' auf Datei 'f' mit 2 * 't' *)
+    60 (* Leerzeichen am Zeilenanfang *)
+    61 
+    62 PROCEDURE WriteStringList (file: tFile; slist: tList);                        *     *    29     *    30
+    63 
+    64 (* Ausgabe einer tList auf file *)
+    65 
+    66 END Actions.                                                                 23
+Cross reference: * is declaration, = is assignment
+
+-A-
+ a                               45*   49*   57*
+ Actions                         23*   66*
+ ap                              45*   49*
+
+-B-
+ Begin                           32*
+ BOOLEAN                         53 
+
+-C-
+ c                               37*   41*   45*   49*
+ CARDINAL                        57 
+ Close                           32*
+ cp                              37*   41*   45*   49*
+
+-E-
+ Export                          32*
+
+-F-
+ f                               53*   57*
+ file                            62*
+
+-G-
+ GetAction                       49*
+ GetComment                      41*
+ Global                          32*
+
+-I-
+ Idents                          28*
+ IO                              29*
+
+-K-
+ kind                            37*   41*   45*   49*   53*
+ kp                              37*   41*
+
+-L-
+ Line                            53*
+ Lists                           30*
+ Local                           32*
+
+-P-
+ ParserName                      35*
+ PosType                         25*   37    37    41    41    45    45    49    49 
+ PutAction                       45*
+ PutComment                      37*
+
+-S-
+ ScannerName                     34*
+ slist                           62*
+ StringMem                       26*
+ Strings                         27*
+
+-T-
+ t                               57*
+ tActionMode                     32*   37    41    45    49    53 
+ tFile                           29*   53    57    62 
+ tIdent                          28*   34    35 
+ tList                           30*   37    41    45    45    49    49    57    62 
+ TokenTab                        25*
+ tString                         27*
+ tStringRef                      26*
+
+-W-
+ WriteActions                    53*
+ WriteSemanticAction             57*
+ WriteStringList                 62*
+
+end cross reference, 83 occurrences of 41 identifiers.

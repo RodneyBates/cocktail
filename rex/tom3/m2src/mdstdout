@@ -1,0 +1,102 @@
+
+reading work file Classes.md...
+	scanning Classes.md
+	parsing Classes.md
+generating import closure...
+
+reading work file DefTable.md...
+	scanning DefTable.md
+	parsing DefTable.md
+generating import closure...
+	scanning Tree.md
+	parsing Tree.md
+
+reading work file Dfa.md...
+	scanning Dfa.md
+	parsing Dfa.md
+generating import closure...
+
+reading work file Errors.md...
+	scanning Errors.md
+	parsing Errors.md
+generating import closure...
+
+reading work file GenTabs.md...
+	scanning GenTabs.md
+	parsing GenTabs.md
+generating import closure...
+
+reading work file Nfa.md...
+	scanning Nfa.md
+	parsing Nfa.md
+generating import closure...
+	scanning ScanTabs.md
+	parsing ScanTabs.md
+
+reading work file ScanGen.md...
+	scanning ScanGen.md
+	parsing ScanGen.md
+generating import closure...
+
+reading work file ScanTabs.md...
+
+reading work file Traces.md...
+	scanning Traces.md
+	parsing Traces.md
+generating import closure...
+
+reading work file Tree.md...
+
+linking identifiers...
+	linking identifiers of file Classes.md
+m2tom3 warning: unable to find interface for import 'Sets' in line 20
+	linking identifiers of file Tree.md
+m2tom3 warning: unable to find interface for import 'Sets' in line 34
+m2tom3 warning: unable to find interface for import 'Texts' in line 35
+m2tom3 warning: unable to find interface for import 'StringMem' in line 36
+m2tom3 warning: unable to find interface for import 'Positions' in line 37
+	linking identifiers of file DefTable.md
+m2tom3 warning: unable to find interface for import 'Idents' in line 20
+	linking identifiers of file Dfa.md
+m2tom3 warning: unable to find interface for import 'Sets' in line 26
+	linking identifiers of file Errors.md
+m2tom3 warning: unable to find interface for import 'SYSTEM' in line 34
+m2tom3 warning: unable to find interface for import 'Positions' in line 35
+	linking identifiers of file GenTabs.md
+m2tom3 warning: unable to find interface for import 'Texts' in line 47
+m2tom3 warning: unable to find interface for import 'Sets' in line 48
+m2tom3 warning: unable to find interface for import 'Positions' in line 49
+	linking identifiers of file ScanTabs.md
+m2tom3 warning: unable to find interface for import 'IO' in line 31
+	linking identifiers of file Nfa.md
+	linking identifiers of file ScanGen.md
+m2tom3 warning: unable to find interface for import 'Texts' in line 35
+m2tom3 warning: unable to find interface for import 'Strings' in line 36
+m2tom3 warning: unable to find interface for import 'Idents' in line 37
+	linking identifiers of file Traces.md
+
+linking parameters...
+
+generating Modula-3 source...
+	transforming file Classes.md
+	transforming file DefTable.md
+	transforming file Tree.md
+	transforming file Dfa.md
+	transforming file Errors.md
+	transforming file GenTabs.md
+	transforming file Nfa.md
+	transforming file ScanTabs.md
+	transforming file ScanGen.md
+	transforming file Traces.md
+
+saving generated source...
+	writing Modula-3 file ../m3src/Classes.i3
+	writing Modula-3 file ../m3src/DefTable.i3
+	writing Modula-3 file ../m3src/Tree.i3
+	writing Modula-3 file ../m3src/Dfa.i3
+	writing Modula-3 file ../m3src/Errors.i3
+	writing Modula-3 file ../m3src/GenTabs.i3
+	writing Modula-3 file ../m3src/Nfa.i3
+	writing Modula-3 file ../m3src/ScanTabs.i3
+	writing Modula-3 file ../m3src/ScanGen.i3
+	writing Modula-3 file ../m3src/Traces.i3

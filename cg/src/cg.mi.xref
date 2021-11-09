@@ -1,0 +1,1541 @@
+     1 (* Ich, Doktor Josef Grosch, Informatiker, 8.1.1988 *)
+     2 (* Modified Rodney M. Bates
+c    3    RMB: Aug 1996 add -e to options summary. 
+c    4                (generate parsing actions respecting attribute dependencies)
+c    5         Nov 1997 alphabetize options (within groups) in usage messages.
+c    6         Nov 1997 Add calls for Modula-3 generation. 
+c    7         Nov 1997 accept -l dir, in addition to -ldir 
+c    8         Dec 1997 Changes to support '-~' option: GnatConvert procedure 
+c    9         Dec 1997 Fixed bugs in macro file generation
+c   10         Dec 1997 Added <*LINE...*> pragma output with -# option to help options 
+c   11         Jan 1999 Added html tree dumper generation with '-^' option 
+c   12         Nov 1999 Changed to use the -l-supplied prefix to find to scripts
+c   13                  gmdcpp, gmdupd, gmdrm.
+c   14 
+c   15 *)
+    16 
+    17 MODULE cg;                                                                    *
+    18 
+    19 FROM System     IMPORT GetArgCount, GetArgument, System, Exit;                *     *     *     *     *
+    20 FROM Memory     IMPORT MemoryUsed;                                            *     *
+    21 FROM IO         IMPORT StdOutput, StdError, WriteOpen, WriteClose, CloseIO,         *     *     *     *     *     *
+    22                         WriteI, WriteS, WriteNl,                              *     *     *
+    23                         tFile, ReadOpen, ReadClose, EndOfFile, ReadNl;        *     *     *     *     *
+    24 FROM Strings    IMPORT tString, AssignEmpty, Assign, Append, Concatenate,     *     *     *     *     *     *
+    25                         ReadL, WriteL, ArrayToString, StringToArray;          *     *     *     *
+    26 FROM Idents     IMPORT tIdent, NoIdent, MakeIdent, GetString, WriteIdent;     *     *     *     *     *     *
+    27 FROM Sets       IMPORT tSet, MakeSet, ReleaseSet, Include, Exclude, IsEmpty,        *     *     *     *     *     *     *
+    28                         Extract, Complement, Union, IsElement;                *     *     *     *
+    29 FROM Errors     IMPORT StoreMessages, WriteMessages;                          *     *     *
+    30 FROM Scanner    IMPORT ScanTabName, BeginFile, Attribute, CurArg, ArgCount;         *     *     *     *     *     *
+    31 FROM Parser     IMPORT Parser, ParsTabName;                                   *     *     *
+    32 FROM Tree       IMPORT NoTree, tTree, Trace, Options, TreeRoot, QueryTree, ErrorCoun\     *     *     *     *     *     *
+                                                                                     *
+      \t,                                                                            *
+    33                         HeapUsed, ModuleName, f, BeginTree2, ForallClasses, SourceFi\     *     *     *     *     *
+      \le,                                                                           *
+    34                         WI, TypeNames, itTree, iNoTree, iModule, iInteger, IdentifyC\     *     *     *     *     *     *
+      \lass,                                                                         *
+    35                         ViewName;                                             *
+    36 FROM Tree2      IMPORT PutTree2;                                              *     *
+    37 FROM Semantics  IMPORT Semantics, TypeCount;                                  *     *     *
+    38 FROM Order      IMPORT Order;                                                 *     *
+    39 FROM Dialog     IMPORT Dialog;                                                *     *
+    40 
+    41 IMPORT GramMod,         TreeMod1, EvalMod, EvalMod2, EvalMod3;                *     *     *     *     *
+    42 IMPORT                  TreeMThree1, EvalMThree, EvalMThree2, EvalMThree3;          *     *     *     *
+    43 IMPORT                  TreeAda1 (*, EvalAda, EvalAda2, EvalAda3 *) ;         *
+    44 IMPORT GramC, GramYacc, TreeC1, EvalC, EvalC2, EvalC3;                        *     *     *     *     *     *
+    45 
+    46 CONST
+    47    DefExtMc     = ".md" ;       (* file extensions for Modula-2 (mocka, mtc)    *)        *
+    48    ImpExtMc     = ".mi" ;                                                     *
+    49    LisExtMc     = ".imp";                                                     *
+    50 
+    51    IntExtM3     = ".i3" ;       (* file extensions for Modula-3 *)            *
+    52    ModExtM3     = ".m3" ;                                                     *
+    53    LisExtM3     = ".imp";                                                     *
+    54 
+    55    SpecExtAda    = ".ads";       (* file extensions for Ada      *)           *
+    56    BodyExtAda    = ".adb";                                                    *
+    57 
+    58    DefExtC      = ".h"  ;       (* file extensions for C                *)          *
+    59    ImpExtC      = ".c"  ;                                                     *
+    60 
+    61 VAR
+    62    CgLib        ,                                                             *
+    63    DefFile      ,                                                             *
+    64    TreeFile     ,                                                             *
+    65    EvalFile     ,                                                             *
+    66    String       ,                                                             *
+    67    PathS        : tString;                                                    *    24
+    68    Argument     ,                                                             *
+    69    PathA        : ARRAY [0..255] OF CHAR;                                     *     *
+    70    j            : SHORTCARD;                                                  *     *
+    71    ch           : CHAR;                                                       *     *
+    72    AllOptions   : tSet;                                                       *    27
+    73    HasArgs      : BOOLEAN;                                                    *     *
+    74 
+    75 PROCEDURE MakeAllLowerCase ( VAR S : tString )                                *     *    24
+    76   (* This should probably be inside Strings, since it
+c   77      violates the apparently intended abstraction of tString. *) 
+    78 
+    79   ; VAR I : SHORTCARD                                                         *     *
+    80 ; BEGIN
+    81     FOR I := 1 TO S . Length                                                 79    75     *
+    82     (* NOTE: Strings leaves Chars [ 0 ] unused *) 
+    83     DO
+    84       IF ( 'A' <= S . Chars [ I ] ) AND ( S . Chars [ I ] <= 'Z' )           75     *    79    75     *    79
+    85       THEN
+    86         S . Chars [ I ]                                                      75     *    79
+    87           := CHR ( ORD ( S . Chars [ I ] ) - ORD ( 'A' ) + ORD ( 'a' ) )            *     *    75     *    79     *     *
+    88       END (*( IF *)  
+    89     END (* FOR *) 
+    90   END MakeAllLowerCase ;                                                     75
+    91 
+    92 PROCEDURE GenerateMacros;                                                     *
+    93    VAR TypeTabFile      : tFile;                                              *    23
+    94    VAR s                : tString;                                            *    24
+    95    VAR i                : tIdent;                                             *    26
+    96    VAR j                : INTEGER;                                           70     *
+    97    BEGIN
+    98    IF IsElement (ORD ('c'), Options) THEN                                    28     *    32
+    99       ArrayToString     ("TypeTab.c", String);                               25    66
+   100                         (* name of type table for C *)
+   101    ELSIF IsElement (ORD ('K'), Options) THEN                                 28     *    32
+   102       ArrayToString     ("TypeTab.m3", String);                              25    66
+   103                         (* name of type table for Modula-3 *)
+   104    ELSIF IsElement (ORD ('A'), Options) THEN                                 28     *    32
+   105       ArrayToString     ("TypeTab.a", String);                               25    66
+   106                         (* name of type table for Modula-3 *)
+   107    ELSE
+   108       ArrayToString     ("TypeTab.m", String);                               25    66
+   109                         (* name of type table for Modula-2 *)
+   110    END;
+   111       Assign            (PathS, CgLib);                                      24    67    62
+   112       Concatenate       (PathS, String);                                     24    67    66
+   113       Append            (PathS, 0C);                                         24    67
+   114       StringToArray     (PathS, PathA);                                      25    67    69
+   115       TypeTabFile := ReadOpen (PathA);                                       93    23    69
+   116 
+   117       ArrayToString     ("yy" , PathS);         (* name of macro file *)     25    67
+   118       GetString         (iModule, ModuleName);                               26    34    33
+   119       Concatenate       (PathS, ModuleName);                                 24    67    33
+   120       ArrayToString     (".w", String);                                      25    66
+   121       Concatenate       (PathS, String);                                     24    67    66
+   122       Append            (PathS, 0C);                                         24    67
+   123       StringToArray     (PathS, PathA);                                      25    67    69
+   124       f := WriteOpen (PathA);                                                33    21    69
+   125 
+   126       WHILE NOT EndOfFile (TypeTabFile) DO                                   23    93
+   127          ReadL (TypeTabFile, s);                                             25    93    94
+   128          i := MakeIdent (s);                                                 95    26    94
+   129          IF (i <= TypeCount) AND IsElement (i, TypeNames) THEN               95    37    28    95    34
+   130             Exclude (TypeNames, i);                                          27    34    95
+   131             WriteS (f, "# ifndef begin"); WI (i); WriteNl (f);               22    33    34    95    22    33
+   132             ReadL (TypeTabFile, s);                                          25    93    94
+   133             WriteL (f, s);                                                   25    33    94
+   134             WriteS (f, "# endif"); WriteNl (f);                              22    33    22    33
+   135             WriteS (f, "# ifndef close"); WI (i); WriteNl (f);               22    33    34    95    22    33
+   136             ReadL (TypeTabFile, s);                                          25    93    94
+   137             WriteL (f, s);                                                   25    33    94
+   138             WriteS (f, "# endif"); WriteNl (f);                              22    33    22    33
+   139             WriteS (f, "# ifndef read"); WI (i); WriteNl (f);                22    33    34    95    22    33
+   140             ReadL (TypeTabFile, s);                                          25    93    94
+   141             WriteL (f, s);                                                   25    33    94
+   142             WriteS (f, "# endif"); WriteNl (f);                              22    33    22    33
+   143             WriteS (f, "# ifndef write"); WI (i); WriteNl (f);               22    33    34    95    22    33
+   144             ReadL (TypeTabFile, s);                                          25    93    94
+   145             WriteL (f, s);                                                   25    33    94
+   146             WriteS (f, "# endif"); WriteNl (f);                              22    33    22    33
+   147             WriteS (f, "# ifndef get"); WI (i); WriteNl (f);                 22    33    34    95    22    33
+   148             ReadL (TypeTabFile, s);                                          25    93    94
+   149             WriteL (f, s);                                                   25    33    94
+   150             WriteS (f, "# endif"); WriteNl (f);                              22    33    22    33
+   151             WriteS (f, "# ifndef put"); WI (i); WriteNl (f);                 22    33    34    95    22    33
+   152             ReadL (TypeTabFile, s);                                          25    93    94
+   153             WriteL (f, s);                                                   25    33    94
+   154             WriteS (f, "# endif"); WriteNl (f);                              22    33    22    33
+   155             WriteS (f, "# ifndef copy"); WI (i); WriteNl (f);                22    33    34    95    22    33
+   156             ReadL (TypeTabFile, s);                                          25    93    94
+   157             WriteL (f, s);                                                   25    33    94
+   158             WriteS (f, "# endif"); WriteNl (f);                              22    33    22    33
+   159             WriteS (f, "# ifndef equal"); WI (i); WriteNl (f);               22    33    34    95    22    33
+   160             ReadL (TypeTabFile, s);                                          25    93    94
+   161             WriteL (f, s);                                                   25    33    94
+   162             WriteS (f, "# endif"); WriteNl (f);                              22    33    22    33
+   163          ELSE
+   164             FOR j := 1 TO 8 DO                                               96
+   165                ReadNl (TypeTabFile);                                         23    93
+   166             END;
+   167          END;
+   168       END;
+   169       ReadClose (TypeTabFile);                                               23    93
+   170 
+   171       IF itTree <= TypeCount THEN Exclude (TypeNames, itTree); END;          34    37    27    34    34
+   172       WHILE NOT IsEmpty (TypeNames) DO                                       27    34
+   173          i := Extract (TypeNames);                                           95    28    34
+   174    IF IsElement (ORD ('c'), Options) THEN (* C code *)                       28     *    32
+   175          WriteS (f, "# ifndef begin"); WI (i); WriteNl (f);                  22    33    34    95    22    33
+   176          WriteS (f, "# define begin"); WI (i); WriteS (f, "(a)"); WriteNl (f);     22    33    34    95    22    33    22
+                                                                                    33
+   177          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   178          WriteS (f, "# ifndef close"); WI (i); WriteNl (f);                  22    33    34    95    22    33
+   179          WriteS (f, "# define close"); WI (i); WriteS (f, "(a)"); WriteNl (f);     22    33    34    95    22    33    22
+                                                                                    33
+   180          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   181          WriteS (f, "# ifndef read"); WI (i); WriteNl (f);                   22    33    34    95    22    33
+   182          WriteS (f, "# define read"); WI (i); WriteS (f, "(a)   yyReadHex ((unsigned\    22    33    34    95    22    33
+      \ char *) & a, sizeof (a));"); WriteNl (f);                                   22    33
+   183          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   184          WriteS (f, "# ifndef write"); WI (i); WriteNl (f);                  22    33    34    95    22    33
+   185          WriteS (f, "# define write"); WI (i); WriteS (f, "(a)  yyWriteHex ((unsigne\    22    33    34    95    22    33
+      \d char *) & a, sizeof (a));"); WriteNl (f);                                  22    33
+   186          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   187          WriteS (f, "# ifndef get"); WI (i); WriteNl (f);                    22    33    34    95    22    33
+   188          WriteS (f, "# define get"); WI (i); WriteS (f, "(a)    yyGet ((char *) & a,\    22    33    34    95    22    33
+      \ sizeof (a));"); WriteNl (f);                                                22    33
+   189          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   190          WriteS (f, "# ifndef put"); WI (i); WriteNl (f);                    22    33    34    95    22    33
+   191          WriteS (f, "# define put"); WI (i); WriteS (f, "(a)    yyPut ((char *) & a,\    22    33    34    95    22    33
+      \ sizeof (a));"); WriteNl (f);                                                22    33
+   192          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   193          WriteS (f, "# ifndef copy"); WI (i); WriteNl (f);                   22    33    34    95    22    33
+   194          WriteS (f, "# define copy"); WI (i); WriteS (f, "(a, b)"); WriteNl (f);         22    33    34    95    22    33
+                                                                                    22    33
+   195          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   196          WriteS (f, "# ifndef equal"); WI (i); WriteNl (f);                  22    33    34    95    22    33
+   197          WriteS (f, "# define equal"); WI (i); WriteS (f, "(a, b)       memcmp ((cha\    22    33    34    95    22    33
+      \r *) & a, (char *) & b, sizeof (a)) == 0"); WriteNl (f);                     22    33
+   198          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   199    ELSIF IsElement (ORD ('K'), Options) THEN (* Modula-3 *)                  28     *    32
+   200          WriteS (f, "# ifndef begin"); WI (i); WriteNl (f);                  22    33    34    95    22    33
+   201          WriteS (f, "# define begin"); WI (i); WriteS (f, "(a)"); WriteNl (f);     22    33    34    95    22    33    22
+                                                                                    33
+   202          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   203          WriteS (f, "# ifndef close"); WI (i); WriteNl (f);                  22    33    34    95    22    33
+   204          WriteS (f, "# define close"); WI (i); WriteS (f, "(a)"); WriteNl (f);     22    33    34    95    22    33    22
+                                                                                    33
+   205          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   206          WriteS (f, "# ifndef read"); WI (i); WriteNl (f);                   22    33    34    95    22    33
+   207          WriteS (f, "# define read"); WI (i); WriteS (f, "(a)   yyReadHex ( LOOPHOLE\    22    33    34    95    22    33
+      \ ( a , ARRAY [ 0..BYTESIZE( a ) - 1 ] OF CHAR ) );"); WriteNl (f);           22    33
+   208          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   209          WriteS (f, "# ifndef write"); WI (i); WriteNl (f);                  22    33    34    95    22    33
+   210          WriteS (f, "# define write"); WI (i); WriteS (f, "(a)  yyWriteHex ( LOOPHOL\    22    33    34    95    22    33
+      \E ( a , ARRAY [ 0..BYTESIZE ( a ) - 1 ] OF CHAR ) );"); WriteNl (f);         22    33
+   211          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   212          WriteS (f, "# ifndef get"); WI (i); WriteNl (f);                    22    33    34    95    22    33
+   213          WriteS (f, "# define get"); WI (i); WriteS (f, "(a)    yyGet(a);"); WriteNl\    22    33    34    95    22    33
+                                                                                    22
+      \ (f);                                                                        33
+   214          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   215          WriteS (f, "# ifndef put"); WI (i); WriteNl (f);                    22    33    34    95    22    33
+   216          WriteS (f, "# define put"); WI (i); WriteS (f, "(a)    yyPut(a);"); WriteNl\    22    33    34    95    22    33
+                                                                                    22
+      \ (f);                                                                        33
+   217          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   218          WriteS (f, "# ifndef copy"); WI (i); WriteNl (f);                   22    33    34    95    22    33
+   219          WriteS (f, "# define copy"); WI (i); WriteS (f, "(a, b) a := b"); WriteNl (\    22    33    34    95    22    33
+                                                                                    22
+      \f);                                                                          33
+   220          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   221          WriteS (f, "# ifndef equal"); WI (i); WriteNl (f);                  22    33    34    95    22    33
+   222          WriteS (f, "# define equal"); WI (i); WriteS (f, "(a, b) a = b"); WriteNl (\    22    33    34    95    22    33
+                                                                                    22
+      \f);                                                                          33
+   223          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   224    ELSIF IsElement (ORD ('A'), Options) THEN (* Ada *)                       28     *    32
+   225          WriteS (f, "# ifndef begin"); WI (i); WriteNl (f);                  22    33    34    95    22    33
+   226          WriteS (f, "# define begin"); WI (i); WriteS (f, "(a)"); WriteNl (f);     22    33    34    95    22    33    22
+                                                                                    33
+   227          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   228          WriteS (f, "# ifndef close"); WI (i); WriteNl (f);                  22    33    34    95    22    33
+   229          WriteS (f, "# define close"); WI (i); WriteS (f, "(a)"); WriteNl (f);     22    33    34    95    22    33    22
+                                                                                    33
+   230          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   231          WriteS (f, "# ifndef read"); WI (i); WriteNl (f);                   22    33    34    95    22    33
+   232          WriteS (f, "# define read"); WI (i); WriteS (f, "(a)   yyReadHex ( LOOPHOLE\    22    33    34    95    22    33
+      \ ( a , ARRAY [ 0..BYTESIZE( a ) - 1 ] OF CHAR ) );"); WriteNl (f);           22    33
+   233          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   234          WriteS (f, "# ifndef write"); WI (i); WriteNl (f);                  22    33    34    95    22    33
+   235          WriteS (f, "# define write"); WI (i); WriteS (f, "(a)  yyWriteHex ( LOOPHOL\    22    33    34    95    22    33
+      \E ( a , ARRAY [ 0..BYTESIZE ( a ) - 1 ] OF CHAR ) );"); WriteNl (f);         22    33
+   236          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   237          WriteS (f, "# ifndef get"); WI (i); WriteNl (f);                    22    33    34    95    22    33
+   238          WriteS (f, "# define get"); WI (i); WriteS (f, "(a)    yyGet(a);"); WriteNl\    22    33    34    95    22    33
+                                                                                    22
+      \ (f);                                                                        33
+   239          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   240          WriteS (f, "# ifndef put"); WI (i); WriteNl (f);                    22    33    34    95    22    33
+   241          WriteS (f, "# define put"); WI (i); WriteS (f, "(a)    yyPut(a);"); WriteNl\    22    33    34    95    22    33
+                                                                                    22
+      \ (f);                                                                        33
+   242          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   243          WriteS (f, "# ifndef copy"); WI (i); WriteNl (f);                   22    33    34    95    22    33
+   244          WriteS (f, "# define copy"); WI (i); WriteS (f, "(a, b) a := b"); WriteNl (\    22    33    34    95    22    33
+                                                                                    22
+      \f);                                                                          33
+   245          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   246          WriteS (f, "# ifndef equal"); WI (i); WriteNl (f);                  22    33    34    95    22    33
+   247          WriteS (f, "# define equal"); WI (i); WriteS (f, "(a, b) a = b"); WriteNl (\    22    33    34    95    22    33
+                                                                                    22
+      \f);                                                                          33
+   248          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   249    ELSE (* Modula-2 *) 
+   250          WriteS (f, "# ifndef begin"); WI (i); WriteNl (f);                  22    33    34    95    22    33
+   251          WriteS (f, "# define begin"); WI (i); WriteS (f, "(a)"); WriteNl (f);     22    33    34    95    22    33    22
+                                                                                    33
+   252          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   253          WriteS (f, "# ifndef close"); WI (i); WriteNl (f);                  22    33    34    95    22    33
+   254          WriteS (f, "# define close"); WI (i); WriteS (f, "(a)"); WriteNl (f);     22    33    34    95    22    33    22
+                                                                                    33
+   255          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   256          WriteS (f, "# ifndef read"); WI (i); WriteNl (f);                   22    33    34    95    22    33
+   257          WriteS (f, "# define read"); WI (i); WriteS (f, "(a)   yyReadHex (a);"); Wr\    22    33    34    95    22    33
+      \iteNl (f);                                                                   22    33
+   258          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   259          WriteS (f, "# ifndef write"); WI (i); WriteNl (f);                  22    33    34    95    22    33
+   260          WriteS (f, "# define write"); WI (i); WriteS (f, "(a)  yyWriteHex (a);"); W\    22    33    34    95    22    33
+      \riteNl (f);                                                                  22    33
+   261          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   262          WriteS (f, "# ifndef get"); WI (i); WriteNl (f);                    22    33    34    95    22    33
+   263          WriteS (f, "# define get"); WI (i); WriteS (f, "(a)    yyGet (a);"); WriteN\    22    33    34    95    22    33
+      \l (f);                                                                       22    33
+   264          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   265          WriteS (f, "# ifndef put"); WI (i); WriteNl (f);                    22    33    34    95    22    33
+   266          WriteS (f, "# define put"); WI (i); WriteS (f, "(a)    yyPut (a);"); WriteN\    22    33    34    95    22    33
+      \l (f);                                                                       22    33
+   267          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   268          WriteS (f, "# ifndef copy"); WI (i); WriteNl (f);                   22    33    34    95    22    33
+   269          WriteS (f, "# define copy"); WI (i); WriteS (f, "(a, b)"); WriteNl (f);         22    33    34    95    22    33
+                                                                                    22    33
+   270          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   271          WriteS (f, "# ifndef equal"); WI (i); WriteNl (f);                  22    33    34    95    22    33
+   272          WriteS (f, "# define equal"); WI (i); WriteS (f, "(a, b)       yyIsEqual (a\    22    33    34    95    22    33
+      \, b)"); WriteNl (f);                                                         22    33
+   273          WriteS (f, "# endif"); WriteNl (f);                                 22    33    22    33
+   274    END;
+   275       END;
+   276 
+   277    IF IsElement (ORD ('c'), Options) THEN                                    28     *    32
+   278       WriteS (f, "# ifndef begin"); WI (itTree); WriteNl (f);                22    33    34    34    22    33
+   279       WriteS (f, "# define begin"); WI (itTree); WriteS (f, "(a)        a = "); WI (\    22    33    34    34    22    33
+                                                                                    34
+      \iNoTree); WriteS (f, ";"); WriteNl (f);                                      34    22    33    22    33
+   280       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   281       WriteS (f, "# ifndef close"); WI (itTree); WriteNl (f);                22    33    34    34    22    33
+   282       WriteS (f, "# define close"); WI (itTree); WriteS (f, "(a)        yyChild = a;\    22    33    34    34    22    33
+      \ a = "); WI (iNoTree); WriteS (f, "; yyRelease"); WI (iModule); WriteS (f, " (yyChil\    34    34    22    33    34    34
+                                                                                    22    33
+      \d);"); WriteNl (f);                                                          22    33
+   283       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   284       WriteS (f, "# ifndef read"); WI (itTree); WriteNl (f);                 22    33    34    34    22    33
+   285       WriteS (f, "# define read"); WI (itTree); WriteS (f, "(a) yyRead"); WI (iModul\    22    33    34    34    22    33
+                                                                                    34
+      \e); WriteS (f, " (a);"); WriteNl (f);                                        34    22    33    22    33
+   286       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   287       WriteS (f, "# ifndef write"); WI (itTree); WriteNl (f);                22    33    34    34    22    33
+   288       WriteS (f, "# define write"); WI (itTree); WriteS (f, "(a)        yyWrite"); W\    22    33    34    34    22    33
+      \I (iModule); WriteS (f, " (a);"); WriteNl (f);                               34    34    22    33    22    33
+   289       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   290       WriteS (f, "# ifndef get"); WI (itTree); WriteNl (f);                  22    33    34    34    22    33
+   291       WriteS (f, "# define get"); WI (itTree); WriteS (f, "(a)  yyGet"); WI (iModule\    22    33    34    34    22    33
+                                                                                    34    34
+      \); WriteS (f, " (a);"); WriteNl (f);                                         22    33    22    33
+   292       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   293       WriteS (f, "# ifndef put"); WI (itTree); WriteNl (f);                  22    33    34    34    22    33
+   294       WriteS (f, "# define put"); WI (itTree); WriteS (f, "(a)  yyPut"); WI (iModule\    22    33    34    34    22    33
+                                                                                    34    34
+      \); WriteS (f, " (a);"); WriteNl (f);                                         22    33    22    33
+   295       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   296       WriteS (f, "# ifndef copy"); WI (itTree); WriteNl (f);                 22    33    34    34    22    33
+   297       WriteS (f, "# define copy"); WI (itTree); WriteS (f, "(a, b)      yyCopy"); WI\    22    33    34    34    22    33
+                                                                                    34
+      \ (iModule); WriteS (f, " (b, & a);"); WriteNl (f);                           34    22    33    22    33
+   298       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   299       WriteS (f, "# ifndef equal"); WI (itTree); WriteNl (f);                22    33    34    34    22    33
+   300       WriteS (f, "# define equal"); WI (itTree); WriteS (f, "(a, b)     IsEqual"); W\    22    33    34    34    22    33
+      \I (iModule); WriteS (f, " (a, b)"); WriteNl (f);                             34    34    22    33    22    33
+   301       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   302    ELSIF IsElement (ORD ('K'), Options) THEN                                 28     *    32
+   303       WriteS (f, "# ifndef begin"); WI (itTree); WriteNl (f);                22    33    34    34    22    33
+   304       WriteS (f, "# define begin"); WI (itTree); WriteS (f, "(a)        a := "); WI \    22    33    34    34    22    33
+                                                                                    34
+      \(iNoTree); WriteS (f, ";"); WriteNl (f);                                     34    22    33    22    33
+   305       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   306       WriteS (f, "# ifndef close"); WI (itTree); WriteNl (f);                22    33    34    34    22    33
+   307       WriteS (f, "# define close"); WI (itTree); WriteS (f, "(a)        a := "); WI \    22    33    34    34    22    33
+                                                                                    34
+      \(iNoTree); WriteS (f, " ;"); WriteNl (f);                                    34    22    33    22    33
+   308       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   309       WriteS (f, "# ifndef read"); WI (itTree); WriteNl (f);                 22    33    34    34    22    33
+   310       WriteS (f, "# define read"); WI (itTree); WriteS (f, "(a) yyRead"); WI (iModul\    22    33    34    34    22    33
+                                                                                    34
+      \e); WriteS (f, " (a);"); WriteNl (f);                                        34    22    33    22    33
+   311       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   312       WriteS (f, "# ifndef write"); WI (itTree); WriteNl (f);                22    33    34    34    22    33
+   313       WriteS (f, "# define write"); WI (itTree); WriteS (f, "(a)        yyWrite"); W\    22    33    34    34    22    33
+      \I (iModule); WriteS (f, " (a);"); WriteNl (f);                               34    34    22    33    22    33
+   314       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   315       WriteS (f, "# ifndef get"); WI (itTree); WriteNl (f);                  22    33    34    34    22    33
+   316       WriteS (f, "# define get"); WI (itTree); WriteS (f, "(a)  yyGet"); WI (iModule\    22    33    34    34    22    33
+                                                                                    34    34
+      \); WriteS (f, " (a);"); WriteNl (f);                                         22    33    22    33
+   317       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   318       WriteS (f, "# ifndef put"); WI (itTree); WriteNl (f);                  22    33    34    34    22    33
+   319       WriteS (f, "# define put"); WI (itTree); WriteS (f, "(a)  yyPut"); WI (iModule\    22    33    34    34    22    33
+                                                                                    34    34
+      \); WriteS (f, " (a);"); WriteNl (f);                                         22    33    22    33
+   320       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   321       WriteS (f, "# ifndef copy"); WI (itTree); WriteNl (f);                 22    33    34    34    22    33
+   322       WriteS (f, "# define copy"); WI (itTree); WriteS (f, "(a, b) Copy"); WI (iModu\    22    33    34    34    22    33
+                                                                                    34
+      \le); WriteS (f, " ( a , b );"); WriteNl (f);                                 34    22    33    22    33
+   323       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   324       WriteS (f, "# ifndef equal"); WI (itTree); WriteNl (f);                22    33    34    34    22    33
+   325       WriteS (f, "# define equal"); WI (itTree); WriteS (f, "(a, b)     IsEqual"); W\    22    33    34    34    22    33
+      \I (iModule); WriteS (f, " (a, b)"); WriteNl (f);                             34    34    22    33    22    33
+   326       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   327    ELSIF IsElement (ORD ('A'), Options) THEN                                 28     *    32
+   328       WriteS (f, "# ifndef begin"); WI (itTree); WriteNl (f);                22    33    34    34    22    33
+   329       WriteS (f, "# define begin"); WI (itTree); WriteS (f, "(a)        a := "); WI \    22    33    34    34    22    33
+                                                                                    34
+      \(iNoTree); WriteS (f, ";"); WriteNl (f);                                     34    22    33    22    33
+   330       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   331       WriteS (f, "# ifndef close"); WI (itTree); WriteNl (f);                22    33    34    34    22    33
+   332       WriteS (f, "# define close"); WI (itTree); WriteS (f, "(a)        a := "); WI \    22    33    34    34    22    33
+                                                                                    34
+      \(iNoTree); WriteS (f, " ;"); WriteNl (f);                                    34    22    33    22    33
+   333       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   334       WriteS (f, "# ifndef read"); WI (itTree); WriteNl (f);                 22    33    34    34    22    33
+   335       WriteS (f, "# define read"); WI (itTree); WriteS (f, "(a) yyRead"); WI (iModul\    22    33    34    34    22    33
+                                                                                    34
+      \e); WriteS (f, " (a);"); WriteNl (f);                                        34    22    33    22    33
+   336       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   337       WriteS (f, "# ifndef write"); WI (itTree); WriteNl (f);                22    33    34    34    22    33
+   338       WriteS (f, "# define write"); WI (itTree); WriteS (f, "(a)        yyWrite"); W\    22    33    34    34    22    33
+      \I (iModule); WriteS (f, " (a);"); WriteNl (f);                               34    34    22    33    22    33
+   339       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   340       WriteS (f, "# ifndef get"); WI (itTree); WriteNl (f);                  22    33    34    34    22    33
+   341       WriteS (f, "# define get"); WI (itTree); WriteS (f, "(a)  yyGet"); WI (iModule\    22    33    34    34    22    33
+                                                                                    34    34
+      \); WriteS (f, " (a);"); WriteNl (f);                                         22    33    22    33
+   342       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   343       WriteS (f, "# ifndef put"); WI (itTree); WriteNl (f);                  22    33    34    34    22    33
+   344       WriteS (f, "# define put"); WI (itTree); WriteS (f, "(a)  yyPut"); WI (iModule\    22    33    34    34    22    33
+                                                                                    34    34
+      \); WriteS (f, " (a);"); WriteNl (f);                                         22    33    22    33
+   345       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   346       WriteS (f, "# ifndef copy"); WI (itTree); WriteNl (f);                 22    33    34    34    22    33
+   347       WriteS (f, "# define copy"); WI (itTree); WriteS (f, "(a, b) Copy"); WI (iModu\    22    33    34    34    22    33
+                                                                                    34
+      \le); WriteS (f, " ( a , b );"); WriteNl (f);                                 34    22    33    22    33
+   348       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   349       WriteS (f, "# ifndef equal"); WI (itTree); WriteNl (f);                22    33    34    34    22    33
+   350       WriteS (f, "# define equal"); WI (itTree); WriteS (f, "(a, b)     IsEqual"); W\    22    33    34    34    22    33
+      \I (iModule); WriteS (f, " (a, b)"); WriteNl (f);                             34    34    22    33    22    33
+   351       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   352    ELSE (* Modula-2 *) 
+   353       WriteS (f, "# ifndef begin"); WI (itTree); WriteNl (f);                22    33    34    34    22    33
+   354       WriteS (f, "# define begin"); WI (itTree); WriteS (f, "(a)        a := "); WI \    22    33    34    34    22    33
+                                                                                    34
+      \(iNoTree); WriteS (f, ";"); WriteNl (f);                                     34    22    33    22    33
+   355       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   356       WriteS (f, "# ifndef close"); WI (itTree); WriteNl (f);                22    33    34    34    22    33
+   357       WriteS (f, "# define close"); WI (itTree); WriteS (f, "(a)        yyChild := a\    22    33    34    34    22    33
+      \; a := "); WI (iNoTree); WriteS (f, "; yyRelease"); WI (iModule); WriteS (f, " (yyCh\    34    34    22    33    34    34
+                                                                                    22    33
+      \ild);"); WriteNl (f);                                                        22    33
+   358       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   359       WriteS (f, "# ifndef read"); WI (itTree); WriteNl (f);                 22    33    34    34    22    33
+   360       WriteS (f, "# define read"); WI (itTree); WriteS (f, "(a) yyRead"); WI (iModul\    22    33    34    34    22    33
+                                                                                    34
+      \e); WriteS (f, " (a);"); WriteNl (f);                                        34    22    33    22    33
+   361       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   362       WriteS (f, "# ifndef write"); WI (itTree); WriteNl (f);                22    33    34    34    22    33
+   363       WriteS (f, "# define write"); WI (itTree); WriteS (f, "(a)        yyWrite"); W\    22    33    34    34    22    33
+      \I (iModule); WriteS (f, " (a);"); WriteNl (f);                               34    34    22    33    22    33
+   364       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   365       WriteS (f, "# ifndef get"); WI (itTree); WriteNl (f);                  22    33    34    34    22    33
+   366       WriteS (f, "# define get"); WI (itTree); WriteS (f, "(a)  yyGet"); WI (iModule\    22    33    34    34    22    33
+                                                                                    34    34
+      \); WriteS (f, " (a);"); WriteNl (f);                                         22    33    22    33
+   367       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   368       WriteS (f, "# ifndef put"); WI (itTree); WriteNl (f);                  22    33    34    34    22    33
+   369       WriteS (f, "# define put"); WI (itTree); WriteS (f, "(a)  yyPut"); WI (iModule\    22    33    34    34    22    33
+                                                                                    34    34
+      \); WriteS (f, " (a);"); WriteNl (f);                                         22    33    22    33
+   370       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   371       WriteS (f, "# ifndef copy"); WI (itTree); WriteNl (f);                 22    33    34    34    22    33
+   372       WriteS (f, "# define copy"); WI (itTree); WriteS (f, "(a, b)      yyCopy"); WI\    22    33    34    34    22    33
+                                                                                    34
+      \ (iModule); WriteS (f, " (b, SYSTEM.ADR (a));"); WriteNl (f);                34    22    33    22    33
+   373       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   374       WriteS (f, "# ifndef equal"); WI (itTree); WriteNl (f);                22    33    34    34    22    33
+   375       WriteS (f, "# define equal"); WI (itTree); WriteS (f, "(a, b)     IsEqual"); W\    22    33    34    34    22    33
+      \I (iModule); WriteS (f, " (a, b)"); WriteNl (f);                             34    34    22    33    22    33
+   376       WriteS (f, "# endif"); WriteNl (f);                                    22    33    22    33
+   377    END;
+   378       WriteClose (f);                                                        21    33
+   379    END GenerateMacros;                                                       92
+   380 
+   381 PROCEDURE ReadTraceTab;                                                       *
+   382    VAR TraceTabFile     : tFile;                                              *    23
+   383    VAR s                : tString;                                           94    24
+   384    VAR t                : tTree;                                              *    32
+   385    BEGIN
+   386       TraceTabFile := ReadOpen ("TraceTab");    (* name of trace table *)   382    23
+   387       IF TraceTabFile >= 0 THEN                                             382
+   388          WHILE NOT EndOfFile (TraceTabFile) DO                               23   382
+   389             ReadL (TraceTabFile, s);                                         25   382   383
+   390             t := IdentifyClass (TreeRoot^.Ag.Classes, MakeIdent (s));       384    34    32     *     *    26   383
+   391             IF t # NoTree THEN                                              384    32
+   392                SetTrace (t);                                                  *   384
+   393                ForallClasses (t^.Class.Extensions, SetTrace);                33   384     *     *     *
+   394             END;
+   395          END;
+   396          ReadClose (TraceTabFile);                                           23   382
+   397       END;
+   398    END ReadTraceTab;                                                        381
+   399 
+   400 PROCEDURE SetTrace (t: tTree);                                                *   384    32
+   401    BEGIN INCL (t^.Class.Properties, Trace); END SetTrace;                     *   400     *     *    32   400
+   402 
+   403 PROCEDURE SmartOpen (FileName: tString): tFile;                               *     *    24    23
+   404    VAR PathS: tString;                                                       67    24
+   405    BEGIN
+   406       IF IsElement (ORD ('7'), Options) THEN                                 28     *    32
+   407          ArrayToString  ("yy", PathS);                                       25   404
+   408          Concatenate    (PathS, FileName);                                   24   404   403
+   409          Append         (PathS, 0C);                                         24   404
+   410          StringToArray  (PathS, PathA);                                      25   404    69
+   411       ELSE
+   412          Append         (FileName, 0C);                                      24   403
+   413          StringToArray  (FileName, PathA);                                   25   403    69
+   414       END;
+   415       RETURN WriteOpen  (PathA);                                             21    69
+   416    END SmartOpen;                                                           403
+   417 
+   418 PROCEDURE SmartClose (FileName: tString; f: tFile);                           *   403    24    33    23
+   419    VAR PathS: tString;                                                      404    24
+   420    BEGIN
+   421       WriteClose        (f);                                                 21   418
+   422       IF IsElement (ORD ('7'), Options) THEN                                 28     *    32
+   423          Assign  ( PathS , CgLib ) ;                                         24   419    62
+   424          ArrayToString ( "gmdupd " , String ) ;                              25    66
+   425          Concatenate ( PathS , String ) ;                                    24   419    66
+   426          Concatenate    (PathS, FileName);                                   24   419   418
+   427          ArrayToString  (" yy", String);                                     25    66
+   428          Concatenate    (PathS, String);                                     24   419    66
+   429          Concatenate    (PathS, FileName);                                   24   419   418
+   430          Append         (PathS, 0C);                                         24   419
+   431          StringToArray  (PathS, PathA);                                      25   419    69
+   432          j := System (PathA);                                                96    19    69
+   433       END;
+   434    END SmartClose;                                                          418
+   435 
+   436 BEGIN
+   437    AssignEmpty (CgLib);                                                      24    62
+   438    SourceFile [0] := 0C;                                                     33
+   439    ArgCount := GetArgCount () - 1;                                           30    19
+   440    HasArgs := FALSE;                                                         73     *
+   441 
+   442    CurArg := 0;                                                              30
+   443    LOOP
+   444       INC (CurArg);                                                           *    30
+   445       IF CurArg > ArgCount THEN EXIT; END;                                   30    30
+   446       GetArgument (CurArg, Argument);                                        19    30    68
+   447       IF Argument [0] = '-' THEN                                             68
+   448          IF Argument [1] = 'l' THEN                                          68
+   449             AssignEmpty (CgLib);                                             24    62
+   450             IF Argument [ 2 ] = 0C                                           68
+   451             THEN (* lib path is separate argument *) 
+   452               INC ( CurArg )                                                  *    30
+   453             ; IF CurArg > ArgCount THEN Append ( CgLib , '/' ) ; EXIT END ;        30    30    24    62
+   454             ; GetArgument ( CurArg , Argument )                              19    30    68
+   455             ; j := 0                                                         96
+   456             ELSE 
+   457               j := 2;                                                        96
+   458             END (* IF *) ; 
+   459             LOOP
+   460                ch := Argument [j];                                           71    68    96
+   461                IF ch = 0C THEN EXIT; END;                                    71
+   462                Append (CgLib, ch);                                           24    62    71
+   463                INC (j);                                                       *    96
+   464             END;
+   465             Append (CgLib, '/');                                             24    62
+   466          ELSE
+   467             j := 0;                                                          96
+   468             LOOP
+   469                INC (j);                                                       *    96
+   470                ch := Argument [j];                                           71    68    96
+   471                IF ch = 0C THEN                                               71
+   472                   EXIT;
+   473                ELSIF ch = '?' THEN                                           71
+   474                   Include (Options, ORD ('h'));                              27    32     *
+   475                   Include (Options, ORD ('H'));                              27    32     *
+   476                ELSE
+   477                   Include (Options, ORD (ch));                               27    32     *    71
+   478                END;
+   479             END;
+   480             HasArgs := TRUE;                                                 73     *
+   481          END;
+   482       ELSIF Argument [0] = '?' THEN                                          68
+   483          Include (Options, ORD ('h'));                                       27    32     *
+   484          Include (Options, ORD ('H'));                                       27    32     *
+   485          HasArgs := TRUE;                                                    73     *
+   486       ELSE
+   487          j := 0;                                                             96
+   488          REPEAT
+   489             ch := Argument [j];                                              71    68    96
+   490             SourceFile [j] := ch;                                            33    96    71
+   491             INC (j);                                                          *    96
+   492          UNTIL ch = 0C;                                                      71
+   493          EXIT;
+   494       END;
+   495    END;
+   496 
+   497    IF NOT HasArgs THEN                          (* {} -> {a}            *)         73
+   498       Include (Options, ORD ('a'));                                          27    32     *
+   499    END;
+   500 
+   501    IF IsElement (ORD ('a'), Options) THEN       (* a -> {a-z, F, R, =} - {c, h, u, x\    28     *    32
+c     \, z} *)
+   502       MakeSet (AllOptions, 127);                                             27    72
+   503       FOR ch := 'a' TO 'z' DO                                                71
+   504          Include (AllOptions, ORD (ch));                                     27    72     *    71
+   505       END;
+   506       Include (AllOptions, ORD ('F'));                                       27    72     *
+   507       Include (AllOptions, ORD ('R'));                                       27    72     *
+   508       Include (AllOptions, ORD ('='));                                       27    72     *
+   509       Exclude (AllOptions, ORD ('c'));                                       27    72     *
+   510       Exclude (AllOptions, ORD ('h'));                                       27    72     *
+   511       Exclude (AllOptions, ORD ('u'));                                       27    72     *
+   512       Exclude (AllOptions, ORD ('x'));                                       27    72     *
+   513       Exclude (AllOptions, ORD ('z'));                                       27    72     *
+   514       Union (Options, AllOptions);                                           28    32    72
+   515       ReleaseSet (AllOptions);                                               27    72
+   516    END;
+   517 
+   518    IF IsElement (ORD ('k'), Options) OR         (* {k, q} -> o          *)         28     *    32
+   519       IsElement (ORD ('q'), Options) THEN                                    28     *    32
+   520       Include (Options, ORD ('o'));                                          27    32     *
+   521    END;
+   522 
+   523    IF IsElement (ORD ('w'), Options) OR         (* {w, ^, p, f, k, t, b, y} -> , = M\    28     *    32
+c     \ark *)
+   524       IsElement (ORD ('^'), Options) OR                                      28     *    32
+   525       IsElement (ORD ('p'), Options) OR                                      28     *    32
+   526       IsElement (ORD ('f'), Options) OR                                      28     *    32
+   527       IsElement (ORD ('k'), Options) OR                                      28     *    32
+   528       IsElement (ORD ('t'), Options) OR                                      28     *    32
+   529       IsElement (ORD ('b'), Options) OR                                      28     *    32
+   530       IsElement (ORD ('y'), Options) THEN                                    28     *    32
+   531       Include (Options, ORD (','));                                          27    32     *
+   532    END;
+   533 
+   534    IF IsElement (ORD ('w'), Options) OR         (* {w, ^, r, p, g} -> ; = TreeStore \    28     *    32
+c     \*)
+   535       IsElement (ORD ('^'), Options) OR                                      28     *    32
+   536       IsElement (ORD ('r'), Options) OR                                      28     *    32
+   537       IsElement (ORD ('p'), Options) OR                                      28     *    32
+   538       IsElement (ORD ('g'), Options) THEN                                    28     *    32
+   539       Include (Options, ORD (';'));                                          27    32     *
+   540    END;
+   541 
+   542  (* -A is begin reclaimed for Ada code. 
+c  543    IF IsElement (ORD ('A'), Options) THEN       (* A -> {D, I}          *)
+c  544       Include (Options, ORD ('D'));
+c  545       Include (Options, ORD ('I'));
+c  546    END; *) 
+   547 
+   548    IF IsElement (ORD ('T'), Options) OR         (* {T, X, Y, Z} -> I    *)         28     *    32
+   549       IsElement (ORD ('X'), Options) OR                                      28     *    32
+   550       IsElement (ORD ('Y'), Options) OR                                      28     *    32
+   551       IsElement (ORD ('Z'), Options) THEN                                    28     *    32
+   552       Include (Options, ORD ('I'));                                          27    32     *
+   553    END;
+   554 
+   555    IF IsElement (ORD ('I'), Options) OR         (* {I, V, M, P, S, N, O, G, E, C, J,\    28     *    32
+c     \ x, z, u} -> . = Order *)
+   556       IsElement (ORD ('V'), Options) OR                                      28     *    32
+   557       IsElement (ORD ('M'), Options) OR                                      28     *    32
+   558       IsElement (ORD ('P'), Options) OR                                      28     *    32
+   559       IsElement (ORD ('S'), Options) OR                                      28     *    32
+   560       IsElement (ORD ('N'), Options) OR                                      28     *    32
+   561       IsElement (ORD ('O'), Options) OR                                      28     *    32
+   562       IsElement (ORD ('G'), Options) OR                                      28     *    32
+   563       IsElement (ORD ('E'), Options) OR                                      28     *    32
+   564       IsElement (ORD ('C'), Options) OR                                      28     *    32
+   565       IsElement (ORD ('J'), Options) OR                                      28     *    32
+   566       IsElement (ORD ('x'), Options) OR                                      28     *    32
+   567       IsElement (ORD ('z'), Options) OR                                      28     *    32
+   568       IsElement (ORD ('u'), Options) THEN                                    28     *    32
+   569       Include (Options, ORD ('.'));                                          27    32     *
+   570    END;
+   571 
+   572    IF IsElement (ORD ('x'), Options) OR         (* {x, z, u} -> B       *)         28     *    32
+   573       IsElement (ORD ('z'), Options) OR                                      28     *    32
+   574       IsElement (ORD ('u'), Options) THEN                                    28     *    32
+   575       Include (Options, ORD ('B'));                                          27    32     *
+   576    END;
+   577 
+   578    IF IsElement (ORD ('T'), Options) THEN       (* T -> {X, Z}          *)         28     *    32
+   579       Include (Options, ORD ('X'));                                          27    32     *
+   580       Include (Options, ORD ('Z'));                                          27    32     *
+   581    END;
+   582 
+   583    IF IsElement (ORD ('X'), Options) THEN       (* X -> Y               *)         28     *    32
+   584       Include (Options, ORD ('Y'));                                          27    32     *
+   585    END;
+   586 (*
+c  587    IF IsElement ( ORD ( '~' ) , Options )       (* ~ AND K -> n         *) 
+c  588       AND IsElement ( ORD ( 'K' ) , Options ) 
+c  589    THEN 
+c  590       Include ( Options , ORD ( 'n' ) ) 
+c  591    END; 
+c  592 *)
+   593 
+   594    IF IsElement (ORD ('h'), Options)                                         28     *    32
+   595       OR IsElement (ORD ('H'), Options) THEN                                 28     *    32
+   596       f := StdOutput;                                                       418    21
+   597       WriteNl (f);                                                           22   418
+   598       WriteS (f, "usage: cg [-options] [-ldir|-l dir] [files]"); WriteNl (f);      22   418    22   418
+   599    END; 
+   600    IF IsElement (ORD ('h'), Options) THEN                                    28     *    32
+   601       Exclude (Options, ORD ('h'));                                          27    32     *
+   602       WriteNl (f);                                                           22   418
+   603       WriteS (f, "options for tree/graph module"); WriteNl (f);              22   418    22   418
+   604       WriteNl (f);                                                           22   418
+   605       WriteS (f, " A Generate Ada code (default is Modula-2)"); WriteNl (f);       22   418    22   418
+   606       WriteS (f, " a generate all except -ch (default)"); WriteNl (f);       22   418    22   418
+   607       WriteS (f, " b generate bottom up traversal  procedure TraverseTREEBU"); Write\    22   418
+      \Nl (f);                                                                      22   418
+   608       WriteS (f, " c generate C code (default is Modula-2)"); WriteNl (f);         22   418    22   418
+   609       WriteS (f, " d generate definition module"); WriteNl (f);              22   418    22   418
+   610       WriteS (f, " F generate general destroyer    procedure ReleaseTREEModule (FREE\    22   418
+      \)"); WriteNl (f);                                                            22   418
+   611       WriteS (f, " f generate node/graph destroyer procedure ReleaseTREE (free)"); W\    22   418
+      \riteNl (f);                                                                  22   418
+   612       WriteS (f, " g generate binary graph reader  procedure GetTREE"); WriteNl (f);     22   418    22   418
+   613       WriteS (f, " H print help information for evaluator  module"); WriteNl (f);        22   418    22   418
+   614       WriteS (f, " h print help information for tree/graph module"); WriteNl (f);        22   418    22   418
+   615       WriteS (f, " i generate implementation module"); WriteNl (f);          22   418    22   418
+   616       WriteS (f, " K generate Modula-3 code (default is Modula-2)"); WriteNl (f);        22   418    22   418
+   617       WriteS (f, " k generate graph checker        procedure CheckTREE"); WriteNl (f\    22   418    22   418
+      \);
+   618       WriteS (f, " -ldir or -l dir specify the directory dir where cg finds its tabl\    22   418
+      \es"); WriteNl (f);                                                           22   418
+   619       WriteS (f, " m generate node constructors    procedures m<node> (make)"); Writ\    22   418
+      \eNl (f);                                                                     22   418
+   620       WriteS (f, " n generate node constructors    procedures n<node> (node)"); Writ\    22   418
+      \eNl (f);                                                                     22   418
+   621       WriteS (f, " o generate ascii  node  writer  procedure WriteTREENode (output)"\    22   418
+      \); WriteNl (f);                                                              22   418
+   622       WriteS (f, " p generate binary graph writer  procedure PutTREE"); WriteNl (f);     22   418    22   418
+   623       WriteS (f, " q generate graph browser        procedure QueryTREE"); WriteNl (f\    22   418    22   418
+      \);
+   624       WriteS (f, " r generate ascii  graph reader  procedure ReadTREE"); WriteNl (f)\    22   418    22   418
+      \;
+   625       WriteS (f, " R generate list reverser        procedure ReverseTREE"); WriteNl \    22   418    22
+      \(f);                                                                        418
+   626       WriteS (f, " s generate import statements"); WriteNl (f);              22   418    22   418
+   627       WriteS (f, " t generate top down  traversal  procedure TraverseTREETD"); Write\    22   418
+      \Nl (f);                                                                      22   418
+   628       WriteS (f, " w generate ascii  graph writer  procedure WriteTREE"); WriteNl (f\    22   418    22   418
+      \);
+   629       WriteS (f, " y generate graph copy           procedure CopyTREE"); WriteNl (f)\    22   418    22   418
+      \;
+   630       WriteS (f, " = generate tree equality test   procedure IsEqualTREE"); WriteNl \    22   418    22
+      \(f);                                                                        418
+   631       WriteS (f, " ~ generate Gnat tree conversion procedure GnatConvertTREE (Modula\    22   418
+      \-3 only)"); WriteNl (f);                                                     22   418
+   632       WriteS (f, " % use internal package name qualifiers for Gnat tree conversion")\    22   418
+      \; WriteNl (f);                                                               22   418
+   633       WriteS (f, " # generate <*LINE...*> pragmas  (Modula 3 only)"); WriteNl (f);       22   418    22   418
+   634       WriteS (f, " ^ generate html tree writer     procedure WriteTREEHtml (Modula-3\    22   418
+      \ only"); WriteNl (f);                                                        22   418
+   635       WriteS (f, " 4 generate tree/graph description in file TREE.TS"); WriteNl (f);     22   418    22   418
+   636       WriteS (f, " 6 generate # line directives"); WriteNl (f);              22   418    22   418
+   637       WriteS (f, " 7 touch output files only if necessary"); WriteNl (f);    22   418    22   418
+   638       WriteS (f, " 8 report storage consumption"); WriteNl (f);              22   418    22   418
+   639       WriteNl (f);                                                           22   418
+   640       WriteS (f, "options for scanner and parser interface"); WriteNl (f);         22   418    22   418
+   641       WriteNl (f);                                                           22   418
+   642       WriteS (f, " c generate C code (default is Modula-2)"); WriteNl (f);         22   418    22   418
+   643       WriteS (f, " e generate parsing actions respecting attribute dependencies"); W\    22   418
+      \riteNl (f);                                                                  22   418
+   644       WriteS (f, " j allow undefined node types; define implicitly as terminals"); W\    22   418
+      \riteNl (f);                                                                  22   418
+   645       WriteS (f, " K generate Modula-3 code (default is Modula-2)"); WriteNl (f);        22   418    22   418
+   646       WriteS (f, " u generate parser  specification for yacc"); WriteNl (f);       22   418    22   418
+   647       WriteS (f, " v omit actions in the generated parser specifications"); WriteNl \    22   418    22
+      \(f);                                                                        418
+   648       WriteS (f, " x generate scanner specification"); WriteNl (f);          22   418    22   418
+   649       WriteS (f, " z generate parser  specification for lalr"); WriteNl (f);       22   418    22   418
+   650    END;
+   651 
+   652    IF IsElement (ORD ('H'), Options) THEN                                    28     *    32
+   653       Exclude (Options, ORD ('H'));                                          27    32     *
+   654       WriteNl (f);                                                           22   418
+   655       WriteS (f, "options for evaluator module"); WriteNl (f);               22   418    22   418
+   656       WriteNl (f);                                                           22   418
+   657       WriteS (f, " A Generate Ada code (default is Modula-2)"); WriteNl (f);       22   418    22   418
+   658       WriteS (f, " B allow missing attribute computations in extended node types"); \    22   418
+      \WriteNl (f);                                                                 22   418
+   659       WriteS (f, " C print dependencies introduced for total order"); WriteNl (f);       22   418    22   418
+   660       WriteS (f, " c generate C code (default is Modula-2)"); WriteNl (f);         22   418    22   418
+   661       WriteS (f, " D generate definition     module"); WriteNl (f);          22   418    22   418
+   662       WriteS (f, " E print attribute instances sorted by evaluation order"); WriteNl\    22   418    22
+      \ (f);                                                                       418
+   663       WriteS (f, " G print attribute instances sorted by declaration order"); WriteN\    22   418
+      \l (f);                                                                       22   418
+   664       WriteS (f, " H print help information for evaluator  module"); WriteNl (f);        22   418    22   418
+   665       WriteS (f, " h print help information for tree/graph module"); WriteNl (f);        22   418    22   418
+   666       WriteS (f, " I generate implementation module"); WriteNl (f);          22   418    22   418
+   667       WriteS (f, " J start dialog system"); WriteNl (f);                     22   418    22   418
+   668       WriteS (f, " K generate Modula-3 code (default is Modula-2)"); WriteNl (f);        22   418    22   418
+   669       WriteS (f, " L generate a (lazy) evaluator for WAG (default OAG)"); WriteNl (f\    22   418    22   418
+      \);
+   670       WriteS (f, " -ldir or -l dir specify the directory dir where cg finds its tabl\    22   418
+      \es"); WriteNl (f);                                                           22   418
+   671       WriteS (f, " M print summary of all node types (rules) from source"); WriteNl \    22   418    22
+      \(f);                                                                        418
+   672       WriteS (f, " N print dependency relations DNC"); WriteNl (f);          22   418    22   418
+   673       WriteS (f, " O print dependency relations OAG"); WriteNl (f);          22   418    22   418
+   674       WriteS (f, " P print dependency relations DP"); WriteNl (f);           22   418    22   418
+   675       WriteS (f, " Q browse internal data structure"); WriteNl (f);          22   418    22   418
+   676       WriteS (f, " S print dependency relations SNC"); WriteNl (f);          22   418    22   418
+   677       WriteS (f, " T generate evaluator with trace output (all actions, T = XZ)"); W\    22   418
+      \riteNl (f);                                                                  22   418
+   678       WriteS (f, " U trace only node types specified in file TraceTab"); WriteNl (f)\    22   418    22   418
+      \;
+   679       WriteS (f, " V print visit sequences"); WriteNl (f);                   22   418    22   418
+   680       WriteS (f, " W suppress warnings"); WriteNl (f);                       22   418    22   418
+   681       WriteS (f, " X trace attribute evaluation actions with    values"); WriteNl (f\    22   418    22   418
+      \);
+   682       WriteS (f, " Y trace attribute evaluation actions without values"); WriteNl (f\    22   418    22   418
+      \);
+   683       WriteS (f, " Z trace visit actions/gnat node counts"); WriteNl (f);    22   418    22   418
+   684       WriteS (f, " 0 optimize attribute storage"); WriteNl (f);              22   418    22   418
+   685       WriteS (f, " 1 print inserted copy rules"); WriteNl (f);               22   418    22   418
+   686       WriteS (f, " 2 print inherited attribute computation rules"); WriteNl (f);         22   418    22   418
+   687       WriteS (f, " 3 print attribute storage assignment"); WriteNl (f);      22   418    22   418
+   688       WriteS (f, " 5 generate code to check for cyclic dependencies"); WriteNl (f);      22   418    22   418
+   689       WriteS (f, " 6 generate # line directives"); WriteNl (f);              22   418    22   418
+   690       WriteS (f, " 7 touch output files only if necessary"); WriteNl (f);    22   418    22   418
+   691       WriteS (f, " 8 report storage consumption"); WriteNl (f);              22   418    22   418
+   692       WriteS (f, " 9 generate code to measure stack size"); WriteNl (f);     22   418    22   418
+   693       WriteS (f, " # generate <*LINE...*> pragmas  (Modula 3 only)"); WriteNl (f);       22   418    22   418
+   694    (* WriteS (f, " . run order"); *)
+   695    (* WriteS (f, " , generate procedure yyMark"); *)
+   696    (* WriteS (f, " ; generate "TreeStore""); *)
+   697    (* WriteS (f, " / follow as early as possible strategy instead of as late as poss\
+c     \ible"); *)
+   698    END; 
+   699    IF IsElement (ORD ('h'), Options)                                         28     *    32
+   700       OR IsElement (ORD ('H'), Options) THEN                                 28     *    32
+   701       WriteNl (f);                                                           22   418
+   702       WriteS (f, "implications"); WriteNl (f);                               22   418    22   418
+   703       WriteNl (f);                                                           22   418
+   704       WriteS (f, " {}              -> {a, A}"); WriteNl (f);                 22   418    22   418
+   705       WriteS (f, " a               -> {a-z, F, R} - {c, e, h, u, x, z}"); WriteNl (f\    22   418    22   418
+      \);
+   706       WriteS (f, " A               -> {D, I}"); WriteNl (f);                 22   418    22   418
+   707       WriteS (f, " {L, T, X, Y, Z} -> I"); WriteNl (f);                      22   418    22   418
+   708       WriteS (f, " T               -> {X, Z}"); WriteNl (f);                 22   418    22   418
+   709    END;
+   710 
+   711    IF NOT IsEmpty (Options) THEN                                             27    32
+   712       ArrayToString     (ScanTabName, String);  (* name of scanner table *)        25    30    66
+   713       Assign            (PathS, CgLib);                                      24   419    62
+   714       Concatenate       (PathS, String);                                     24   419    66
+   715       Append            (PathS, 0C);                                         24   419
+   716       StringToArray     (PathS, ScanTabName);                                25   419    30
+   717 
+   718       ArrayToString     (ParsTabName, String);  (* name of parser table *)         25    31    66
+   719       Assign            (PathS, CgLib);                                      24   419    62
+   720       Concatenate       (PathS, String);                                     24   419    66
+   721       Append            (PathS, 0C);                                         24   419
+   722       StringToArray     (PathS, ParsTabName);                                25   419    31
+   723 
+   724    IF IsElement (ORD ('c'), Options) THEN                                    28     *    32
+   725       ArrayToString     ("int", String);                                     25    66
+   726    ELSE (* Ada, Modula-2 or Modula-3 *) 
+   727       ArrayToString     ("INTEGER", String);                                 25    66
+   728    END;
+   729       iInteger := MakeIdent (String);                                        34    26    66
+   730 
+   731       IF SourceFile [0] # 0C THEN                                            33
+   732          BeginFile (SourceFile);                                             30    33
+   733          ArrayToString (SourceFile, String);                                 25    33    66
+   734          Attribute.Position.File := MakeIdent (String);                      30     *     *    26    66
+   735       END;
+   736       StoreMessages     (TRUE);                                              29     *
+   737       ErrorCount := Parser ();                                               32    31
+   738       BeginTree2;                                                            33
+   739       Semantics         (TreeRoot);                                          37    32
+   740       IF ErrorCount > 0 THEN WriteMessages (StdError); CloseIO; Exit (1); END;     32    29    21    21    19
+   741    END;
+   742 
+   743    IF IsElement (ORD ('.'), Options) THEN                                    28     *    32
+   744       Order             (TreeRoot);                                          38    32
+   745    END;
+   746 
+   747    IF IsElement (ORD ('x'), Options) THEN                                    28     *    32
+   748       IF TreeRoot^.Ag.ScannerName = NoIdent THEN                             32     *     *    26
+   749          ArrayToString  ("Scanner", PathS);                                  25   419
+   750       ELSE
+   751          GetString (TreeRoot^.Ag.ScannerName, PathS);                        26    32     *     *   419
+   752       END;
+   753       ArrayToString     (".rpp", String);                                    25    66
+   754       Concatenate       (PathS, String);                                     24   419    66
+   755       f := SmartOpen    (PathS);                                            418   403   419
+   756    IF IsElement (ORD ('c'), Options) THEN                                    28     *    32
+   757       GramC.ScanSpec    (TreeRoot);                                          44     *    32
+   758    ELSIF IsElement ( ORD ( 'A' ) , Options )                                 28     *    32
+   759    THEN
+   760       WriteS (f,"-x not implemented for Ada"); WriteNl (f);                  22   418    22   418
+   761    ELSE (* This works for Modula-3 too: *) 
+   762       GramMod.ScanSpec  (TreeRoot);                                          41     *    32
+   763    END;
+   764       SmartClose        (PathS, f);                                         418   419   418
+   765    END;
+   766 
+   767    IF IsElement (ORD ('z'), Options) THEN                                    28     *    32
+   768       GetString         (TreeRoot^.Ag.ParserName, ModuleName);               26    32     *     *    33
+   769       Assign            (PathS, ModuleName);                                 24   419    33
+   770       ArrayToString     (".lalr", String);                                   25    66
+   771       Concatenate       (PathS, String);                                     24   419    66
+   772       f := SmartOpen    (PathS);                                            418   403   419
+   773    IF IsElement (ORD ('c'), Options) THEN                                    28     *    32
+   774       GramC.ParsSpec    (TreeRoot);                                          44     *    32
+   775    ELSIF IsElement ( ORD ( 'A' ) , Options )                                 28     *    32
+   776    THEN
+   777       WriteS (f,"-z not implemented for Ada"); WriteNl (f);                  22   418    22   418
+   778    ELSE (* This works for Modula-3 too: *) 
+   779       GramMod.ParsSpec  (TreeRoot);                                          41     *    32
+   780    END;
+   781       SmartClose        (PathS, f);                                         418   419   418
+   782    ELSIF IsElement (ORD ('u'), Options) THEN                                 28     *    32
+   783       GetString         (TreeRoot^.Ag.ParserName, ModuleName);               26    32     *     *    33
+   784       Assign            (PathS, ModuleName);                                 24   419    33
+   785       ArrayToString     (".y", String);                                      25    66
+   786       Concatenate       (PathS, String);                                     24   419    66
+   787       f := SmartOpen    (PathS);                                            418   403   419
+   788       GramYacc.ParsSpec (TreeRoot);                                          44     *    32
+   789       SmartClose        (PathS, f);                                         418   419   418
+   790    END;
+   791 
+   792       WriteMessages     (StdError);                                          29    21
+   793       StoreMessages     (TRUE);                                              29     *
+   794 
+   795    IF IsElement (ORD ('Q'), Options) THEN                                    28     *    32
+   796       QueryTree         (TreeRoot);                                          32    32
+   797    END;
+   798 
+   799    IF IsElement (ORD ('J'), Options) THEN                                    28     *    32
+   800       Dialog            (TreeRoot);                                          39    32
+   801    END;
+   802 
+   803       IF ErrorCount > 0 THEN CloseIO; Exit (1); END;                         32    21    19
+   804 
+   805    IF IsElement (ORD ('i'), Options) OR                                      28     *    32
+   806       IsElement (ORD ('X'), Options) THEN                                    28     *    32
+   807       GenerateMacros;                                                        92
+   808    END;
+   809 
+   810    IF IsElement (ORD ('d'), Options) THEN                                    28     *    32
+   811       GetString         (iModule, ModuleName);                               26    34    33
+   812       Assign            (PathS, ModuleName);                                 24   419    33
+   813    IF IsElement (ORD ('c'), Options) THEN                                    28     *    32
+   814       ArrayToString     (DefExtC , String);                                  25    58    66
+   815    ELSIF IsElement (ORD ('K'), Options) THEN                                 28     *    32
+   816       ArrayToString     (IntExtM3 , String);                                 25    51    66
+   817    ELSIF IsElement (ORD ('A'), Options) THEN                                 28     *    32
+   818       MakeAllLowerCase ( PathS ) ;                                           75   419
+   819       ArrayToString     (SpecExtAda , String);                               25    55    66
+   820    ELSE
+   821       ArrayToString     (DefExtMc, String);                                  25    47    66
+   822    END;
+   823       Concatenate       (PathS, String);                                     24   419    66
+   824       Assign            (DefFile, PathS);                                    24    63   419
+   825       f := SmartOpen    (PathS);                                            418   403   419
+   826    IF IsElement (ORD ('c'), Options) THEN                                    28     *    32
+   827       TreeC1.TreeDefC   (TreeRoot);                                          44     *    32
+   828    ELSIF IsElement (ORD ('K'), Options) THEN                                 28     *    32
+   829       TreeMThree1.TreeInterface (TreeRoot);                                  42     *    32
+   830    ELSIF IsElement (ORD ('A'), Options) THEN                                 28     *    32
+   831       TreeAda1.TreePackSpec (TreeRoot);                                      43     *    32
+   832    ELSE
+   833       TreeMod1.TreeDefMod (TreeRoot);                                        41     *    32
+   834    END;
+   835       SmartClose        (PathS, f);                                         418   419   418
+   836 
+   837    IF NOT IsElement (ORD ('c'), Options)                                     28     *    32
+   838    THEN (* Modula-2 or Modula-3, call cpp *)
+   839       Assign ( PathS , CgLib ) ;                                             24   419    62
+   840       ArrayToString ( "gmdcpp " , String ) ;                                 25    66
+   841       Concatenate ( PathS , String ) ;                                       24   419    66
+   842       Concatenate       (PathS, DefFile);                                    24   419    63
+   843       Append            (PathS, 0C);                                         24   419
+   844       StringToArray     (PathS, PathA);                                      25   419    69
+   845       j := System (PathA);                                                   96    19    69
+   846    END;
+   847    END;
+   848 
+   849    IF IsElement (ORD ('4'), Options) THEN                                    28     *    32
+   850       GetString         (ViewName, PathS);                                   26    35   419
+   851       ArrayToString     (".TS", String);                                     25    66
+   852       Concatenate       (PathS, String);                                     24   419    66
+   853       f := SmartOpen    (PathS);                                            418   403   419
+   854       WriteIdent        (f, iModule); WriteNl (f);                           26   418    34    22   418
+   855       PutTree2          (f, TreeRoot^.Ag.Classes);                           36   418    32     *     *
+   856       SmartClose        (PathS, f);                                         418   419   418
+   857    END;
+   858 
+   859    IF IsElement (ORD ('i'), Options) THEN                                    28     *    32
+   860       GetString         (iModule, ModuleName);                               26    34    33
+   861       Assign            (PathS, ModuleName);                                 24   419    33
+   862    IF IsElement (ORD ('c'), Options) THEN                                    28     *    32
+   863       ArrayToString     (ImpExtC , String);                                  25    59    66
+   864    ELSIF IsElement (ORD ('K'), Options) THEN                                 28     *    32
+   865       ArrayToString     (ModExtM3 , String);                                 25    52    66
+   866    ELSIF IsElement (ORD ('A'), Options) THEN                                 28     *    32
+   867       MakeAllLowerCase ( PathS ) ;                                           75   419
+   868       ArrayToString     (BodyExtAda , String);                               25    56    66
+   869    ELSE
+   870       ArrayToString     (ImpExtMc, String);                                  25    48    66
+   871    END;
+   872       Concatenate       (PathS, String);                                     24   419    66
+   873       Assign            (TreeFile, PathS);                                   24    64   419
+   874       f := SmartOpen    (PathS);                                            418   403   419
+   875    IF IsElement (ORD ('c'), Options) THEN                                    28     *    32
+   876       TreeC1.TreeImplC  (TreeRoot);                                          44     *    32
+   877    ELSIF IsElement (ORD ('K'), Options) THEN                                 28     *    32
+   878       TreeMThree1.TreeModule    (TreeRoot);                                  42     *    32
+   879    ELSIF IsElement (ORD ('A'), Options) THEN                                 28     *    32
+   880       TreeAda1.TreePackBody    (TreeRoot);                                   43     *    32
+   881    ELSE
+   882       TreeMod1.TreeImplMod (TreeRoot);                                       41     *    32
+   883    END;
+   884       SmartClose        (PathS, f);                                         418   419   418
+   885 
+   886    IF NOT IsElement (ORD ('c'), Options)                                     28     *    32
+   887    THEN (* Modula-2, Ada, or Modula-3, call cpp *)
+   888       Assign ( PathS , CgLib ) ;                                             24   419    62
+   889       ArrayToString ( "gmdcpp " , String ) ;                                 25    66
+   890       Concatenate ( PathS , String ) ;                                       24   419    66
+   891       Concatenate       (PathS, TreeFile);                                   24   419    64
+   892       Append            (PathS, 0C);                                         24   419
+   893       StringToArray     (PathS, PathA);                                      25   419    69
+   894       j := System (PathA);                                                   96    19    69
+   895    END;
+   896    END;
+   897 
+   898    IF IsElement (ORD ('s'), Options)                                         28     *    32
+   899       AND NOT IsElement (ORD ('c'), Options)                                 28     *    32
+   900       AND NOT IsElement (ORD ('A'), Options) THEN                            28     *    32
+   901       GetString         (iModule, ModuleName);                               26    34    33
+   902       Assign            (PathS, ModuleName);                                 24   419    33
+   903     IF IsElement (ORD ('K'), Options) THEN                                   28     *    32
+   904       ArrayToString     (LisExtM3, String);                                  25    53    66
+   905     ELSE
+   906       ArrayToString     (LisExtMc, String);                                  25    49    66
+   907     END; 
+   908       Concatenate       (PathS, String);                                     24   419    66
+   909       f := SmartOpen    (PathS);                                            418   403   419
+   910     IF IsElement (ORD ('K'), Options) THEN                                   28     *    32
+   911       TreeMThree1.ImportList (TreeRoot);                                     42     *    32
+   912     ELSE
+   913       TreeMod1.ImportList (TreeRoot);                                        41     *    32
+   914     END; 
+   915       SmartClose        (PathS, f);                                         418   419   418
+   916    END;
+   917 
+   918    IF IsElement (ORD ('U'), Options) THEN                                    28     *    32
+   919       ReadTraceTab;                                                         381
+   920    ELSIF NOT IsEmpty (Options) THEN                                          27    32
+   921       ForallClasses     (TreeRoot^.Ag.Classes, SetTrace);                    33    32     *     *   400
+   922    END;
+   923 
+   924    IF IsElement (ORD ('D'), Options) THEN                                    28     *    32
+   925       GetString         (TreeRoot^.Ag.EvalName, ModuleName);                 26    32     *     *    33
+   926       Assign            (PathS, ModuleName);                                 24   419    33
+   927    IF IsElement (ORD ('c'), Options) THEN                                    28     *    32
+   928       ArrayToString     (DefExtC , String);                                  25    58    66
+   929    ELSIF IsElement (ORD ('K'), Options) THEN                                 28     *    32
+   930       ArrayToString     (IntExtM3 , String);                                 25    51    66
+   931    ELSIF IsElement (ORD ('A'), Options) THEN                                 28     *    32
+   932       MakeAllLowerCase ( PathS ) ;                                           75   419
+   933       ArrayToString     (SpecExtAda , String);                               25    55    66
+   934    ELSE
+   935       ArrayToString     (DefExtMc, String);                                  25    47    66
+   936    END;
+   937       Concatenate       (PathS, String);                                     24   419    66
+   938       f := SmartOpen    (PathS);                                            418   403   419
+   939    IF IsElement (ORD ('c'), Options) THEN                                    28     *    32
+   940       EvalC.EvalDefC    (TreeRoot);                                          44     *    32
+   941    ELSIF IsElement (ORD ('K'), Options) THEN                                 28     *    32
+   942       EvalMThree.EvalInterface  (TreeRoot);                                  42     *    32
+   943    ELSIF IsElement (ORD ('A'), Options) THEN                                 28     *    32
+   944       WriteS (f, "-D not implemented for Ada"); WriteNl (f);                 22   418    22   418
+   945    ELSE
+   946       EvalMod.EvalDefMod (TreeRoot);                                         41     *    32
+   947    END;
+   948       SmartClose        (PathS, f);                                         418   419   418
+   949    END;
+   950 
+   951    IF IsElement (ORD ('I'), Options) THEN                                    28     *    32
+   952       GetString         (TreeRoot^.Ag.EvalName, ModuleName);                 26    32     *     *    33
+   953       Assign            (PathS, ModuleName);                                 24   419    33
+   954    IF IsElement (ORD ('c'), Options) THEN                                    28     *    32
+   955       ArrayToString     (ImpExtC , String);                                  25    59    66
+   956    ELSIF IsElement (ORD ('K'), Options) THEN                                 28     *    32
+   957       ArrayToString     (ModExtM3 , String);                                 25    52    66
+   958    ELSIF IsElement (ORD ('A'), Options) THEN                                 28     *    32
+   959       MakeAllLowerCase ( PathS ) ;                                           75   419
+   960       ArrayToString     (BodyExtAda , String);                               25    56    66
+   961    ELSE
+   962       ArrayToString     (ImpExtMc, String);                                  25    48    66
+   963    END;
+   964       Concatenate       (PathS, String);                                     24   419    66
+   965       Assign            (EvalFile, PathS);                                   24    65   419
+   966       f := SmartOpen    (PathS);                                            418   403   419
+   967    IF IsElement (ORD ('c'), Options) THEN                                    28     *    32
+   968       IF IsElement (ORD ('L'), Options) THEN                                 28     *    32
+   969          EvalC3.EvalImplC (TreeRoot);                                        44     *    32
+   970       ELSIF IsElement (ORD ('0'), Options) THEN                              28     *    32
+   971          EvalC2.EvalImplC (TreeRoot);                                        44     *    32
+   972       ELSE
+   973          EvalC.EvalImplC (TreeRoot);                                         44     *    32
+   974       END;
+   975    ELSIF IsElement (ORD ('K'), Options) THEN (* Modula-3 *)                  28     *    32
+   976       IF IsElement (ORD ('L'), Options) THEN                                 28     *    32
+   977          EvalMThree3.EvalModule (TreeRoot);                                  42     *    32
+   978       ELSIF IsElement (ORD ('0'), Options) THEN                              28     *    32
+   979          EvalMThree2.EvalModule (TreeRoot);                                  42     *    32
+   980       ELSE
+   981          EvalMThree.EvalModule (TreeRoot);                                   42     *    32
+   982       END;
+   983    ELSIF IsElement (ORD ('A'), Options) THEN                                 28     *    32
+   984       WriteS (f, "-I not implemented for Ada"); WriteNl (f);                 22   418    22   418
+   985    ELSE (* Modula-2 *) 
+   986       IF IsElement (ORD ('L'), Options) THEN                                 28     *    32
+   987          EvalMod3.EvalImplMod (TreeRoot);                                    41     *    32
+   988       ELSIF IsElement (ORD ('0'), Options) THEN                              28     *    32
+   989          EvalMod2.EvalImplMod (TreeRoot);                                    41     *    32
+   990       ELSE
+   991          EvalMod.EvalImplMod (TreeRoot);                                     41     *    32
+   992       END;
+   993    END;
+   994       SmartClose        (PathS, f);                                         418   419   418
+   995 
+   996    IF NOT IsElement (ORD ('c'), Options)                                     28     *    32
+   997    THEN (* Modula-2 or Modula-3, call cpp *)
+   998       Assign ( PathS , CgLib ) ;                                             24   419    62
+   999       ArrayToString ( "gmdcpp " , String ) ;                                 25    66
+  1000       Concatenate ( PathS , String ) ;                                       24   419    66
+  1001       Concatenate       (PathS, EvalFile);                                   24   419    65
+  1002       Append            (PathS, 0C);                                         24   419
+  1003       StringToArray     (PathS, PathA);                                      25   419    69
+  1004       j := System (PathA);                                                   96    19    69
+  1005    END;
+  1006    END;
+  1007 
+  1008    IF NOT IsElement (ORD ('c'), Options)                                     28     *    32
+  1009    THEN (* Ada, Modula-2 or Modula-3 *) 
+  1010       IF IsElement (ORD ('i'), Options) OR                                   28     *    32
+  1011          IsElement (ORD ('X'), Options)                                      28     *    32
+  1012    THEN
+  1013          Assign ( PathS , CgLib ) ;                                          24   419    62
+  1014          ArrayToString  ("gmdrm yy" , String ) ; (* name of macro file *)    25    66
+  1015          Concatenate ( PathS , String ) ;                                    24   419    66
+  1016          GetString      (iModule, ModuleName);                               26    34    33
+  1017          Concatenate    (PathS, ModuleName);                                 24   419    33
+  1018          ArrayToString  (".w", String);                                      25    66
+  1019          Concatenate    (PathS, String);                                     24   419    66
+  1020          Append         (PathS, 0C);                                         24   419
+  1021          StringToArray  (PathS, PathA);                                      25   419    69
+  1022          j := System (PathA);                                                96    19    69
+  1023       END;
+  1024    END;
+  1025 
+  1026    IF IsElement (ORD ('8'), Options) THEN                                    28     *    32
+  1027       WriteNl (StdError);                                                    22    21
+  1028       WriteS  (StdError, "Memory"); WriteI (StdError, MemoryUsed, 8);        22    21    22    21    20
+  1029       WriteS  (StdError, "  Heap"); WriteI (StdError, HeapUsed  , 8);        22    21    22    21    33
+  1030       WriteNl (StdError);                                                    22    21
+  1031    END;
+  1032    WriteMessages (StdError);                                                 29    21
+  1033    CloseIO; Exit (0);                                                        21    19
+  1034 END cg.                                                                      17
+Cross reference: * is declaration, = is assignment
+
+-A-
+ Ag                             390   748   751   768   783   855   921   925   952 
+ AllOptions                      72*  502   504   506   507   508   509   510   511   512   513   514   515 
+ Append                          24*  113   122   409   412   430   453   462   465   715   721   843   892  1002  1020 
+ ArgCount                        30*  439=  445   453 
+ Argument                        68*  446   447   448   450   454   460   470   482   489 
+ ArrayToString                   25*   99   102   105   108   117   120   407   424   427   712   718   725   727   733   749   753 
+                                770   785   814   816   819   821   840   851   863   865   868   870   889   904   906   928   930 
+                                933   935   955   957   960   962   999  1014  1018 
+ Assign                          24*  111   423   713   719   769   784   812   824   839   861   873   888   902   926   953   965 
+                                998  1013 
+ AssignEmpty                     24*  437   449 
+ Attribute                       30*  734=
+
+-B-
+ BeginFile                       30*  732 
+ BeginTree2                      33*  738 
+ BodyExtAda                      56*  868   960 
+ BOOLEAN                         73 
+
+-C-
+ cg                              17* 1034 
+ CgLib                           62*  111   423   437   449   453   462   465   713   719   839   888   998  1013 
+ ch                              71*  460=  461   462   470=  471   473   477   489=  490   492   503=  504 
+ CHAR                            69    71 
+ Chars                           84    84    86=   87 
+ CHR                             87 
+ Class                          393   401 
+ Classes                        390   855   921 
+ CloseIO                         21*  740   803  1033 
+ Complement                      28*
+ Concatenate                     24*  112   119   121   408   425   426   428   429   714   720   754   771   786   823   841   842 
+                                852   872   890   891   908   937   964  1000  1001  1015  1017  1019 
+ CurArg                          30*  442=  444   445   446   452   453   454 
+
+-D-
+ DefExtC                         58*  814   928 
+ DefExtMc                        47*  821   935 
+ DefFile                         63*  824   842 
+ Dialog                          39*   39*  800 
+
+-E-
+ EndOfFile                       23*  126   388 
+ ErrorCount                      32*  737=  740   803 
+ Errors                          29*
+ EvalC                           44*  940   973 
+ EvalC2                          44*  971 
+ EvalC3                          44*  969 
+ EvalDefC                       940 
+ EvalDefMod                     946 
+ EvalFile                        65*  965  1001 
+ EvalImplC                      969   971   973 
+ EvalImplMod                    987   989   991 
+ EvalInterface                  942 
+ EvalMod                         41*  946   991 
+ EvalMod2                        41*  989 
+ EvalMod3                        41*  987 
+ EvalModule                     977   979   981 
+ EvalMThree                      42*  942   981 
+ EvalMThree2                     42*  979 
+ EvalMThree3                     42*  977 
+ EvalName                       925   952 
+ Exclude                         27*  130   171   509   510   511   512   513   601   653 
+ Exit                            19*  740   803  1033 
+ Extensions                     393 
+ Extract                         28*  173 
+
+-F-
+ f                               33*  124=  131   131   133   134   134   135   135   137   138   138   139   139   141   142   142 
+                                143   143   145   146   146   147   147   149   150   150   151   151   153   154   154   155   155 
+                                157   158   158   159   159   161   162   162   175   175   176   176   176   177   177   178   178 
+                                179   179   179   180   180   181   181   182   182   182   183   183   184   184   185   185   185 
+                                186   186   187   187   188   188   188   189   189   190   190   191   191   191   192   192   193 
+                                193   194   194   194   195   195   196   196   197   197   197   198   198   200   200   201   201 
+                                201   202   202   203   203   204   204   204   205   205   206   206   207   207   207   208   208 
+                                209   209   210   210   210   211   211   212   212   213   213   213   214   214   215   215   216 
+                                216   216   217   217   218   218   219   219   219   220   220   221   221   222   222   222   223 
+                                223   225   225   226   226   226   227   227   228   228   229   229   229   230   230   231   231 
+                                232   232   232   233   233   234   234   235   235   235   236   236   237   237   238   238   238 
+                                239   239   240   240   241   241   241   242   242   243   243   244   244   244   245   245   246 
+                                246   247   247   247   248   248   250   250   251   251   251   252   252   253   253   254   254 
+                                254   255   255   256   256   257   257   257   258   258   259   259   260   260   260   261   261 
+                                262   262   263   263   263   264   264   265   265   266   266   266   267   267   268   268   269 
+                                269   269   270   270   271   271   272   272   272   273   273   278   278   279   279   279   279 
+                                280   280   281   281   282   282   282   282   282   283   283   284   284   285   285   285   285 
+                                286   286   287   287   288   288   288   288   289   289   290   290   291   291   291   291   292 
+                                292   293   293   294   294   294   294   295   295   296   296   297   297   297   297   298   298 
+                                299   299   300   300   300   300   301   301   303   303   304   304   304   304   305   305   306 
+                                306   307   307   307   307   308   308   309   309   310   310   310   310   311   311   312   312 
+                                313   313   313   313   314   314   315   315   316   316   316   316   317   317   318   318   319 
+                                319   319   319   320   320   321   321   322   322   322   322   323   323   324   324   325   325 
+                                325   325   326   326   328   328   329   329   329   329   330   330   331   331   332   332   332 
+                                332   333   333   334   334   335   335   335   335   336   336   337   337   338   338   338   338 
+                                339   339   340   340   341   341   341   341   342   342   343   343   344   344   344   344   345 
+                                345   346   346   347   347   347   347   348   348   349   349   350   350   350   350   351   351 
+                                353   353   354   354   354   354   355   355   356   356   357   357   357   357   357   358   358 
+                                359   359   360   360   360   360   361   361   362   362   363   363   363   363   364   364   365 
+                                365   366   366   366   366   367   367   368   368   369   369   369   369   370   370   371   371 
+                                372   372   372   372   373   373   374   374   375   375   375   375   376   376   378   418*  421 
+                                596=  597   598   598   602   603   603   604   605   605   606   606   607   607   608   608   609 
+                                609   610   610   611   611   612   612   613   613   614   614   615   615   616   616   617   617 
+                                618   618   619   619   620   620   621   621   622   622   623   623   624   624   625   625   626 
+                                626   627   627   628   628   629   629   630   630   631   631   632   632   633   633   634   634 
+                                635   635   636   636   637   637   638   638   639   640   640   641   642   642   643   643   644 
+                                644   645   645   646   646   647   647   648   648   649   649   654   655   655   656   657   657 
+                                658   658   659   659   660   660   661   661   662   662   663   663   664   664   665   665   666 
+                                666   667   667   668   668   669   669   670   670   671   671   672   672   673   673   674   674 
+                                675   675   676   676   677   677   678   678   679   679   680   680   681   681   682   682   683 
+                                683   684   684   685   685   686   686   687   687   688   688   689   689   690   690   691   691 
+                                692   692   693   693   701   702   702   703   704   704   705   705   706   706   707   707   708 
+                                708   755=  760   760   764   772=  777   777   781   787=  789   825=  835   853=  854   854   855 
+                                856   874=  884   909=  915   938=  944   944   948   966=  984   984   994 
+ FALSE                          440 
+ File                           734=
+ FileName                       403*  408   412   413   418*  426   429 
+ ForallClasses                   33*  393   921 
+
+-G-
+ GenerateMacros                  92*  379   807 
+ GetArgCount                     19*  439 
+ GetArgument                     19*  446   454 
+ GetString                       26*  118   751   768   783   811   850   860   901   925   952  1016 
+ GramC                           44*  757   774 
+ GramMod                         41*  762   779 
+ GramYacc                        44*  788 
+
+-H-
+ HasArgs                         73*  440=  480=  485=  497 
+ HeapUsed                        33* 1029 
+
+-I-
+ I                               79*   81=   84    84    86    87 
+ i                               95*  128=  129   129   130   131   135   139   143   147   151   155   159   173=  175   176   178 
+                                179   181   182   184   185   187   188   190   191   193   194   196   197   200   201   203   204 
+                                206   207   209   210   212   213   215   216   218   219   221   222   225   226   228   229   231 
+                                232   234   235   237   238   240   241   243   244   246   247   250   251   253   254   256   257 
+                                259   260   262   263   265   266   268   269   271   272 
+ IdentifyClass                   34*  390 
+ Idents                          26*
+ iInteger                        34*  729=
+ iModule                         34*  118   282   285   288   291   294   297   300   310   313   316   319   322   325   335   338 
+                                341   344   347   350   357   360   363   366   369   372   375   811   854   860   901  1016 
+ ImpExtC                         59*  863   955 
+ ImpExtMc                        48*  870   962 
+ ImportList                     911   913 
+ INC                            444   452   463   469   491 
+ INCL                           401 
+ Include                         27*  474   475   477   483   484   498   504   506   507   508   520   531   539   552   569   575 
+                                579   580   584 
+ iNoTree                         34*  279   282   304   307   329   332   354   357 
+ INTEGER                         96 
+ IntExtM3                        51*  816   930 
+ IO                              21*
+ IsElement                       28*   98   101   104   129   174   199   224   277   302   327   406   422   501   518   519   523 
+                                524   525   526   527   528   529   530   534   535   536   537   538   548   549   550   551   555 
+                                556   557   558   559   560   561   562   563   564   565   566   567   568   572   573   574   578 
+                                583   594   595   600   652   699   700   724   743   747   756   758   767   773   775   782   795 
+                                799   805   806   810   813   815   817   826   828   830   837   849   859   862   864   866   875 
+                                877   879   886   898   899   900   903   910   918   924   927   929   931   939   941   943   951 
+                                954   956   958   967   968   970   975   976   978   983   986   988   996  1008  1010  1011  1026 
+ IsEmpty                         27*  172   711   920 
+ itTree                          34*  171   171   278   279   281   282   284   285   287   288   290   291   293   294   296   297 
+                                299   300   303   304   306   307   309   310   312   313   315   316   318   319   321   322   324 
+                                325   328   329   331   332   334   335   337   338   340   341   343   344   346   347   349   350 
+                                353   354   356   357   359   360   362   363   365   366   368   369   371   372   374   375 
+
+-J-
+ j                               70*   96*  164=  432=  455=  457=  460   463   467=  469   470   487=  489   490   491   845=  894=
+                               1004= 1022=
+
+-L-
+ Length                          81 
+ LisExtM3                        53*  904 
+ LisExtMc                        49*  906 
+
+-M-
+ MakeAllLowerCase                75*   90   818   867   932   959 
+ MakeIdent                       26*  128   390   729   734 
+ MakeSet                         27*  502 
+ Memory                          20*
+ MemoryUsed                      20* 1028 
+ ModExtM3                        52*  865   957 
+ ModuleName                      33*  118   119   768   769   783   784   811   812   860   861   901   902   925   926   952   953 
+                               1016  1017 
+
+-N-
+ NoIdent                         26*  748 
+ NoTree                          32*  391 
+
+-O-
+ Options                         32*   98   101   104   174   199   224   277   302   327   406   422   474   475   477   483   484 
+                                498   501   514   518   519   520   523   524   525   526   527   528   529   530   531   534   535 
+                                536   537   538   539   548   549   550   551   552   555   556   557   558   559   560   561   562 
+                                563   564   565   566   567   568   569   572   573   574   575   578   579   580   583   584   594 
+                                595   600   601   652   653   699   700   711   724   743   747   756   758   767   773   775   782 
+                                795   799   805   806   810   813   815   817   826   828   830   837   849   859   862   864   866 
+                                875   877   879   886   898   899   900   903   910   918   920   924   927   929   931   939   941 
+                                943   951   954   956   958   967   968   970   975   976   978   983   986   988   996  1008  1010 
+                               1011  1026 
+ ORD                             87    87    87    98   101   104   174   199   224   277   302   327   406   422   474   475   477 
+                                483   484   498   501   504   506   507   508   509   510   511   512   513   518   519   520   523 
+                                524   525   526   527   528   529   530   531   534   535   536   537   538   539   548   549   550 
+                                551   552   555   556   557   558   559   560   561   562   563   564   565   566   567   568   569 
+                                572   573   574   575   578   579   580   583   584   594   595   600   601   652   653   699   700 
+                                724   743   747   756   758   767   773   775   782   795   799   805   806   810   813   815   817 
+                                826   828   830   837   849   859   862   864   866   875   877   879   886   898   899   900   903 
+                                910   918   924   927   929   931   939   941   943   951   954   956   958   967   968   970   975 
+                                976   978   983   986   988   996  1008  1010  1011  1026 
+ Order                           38*   38*  744 
+
+-P-
+ Parser                          31*   31*  737 
+ ParserName                     768   783 
+ ParsSpec                       774   779   788 
+ ParsTabName                     31*  718   722 
+ PathA                           69*  114   115   123   124   410   413   415   431   432   844   845   893   894  1003  1004  1021 
+                               1022 
+ PathS                           67*  111   112   113   114   117   119   121   122   123   404*  407   408   409   410   419*  423 
+                                425   426   428   429   430   431   713   714   715   716   719   720   721   722   749   751   754 
+                                755   764   769   771   772   781   784   786   787   789   812   818   823   824   825   835   839 
+                                841   842   843   844   850   852   853   856   861   867   872   873   874   884   888   890   891 
+                                892   893   902   908   909   915   926   932   937   938   948   953   959   964   965   966   994 
+                                998  1000  1001  1002  1003  1013  1015  1017  1019  1020  1021 
+ Position                       734=
+ Properties                     401 
+ PutTree2                        36*  855 
+
+-Q-
+ QueryTree                       32*  796 
+
+-R-
+ ReadClose                       23*  169   396 
+ ReadL                           25*  127   132   136   140   144   148   152   156   160   389 
+ ReadNl                          23*  165 
+ ReadOpen                        23*  115   386 
+ ReadTraceTab                   381*  398   919 
+ ReleaseSet                      27*  515 
+
+-S-
+ S                               75*   81    84    84    86=   87 
+ s                               94*  127   128   132   133   136   137   140   141   144   145   148   149   152   153   156   157 
+                                160   161   383*  389   390 
+ Scanner                         30*
+ ScannerName                    748   751 
+ ScanSpec                       757   762 
+ ScanTabName                     30*  712   716 
+ Semantics                       37*   37*  739 
+ Sets                            27*
+ SetTrace                       392   393   400*  401   921 
+ SHORTCARD                       70    79 
+ SmartClose                     418*  434   764   781   789   835   856   884   915   948   994 
+ SmartOpen                      403*  416   755   772   787   825   853   874   909   938   966 
+ SourceFile                      33*  438=  490=  731   732   733 
+ SpecExtAda                      55*  819   933 
+ StdError                        21*  740   792  1027  1028  1028  1029  1029  1030  1032 
+ StdOutput                       21*  596 
+ StoreMessages                   29*  736   793 
+ String                          66*   99   102   105   108   112   120   121   424   425   427   428   712   714   718   720   725 
+                                727   729   733   734   753   754   770   771   785   786   814   816   819   821   823   840   841 
+                                851   852   863   865   868   870   872   889   890   904   906   908   928   930   933   935   937 
+                                955   957   960   962   964   999  1000  1014  1015  1018  1019 
+ Strings                         24*
+ StringToArray                   25*  114   123   410   413   431   716   722   844   893  1003  1021 
+ System                          19*   19*  432   845   894  1004  1022 
+
+-T-
+ t                              384*  390=  391   392   393   400*  401 
+ tFile                           23*   93   382   403   418 
+ tIdent                          26*   95 
+ Trace                           32*  401 
+ TraceTabFile                   382*  386=  387   388   389   396 
+ Tree                            32*
+ Tree2                           36*
+ TreeAda1                        43*  831   880 
+ TreeC1                          44*  827   876 
+ TreeDefC                       827 
+ TreeDefMod                     833 
+ TreeFile                        64*  873   891 
+ TreeImplC                      876 
+ TreeImplMod                    882 
+ TreeInterface                  829 
+ TreeMod1                        41*  833   882   913 
+ TreeModule                     878 
+ TreeMThree1                     42*  829   878   911 
+ TreePackBody                   880 
+ TreePackSpec                   831 
+ TreeRoot                        32*  390   739   744   748   751   757   762   768   774   779   783   788   796   800   827   829 
+                                831   833   855   876   878   880   882   911   913   921   925   940   942   946   952   969   971 
+                                973   977   979   981   987   989   991 
+ TRUE                           480   485   736   793 
+ tSet                            27*   72 
+ tString                         24*   67    75    94   383   403   404   418   419 
+ tTree                           32*  384   400 
+ TypeCount                       37*  129   171 
+ TypeNames                       34*  129   130   171   172   173 
+ TypeTabFile                     93*  115=  126   127   132   136   140   144   148   152   156   160   165   169 
+
+-U-
+ Union                           28*  514 
+
+-V-
+ ViewName                        35*  850 
+
+-W-
+ WI                              34*  131   135   139   143   147   151   155   159   175   176   178   179   181   182   184   185 
+                                187   188   190   191   193   194   196   197   200   201   203   204   206   207   209   210   212 
+                                213   215   216   218   219   221   222   225   226   228   229   231   232   234   235   237   238 
+                                240   241   243   244   246   247   250   251   253   254   256   257   259   260   262   263   265 
+                                266   268   269   271   272   278   279   279   281   282   282   282   284   285   285   287   288 
+                                288   290   291   291   293   294   294   296   297   297   299   300   300   303   304   304   306 
+                                307   307   309   310   310   312   313   313   315   316   316   318   319   319   321   322   322 
+                                324   325   325   328   329   329   331   332   332   334   335   335   337   338   338   340   341 
+                                341   343   344   344   346   347   347   349   350   350   353   354   354   356   357   357   357 
+                                359   360   360   362   363   363   365   366   366   368   369   369   371   372   372   374   375 
+                                375 
+ WriteClose                      21*  378   421 
+ WriteI                          22* 1028  1029 
+ WriteIdent                      26*  854 
+ WriteL                          25*  133   137   141   145   149   153   157   161 
+ WriteMessages                   29*  740   792  1032 
+ WriteNl                         22*  131   134   135   138   139   142   143   146   147   150   151   154   155   158   159   162 
+                                175   176   177   178   179   180   181   182   183   184   185   186   187   188   189   190   191 
+                                192   193   194   195   196   197   198   200   201   202   203   204   205   206   207   208   209 
+                                210   211   212   213   214   215   216   217   218   219   220   221   222   223   225   226   227 
+                                228   229   230   231   232   233   234   235   236   237   238   239   240   241   242   243   244 
+                                245   246   247   248   250   251   252   253   254   255   256   257   258   259   260   261   262 
+                                263   264   265   266   267   268   269   270   271   272   273   278   279   280   281   282   283 
+                                284   285   286   287   288   289   290   291   292   293   294   295   296   297   298   299   300 
+                                301   303   304   305   306   307   308   309   310   311   312   313   314   315   316   317   318 
+                                319   320   321   322   323   324   325   326   328   329   330   331   332   333   334   335   336 
+                                337   338   339   340   341   342   343   344   345   346   347   348   349   350   351   353   354 
+                                355   356   357   358   359   360   361   362   363   364   365   366   367   368   369   370   371 
+                                372   373   374   375   376   597   598   602   603   604   605   606   607   608   609   610   611 
+                                612   613   614   615   616   617   618   619   620   621   622   623   624   625   626   627   628 
+                                629   630   631   632   633   634   635   636   637   638   639   640   641   642   643   644   645 
+                                646   647   648   649   654   655   656   657   658   659   660   661   662   663   664   665   666 
+                                667   668   669   670   671   672   673   674   675   676   677   678   679   680   681   682   683 
+                                684   685   686   687   688   689   690   691   692   693   701   702   703   704   705   706   707 
+                                708   760   777   854   944   984  1027  1030 
+ WriteOpen                       21*  124   415 
+ WriteS                          22*  131   134   135   138   139   142   143   146   147   150   151   154   155   158   159   162 
+                                175   176   176   177   178   179   179   180   181   182   182   183   184   185   185   186   187 
+                                188   188   189   190   191   191   192   193   194   194   195   196   197   197   198   200   201 
+                                201   202   203   204   204   205   206   207   207   208   209   210   210   211   212   213   213 
+                                214   215   216   216   217   218   219   219   220   221   222   222   223   225   226   226   227 
+                                228   229   229   230   231   232   232   233   234   235   235   236   237   238   238   239   240 
+                                241   241   242   243   244   244   245   246   247   247   248   250   251   251   252   253   254 
+                                254   255   256   257   257   258   259   260   260   261   262   263   263   264   265   266   266 
+                                267   268   269   269   270   271   272   272   273   278   279   279   279   280   281   282   282 
+                                282   282   283   284   285   285   285   286   287   288   288   288   289   290   291   291   291 
+                                292   293   294   294   294   295   296   297   297   297   298   299   300   300   300   301   303 
+                                304   304   304   305   306   307   307   307   308   309   310   310   310   311   312   313   313 
+                                313   314   315   316   316   316   317   318   319   319   319   320   321   322   322   322   323 
+                                324   325   325   325   326   328   329   329   329   330   331   332   332   332   333   334   335 
+                                335   335   336   337   338   338   338   339   340   341   341   341   342   343   344   344   344 
+                                345   346   347   347   347   348   349   350   350   350   351   353   354   354   354   355   356 
+                                357   357   357   357   358   359   360   360   360   361   362   363   363   363   364   365   366 
+                                366   366   367   368   369   369   369   370   371   372   372   372   373   374   375   375   375 
+                                376   598   603   605   606   607   608   609   610   611   612   613   614   615   616   617   618 
+                                619   620   621   622   623   624   625   626   627   628   629   630   631   632   633   634   635 
+                                636   637   638   640   642   643   644   645   646   647   648   649   655   657   658   659   660 
+                                661   662   663   664   665   666   667   668   669   670   671   672   673   674   675   676   677 
+                                678   679   680   681   682   683   684   685   686   687   688   689   690   691   692   693   702 
+                                704   705   706   707   708   760   777   944   984  1028  1029 
+
+end cross reference, 3164 occurrences of 178 identifiers.

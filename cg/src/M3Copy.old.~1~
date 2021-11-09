@@ -1,0 +1,67 @@
+        !
+
+
+
+
+
+        !CONST yyInitOldToNewStoreSize  = 2000 ;!
+        !!
+        !TYPE yytOldToNew = RECORD yyOld, yyNew: ! WI (itTree); !; END;!
+        !TYPE yytOldToNewStore =  REF ARRAY OF yytOldToNew ;!
+        !!
+        !VAR yyOldToNewStoreSize : CARDINAL := 0 ;!
+        !VAR yyOldToNewStorePtr : yytOldToNewStore := NIL ;!
+        !VAR yyOldToNewCount : CARDINAL := 0 ;!
+        !!
+        !PROCEDURE yyStoreOldToNew (yyOld, yyNew: ! WI (itTree); !) = !
+        ! VAR LOldStoreSize : CARDINAL ; ! 
+        ! VAR LOldPtr : yytOldToNewStore ; ! 
+        ! BEGIN!
+        !  IF (yyOldToNewCount = yyOldToNewStoreSize) THEN!
+        !   LOldStoreSize := yyOldToNewStoreSize ; ! 
+        !   LOldPtr := yyOldToNewStorePtr ; 
+        !   yyOldToNewStoreSize := LOldStoreSize * 2 ; !
+        !   yyOldToNewStorePtr := NEW ( yytOldToNewStore , yyOldToNewStoreSize ) ; ! 
+        !   SUBARRAY ( yyOldToNewStorePtr ^ , 0 , LOldSize ) := LPtr ^ ; !
+        !   LOldPtr := NIL ; ! 
+        !  END;!
+        !  yyOldToNewStorePtr^[yyOldToNewCount].yyOld := yyOld;!
+        !  yyOldToNewStorePtr^[yyOldToNewCount].yyNew := yyNew;!
+        !  INC (yyOldToNewCount);!
+        ! END yyStoreOldToNew;!
+        !!
+        !PROCEDURE yyMapOldToNew (yyOld: ! WI (itTree); !): ! WI (itTree); !=!
+        ! VAR yyi: CARDINAL;!
+        ! BEGIN!
+        !  FOR yyi := 0 TO yyOldToNewCount - 1 DO!
+        !   IF yyOldToNewStorePtr^[yyi].yyOld = yyOld THEN!
+        !    RETURN yyOldToNewStorePtr^[yyi].yyNew;!
+        !   END;!
+        !  END;!
+        ! END yyMapOldToNew;!
+        !!
+        !PROCEDURE yyCopy! WI (iModule); ! (yyt: ! WI (itTree); !; yyNew: yyPtrtTree);!
+        ! BEGIN!
+        !  LOOP!
+        !!
+        !   CASE yyt^.Kind OF!
+        ForallClasses (Classes, Copy);
+        !   ELSE!
+        !   END;!
+        !  END;!
+        ! END yyCopy! WI (iModule); !;!
+        !!
+        !PROCEDURE Copy! WI (iModule); ! (yyt: ! WI (itTree); !): ! WI (itTree); !;!
+        ! VAR yyNew     : ! WI (itTree); !;!
+        ! BEGIN!
+        !  yyMark (yyt);!
+        !  yyOldToNewCount := 0;!
+        !  yyOldToNewStoreSize := yyInitOldToNewStoreSize ; ! 
+        !  yyOldToNewStorePtr := NEW ( yyOldToNewStoreTyp , yyOldToNewStoreSize ) ; ! 
+        !  yyCopy! WI (iModule); ! (yyt, SYSTEM.ADR (yyNew));!
+        !  yyOldToNewStoreSize := 0 ; ! 
+        !  yyOldToNewStorePtr := NIL ; ! 
+        !  RETURN yyNew;!
+        ! END Copy! WI (iModule); !;!
+        !!
+      END;

@@ -1,0 +1,98 @@
+INSTALLBIN	= $(INSTALLGMD)/bin
+INSTALLLIB	= $(INSTALLGMD)/lib
+OPT	= -O
+CC	= cc
+
+BIN = ../../bintobuildwith
+MTC = $(BIN)/mtc
+
+PLIB    = bnf.cat bnf.syn
+PLIBD = $(patsubst %,../lib/%,$(PLIB)) 
+
+                # C library (reuse)
+REUSE	= ../../reuse/mtc
+
+                # C library (front)
+FRONT	= ../../front/mtc
+
+                # C libraries
+CLIBS	= $(FRONT)/libfront.a $(REUSE)/libreuse.a
+
+                # options for C compiler
+CFLAGS	= -I$(FRONT) -I$(REUSE) $(OPT)
+
+M2FLAGS	= -c -d$(FRONT) -d$(REUSE)
+
+EXE     = bnf
+
+all	: bnf
+
+cleanmtc:
+	cd ../src; make cleanmtc
+
+cleancompile: cleanmtc
+	rm -f *.o $(EXE)
+
+compile: $(EXE)
+
+mtc_only : sources
+
+install:	bnf ../lib/bnf.sh $(PLIBD) $(INSTALLLIB)/lalr
+	if test $(INSTALLLIB) = $(INSTALLBIN); then echo error: INSTALLBIN = INSTALLLIB; false; else true; fi
+	install -c -s -m 755 bnf $(INSTALLLIB)/lalr
+	sed "s;LIB;$(INSTALLLIB);" < ../lib/bnf.sh > $(INSTALLBIN)/bnf
+	cp -p $(PLIBD) $(INSTALLLIB)/lalr
+	chmod a+rx $(INSTALLBIN)/bnf
+
+# installation directories
+
+$(INSTALLLIB)/lalr:	$(INSTALLLIB)
+	sh -c "if test ! -d $(INSTALLLIB)/lalr; then mkdir $(INSTALLLIB)/lalr; else true; fi"
+
+
+# HEAD
+
+sources	: ArgCheck.h
+
+sources	: ArgCheck.c
+ArgCheck.o	: ArgCheck.c ArgCheck.h
+
+sources	: MakeBNF.h
+
+sources	: MakeBNF.c
+MakeBNF.o	: MakeBNF.c MakeBNF.h
+MakeBNF.o	: ArgCheck.h
+
+sources	: bnf.c
+all	: bnf
+bnf.o	: bnf.c
+bnf.o	: ArgCheck.h
+bnf.o	: MakeBNF.h
+
+SYSTEM_.o	: SYSTEM_.c SYSTEM_.h
+
+bnf	: $(CLIBS)	\
+	bnf.o	\
+	MakeBNF.o	\
+	ArgCheck.o	\
+;	$(CC) $(CFLAGS) -o bnf 	\
+	bnf.o	\
+	MakeBNF.o	\
+	ArgCheck.o	\
+	$(CLIBS)
+
+# TAIL
+
+clean	:
+	rm -f core *.o
+
+.SUFFIXES: .md .mi .h .c .o
+
+.mi.c:
+	$(MTC) $(M2FLAGS) $*.mi;
+
+.md.h:
+	$(MTC) $(M2FLAGS) $*.md;
+
+.c.o:
+	$(CC) $(CFLAGS) -c $*.c

@@ -1,0 +1,85 @@
+BIN	= $(INSTALLGMD)/bin
+LIB	= $(INSTALLGMD)/lib
+OPT	= -O
+CC	= cc
+
+                # C library (reuse)
+REUSE	= ../../reuse/m2c
+
+                # C libraries
+CLIBS	= $(REUSE)/libreuse.a
+
+                # options for C compiler
+CFLAGS	= -w -I$(REUSE) $(OPT)
+
+M2FLAGS	= -c -d$(REUSE)
+
+EXE     =  rpp
+
+all:	rpp
+
+cleanm2c:
+	cd ../src; make cleanm2c
+
+cleancompile: cleanm2c
+	rm -f *.o $(EXE)
+
+compile: $(EXE)
+
+m2c:   sources
+
+install:	rpp ../src/rpp.sh $(LIB)/rpp ../src/Scanner.Tab
+	if test $(LIB) = $(BIN); then echo error: BIN = LIB; false; else true; fi
+	sed 's;LIB;$(LIB);g' < ../src/rpp.sh > $(BIN)/rpp
+	chmod a+rx $(BIN)/rpp
+	install -c -s -m 755 rpp $(LIB)/rpp
+	install -c -m 644 ../src/Scanner.Tab $(LIB)/rpp
+
+#	installation directories
+
+$(LIB)/rpp:	$(LIB)
+	sh -c "if test ! -d $(LIB)/rpp; then mkdir $(LIB)/rpp; else true; fi"
+
+# swap all byte pairs of the file Scanner.Tab
+
+bin.conv:
+	dd conv=swab < Scanner.Tab > .Scanner.Tab; mv .Scanner.Tab Scanner.Tab
+
+
+# HEAD
+
+sources	: Scanner.h
+
+sources	: Scanner.c
+Scanner.o	: Scanner.c Scanner.h
+
+sources	: rpp.c
+all	: rpp
+rpp.o	: rpp.c
+rpp.o	: Scanner.h
+
+SYSTEM_.o	: SYSTEM_.c SYSTEM_.h
+
+rpp	: $(CLIBS)	\
+	rpp.o	\
+	Scanner.o	\
+;	$(CC) $(CFLAGS) -o rpp 	\
+	rpp.o	\
+	Scanner.o	\
+	$(CLIBS)
+
+# TAIL
+
+clean	:
+	rm -f core *.o
+
+.SUFFIXES: .md .mi .h .c .o
+
+.mi.c:
+	mtc $(M2FLAGS) $*.mi;
+
+.md.h:
+	mtc $(M2FLAGS) $*.md;
+
+.c.o:
+	$(CC) $(CFLAGS) -c $*.c

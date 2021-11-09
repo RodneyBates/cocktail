@@ -1,0 +1,1674 @@
+
+(* file sem.puma , of cg *) 
+
+/* Ich, Doktor Josef Grosch, Informatiker, 23.5.1989 */
+/* Rodney Bates 11-95.  Compute Class.ClassChildCount and Child.ChildIndex. 
+   RMB Aug 96 
+     when constructing new actions for inserted copy rules in CopyRule, 
+     1) put each new action into a separate ActionPart 
+        (Otherwise, separate action subtrees, as pointed to by the Action
+         field of an instance,  get linked together, which is ok when they
+         are located starting with the Actions field of an ActionsPart,
+         but causes emission of duplicate actions when instances are
+         used to generate output.  
+     2) give each new action part a ParsIndex and a Name field. 
+        (Otherwise conventional generation of lalr is bad.) 
+*/
+
+TRAFO Semantics
+TREE Tree
+PUBLIC Semantics
+
+EXPORT { VAR TypeCount: SHORTCARD; }
+
+GLOBAL {
+
+FROM SYSTEM	IMPORT TSIZE, ADR;
+FROM General	IMPORT Max;
+FROM IO		IMPORT StdOutput, WriteN, WriteS, WriteI, WriteNl;
+FROM DynArray	IMPORT MakeArray;
+FROM StringMem	IMPORT tStringRef;
+FROM Strings	IMPORT tString, IntToString, Append, Concatenate, ArrayToString,
+			Length, Char;
+FROM Idents	IMPORT WriteIdent, tIdent, NoIdent, MakeIdent, MaxIdent, GetString;
+FROM Texts	IMPORT MakeText;
+
+IMPORT Sets ; 
+FROM Sets	IMPORT
+   tSet		, MakeSet	, ReleaseSet	, AssignEmpty	,
+   IsElement	, Include	, IsEmpty	, Extract	,
+   Select	, Difference	, Complement	, ForallDo	;
+
+FROM Relations	IMPORT tRelation, MakeRelation, IsCyclic, GetCyclics, Assign, IsRelated;
+FROM Positions	IMPORT NoPosition;
+
+FROM Tree	IMPORT
+   NoTree	, tTree		, tInstance	, tInstancePtr	,
+   Computed	, Reverse	, Write		, Read		,
+   Inherited	, Synthesized	, Input		, Output	,
+   Stack	, Variable	, Ignore	, CopyDef	,
+   CopyUse	, Thread	, NoAttribute	, MultInhComp	,
+   Test		, Left		, Right		, NoCodeAttr	,
+   NonBaseComp	, Dummy		, Terminal	,
+   Nonterminal	, HasChildren	, HasAttributes	, HasActions	,
+   Reachable	, Referenced	, Implicit	, mActionPart	,
+   mClass	, mAttribute	, mChild	, mIdent	,
+   mCopy	, mDesignator	, MaxSet	, WriteName	,
+   Options	, TreeRoot	, ForallClasses	, ForallAttributes,
+   GrammarClass	, cLNC		, WriteDependencies, WriteClass	,
+   IdentifyClass, IdentifyAttribute, IdentifyModule, TypeNames	,
+   ClassCount	, nNoClass	, nNoAttribute	, nNoDesignator	,
+   nNoAction	, nNoName	, iPosition	, itPosition	,
+   WriteCyclics	, HasItem	, Mark		, Abstract	,
+   InitIdentifyClass, InitIdentifyClass2;
+   
+IMPORT Relations, StringMem, Errors;
+
+CONST
+# include "/tmp/cg/consts1"
+
+VAR
+   CopyInherited, CopySynthesized, CopyThreaded,
+   ChildCount, AttributeCount, ActionCount, ActionName : INTEGER;
+   ItemCount	,
+   ChecksCount	,
+   ReverseCount	: INTEGER;
+   iNull	,
+   Ident	: tIdent;
+   ClassNames	,
+   SelectorNames,
+   VariantNames	,
+   PrecNames	,
+   CodesUsed	,
+   Results	,
+   Arguments	,
+   Cyclics	: tSet;
+   MaxInstCount	,
+   TokenCode	,
+   DummyIndex	,
+   i, j, k	: SHORTCARD;
+   InstanceSize	: LONGINT;
+   IsAbstract	,
+   Success	: BOOLEAN;
+   Module	,
+   Node		,
+   Attribute	,
+   Child	,
+   TheAction	,
+   TheClass	,
+   Class	: tTree;
+   String	,
+   String2	: tString;
+   ActProperties: BITSET;
+
+PROCEDURE LookUp (i: tIdent; t: tTree): BOOLEAN;
+   BEGIN
+      WHILE t^.Kind = Tree.Name DO
+	 IF t^.Name.Name = i THEN RETURN TRUE; END;
+	 t := t^.Name.Next;
+      END;
+      RETURN FALSE;
+   END LookUp;
+
+PROCEDURE ProcessIgnore2 (t: tTree): tTree;
+   VAR r: tTree;
+   BEGIN
+      IF t^.Kind # Tree.NoAttribute THEN
+	 t^.AttrOrAction.Next := ProcessIgnore2 (t^.AttrOrAction.Next);
+      END;
+      IF (t^.Kind = Tree.Child) AND (Ignore IN t^.Child.Properties) OR
+         (t^.Kind = Tree.Attribute) AND (Ignore IN t^.Attribute.Properties) OR
+         (t^.Kind = Tree.ActionPart) AND (Ignore IN t^.ActionPart.Properties) THEN
+	 RETURN t^.AttrOrAction.Next;
+      END;
+      RETURN t;
+   END ProcessIgnore2;
+
+PROCEDURE CompBaseClass (t, b: tTree);
+   BEGIN
+      IF t^.Kind = Tree.Class THEN
+	 t^.Class.BaseClass := b;
+	 CompBaseClass (t^.Class.Next, b);
+	 CompBaseClass (t^.Class.Extensions, t);
+      END;
+   END CompBaseClass;
+
+PROCEDURE CompParsIndex (t: tTree; VAR Index: SHORTCARD);
+   VAR OldIndex	: SHORTCARD;
+   BEGIN
+      OldIndex := Index;
+      CASE t^.Kind OF
+      | Tree.Class:
+	 CompParsIndex (t^.Class.Attributes, Index);
+	 CompParsIndex (t^.Class.Extensions, Index);
+	 CompParsIndex (t^.Class.Next, OldIndex);
+      | Tree.Child:
+	 INC (Index);
+	 t^.Child.ParsIndex := Index;
+	 CompParsIndex (t^.Child.Next, Index);
+      | Tree.Attribute:
+	 CompParsIndex (t^.Attribute.Next, Index);
+      | Tree.ActionPart:
+	 INC (Index);
+	 t^.ActionPart.ParsIndex := Index;
+	 INC (ActionName);
+	 t^.ActionPart.Name := ActionName;
+	 CompParsIndex (t^.ActionPart.Next, Index);
+      ELSE
+      END;
+   END CompParsIndex;
+
+(* Number children only, from 1. *)
+PROCEDURE CompChildIndex (t: tTree; VAR Index: SHORTCARD);
+   VAR OldIndex	: SHORTCARD;
+   BEGIN
+      OldIndex := Index;
+      CASE t^.Kind OF
+      | Tree.Class:
+	 CompChildIndex (t^.Class.Attributes, Index);
+         t^.Class.ClassChildCount := Index; 
+	 CompChildIndex (t^.Class.Extensions, Index);
+	 CompChildIndex (t^.Class.Next, OldIndex);
+      | Tree.Child:
+	 INC (Index);
+	 t^.Child.ChildIndex := Index;
+	 CompChildIndex (t^.Child.Next, Index);
+      | Tree.Attribute:
+	 CompChildIndex (t^.Attribute.Next, Index);
+      | Tree.ActionPart:
+	 CompChildIndex (t^.ActionPart.Next, Index);
+      ELSE
+      END;
+   END CompChildIndex;
+
+PROCEDURE CompIndex (t: tTree; In: SHORTCARD; VAR Out: SHORTCARD);
+   BEGIN
+      CASE t^.Kind OF
+      | Tree.Class:
+	 CompIndex (t^.Class.Attributes, In, Out);
+	 t^.Class.AttrCount := Out;
+	 CompIndex (t^.Class.Extensions, Out, Out);
+	 CompIndex (t^.Class.Next, In, Out);
+      | Tree.NoClass:
+      | Tree.Child:
+	 INC (In);
+	 t^.Child.AttrIndex := In;
+	 CompIndex (t^.Child.Next, In, Out);
+      | Tree.Attribute:
+	 INC (In);
+	 t^.Attribute.AttrIndex := In;
+	 CompIndex (t^.Attribute.Next, In, Out);
+      | Tree.ActionPart:
+	 CompIndex (t^.ActionPart.Next, In, Out);
+      | Tree.NoAttribute:
+	 Out := In;
+      END;
+   END CompIndex;
+
+PROCEDURE CompInstance (t: tTree; In: SHORTCARD; VAR Out: SHORTCARD);
+   BEGIN
+      CASE t^.Kind OF
+      | Tree.Class:
+	 CompInstance (t^.Class.Attributes, In , Out);
+	 t^.Class.InstCount := t^.Class.AttrCount + Out;
+	 MaxInstCount := Max (MaxInstCount, t^.Class.InstCount);
+	 CompInstance (t^.Class.Extensions, Out, Out);
+	 CompInstance (t^.Class.Next, In, Out);
+      | Tree.NoClass:
+      | Tree.Child:
+	 t^.Child.InstOffset := In;
+	 IF t^.Child.Class # NoTree THEN
+	    CompInstance (t^.Child.Next, In + t^.Child.Class^.Class.AttrCount, Out);
+	 ELSE
+	    CompInstance (t^.Child.Next, In, Out);
+	 END;
+      | Tree.Attribute:
+	 CompInstance (t^.Attribute.Next, In, Out);
+      | Tree.ActionPart:
+	 CompInstance (t^.ActionPart.Next, In, Out);
+      | Tree.NoAttribute:
+	 Out := In;
+      END;
+   END CompInstance;
+
+PROCEDURE CompBitCount (t: tTree; In: SHORTCARD; VAR Out: SHORTCARD);
+   BEGIN
+      CASE t^.Kind OF
+      | Tree.Class:
+	 CompBitCount (t^.Class.Attributes, In, Out);
+	 t^.Class.BitCount := Out;
+	 CompBitCount (t^.Class.Extensions, Out, Out);
+	 CompBitCount (t^.Class.Next, In, Out);
+      | Tree.NoClass:
+      | Tree.Child:
+	 IF {Input, Test, Dummy} * t^.Child.Properties = {} THEN INC (In); END;
+	 CompBitCount (t^.Child.Next, In, Out);
+      | Tree.Attribute:
+	 IF {Input, Test, Dummy} * t^.Attribute.Properties = {} THEN INC (In); END;
+	 CompBitCount (t^.Attribute.Next, In, Out);
+      | Tree.ActionPart:
+	 CompBitCount (t^.ActionPart.Next, In, Out);
+      | Tree.NoAttribute:
+	 Out := In;
+      END;
+   END CompBitCount;
+
+PROCEDURE CompBitOffset (t: tTree; In: SHORTCARD; VAR Out: SHORTCARD);
+   BEGIN
+      CASE t^.Kind OF
+      | Tree.Class:
+	 CompBitOffset (t^.Class.Attributes, In , Out);
+	 CompBitOffset (t^.Class.Extensions, Out, Out);
+	 CompBitOffset (t^.Class.Next, In, Out);
+      | Tree.NoClass:
+      | Tree.Child:
+	 t^.Child.BitOffset := In;
+	 IF t^.Child.Class # NoTree THEN
+	    CompBitOffset (t^.Child.Next, In + t^.Child.Class^.Class.BitCount, Out);
+	 ELSE
+	    CompBitOffset (t^.Child.Next, In, Out);
+	 END;
+      | Tree.Attribute:
+	 CompBitOffset (t^.Attribute.Next, In, Out);
+      | Tree.ActionPart:
+	 CompBitOffset (t^.ActionPart.Next, In, Out);
+      | Tree.NoAttribute:
+	 Out := In;
+      END;
+   END CompBitOffset;
+
+PROCEDURE InitInstance (t: tTree; Offset: SHORTCARD; InstancePtr: tInstancePtr);
+   BEGIN
+      CASE t^.Kind OF
+      | Tree.Class:
+	 InitInstance (t^.Class.BaseClass , Offset, InstancePtr);
+	 InitInstance (t^.Class.Attributes, Offset, InstancePtr);
+      | Tree.NoClass:
+      | Tree.Child:
+	 WITH InstancePtr^ [t^.Child.AttrIndex] DO
+	    Attribute  := t;
+	    Properties := t^.Child.Properties + {Left};
+	    Action     := ADR (Action);
+	 END;
+	 IF t^.Child.Class # NoTree THEN
+	    InitInstance1 (t^.Child.Class, t, Offset + t^.Child.InstOffset, InstancePtr);
+	 END;
+	 InitInstance (t^.Child.Next, Offset, InstancePtr);
+      | Tree.Attribute:
+	 WITH InstancePtr^ [t^.Attribute.AttrIndex] DO
+	    Attribute  := t;
+	    Properties := t^.Attribute.Properties + {Left};
+	    Action     := ADR (Action);
+	 END;
+	 InitInstance (t^.Attribute.Next, Offset, InstancePtr);
+      | Tree.ActionPart:
+	 InitInstance (t^.ActionPart.Next, Offset, InstancePtr);
+      | Tree.NoAttribute:
+      END;
+   END InitInstance;
+
+PROCEDURE InitInstance1 (t, selector: tTree; Offset: SHORTCARD; InstancePtr: tInstancePtr);
+   BEGIN
+      CASE t^.Kind OF
+      | Tree.Class:
+	 InitInstance1 (t^.Class.BaseClass , selector, Offset, InstancePtr);
+	 InitInstance1 (t^.Class.Attributes, selector, Offset, InstancePtr);
+      | Tree.NoClass:
+      | Tree.Child:
+	 WITH InstancePtr^ [Offset + t^.Child.AttrIndex] DO
+	    Selector   := selector;
+	    Attribute  := t;
+	    Properties := t^.Child.Properties + {Right};
+	    Action     := ADR (Action);
+	 END;
+	 InitInstance1 (t^.Child.Next, selector, Offset, InstancePtr);
+      | Tree.Attribute:
+	 WITH InstancePtr^ [Offset + t^.Attribute.AttrIndex] DO
+	    Selector   := selector;
+	    Attribute  := t;
+	    Properties := t^.Attribute.Properties + {Right};
+	    Action     := ADR (Action);
+	 END;
+	 InitInstance1 (t^.Attribute.Next, selector, Offset, InstancePtr);
+      | Tree.ActionPart:
+	 InitInstance1 (t^.ActionPart.Next, selector, Offset, InstancePtr);
+      | Tree.NoAttribute:
+      END;
+   END InitInstance1;
+
+VAR relation	: tRelation;
+VAR result	: INTEGER;
+
+PROCEDURE EnterDependency (argument: Sets.tElement);
+   BEGIN
+      Relations.Include (relation, result, argument);
+   END EnterDependency;
+
+VAR MultipleInheritedActions	: BOOLEAN;
+
+PROCEDURE CompDP1 (t: tTree; VAR Set: tSet; Usage: INTEGER; NonBase, Check: BOOLEAN);
+   VAR Attribute, ChildsClass	: tTree;
+   VAR Offset	: SHORTCARD;
+   BEGIN
+      CASE t^.Kind OF
+      | Tree.Class:
+	    CompDP1 (t^.Class.BaseClass , Set, Usage, FALSE  , Check);
+	    MultipleInheritedActions := FALSE;
+	    CompDP1 (t^.Class.Attributes, Set, Usage, NonBase, Check);
+      | Tree.NoClass:
+      | Tree.Attribute:
+	    IF t^.Attribute.AttrIndex # DummyIndex THEN		(* HAGs *)
+	       Relations.Include (relation, DummyIndex, t^.Attribute.AttrIndex);
+	    END;
+	    CompDP1 (t^.Attribute.Next, Set, Usage, NonBase, Check);
+      | Tree.Child:
+	    ChildsClass := t^.Child.Class;
+	    IF ChildsClass # NoTree THEN
+	       IF NOT (Input IN t^.Child.Properties) THEN	(* HAGs *)
+		  Relations.Include (relation, DummyIndex, t^.Child.AttrIndex);
+		  FOR i := 1 TO ChildsClass^.Class.AttrCount DO
+		     Relations.Include (relation, Class^.Class.AttrCount + t^.Child.InstOffset + i, t^.Child.AttrIndex);
+		  END;
+	       END;
+
+	       Attribute := IdentifyAttribute (ChildsClass, iNull);
+	       Offset := Class^.Class.AttrCount + t^.Child.InstOffset + Attribute^.Child.AttrIndex;
+	       Relations.Include (relation, DummyIndex, Offset);
+	       INCL (Class^.Class.Instance^[Offset].Properties, Right);
+	    END;
+	    CompDP1 (t^.Child.Next, Set, Usage, NonBase, Check);
+      | Tree.ActionPart:
+	    IF MultInhComp IN t^.ActionPart.Properties THEN MultipleInheritedActions := TRUE; END;
+	    CompDP1 (t^.ActionPart.Actions, Set, Usage, NonBase, Check);
+	    CompDP1 (t^.ActionPart.Next   , Set, Usage, NonBase, Check);
+      | Tree.NoAttribute:
+      | Tree. Assign :
+	    IF IsCopy (t^.Assign.Arguments) THEN t^.Kind := Tree.Copy; END;
+	    AssignEmpty (Results  );
+	    AssignEmpty (Arguments);
+	    CompDP1 (t^.Assign.Results  , Results  , Write, NonBase, TRUE );
+	    CompDP1 (t^.Assign.Arguments, Arguments, Read , NonBase, FALSE);
+	    IF IsEmpty (Results) THEN
+	       ? AssignmentWithIncorrectLeftHandSide E ?
+	    END;
+	    WHILE NOT IsEmpty (Results) DO
+	       result := Extract (Results);
+	       WITH Class^.Class.Instance^[result] DO
+		  IF (Action = ADR (Action)) OR (MultInhComp IN Properties) OR NOT MultipleInheritedActions THEN
+		     Action := t;
+		     IF t^.Kind = Tree.Copy THEN CopyArg := Select (Arguments); END;
+		  END;
+	       END;
+	       ForallDo (Arguments, EnterDependency);
+	    END;
+	    CompDP1 (t^.Assign.Next, Set, Usage, NonBase, Check);
+      | Tree. Copy :
+	    AssignEmpty (Results  );
+	    AssignEmpty (Arguments);
+	    CompDP1 (t^.Copy.Results  , Results  , Write, NonBase, TRUE );
+	    CompDP1 (t^.Copy.Arguments, Arguments, Read , NonBase, TRUE );
+	    IF IsEmpty (Results) THEN
+	       ? CopyRuleWithIncorrectLeftHandSide E ?
+	    END;
+	    WHILE NOT IsEmpty (Results) DO
+	       result := Extract (Results);
+	       WITH Class^.Class.Instance^[result] DO
+		  IF (Action = ADR (Action)) OR (MultInhComp IN Properties) OR NOT MultipleInheritedActions THEN
+		     Action  := t;
+		     CopyArg := Select (Arguments);
+		  END;
+	       END;
+	       ForallDo (Arguments, EnterDependency);
+	    END;
+	    CompDP1 (t^.Copy.Next, Set, Usage, NonBase, Check);
+      | Tree. TargetCode :
+	    AssignEmpty (Results  );
+	    AssignEmpty (Arguments);
+	    CompDP1 (t^.TargetCode.Results, Results  , Write, NonBase, TRUE );
+	    CompDP1 (t^.TargetCode.Code   , Arguments, Read , NonBase, FALSE);
+	    Difference (Arguments, Results);
+	    IF IsEmpty (Results) AND IsCode (t^.TargetCode.Code) THEN
+	       ? BlockWithIncorrectLeftHandSide E ?
+	    END;
+	    WHILE NOT IsEmpty (Results) DO
+	       result := Extract (Results);
+	       WITH Class^.Class.Instance^[result] DO
+		  IF (Action = ADR (Action)) OR (MultInhComp IN Properties) OR NOT MultipleInheritedActions THEN
+		     Action  := t;
+		  END;
+	       END;
+	       ForallDo (Arguments, EnterDependency);
+	    END;
+	    CompDP1 (t^.TargetCode.Next, Set, Usage, NonBase, Check);
+      | Tree. Order:
+	    AssignEmpty (Results  );
+	    AssignEmpty (Arguments);
+	    CompDP1 (t^.Order.Results  , Results  , Read, NonBase, TRUE );
+	    CompDP1 (t^.Order.Arguments, Arguments, Read, NonBase, TRUE );
+	    WHILE NOT IsEmpty (Results) DO
+	       result := Extract (Results);
+	       ForallDo (Arguments, EnterDependency);
+	    END;
+	    CompDP1 (t^.Order.Next, Set, Usage, NonBase, Check);
+      | Tree. Check :
+	    IF t^.Check.Results # NoTree THEN
+	       AssignEmpty (Results  );
+	       AssignEmpty (Arguments);
+	       CompDP1 (t^.Check.Results, Results, Write, NonBase, FALSE);
+	    END;
+	    IF t^.Check.Condition # NoTree THEN
+	       CompDP1 (t^.Check.Condition, Arguments, Read, NonBase, FALSE);
+	    END;
+	    IF t^.Check.Statement # NoTree THEN
+	       CompDP1 (t^.Check.Statement, Arguments, Read, NonBase, FALSE);
+	    ELSE
+	       ? CheckWithoutStatement W ?
+	    END;
+	    CompDP1 (t^.Check.Actions, Arguments, Read, NonBase, FALSE);
+	    IF t^.Check.Results # NoTree THEN
+	       result := Extract (Results);
+	       Class^.Class.Instance^[result].Action := t;
+	       ForallDo (Arguments, EnterDependency);
+	       CompDP1 (t^.Check.Next, Set, Usage, NonBase, Check);
+	    END;
+      | Tree.NoAction:
+      | Tree. Designator :
+	    Attribute := IdentifyAttribute (Class, t^.Designator.Selector);
+	    IF (Attribute # NoTree) AND (Attribute^.Kind = Tree.Child) THEN
+	       ChildsClass := Attribute^.Child.Class;
+	       Offset := Class^.Class.AttrCount + Attribute^.Child.InstOffset;
+	       INCL (Attribute^.Child.Properties, Read);
+	       IF ChildsClass # NoTree THEN
+		  Attribute := IdentifyAttribute (ChildsClass, t^.Designator.Attribute);
+		  IF Attribute # NoTree THEN
+		     Include (Set, Offset + Attribute^.Child.AttrIndex);
+		     INCL (Attribute^.Child.Properties, Usage);
+		     IF Usage = Write THEN
+			INCL (Attribute^.Child.Properties, Inherited);
+			INCL (Class^.Class.Instance^ [Offset + Attribute^.Child.AttrIndex].Properties, Computed);
+			IF Synthesized IN Attribute^.Child.Properties THEN
+			   ? InheritedUseOfSynthesizedAttribute E Ident t^.Designator.Attribute ?
+			END;
+			WITH Class^.Class.Instance^ [Offset + Attribute^.Child.AttrIndex] DO
+			   IF NonBase AND NOT MultipleInheritedActions AND (NonBaseComp IN Properties) AND
+			      NOT (MultInhComp IN Properties) THEN
+			      ? AttributeMultipleComputed E Ident t^.Designator.Attribute ?
+			   END;
+			   IF NOT MultipleInheritedActions OR (MultInhComp IN Properties) THEN
+			      EXCL (Properties, MultInhComp);
+			      IF NonBase THEN INCL (Properties, NonBaseComp); END;
+			      IF MultipleInheritedActions THEN INCL (Properties, MultInhComp); END;
+			   END;
+			END;
+		     END;
+		  ELSIF Check THEN
+		     ? AttributeNotDeclared E Ident t^.Designator.Attribute ?
+		  END;
+	       END;
+	    ELSIF Check THEN
+	       ? SelectorNotDeclared E Ident t^.Designator.Selector ?
+	    END;
+	    CompDP1 (t^.Designator.Next, Set, Usage, NonBase, Check);
+      | Tree. Ident :
+	    Attribute := IdentifyAttribute (Class, t^.Ident.Attribute);
+	    IF Attribute # NoTree THEN
+	       Include (Set, Attribute^.Child.AttrIndex);
+	       INCL (Attribute^.Child.Properties, Usage);
+	       IF Usage = Write THEN
+		  INCL (Attribute^.Child.Properties, Synthesized);
+		  INCL (Class^.Class.Instance^ [Attribute^.Child.AttrIndex].Properties, Computed);
+		  IF Inherited IN Attribute^.Child.Properties THEN
+		     ? SynthesizedUseOfInheritedAttribute E Ident t^.Ident.Attribute ?
+		  END;
+		  WITH Class^.Class.Instance^ [Attribute^.Child.AttrIndex] DO
+		     IF NonBase AND NOT MultipleInheritedActions AND (NonBaseComp IN Properties) AND
+			NOT (MultInhComp IN Properties) THEN
+			? AttributeMultipleComputed E Ident t^.Ident.Attribute ?
+		     END;
+		     IF NOT MultipleInheritedActions OR (MultInhComp IN Properties) THEN
+			EXCL (Properties, MultInhComp);
+			IF NonBase THEN INCL (Properties, NonBaseComp); END;
+			IF MultipleInheritedActions THEN INCL (Properties, MultInhComp); END;
+		     END;
+		  END;
+	       END;
+	    ELSIF Check THEN
+	       ? AttributeNotDeclared E Ident t^.Ident.Attribute ?
+	    END;
+	    CompDP1 (t^.Ident.Next, Set, Usage, NonBase, Check);
+      | Tree.Remote:
+	    CompDP1 (t^.Remote.Designators, Set, Usage, NonBase, Check);
+	    CompDP1 (t^.Remote.Next, Set, Usage, NonBase, Check);
+      | Tree.Any:
+	    CompDP1 (t^.Any.Next, Set, Usage, NonBase, Check);
+      | Tree.Anys:
+	    CompDP1 (t^.Anys.Next, Set, Usage, NonBase, Check);
+      | Tree.NoDesignator:
+      END;
+   END CompDP1;
+
+PROCEDURE IsCode (t: tTree): BOOLEAN;
+   BEGIN
+      CASE t^.Kind OF
+      | Tree.Designator
+      , Tree.Ident
+      , Tree.Remote	 : RETURN TRUE;
+      | Tree.Any	 : RETURN IsCode (t^.Any.Next);
+      | Tree.Anys	 : RETURN IsCode (t^.Anys.Next);
+      | Tree.NoDesignator: RETURN FALSE;
+      END;
+   END IsCode;
+
+PROCEDURE CopyTree (t: tTree): tTree;
+   BEGIN
+      CASE t^.Kind OF
+      | Tree.Attribute: WITH t^.Attribute DO
+	    RETURN mAttribute (CopyTree (Next), Name, Type, Properties, Pos);
+	 END;
+      | Tree.Child: WITH t^.Child DO
+	    RETURN mChild (CopyTree (Next), Name, Type, Properties, Pos);
+	 END;
+      | Tree.ActionPart: WITH t^.ActionPart DO
+	    RETURN mActionPart (CopyTree (Next), Actions);
+	 END;
+      | Tree.NoAttribute:
+	 RETURN nNoAttribute;
+      END;
+   END CopyTree;
+
+PROCEDURE ExpandMultiple (Class: tTree);
+   VAR Node, class: tTree;
+   BEGIN
+      WITH Class^.Class DO
+	 IF NOT (Mark IN Properties) THEN
+	    INCL (Properties, Mark);
+	    IF BaseClass^.Kind = Tree.Class THEN ExpandMultiple (BaseClass); END;
+	    Node := Names;
+	    WHILE Node^.Kind = Tree.Name DO
+	       WITH Node^.Name DO
+		  class := IdentifyClass (TreeRoot^.Ag.Classes, Name);
+		  IF class # NoTree THEN
+		     ExpandMultiple (class);
+		     TheClass := Class;
+		     ForallAttributes (class, ExpandMultiple2);
+		  END;
+		  Node := Next;
+	       END;
+	    END;
+	    EXCL (Properties, Mark);
+	 END;
+      END;
+END ExpandMultiple;
+
+PROCEDURE AppendAttr (VAR Attributes: tTree; Attribute: tTree);
+   BEGIN
+      IF Attributes^.Kind = NoAttribute THEN
+	 Attribute^.AttrOrAction.Next := Attributes;
+	 Attributes := Attribute;
+      ELSE
+	 AppendAttr (Attributes^.AttrOrAction.Next, Attribute);
+      END;
+   END AppendAttr;
+}
+
+BEGIN	{
+   ItemCount		:= 0;
+   ChecksCount		:= 0;
+   MaxInstCount		:= 0;
+   CopyInherited	:= 0;
+   CopySynthesized	:= 0;
+   CopyThreaded		:= 0;
+   IntToString (0, String); iNull := MakeIdent (String);
+}
+
+PROCEDURE Semantics (t: Tree)
+
+Ag (..) :- {
+	InitIdentifyClass (Classes);
+	ForallClasses (Classes, StampItems);
+	StampItems (Modules);
+	ExpandProps (Props);
+	ExpandProps (Modules);
+	IF Ignore IN Properties THEN
+	   ProcessIgnore (ParserCodes);
+	   ProcessIgnore (TreeCodes);
+	   ProcessIgnore (EvalCodes);
+	END;
+	ProcessIgnore (Decls);
+	ForallClasses (Classes, ProcessIgnore);
+	ProcessIgnore (Modules);
+	ExpandModules (Decls);
+	ExpandModules (Modules);
+      IF IsElement (ORD ('c'), Options) THEN
+	ArrayToString ("bool", String);
+      ELSE
+	ArrayToString ("BOOLEAN", String);
+      END;
+	Ident := MakeIdent (String);
+	TypeCount := MaxIdent ();
+	MakeSet (TypeNames, TypeCount);
+	Include (TypeNames, Ident);
+	Semantics (Classes);
+}; .
+Class (..) :- {
+	CompBaseClass (t, nNoClass);			(* ast *)
+	ForallClasses (t, ExpandMultiple);
+	ClassCount := 0;
+	MakeSet (CodesUsed, MaxIdent ());
+	ForallClasses (t, CountClasses);
+	ForallClasses (t, CheckReverse);
+	INCL (t^.Class.Properties, Referenced);
+        CompReachable (t);
+
+      IF IsElement (ORD ('x'), Options) OR
+	 IsElement (ORD ('z'), Options) OR
+	 IsElement (ORD ('u'), Options) THEN
+	TokenCode := 0;
+	ForallClasses (t, CodeTerminals);
+	ActionName := 0;
+	i := 0;
+	CompChildIndex (t, i);
+	i := 0;
+	CompParsIndex (t, i);
+	ForallClasses (t, CheckUsage2);
+      END;
+
+	ForallClasses (t, ExpandChecks);
+	ForallClasses (t, Identify);
+	MakeSet (ClassNames, MaxIdent ());
+	MakeSet (SelectorNames, MaxIdent ());
+	MakeSet (VariantNames, MaxIdent ());
+	MakeSet (PrecNames, MaxIdent ());
+	CheckNames (TreeRoot^.Ag.Precs);
+	ForallClasses (t, CheckNames);
+	ReleaseSet (ClassNames);
+	ReleaseSet (SelectorNames);
+	ReleaseSet (VariantNames);
+	ReleaseSet (PrecNames);
+	ReleaseSet (CodesUsed);
+	ForallClasses (t, CheckDesignator);
+	CompBitCount (t, 1, i);
+	CompBitOffset (t, 0, i);
+
+      IF IsElement (ORD ('.'), Options) THEN		(* ag *)
+	CompIndex (t, 0, i);
+	CompInstance (t, 0, i);
+	MakeSet (MaxSet, MaxInstCount);
+	Complement (MaxSet);
+        ForallClasses (t, InitInstance0);
+        ForallClasses (t, CompDP);
+      IF IsElement (ORD ('2'), Options) THEN
+	WriteNl (StdOutput);
+	WriteS (StdOutput, "Inherited Attribute Computation Rules"); WriteNl (StdOutput);
+	WriteS (StdOutput, "-------------------------------------"); WriteNl (StdOutput);
+	WriteNl (StdOutput);
+      END;
+        ForallClasses (t, CopyProperties);
+        ForallClasses (t, CheckInherited);
+      IF IsElement (ORD ('1'), Options) THEN
+	WriteNl (StdOutput);
+	WriteS (StdOutput, "Inserted Copy Rules"); WriteNl (StdOutput);
+	WriteS (StdOutput, "-------------------"); WriteNl (StdOutput);
+	WriteNl (StdOutput);
+      END;
+	Success := TRUE;
+        ForallClasses (t, CheckComplete);
+	IF Success THEN INCL (GrammarClass, cLNC); END;
+	IF CopyInherited > 0 THEN
+	   ? CopyRuleInsertionsInherited I Integer CopyInherited ?
+	END;
+	IF CopySynthesized > 0 THEN
+	   ? CopyRuleInsertionsSynthesized I Integer CopySynthesized ?
+	END;
+	IF CopyThreaded > 0 THEN
+	   ? CopyRuleInsertionsThreaded I Integer CopyThreaded ?
+	END;
+        ForallClasses (t, CheckUsage);
+      END;
+}; .
+
+
+/* ast */
+
+PROCEDURE StampItems (t: Tree)
+
+Module (..) :- {
+	ForallClasses (Classes, StampItems);
+	StampItems (Next);
+}; .
+Class (..) :- {
+	IF Abstract IN Properties THEN
+	   ForallAttributes (Attributes, StampItems);
+	END;
+}; .
+Child (..) :- {
+	INC (ItemCount); Item := ItemCount;
+}; .
+Attribute (..) :- {
+	INC (ItemCount); Item := ItemCount;
+}; .
+ActionPart (..) :- {
+	INC (ItemCount); Item := ItemCount;
+}; .
+
+
+PROCEDURE ExpandProps (t: Tree)
+
+Module (..) :- {
+	ExpandProps (Props);
+	ExpandProps (Next);
+}; .
+Prop (..) :- {
+	ActProperties := Properties;
+	ExpandProps (Names);
+	ExpandProps (Next);
+}; .
+Select (..) :- {
+	CheckSelect (Names);
+	ActProperties := {Ignore};
+	IF NOT LookUp (TreeRoot^.Ag.Name, Names) THEN
+	   TreeRoot^.Ag.Properties := TreeRoot^.Ag.Properties + ActProperties;
+	   ExpandProps (TreeRoot^.Ag.Decls);
+	   ForallClasses (TreeRoot^.Ag.Classes, ExpandProps);
+	END;
+	Module := TreeRoot^.Ag.Modules;
+	WHILE Module^.Kind = Tree.Module DO
+	   IF NOT LookUp (Module^.Module.Name, Names) THEN
+	      Module^.Module.Properties := Module^.Module.Properties + ActProperties;
+	      ExpandProps (Module^.Module.Decls);
+	      ForallClasses (Module^.Module.Classes, ExpandProps);
+	   END;
+	   Module := Module^.Module.Next;
+	END;
+	ExpandProps (Next);
+}; .
+Name (..) :- {
+	IF Name = TreeRoot^.Ag.Name THEN
+	   TreeRoot^.Ag.Properties := TreeRoot^.Ag.Properties + ActProperties;
+	   ExpandProps (TreeRoot^.Ag.Decls);
+	   ForallClasses (TreeRoot^.Ag.Classes, ExpandProps);
+	ELSE
+	   Module := IdentifyModule (TreeRoot^.Ag.Modules, Name);
+	   IF Module = NoTree THEN
+	      ? ModuleNotDeclared W Ident Name ?
+	   ELSE
+	      Module^.Module.Properties := Module^.Module.Properties + ActProperties;
+	      ExpandProps (Module^.Module.Decls);
+	      ForallClasses (Module^.Module.Classes, ExpandProps);
+	   END;
+	END;
+	ExpandProps (Next);
+}; .
+Decl (..) :- {
+	ForallAttributes (Attributes, ExpandProps);
+	ExpandProps (Next);
+}; .
+Class (..) :- {
+	Properties := Properties + ActProperties;
+	ForallAttributes (Attributes, ExpandProps);
+}; .
+Child (..) :- {
+	Properties := Properties + ActProperties;
+}; .
+Attribute (..) :- {
+	Properties := Properties + ActProperties;
+}; .
+ActionPart (..) :- {
+	Properties := Properties + ActProperties;
+}; .
+
+
+PROCEDURE CheckSelect (t: Names)
+
+Name (..) :- {
+	IF NOT ((Name = TreeRoot^.Ag.Name) OR (IdentifyModule (TreeRoot^.Ag.Modules, Name) # NoTree)) THEN
+	   ? ModuleNotDeclared W Ident Name ?
+	END;
+	CheckSelect (Next);
+}; .
+
+
+PROCEDURE ProcessIgnore (t: Tree)
+
+Module (..) :- {
+	IF Ignore IN Properties THEN
+	   ProcessIgnore (ParserCodes);
+	   ProcessIgnore (TreeCodes);
+	   ProcessIgnore (EvalCodes);
+	END;
+	ProcessIgnore (Decls);
+	ForallClasses (Classes, ProcessIgnore);
+	ProcessIgnore (Next);
+}; .
+Codes (..) :- {
+	MakeText (Export);
+	MakeText (Import);
+	MakeText (Global);
+        MakeText (Local);
+	MakeText (Begin);
+	MakeText (Close);
+}; .
+Decl (..) :- {
+	Attributes := ProcessIgnore2 (Attributes);
+	ProcessIgnore (Next);
+}; .
+Class (..) :- {
+	Attributes := ProcessIgnore2 (Attributes);
+	IF Ignore IN Properties THEN Names := nNoName; END;
+}; .
+
+
+PROCEDURE ExpandModules (t: Tree)
+
+Module (..) :- {
+	ExpandModules (Decls);
+	ExpandModules (Classes);
+	ExpandModules (Next);
+}; .
+Decl (..) :- {
+	Attribute	:= Attributes;
+	ActProperties	:= Properties;
+	ExpandModules (Names);
+	ExpandModules (Next);
+}; .
+Name (..) :- {
+	Class := IdentifyClass (TreeRoot^.Ag.Classes, Name);
+	IF Class = NoTree THEN
+	   IF TreeRoot^.Ag.Classes^.Kind = Tree.NoClass THEN
+	      TreeRoot^.Ag.Classes := mClass (Name, ActProperties, CopyTree (Attribute),
+		 nNoClass, TreeRoot^.Ag.Classes, Name, Pos, 0, NoIdent, nNoName);
+	      InitIdentifyClass2 (TreeRoot^.Ag.Classes);
+	   ELSE
+	      Node := TreeRoot^.Ag.Classes;
+	      WHILE Node^.Class.Next^.Kind # Tree.NoClass DO
+		 Node := Node^.Class.Next;
+	      END;
+	      Node^.Class.Next := mClass (Name, ActProperties, CopyTree (Attribute),
+		 nNoClass, Node^.Class.Next, Name, Pos, 0, NoIdent, nNoName);
+	      InitIdentifyClass2 (Node^.Class.Next);
+	   END;
+	ELSE
+	   IF Class^.Class.Attributes^.Kind = Tree.NoAttribute THEN
+	      Class^.Class.Attributes := CopyTree (Attribute);
+	   ELSE
+	      Node := Class^.Class.Attributes;
+	      WHILE Node^.Attribute.Next^.Kind # Tree.NoAttribute DO
+		 Node := Node^.Attribute.Next;
+	      END;
+	      Node^.Attribute.Next := CopyTree (Attribute);
+	   END;
+	END;
+	ExpandModules (Next);
+}; .
+Class (..) :- {
+	Class := IdentifyClass (TreeRoot^.Ag.Classes, Name);
+	ForallClasses (Extensions, InitIdentifyClass2);
+	IF Class = NoTree THEN
+	   IF TreeRoot^.Ag.Classes^.Kind = Tree.NoClass THEN
+	      TreeRoot^.Ag.Classes := mClass (Name, Properties, Attributes, Extensions,
+		 TreeRoot^.Ag.Classes, Selector, Pos, Code, Prec, Names);
+	      InitIdentifyClass2 (TreeRoot^.Ag.Classes);
+	   ELSE
+	      Node := TreeRoot^.Ag.Classes;
+	      WHILE Node^.Class.Next^.Kind # Tree.NoClass DO
+		 Node := Node^.Class.Next;
+	      END;
+	      Node^.Class.Next := mClass (Name, Properties, Attributes, Extensions,
+		 Node^.Class.Next, Selector, Pos, Code, Prec, Names);
+	      InitIdentifyClass2 (Node^.Class.Next);
+	   END;
+	ELSE
+	   IF Class^.Class.Attributes^.Kind = Tree.NoAttribute THEN
+	      Class^.Class.Attributes := Attributes;
+	   ELSE
+	      Node := Class^.Class.Attributes;
+	      WHILE Node^.Attribute.Next^.Kind # Tree.NoAttribute DO
+		 Node := Node^.Attribute.Next;
+	      END;
+	      Node^.Attribute.Next := Attributes;
+	   END;
+
+	   IF Class^.Class.Extensions^.Kind = Tree.NoClass THEN
+	      Class^.Class.Extensions := Extensions;
+	   ELSE
+	      Node := Class^.Class.Extensions;
+	      WHILE Node^.Class.Next^.Kind # Tree.NoClass DO
+		 Node := Node^.Class.Next;
+	      END;
+	      Node^.Class.Next := Extensions;
+	   END;
+
+	   IF Class^.Class.Names^.Kind = Tree.NoName THEN
+	      Class^.Class.Names := Names;
+	   ELSE
+	      Node := Class^.Class.Names;
+	      WHILE Node^.Name.Next^.Kind # Tree.NoName DO
+		 Node := Node^.Name.Next;
+	      END;
+	      Node^.Name.Next := Names;
+	   END;
+	END;
+	ExpandModules (Next);
+}; .
+
+
+PROCEDURE ExpandChecks (t: Tree)
+
+Class (..) :- {
+	Class := t;
+	ExpandChecks (Attributes);
+	IF (BaseClass^.Kind = Tree.NoClass) THEN	(* Top ? *)
+	   Attributes := mAttribute (Attributes, iNull, iNull, {Synthesized, Computed, Dummy}, NoPosition);
+	END;
+}; .
+Child (..) :- {
+	ExpandChecks (Next);
+}; .
+Attribute (..) :- {
+	ExpandChecks (Next);
+}; .
+ActionPart (..) :- {
+	ExpandChecks (Actions);
+	ExpandChecks (Next);
+}; .
+Assign (..) :- {
+	ExpandChecks (Next);
+}; .
+Copy (..) :- {
+	ExpandChecks (Next);
+}; .
+TargetCode (..) :- {
+	ExpandChecks (Next);
+}; .
+Order (..) :- {
+	ExpandChecks (Next);
+}; .
+Check (..) :- {
+	IF Results = NoTree THEN
+	   INC (ChecksCount);
+	   IntToString (ChecksCount, String);
+	   Ident := MakeIdent (String);
+	   Class^.Class.Attributes := mAttribute (Class^.Class.Attributes, Ident, Ident,
+	      {Test}, NoPosition);
+	   Results := mIdent (Ident, NoPosition, nNoDesignator);
+	ELSE
+	   Class^.Class.Attributes := mAttribute (Class^.Class.Attributes,
+	      Results^.Ident.Attribute, Results^.Ident.Attribute, {Test}, NoPosition);
+	END;
+	ExpandChecks (Next);
+}; .
+
+
+PROCEDURE ExpandMultiple2 (t: Tree)
+
+Child (..) :- {
+	IF NOT HasItem (TheClass, Item) THEN
+	   Node := mChild (NoTree, Name, Type, Properties, Pos);
+	   Node^.AttrOrAction.Item := Item;
+	   AppendAttr (TheClass^.Class.Attributes, Node);
+	END;
+}; .
+Attribute (..) :- {
+	IF NOT HasItem (TheClass, Item) THEN
+	   Node := mAttribute (NoTree, Name, Type, Properties, Pos);
+	   Node^.AttrOrAction.Item := Item;
+	   AppendAttr (TheClass^.Class.Attributes, Node);
+	END;
+}; .
+ActionPart (..) :- {
+	IF NOT HasItem (TheClass, Item) THEN
+	   Node := mActionPart (NoTree, Actions);
+	   Node^.AttrOrAction.Item := Item;
+	   INCL (Node^.ActionPart.Properties, MultInhComp);
+	   AppendAttr (TheClass^.Class.Attributes, Node);
+	END;
+}; .
+
+
+PROCEDURE CountClasses (t: Tree)
+
+Class (..) :- {
+	IF NOT (Abstract IN Properties) THEN INC (ClassCount); END;
+	ChildCount	:= 0;
+	AttributeCount	:= 0;
+	ActionCount	:= 0;
+	Class := t;
+	ForallAttributes (t, CountClasses);
+	IF ChildCount	  > 0 THEN INCL (t^.Class.Properties, HasChildren	); END;
+	IF AttributeCount > 0 THEN INCL (t^.Class.Properties, HasAttributes	); END;
+	IF ActionCount	  > 0 THEN INCL (t^.Class.Properties, HasActions	); END;
+	IF (Terminal IN Properties) AND (Code # 0) THEN
+	   IF IsElement (Code, CodesUsed) THEN
+	      ? TerminalCodeMultipleUsed E Integer Code ?
+	   END;
+	   Include (CodesUsed, Code);
+	END;
+}; .
+Child (..) :- {
+	INC (ChildCount);
+}; .
+Attribute (..) :- {
+	IF (NoCodeAttr * Properties) = {} THEN 
+	   Include (TypeNames, Type);
+	   IF (Nonterminal IN Class^.Class.Properties) OR (Name # iPosition) THEN
+	      INC (AttributeCount);
+	   END;
+	END;
+}; .
+ActionPart (..) :- {
+	INC (ActionCount);
+}; .
+
+
+PROCEDURE CompReachable (t: Tree)
+
+Class (..) :-
+	NOT (Reachable IN Properties);
+	INCL (Properties, Reachable);
+	ForallAttributes (Attributes, CompReachable);
+	ForallClasses (Extensions, CompReachable);
+	.
+Child (..) :- {
+	Class := IdentifyClass (TreeRoot^.Ag.Classes, Type);
+	IF Class # NoTree THEN
+	   INCL (Class^.Class.Properties, Referenced);
+	   CompReachable (Class);
+	ELSE
+      IF NOT IsElement (ORD ('j'), Options) THEN
+	   ? NodeTypeNotDeclared W Ident Type ?
+      END;
+	   IF TreeRoot^.Ag.Classes^.Kind = Tree.NoClass THEN
+	      TreeRoot^.Ag.Classes := mClass (Type, {Terminal, Implicit, Reachable, Referenced},
+		 nNoAttribute, nNoClass, TreeRoot^.Ag.Classes, Type, Pos, 0, NoIdent, nNoName);
+	      InitIdentifyClass2 (TreeRoot^.Ag.Classes);
+	      TreeRoot^.Ag.Classes^.Class.BaseClass := nNoClass;
+	      Class := TreeRoot^.Ag.Classes;
+	   ELSE
+	      Node := TreeRoot^.Ag.Classes;
+	      WHILE Node^.Class.Next^.Kind # Tree.NoClass DO
+		 Node := Node^.Class.Next;
+	      END;
+	      Node^.Class.Next := mClass (Type, {Terminal, Implicit, Reachable, Referenced},
+		 nNoAttribute, nNoClass, Node^.Class.Next, Type, Pos, 0, NoIdent, nNoName);
+	      InitIdentifyClass2 (Node^.Class.Next);
+	      Node^.Class.Next^.Class.BaseClass := nNoClass;
+	      Class := Node^.Class.Next;
+	   END;
+	   INC (ClassCount);
+	END;
+}; .
+
+
+PROCEDURE CodeTerminals (t: Tree)
+
+Class (..) :- {
+	IF ({Terminal, Referenced} <= Properties) AND (Code = 0) THEN
+	   REPEAT INC (TokenCode); UNTIL NOT IsElement (TokenCode, CodesUsed);
+	   Code := TokenCode;
+	END;
+	IF (Terminal IN Properties) AND (BaseClass^.Kind = Tree.NoClass) THEN	(* Top ? *)
+	   Attributes := mAttribute (Attributes, iPosition, itPosition, {Synthesized, Computed, Input, Read}, NoPosition);
+	END;
+}; .
+
+
+PROCEDURE CheckReverse (t: Tree)
+
+Class (..) :- {
+	IF Extensions^.Kind = Tree.NoClass THEN		(* Low ? *)
+	   ReverseCount := 0;
+	   ForallAttributes (t, CheckReverse);
+	END;
+}; .
+Child (..) :- {
+	 IF Reverse IN Properties THEN
+	    INC (ReverseCount);
+	    IF ReverseCount > 1 THEN
+	       ? OnlyOneReverseInNodeType E ?
+	    END;
+	 END;
+}; .
+
+
+PROCEDURE CheckNames (t: Tree)
+
+Class (..) :- {
+	IF IsElement (Name, ClassNames) THEN
+	   ? NodeTypeMultipleDeclared E Ident Name ?
+	END;
+	Include (ClassNames, Name);
+	IF Terminal IN Properties THEN
+	   IF IsElement (Selector, VariantNames) THEN
+	      ? VariantSelectorMultipleDeclared E Ident Selector ?
+	   END;
+	   Include (VariantNames, Selector);
+	END;
+	IF (Prec # NoIdent) AND NOT IsElement (Prec, PrecNames) THEN
+	   ? PrecedenceNotDeclared E Ident Prec ?
+	END;
+	IF Extensions^.Kind = Tree.NoClass THEN		(* Low ? *)
+	   AssignEmpty (SelectorNames);
+	   ForallAttributes (t, CheckNames);
+	END;
+	CheckNames2 (Names);
+}; .
+Child (..) :- {
+	IF IsElement (Name, SelectorNames) THEN
+	   IF NOT (IsElement (ORD ('x'), Options) OR
+		   IsElement (ORD ('z'), Options) OR
+		   IsElement (ORD ('u'), Options)) THEN
+	      ? SelectorMultipleDeclared E Ident Name ?
+	   END;
+	END;
+	Include (SelectorNames, Name);
+}; .
+Attribute (..) :- {
+	IF IsElement (Name, SelectorNames) THEN
+	   ? SelectorMultipleDeclared E Ident Name ?
+	END;
+	Include (SelectorNames, Name);
+}; .
+LeftAssoc (..) :- {
+	CheckNames (Names);
+	CheckNames (Next);
+}; .
+RightAssoc (..) :- {
+	CheckNames (Names);
+	CheckNames (Next);
+}; .
+NonAssoc (..) :- {
+	CheckNames (Names);
+	CheckNames (Next);
+}; .
+Name (..) :- {
+	IF IsElement (Name, PrecNames) THEN
+	   ? PrecedenceMultipleDeclared E Ident Name ?
+	END;
+	Include (PrecNames, Name);
+	CheckNames (Next);
+}; .
+
+
+PROCEDURE CheckNames2 (t: Tree)
+
+Name (..) :- {
+	Class := IdentifyClass (TreeRoot^.Ag.Classes, Name);
+	IF Class = NoTree THEN
+	   ? NodeTypeNotDeclared E Ident Name ?
+	ELSE
+	   IF NOT (Abstract IN Class^.Class.Properties) THEN
+	      ? AbstractTypeRequired E ?
+	   END;
+	END;
+	CheckNames2 (Next);
+}; .
+
+
+PROCEDURE CheckDesignator (t: Tree)
+
+Class (..) :- {
+	Class := t;
+	ForallAttributes (Attributes, CheckDesignator);
+}; .
+ActionPart (..) :- {
+	CheckDesignator (Actions);
+}; .
+Assign (..) :- {
+	CheckDesignator (Results);
+	CheckDesignator (Arguments);
+	CheckDesignator (Next);
+}; .
+Copy (..) :- {
+	CheckDesignator (Results);
+	CheckDesignator (Arguments);
+	CheckDesignator (Next);
+}; .
+TargetCode (..) :- {
+	CheckDesignator (Code);
+	CheckDesignator (Next);
+}; .
+Check (..) :- {
+	CheckDesignator (Statement);
+	CheckDesignator (Condition);
+	CheckDesignator (Actions);
+	CheckDesignator (Next);
+}; .
+Designator (..) :- {
+	Node := IdentifyAttribute (Class, Selector);
+	IF Node # NoTree THEN
+	   IF Node^.Kind # Tree.Child THEN
+	      ? ChildRequired E ?
+	   ELSE
+	      IF Node^.Child.Class # NoTree THEN
+		 Node := IdentifyAttribute (Node^.Child.Class, Attribute);
+		 IF Node = NoTree THEN
+		    ? AttributeNotDeclared E Ident Attribute ?
+		 END;
+	      END;
+	   END;
+	ELSE
+	   ? SelectorNotDeclared E Ident Selector ?
+	END;
+	CheckDesignator (Next);
+}; .
+Remote (..) :- {
+   Node := IdentifyClass (TreeRoot^.Ag.Classes, Type);
+   IF Node = NoTree THEN
+      ? NodeTypeNotDeclared E Ident Type ?
+   ELSE
+      Node := IdentifyAttribute (Node, Attribute);
+      IF Node = NoTree THEN
+	 ? AttributeNotDeclared E Ident Attribute ?
+      END;
+   END;
+};
+   CheckDesignator (Designators);
+   CheckDesignator (Next);
+   .
+Order (..) ;
+Ident (..) ;
+Any (..) ;
+Anys (..) ;
+LayoutAny (..) :- CheckDesignator (Next); .
+
+
+/* ag */
+
+PROCEDURE Identify (t: Tree)
+
+Class (..) :- {
+	ForallAttributes (t, Identify);
+}; .
+Child (..) :- {
+	Class := IdentifyClass (TreeRoot^.Ag.Classes, Type);
+	IF (Class = NoTree) AND NOT IsElement (ORD ('x'), Options) AND
+				NOT IsElement (ORD ('z'), Options) AND
+				NOT IsElement (ORD ('u'), Options) THEN
+	   ? NodeTypeNotDeclared E Ident Type ?
+	END;
+}; .
+
+
+PROCEDURE InitInstance0 (t: Tree)
+
+Class (..) :- {
+	InstanceSize := InstCount;
+	MakeArray (Instance, InstanceSize, TSIZE (tInstance));
+	InitInstance (t, AttrCount, Instance);
+}; .
+
+
+PROCEDURE CompDP (t: Tree)
+
+Class (..) :- {
+	MakeRelation (DP, InstCount, InstCount);
+	relation := DP;
+	MakeSet (Results  , InstCount);
+	MakeSet (Arguments, InstCount);
+	Class := t;
+	Attribute := IdentifyAttribute (t, iNull);
+	DummyIndex := Attribute^.Attribute.AttrIndex;
+	INCL (Instance^[DummyIndex].Properties, Left);
+	CompDP1 (t, Results, Write, TRUE, TRUE);
+	ReleaseSet (Results  );
+	ReleaseSet (Arguments);
+}; .
+
+
+PROCEDURE CopyProperties (t: Tree)
+
+Class (..) :- {
+	FOR i := 1 TO InstCount DO
+	   WITH Instance^[i] DO
+	      Properties := Properties + Attribute^.Child.Properties;
+	      IF (Action # ADR (Action)) AND (Action^.Kind = Tree.Copy) THEN
+		 INCL (Properties, CopyDef);
+		 INCL (Instance^[CopyArg].Properties, CopyUse);
+	      END;
+      IF IsElement (ORD ('2'), Options) THEN
+	      IF NOT (NonBaseComp IN Properties) AND (Action # ADR (Action)) AND
+		 (({Synthesized, Left} <= Properties) OR
+		 ({Inherited, Right} <= Properties)) THEN
+		 WriteIdent	(StdOutput, Name);
+		 WriteS	 	(StdOutput, "	= { ");
+		 WriteClass	(Action);
+		 WriteS	 	(StdOutput, " } .");
+		 WriteNl	(StdOutput);
+	      END;
+      END;
+	   END;
+	END;
+}; .
+
+
+PROCEDURE CheckUsage (t: Tree)
+
+Class (..) :- {
+	IF Extensions^.Kind = Tree.NoClass THEN		(* Low ? *)
+	   Class := t;
+	   IsAbstract := Abstract IN Properties;
+	   ForallAttributes (t, CheckUsage);
+	END;
+}; .
+Child (..) :- {
+      IF NOT IsElement (ORD ('W'), Options) AND NOT IsAbstract THEN
+	IF NOT (Input IN Properties) AND NOT (Write IN Properties) THEN
+	   ? AttributeNeverSet W Ident Name ?
+	END;
+	IF NOT (Output IN Properties) AND NOT (Read IN Properties) AND
+	   NOT IsElement (ORD ('x'), Options) AND
+	   NOT IsElement (ORD ('z'), Options) AND
+	   NOT IsElement (ORD ('u'), Options) THEN
+	   ? AttributeNeverUsed W Ident Name ?
+	END;
+      END;
+	IF ({Input, Write} <= Properties) AND ((Class = NoTree) OR
+	   (Class # NoTree) AND NOT (Terminal IN Class^.Class.Properties)) THEN
+	   ? InputAttributeIsSet E Ident Name ?
+	END;
+	IF {Synthesized, Inherited} <= Properties THEN
+	   ? AttributeSynthesizedAsWellAsInherited E Ident Name ?
+	END;
+}; .
+Attribute (..) :-
+	({{Test, Dummy}} * Properties) = {{}};
+{     IF NOT IsElement (ORD ('W'), Options) AND NOT IsAbstract THEN
+	IF NOT (Input IN Properties) AND NOT (Write IN Properties) THEN
+	   ? AttributeNeverSet W Ident Name ?
+	END;
+	IF NOT (Output IN Properties) AND NOT (Read IN Properties) THEN
+	   ? AttributeNeverUsed W Ident Name ?
+	END;
+      END;
+	IF ({Input, Write} <= Properties) AND ((Class = NoTree) OR
+	   (Class # NoTree) AND NOT (Terminal IN Class^.Class.Properties)) THEN
+	   ? InputAttributeIsSet E Ident Name ?
+	END;
+	IF {Synthesized, Inherited} <= Properties THEN
+	   ? AttributeSynthesizedAsWellAsInherited E Ident Name ?
+	END;
+}; .
+
+
+PROCEDURE CheckUsage2 (t: Tree)
+
+Class (..) :-
+   NOT IsElement (ORD ('W'), Options);
+   NOT (Reachable IN Properties);
+   String: tString;
+   GetString (Name, String);
+   (Char (String, 1) # 'y') AND (Char (String, 2) # 'y');
+     ? NodeTypeNotUsed W Ident Name ? 
+   .
+
+
+PROCEDURE CheckInherited (t: Tree)
+
+Class (..) :- {
+	IF BaseClass^.Kind = Tree.Class THEN		(* NOT Top ? *)
+	   CheckInherited (Attributes);
+	END;
+}; .
+Child (..) :- {
+	IF Inherited IN Properties THEN
+	   ? InheritedAttributesOnlyInBaseClasses E Ident Name ?
+	END;
+	CheckInherited (Next);
+}; .
+Attribute (..) :- {
+	IF Inherited IN Properties THEN
+	   ? InheritedAttributesOnlyInBaseClasses E Ident Name ?
+	END;
+	CheckInherited (Next);
+}; .
+
+
+PROCEDURE CheckComplete (t: Tree)
+
+Class (..) :- {
+	IF (Extensions^.Kind = Tree.NoClass) OR		(* Low ? *)
+           NOT IsElement (ORD ('B'), Options) THEN
+	   FOR i := 1 TO InstCount DO
+	      WITH Instance^ [i] DO
+		 IF NOT (Computed IN Properties) AND
+		    ((Terminal IN t^.Class.Properties) AND (Attribute^.Kind = Tree.Attribute) OR
+		    ({Synthesized, Left} <= Properties) OR
+		    ({Inherited,  Right} <= Properties)) THEN
+		    CopyRule (t);
+		    IF j = 0 THEN
+		       GetString (Name, String);
+		       ArrayToString (" = ", String2);
+		       Concatenate (String, String2);
+		       IF Right IN Properties THEN
+			  GetString (Selector^.Child.Name, String2);
+			  Concatenate (String, String2);
+			  Append    (String, ':');
+			  GetString (Attribute^.Child.Name, String2);
+			  Concatenate (String, String2);
+		       ELSE
+			  GetString (Attribute^.Child.Name, String2);
+			  Concatenate (String, String2);
+		       END;
+		       ? AttributeComputationMissing E String String ?
+		    END;
+		 END;
+	      END;
+	   END;
+	END;
+
+      IF IsElement (ORD ('L'), Options) THEN
+	FOR i := 1 TO AttrCount DO
+	   WITH Instance^ [i] DO
+	      IF NOT (Input IN Properties) AND (Attribute^.Kind = Tree.Child) THEN
+		 FOR j := 1 TO InstCount DO
+		    IF IsRelated (j, i, DP) THEN
+		       FOR k := 1 TO AttrCount DO
+			  IF IsRelated (k, j, DP) THEN
+			     Relations.Include (DP, k, i);
+			  END;
+		       END;
+		    END;
+		 END;
+	      END;
+	   END;
+	END;
+      END;
+
+	IF IsCyclic (DP) THEN
+	   ? CycleInLocalDependenciesDP E Ident Name ?
+	   WriteS (StdOutput, "Attribute Dependencies DP");
+	   WriteNl (StdOutput); WriteNl (StdOutput);
+	   WriteDependencies (t, DP, MaxSet);
+	   WriteS (StdOutput, "Cyclic Attributes");
+	   WriteNl (StdOutput); WriteNl (StdOutput);
+	   MakeSet (Cyclics, InstCount);
+	   GetCyclics (DP, Cyclics);
+	   WriteCyclics (t, Cyclics); WriteNl (StdOutput);
+	   ReleaseSet (Cyclics);
+	   Success := FALSE;
+	END;
+      IF IsElement (ORD ('M'), Options) THEN
+	WriteClass (t); WriteNl (StdOutput);
+      END;
+      IF IsElement (ORD ('P'), Options) THEN
+	WriteDependencies (t, DP, MaxSet);
+      END;
+}; .
+
+
+PROCEDURE CopyRule (t: Tree)
+
+  LOCAL { VAR LLastParsIndex : SHORTCARD ; 
+          VAR LNewNode : tTree ; 
+        } 
+
+Class (..) :- {
+	WITH Instance^ [i] DO
+	   j := 0;
+	   IF i <= AttrCount THEN
+	      Ident := Attribute^.Attribute.Name;
+	      ForallAttributes (t, CopyRule2);
+	      IF j # 0 THEN
+		 INC (j, AttrCount + Child^.Child.InstOffset);
+		 Action := mCopy (nNoAction, NoPosition,
+		    mIdent (Ident, NoPosition, nNoDesignator),
+		    mDesignator (Instance ^[j].Selector^.Child.Name, Ident, NoPosition, nNoDesignator));
+		 INC (CopySynthesized);
+	      END;
+	      IF (j = 0) AND (Thread IN Properties) THEN
+		 j := i - 1;
+		 Action := mCopy (nNoAction, NoPosition,
+		    mIdent (Ident, NoPosition, nNoDesignator),
+		    mIdent (Instance^ [j].Attribute^.Attribute.Name, NoPosition, nNoDesignator));
+		 INC (CopyThreaded);
+	      END;
+	   ELSE
+	      IF (Thread IN Properties) AND (Selector^.Child.InstOffset > 0) THEN
+		 Ident := Instance^ [i+1].Attribute^.Attribute.Name;	(* Out companion *)
+		 j := i - 1;
+		 LOOP
+		    IF j <= AttrCount THEN j := 0; EXIT; END;
+		    IF Instance^ [j].Attribute^.Attribute.Name = Ident THEN
+		       Action := mCopy (nNoAction, NoPosition,
+			  mDesignator (Selector^.Child.Name, Attribute^.Attribute.Name, NoPosition, nNoDesignator),
+			  mDesignator (Instance^ [j].Selector^.Child.Name, Ident, NoPosition, nNoDesignator));
+		       INC (CopyThreaded);
+		       EXIT;
+		    END;
+		    DEC (j);
+		 END;
+	      END;
+	      IF j = 0 THEN
+		 Ident := Attribute^.Attribute.Name;
+		 ForallAttributes (t, CopyRule);
+		 IF j # 0 THEN
+		    Action := mCopy (nNoAction, NoPosition,
+		       mDesignator (Selector^.Child.Name, Ident, NoPosition, nNoDesignator),
+		       mIdent (Ident, NoPosition, nNoDesignator));
+		    INC (CopyInherited);
+		 END;
+	      END;
+	   END;
+	   IF j # 0 THEN
+      IF IsElement (ORD ('1'), Options) THEN
+	      WriteIdent (StdOutput, Name);
+	      WriteS	 (StdOutput, "	= { ");
+	      WriteClass (Action);
+	      WriteS	 (StdOutput, " } .");
+	      WriteNl	 (StdOutput);
+      END;
+	      CopyArg := j;
+	      TheAction := Action;
+	      Relations.Include (DP, i, j);
+	      INCL (Properties, CopyDef);
+	      INCL (Instance^[CopyArg].Properties, CopyUse);
+	      INCL (Properties, Write);
+	      INCL (Properties, Computed);
+	      INCL (Instance^[CopyArg].Properties, Read);
+	      INCL (Attribute^.Attribute.Properties, Write);
+	      INCL (Attribute^.Attribute.Properties, Computed);
+	      INCL (Instance^[CopyArg].Attribute^.Attribute.Properties, Read);
+	      IF Right IN Properties THEN
+		 INCL (Selector^.Child.Properties, Read);
+	      END;
+	      IF Right IN Instance^[CopyArg].Properties THEN
+		 INCL (Instance^[CopyArg].Selector^.Child.Properties, Read);
+	      END;
+	   END;
+	END;
+	IF j # 0 THEN				(* update abstract syntax *)
+	   INCL (Properties, HasActions);
+	   IF Attributes^.Kind = Tree.NoAttribute THEN
+	      Attributes := mActionPart (Attributes, TheAction);
+              Attributes^.ActionPart.ParsIndex := 1 ; 
+              INC ( ActionName ) ; 
+              Attributes^.ActionPart.Name := ActionName ; 
+	   ELSE
+	      Node := Attributes;
+              LLastParsIndex := 0 ; 
+              LOOP 
+                CASE Node^.Kind 
+                OF Tree.Child 
+                  : LLastParsIndex := Node^.Child.ParsIndex 
+                | Tree.ActionPart 
+                  : LLastParsIndex := Node^.ActionPart.ParsIndex 
+                ELSE 
+                END (* CASE *) 
+              ; IF Node^.AttrOrAction.Next^.Kind = Tree.NoAttribute 
+                THEN EXIT ; 
+                ELSE 
+		  Node := Node^.AttrOrAction.Next;
+                END (* IF *) 
+	      END (* LOOP *) ;
+              LNewNode := mActionPart (nNoAttribute, TheAction);
+              Node^.AttrOrAction.Next := LNewNode ; 
+              LNewNode^.ActionPart.ParsIndex := LLastParsIndex + 1 ;
+              INC ( ActionName ) ; 
+              LNewNode^.ActionPart.Name := ActionName ;  
+	   END;
+	END;
+}; .
+Child (..) :- {
+	IF Name = Ident THEN Child := Attribute; j := AttrIndex; END;
+}; .
+Attribute (..) :- {
+	IF Name = Ident THEN Child := Attribute; j := AttrIndex; END;
+}; .
+
+
+PROCEDURE CopyRule2 (t: Tree)
+
+Child (..) :-
+   Class # NoTree;
+   Attribute := t;
+   ForallAttributes (Class, CopyRule);
+   .
+
+PREDICATE IsCopy (Designators)
+
+Designator (..) :-
+   Attr: tTree, ChildsClass: tTree;
+   Attr := IdentifyAttribute (Class, Selector);
+   Attr # NoTree;
+   Attr^.Kind = Tree.Child;
+   ChildsClass := Attr^.Child.Class;
+   ChildsClass # NoTree;
+   IdentifyAttribute (ChildsClass, Attribute) # NoTree;
+   IsWhiteSpace (Next);
+   .
+Ident (..) :-
+   IdentifyAttribute (Class, Attribute) # NoTree;
+   IsWhiteSpace (Next);
+   .
+Any (..) :-
+   IsWhiteSpace2 (Code);
+   IsCopy (Next);
+   .
+Anys (..) :-
+   IsCopy (Next);
+   .
+
+PREDICATE IsWhiteSpace (Designators)
+
+Any (..) :-
+   IsWhiteSpace2 (Code);
+   IsWhiteSpace (Next);
+   .
+Anys (..) :-
+   IsWhiteSpace (Next);
+   .
+NoDesignator (..) :-
+   .
+
+PREDICATE IsWhiteSpace2 (tStringRef) LOCAL { VAR i: CARDINAL; }
+
+Code :-
+   String: tString, ch: CHAR;
+   StringMem.GetString (Code, String);
+{  FOR i := 1 TO Length (String) DO
+      ch := Char (String, i);
+      IF (ch # ' ') AND (ch # 012C) AND (ch # 011C) THEN RETURN FALSE; END;
+   END;
+}; .
+
+(* end of file sem.puma, of cg *) 

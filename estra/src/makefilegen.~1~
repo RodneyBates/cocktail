@@ -1,0 +1,61 @@
+#
+#	RMB revised makefile for estra
+#
+
+BIN	= $(INSTALLGMD)/bin
+LIB	= $(INSTALLGMD)/lib
+
+MC	= m2c
+
+#DEFS	= ArgCheck.md Automaton.md CodeM2.md Complete.md	\
+	  Environs.md Grammar.md Info.md Match.md Patterns.md	\
+	  Reduced.md Semantics.md Test.md Types.md
+#IMPS	= ArgCheck.mi Automaton.mi CodeM2.mi Complete.mi	\
+	  Environs.mi Grammar.mi Info.mi Match.mi Patterns.mi	\
+	  Reduced.mi Semantics.mi Test.mi Types.mi
+GENDEFS	= Parser.md Scanner.md Tree.md 
+GENIMPS	= Parser.mi Scanner.mi Tree.mi 
+MODULAGENS    = $(GENDEFS) $(GENIMPS)
+OTHERGENS = Scanner.Tab Parser.Tab
+GENS    = $(MODULAGENS) $(OTHERGENS)
+EXE     = estra
+MOCKAFLAGS = -noindex -norange 
+MOCKALIBS = -d ../../common/src -d ../../reuse/src
+
+include ../../makefilesrc.include
+
+Tree.md Tree.mi:	Tree.ast
+	cg -deiwmR Tree.ast;
+
+Parser.md Parser.mi Parser.Tab:	Estral.lalr
+	lalr -d Estral.lalr;
+
+Scanner.md Scanner.mi Scanner.Tab:	Estral.rex
+	rex -d Estral.rex;
+
+install_modula:	estra estra.sh $(LIB)/estra Scanner.Tab Parser.Tab ErrorTab
+	sed 's;LIB;$(LIB);' < estra.sh > $(BIN)/estra
+	chmod a+rx $(BIN)/estra
+	install -c -s -m 755 estra $(LIB)/estra
+	install -c -m 644 Scanner.Tab $(LIB)/estra
+	install -c -m 644 Parser.Tab $(LIB)/estra
+	install -c -m 644 ErrorTab $(LIB)/estra
+
+# installation directories
+
+$(LIB)/estra:	$(LIB)
+	sh -c "if test ! -d $(LIB)/estra; then mkdir $(LIB)/estra; else true; fi"
+
+clean:
+	rm -f core *.[dimor] ERRORS LISTING _Debug *.bak
+
+CLEAN:	clean
+	rm -f CodeM2.mi Parser.m[di] Parser.Tab Scanner.m[di] Scanner.Tab Tree.m[di] estra
+
+.SUFFIXES: .MD .md .MI .mi
+
+.MD.mi:; mpp < $*.MD > $*.md
+
+.MI.mi:; mpp < $*.MI > $*.mi
+
+

@@ -1,0 +1,150 @@
+     1 (* handle oper section *)
+     2 
+     3 (* $Id: Oper.md,v 1.2 1991/11/21 14:47:50 grosch rel $ *)
+     4 
+     5 (* $Log: Oper.md,v $
+c    6  * Revision 1.2  1991/11/21  14:47:50  grosch
+c    7  * new version of RCS on SPARC
+c    8  *
+c    9  * Revision 1.1  90/06/11  18:45:04  grosch
+c   10  * layout improvements
+c   11  * 
+c   12  * Revision 1.0  88/10/04  14:26:53  vielsack
+c   13  * Initial revision
+c   14  * 
+c   15  *)
+    16 
+    17 DEFINITION MODULE Oper;                                                       *
+    18 
+    19 FROM Lists      IMPORT tList;                                                 *     *
+    20 FROM TokenTab   IMPORT Vocabulary,PosType;                                    *     *     *
+    21 FROM Idents     IMPORT tIdent;                                                *     *
+    22 
+    23 TYPE OperKind = (Left, Right, None);                                          *     *     *     *
+    24 
+    25   PROCEDURE MakePriority                                                      *
+    26     (Art : OperKind;                                                          *    23
+    27      Pos : PosType);                                                          *    20
+    28   
+    29   (* Festlegen einer neuen Assoziativitaet (LEFT/RIGHT) und damit einer
+c   30      neuen, d.h. um eins erhoehten Prioritaet *)
+    31 
+    32 
+    33   PROCEDURE CompletePriority                                                  *
+    34     (Comment : tList;                                                         *    19
+    35      CommPos  : PosType);                                                     *    20
+    36       
+    37   (* Eintragen des zu einer Prioritaet gehoerigen Kommentars,  
+c   38      gleichzeitig Abschluss dieser Prioritaet. Optional nach
+c   39      MakePriority bzw nach MakeOperator. *)
+    40 
+    41 
+    42   PROCEDURE MakeOperator                                                      *
+    43     (Token    : tIdent;                                                       *    21
+    44      TokenPos : PosType);                                                     *    20
+    45 
+    46   (* Eintragen des naechsten Operators mit der aktuellen Prioritaet.
+c   47      Nur zulaessig nach MakePriority . *)
+    48 
+    49 
+    50   PROCEDURE MakeOperHeader                                                    *
+    51     (OPERPos   : PosType;                                                     *    20
+    52      Comment   : tList;                                                      34    19
+    53      CommPos    : PosType);                                                  35    20
+    54 
+    55   (* Eintragen des Anfangskommentars des Abschnitts OPER sowie der
+c   56      Position des Schluesselwortes OPER. *)
+    57 
+    58 
+    59   PROCEDURE InitPrioReading;                                                  *
+    60 
+    61   (* Initialisiert des Lesen mit GetPriority. Nach dem ersten Aufruf ist 
+c   62      kein Schreiben innerhalb von Oper mehr moeglich. Wiederholter Aufruf
+c   63      setzt Lesezeiger an den Anfang zurueck. *)
+    64 
+    65   
+    66   PROCEDURE GetOperHeader                                                     *
+    67     (VAR OPERPos  : PosType;                                                 51    20
+    68      VAR Comment  : tList;                                                   52    19
+    69      VAR CommPos   : PosType):BOOLEAN;                                       53    20     *
+    70       
+    71   (* Lesen der mit MakeOperHeader abgelegten Information *) 
+    72 
+    73 
+    74   PROCEDURE GetPriority                                                       *
+    75     (VAR Art     : OperKind;                                                 26    23
+    76      VAR Pos     : PosType;                                                  27    20
+    77      VAR Comment : tList;                                                    68    19
+    78      VAR CommPos  : PosType): BOOLEAN;                                       69    20     *
+    79       
+    80   (* Lesen der mit MakePriority und CompletePriority abgelegten
+c   81      Information. (FIFO). Ist das Lesen erfolgreich, wird TRUE
+c   82      zurueckgeliefert, sonst (Listenende erreicht) FALSE. *)
+    83 
+    84 
+    85   PROCEDURE GetOperator                                                       *
+    86     (VAR Token    : Vocabulary;                                              43    20
+    87      VAR TokenPos : PosType): BOOLEAN;                                       44    20     *
+    88 
+    89   (* Lesen der naechsten mit MakeOperator unter der aktuellen 
+c   90      Prioritaet abgelegten Information. Ist das Lesen erfolgreich, 
+c   91      wird TRUE zurueckgeliefert, sonst (Listenende erreicht) FALSE *)
+    92 
+    93 END Oper.                                                                    17
+Cross reference: * is declaration, = is assignment
+
+-A-
+ Art                             26*   75*
+
+-B-
+ BOOLEAN                         69    78    87 
+
+-C-
+ Comment                         34*   52*   68*   77*
+ CommPos                         35*   53*   69*   78*
+ CompletePriority                33*
+
+-G-
+ GetOperator                     85*
+ GetOperHeader                   66*
+ GetPriority                     74*
+
+-I-
+ Idents                          21*
+ InitPrioReading                 59*
+
+-L-
+ Left                            23*
+ Lists                           19*
+
+-M-
+ MakeOperator                    42*
+ MakeOperHeader                  50*
+ MakePriority                    25*
+
+-N-
+ None                            23*
+
+-O-
+ Oper                            17*   93*
+ OperKind                        23*   26    75 
+ OPERPos                         51*   67*
+
+-P-
+ Pos                             27*   76*
+ PosType                         20*   27    35    44    51    53    67    69    76    78    87 
+
+-R-
+ Right                           23*
+
+-T-
+ tIdent                          21*   43 
+ tList                           19*   34    52    68    77 
+ Token                           43*   86*
+ TokenPos                        44*   87*
+ TokenTab                        20*
+
+-V-
+ Vocabulary                      20*   86 
+
+end cross reference, 60 occurrences of 28 identifiers.

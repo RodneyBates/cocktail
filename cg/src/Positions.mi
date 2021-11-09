@@ -1,0 +1,40 @@
+(* $Id: Positions.mi,v 1.4 1991/11/21 14:33:17 grosch rel $ *)
+
+(* $Log: Positions.mi,v $
+ *)
+
+(* Ich, Doktor Josef Grosch, Informatiker, Juli 1992 *)
+
+IMPLEMENTATION MODULE Positions;
+
+FROM IO		IMPORT tFile, WriteS, WriteI, WriteC;
+FROM Idents	IMPORT tIdent, NoIdent, WriteIdent;
+
+PROCEDURE Compare (Position1, Position2: tPosition): INTEGER;
+   BEGIN
+      WITH Position1 DO
+	 IF File   < Position2.File   THEN RETURN -1; END;
+	 IF File   > Position2.File   THEN RETURN  1; END;
+	 IF Line   < Position2.Line   THEN RETURN -1; END;
+	 IF Line   > Position2.Line   THEN RETURN  1; END;
+	 IF Column < Position2.Column THEN RETURN -1; END;
+	 IF Column > Position2.Column THEN RETURN  1; END;
+	 RETURN 0;
+      END;
+   END Compare;
+
+PROCEDURE WritePosition (File: tFile; Position: tPosition);
+   BEGIN
+      WriteC (File, '"');
+      WriteIdent (File, Position.File);
+      WriteS (File, '", ');
+      WriteI (File, Position.Line  , 3);
+      WriteS (File, ", ");
+      WriteI (File, Position.Column, 2);
+   END WritePosition;
+
+BEGIN
+   NoPosition.File	:= NoIdent;
+   NoPosition.Line	:= 0;
+   NoPosition.Column	:= 0;
+END Positions.

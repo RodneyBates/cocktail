@@ -1,0 +1,368 @@
+
+reading work file Checks.mi...
+	scanning Checks.mi
+	parsing Checks.mi
+generating import closure...
+	scanning Checks.md
+	parsing Checks.md
+	scanning IO.md
+	parsing IO.md
+	scanning SYSTEM.md
+	parsing SYSTEM.md
+	scanning System.md
+	parsing System.md
+
+reading work file DynArray.mi...
+	scanning DynArray.mi
+	parsing DynArray.mi
+generating import closure...
+	scanning DynArray.md
+	parsing DynArray.md
+	scanning General.md
+	parsing General.md
+	scanning Memory.md
+	parsing Memory.md
+
+reading work file DynArrDrv.mi...
+	scanning DynArrDrv.mi
+	parsing DynArrDrv.mi
+generating import closure...
+
+reading work file Errors.mi...
+	scanning Errors.mi
+	parsing Errors.mi
+generating import closure...
+	scanning Errors.md
+	parsing Errors.md
+	scanning Positions.md
+	parsing Positions.md
+	scanning Strings.md
+	parsing Strings.md
+	scanning StringMem.md
+	parsing StringMem.md
+	scanning Idents.md
+	parsing Idents.md
+	scanning Sets.md
+	parsing Sets.md
+	scanning Sort.md
+	parsing Sort.md
+
+reading work file force.mi...
+	scanning force.mi
+	parsing force.mi
+generating import closure...
+	scanning Arguments.md
+	parsing Arguments.md
+	scanning Heap.md
+	parsing Heap.md
+	scanning Layout.md
+	parsing Layout.md
+	scanning Lists.md
+	parsing Lists.md
+	scanning Relations.md
+	parsing Relations.md
+	scanning SetsC.md
+	parsing SetsC.md
+	scanning Source.md
+	parsing Source.md
+	scanning StdIO.md
+	parsing StdIO.md
+	scanning Texts.md
+	parsing Texts.md
+	scanning Times.md
+	parsing Times.md
+
+reading work file General.mi...
+	scanning General.mi
+	parsing General.mi
+generating import closure...
+
+reading work file Heap.mi...
+	scanning Heap.mi
+	parsing Heap.mi
+generating import closure...
+
+reading work file Idents.mi...
+	scanning Idents.mi
+	parsing Idents.mi
+generating import closure...
+
+reading work file IODrv.mi...
+	scanning IODrv.mi
+	parsing IODrv.mi
+generating import closure...
+
+reading work file IO.mi...
+	scanning IO.mi
+	parsing IO.mi
+generating import closure...
+
+reading work file Layout.mi...
+	scanning Layout.mi
+	parsing Layout.mi
+generating import closure...
+
+reading work file Lists.mi...
+	scanning Lists.mi
+	parsing Lists.mi
+generating import closure...
+
+reading work file Main.mi...
+	scanning Main.mi
+	parsing Main.mi
+generating import closure...
+
+reading work file MemoryDrv.mi...
+	scanning MemoryDrv.mi
+	parsing MemoryDrv.mi
+generating import closure...
+
+reading work file Memory.mi...
+	scanning Memory.mi
+	parsing Memory.mi
+generating import closure...
+
+reading work file Positions.mi...
+	scanning Positions.mi
+	parsing Positions.mi
+generating import closure...
+
+reading work file Relations.mi...
+	scanning Relations.mi
+	parsing Relations.mi
+generating import closure...
+
+reading work file RelDrv.mi...
+	scanning RelDrv.mi
+	parsing RelDrv.mi
+generating import closure...
+
+reading work file SetsC.mi...
+	scanning SetsC.mi
+	parsing SetsC.mi
+generating import closure...
+
+reading work file SetsDrv.mi...
+	scanning SetsDrv.mi
+	parsing SetsDrv.mi
+generating import closure...
+
+reading work file Sets.mi...
+	scanning Sets.mi
+	parsing Sets.mi
+generating import closure...
+
+reading work file Sort.mi...
+	scanning Sort.mi
+	parsing Sort.mi
+generating import closure...
+
+reading work file Source.mi...
+	scanning Source.mi
+	parsing Source.mi
+generating import closure...
+
+reading work file StdIO.mi...
+	scanning StdIO.mi
+	parsing StdIO.mi
+generating import closure...
+
+reading work file StringMem.mi...
+	scanning StringMem.mi
+	parsing StringMem.mi
+generating import closure...
+
+reading work file Strings.mi...
+	scanning Strings.mi
+	parsing Strings.mi
+generating import closure...
+
+reading work file SysIODrv.mi...
+	scanning SysIODrv.mi
+	parsing SysIODrv.mi
+generating import closure...
+
+reading work file Texts.mi...
+	scanning Texts.mi
+	parsing Texts.mi
+generating import closure...
+
+reading work file Times.mi...
+	scanning Times.mi
+	parsing Times.mi
+generating import closure...
+
+linking identifiers...
+	linking identifiers of file Checks.md
+	linking identifiers of file SYSTEM.md
+	linking identifiers of file System.md
+	linking identifiers of file IO.md
+	linking identifiers of file Checks.mi
+	linking identifiers of file DynArray.md
+	linking identifiers of file General.md
+	linking identifiers of file Memory.md
+	linking identifiers of file DynArray.mi
+	linking identifiers of file DynArrDrv.mi
+	linking identifiers of file Positions.md
+	linking identifiers of file Strings.md
+	linking identifiers of file Errors.md
+	linking identifiers of file StringMem.md
+	linking identifiers of file Idents.md
+	linking identifiers of file Sets.md
+	linking identifiers of file Sort.md
+	linking identifiers of file Errors.mi
+	linking identifiers of file Arguments.md
+	linking identifiers of file Heap.md
+	linking identifiers of file Layout.md
+	linking identifiers of file Lists.md
+	linking identifiers of file Relations.md
+	linking identifiers of file SetsC.md
+	linking identifiers of file Source.md
+	linking identifiers of file StdIO.md
+	linking identifiers of file Texts.md
+	linking identifiers of file Times.md
+	linking identifiers of file force.mi
+	linking identifiers of file General.mi
+	linking identifiers of file Heap.mi
+	linking identifiers of file Idents.mi
+	linking identifiers of file IODrv.mi
+	linking identifiers of file IO.mi
+	linking identifiers of file Layout.mi
+	linking identifiers of file Lists.mi
+	linking identifiers of file Main.mi
+	linking identifiers of file MemoryDrv.mi
+	linking identifiers of file Memory.mi
+	linking identifiers of file Positions.mi
+	linking identifiers of file Relations.mi
+	linking identifiers of file RelDrv.mi
+	linking identifiers of file SetsC.mi
+	linking identifiers of file SetsDrv.mi
+	linking identifiers of file Sets.mi
+	linking identifiers of file Sort.mi
+	linking identifiers of file Source.mi
+	linking identifiers of file StdIO.mi
+	linking identifiers of file StringMem.mi
+	linking identifiers of file Strings.mi
+	linking identifiers of file SysIODrv.mi
+	linking identifiers of file Texts.mi
+	linking identifiers of file Times.mi
+
+linking parameters...
+
+generating Modula-3 source...
+	transforming file Checks.mi
+	transforming file Checks.md
+	transforming file IO.md
+	transforming file SYSTEM.md
+	transforming file System.md
+	transforming file DynArray.mi
+	transforming file DynArray.md
+	transforming file General.md
+	transforming file Memory.md
+	transforming file DynArrDrv.mi
+	transforming file Errors.mi
+m2tom3 warning: application of variant field, possible cast of 'InfoClass' in line 239
+m2tom3 warning: application of variant field, possible cast of 'InfoClass' in line 193
+m2tom3 warning: application of variant field, possible cast of 'InfoClass' in line 208
+m2tom3 warning: application of variant field, possible cast of 'InfoClass' in line 238
+m2tom3 warning: application of variant field, possible cast of 'InfoClass' in line 248
+m2tom3 warning: application of variant field, possible cast of 'InfoClass' in line 261
+m2tom3 warning: application of variant field, possible cast of 'vInteger' in line 194
+m2tom3 warning: application of variant field, possible cast of 'vInteger' in line 240
+m2tom3 warning: application of variant field, possible cast of 'vShort' in line 195
+m2tom3 warning: application of variant field, possible cast of 'vShort' in line 241
+m2tom3 warning: application of variant field, possible cast of 'vLong' in line 196
+m2tom3 warning: application of variant field, possible cast of 'vLong' in line 242
+m2tom3 warning: application of variant field, possible cast of 'vReal' in line 197
+m2tom3 warning: application of variant field, possible cast of 'vReal' in line 243
+m2tom3 warning: application of variant field, possible cast of 'vBoolean' in line 198
+m2tom3 warning: application of variant field, possible cast of 'vBoolean' in line 244
+m2tom3 warning: application of variant field, possible cast of 'vCharacter' in line 199
+m2tom3 warning: application of variant field, possible cast of 'vCharacter' in line 245
+m2tom3 warning: application of variant field, possible cast of 'vString' in line 200
+m2tom3 warning: application of variant field, possible cast of 'vString' in line 246
+m2tom3 warning: application of variant field, possible cast of 'vArray' in line 248
+m2tom3 warning: application of variant field, possible cast of 'vSet' in line 201
+m2tom3 warning: application of variant field, possible cast of 'vSet' in line 249
+m2tom3 warning: application of variant field, possible cast of 'vSet' in line 250
+m2tom3 warning: application of variant field, possible cast of 'vSet' in line 251
+m2tom3 warning: application of variant field, possible cast of 'vIdent' in line 202
+m2tom3 warning: application of variant field, possible cast of 'vIdent' in line 252
+	transforming file Errors.md
+	transforming file Positions.md
+	transforming file Strings.md
+	transforming file StringMem.md
+	transforming file Idents.md
+	transforming file Sets.md
+	transforming file Sort.md
+	transforming file force.mi
+	transforming file Arguments.md
+	transforming file Heap.md
+	transforming file Layout.md
+	transforming file Lists.md
+	transforming file Relations.md
+	transforming file SetsC.md
+	transforming file Source.md
+	transforming file StdIO.md
+	transforming file Texts.md
+	transforming file Times.md
+	transforming file General.mi
+m2tom3 warning: unhandled ADR parameter 'longreal' in line 147
+	transforming file Heap.mi
+m2tom3 warning: unhandled ADR parameter 'ADR' in line 64
+	transforming file Idents.mi
+	transforming file IODrv.mi
+	transforming file IO.mi
+m2tom3 warning: unhandled ADR parameter 'ADR' in line 84
+m2tom3 warning: unhandled ADR parameter 'ADR' in line 396
+	transforming file Layout.mi
+	transforming file Lists.mi
+	transforming file Main.mi
+	transforming file MemoryDrv.mi
+	transforming file Memory.mi
+m2tom3 warning: unhandled ADR parameter 'ADR' in line 116
+	transforming file Positions.mi
+	transforming file Relations.mi
+	transforming file RelDrv.mi
+	transforming file SetsC.mi
+	transforming file SetsDrv.mi
+	transforming file Sets.mi
+	transforming file Sort.mi
+	transforming file Source.mi
+	transforming file StdIO.mi
+	transforming file StringMem.mi
+	transforming file Strings.mi
+	transforming file SysIODrv.mi
+	transforming file Texts.mi
+	transforming file Times.mi
+
+saving generated source...
+	writing Modula-3 file ../tom3src/Checks.m3
+	writing Modula-3 file ../tom3src/DynArray.m3
+	writing Modula-3 file ../tom3src/DynArrDrv.m3
+	writing Modula-3 file ../tom3src/Errors.m3
+	writing Modula-3 file ../tom3src/force.m3
+	writing Modula-3 file ../tom3src/General.m3
+	writing Modula-3 file ../tom3src/Heap.m3
+	writing Modula-3 file ../tom3src/Idents.m3
+	writing Modula-3 file ../tom3src/IODrv.m3
+	writing Modula-3 file ../tom3src/IO.m3
+	writing Modula-3 file ../tom3src/Layout.m3
+	writing Modula-3 file ../tom3src/Lists.m3
+	writing Modula-3 file ../tom3src/Main.m3
+	writing Modula-3 file ../tom3src/MemoryDrv.m3
+	writing Modula-3 file ../tom3src/Memory.m3
+	writing Modula-3 file ../tom3src/Positions.m3
+	writing Modula-3 file ../tom3src/Relations.m3
+	writing Modula-3 file ../tom3src/RelDrv.m3
+	writing Modula-3 file ../tom3src/SetsC.m3
+	writing Modula-3 file ../tom3src/SetsDrv.m3
+	writing Modula-3 file ../tom3src/Sets.m3
+	writing Modula-3 file ../tom3src/Sort.m3
+	writing Modula-3 file ../tom3src/Source.m3
+	writing Modula-3 file ../tom3src/StdIO.m3
+	writing Modula-3 file ../tom3src/StringMem.m3
+	writing Modula-3 file ../tom3src/Strings.m3
+	writing Modula-3 file ../tom3src/SysIODrv.m3
+	writing Modula-3 file ../tom3src/Texts.m3
+	writing Modula-3 file ../tom3src/Times.m3

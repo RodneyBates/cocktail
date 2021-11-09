@@ -1,0 +1,113 @@
+     1 (* compute default states *)
+     2 
+     3 (* $Id: Default.md,v 1.2 1991/11/21 14:53:14 grosch rel $ *)
+     4 
+     5 (* $Log: Default.md,v $
+c    6  * Revision 1.2  1991/11/21  14:53:14  grosch
+c    7  * new version of RCS on SPARC
+c    8  *
+c    9  * Revision 1.1  90/06/12  16:54:00  grosch
+c   10  * renamed main program to lalr, added { } for actions, layout improvements
+c   11  * 
+c   12  * Revision 1.0  88/10/04  14:36:09  vielsack
+c   13  * Initial revision
+c   14  * 
+c   15  *)
+    16 
+    17 DEFINITION MODULE Default;                                                    *
+    18 
+    19 FROM Automaton  IMPORT tStateIndex;                                           *     *
+    20 FROM TokenTab   IMPORT Vocabulary;                                            *     *
+    21 FROM Gen        IMPORT tTableLine;                                            *     *
+    22 
+    23 VAR NoDefault : BOOLEAN;                                                      *     *
+    24 
+    25   PROCEDURE CreateDefaultList;                                                *
+    26 
+    27   (* Erzeugen / Initialisieren der Datenstruktur zur Berechnug der Default-
+c   28      zustaende *)
+    29 
+    30 
+    31   PROCEDURE PutInDefaultList                                                  *
+    32     (    ReadState : tStateIndex;                                             *    19
+    33      VAR TableLine : tTableLine);  (* read only *)                            *    21
+    34 
+    35   (* Eintragen der in TableLine enthaltenen Zeile in die Datenstruktur *)
+    36 
+    37   
+    38   PROCEDURE ComputeDefaults;                                                  *
+    39 
+    40   (* Berechnung der variablen Defaultzustaende und entfernen, der dadurch
+c   41   in der Tabelle (Datenstruktur) ueberfluessigen Eintraege *)
+    42 
+    43 
+    44   PROCEDURE GetNextState                                                      *
+    45     ( State : tStateIndex) : tStateIndex;                                     *    19    19
+    46   
+    47   (* Funktion zum weiterschalten des Zustandes nach interner Strategie *)
+    48 
+    49   PROCEDURE GetTSortState                                                     *
+    50     ( State : tStateIndex) : tStateIndex;                                    45    19    19
+    51   
+    52   (* Funktion zum weiterschalten des Zustandes nach interner Strategie *)
+    53 
+    54   PROCEDURE GetNSortState                                                     *
+    55     ( State : tStateIndex) : tStateIndex;                                    50    19    19
+    56   
+    57   (* Funktion zum weiterschalten des Zustandes nach interner Strategie *)
+    58 
+    59 
+    60   PROCEDURE GetDefaultTableLine                                               *
+    61     (    ReadState : tStateIndex;                                            32    19
+    62      VAR TableLine : tTableLine;                                             33    21
+    63      VAR Default   : tStateIndex);                                           17    19
+    64 
+    65   (* Auslesen der durch 'ReadState' bezeichneten Zeile aus der
+c   66      Datenstruktur *)
+    67 
+    68 
+    69 END Default.                                                                 63
+Cross reference: * is declaration, = is assignment
+
+-A-
+ Automaton                       19*
+
+-B-
+ BOOLEAN                         23 
+
+-C-
+ ComputeDefaults                 38*
+ CreateDefaultList               25*
+
+-D-
+ Default                         17*   63*   69*
+
+-G-
+ Gen                             21*
+ GetDefaultTableLine             60*
+ GetNextState                    44*
+ GetNSortState                   54*
+ GetTSortState                   49*
+
+-N-
+ NoDefault                       23*
+
+-P-
+ PutInDefaultList                31*
+
+-R-
+ ReadState                       32*   61*
+
+-S-
+ State                           45*   50*   55*
+
+-T-
+ TableLine                       33*   62*
+ TokenTab                        20*
+ tStateIndex                     19*   32    45    45    50    50    55    55    61    63 
+ tTableLine                      21*   33    62 
+
+-V-
+ Vocabulary                      20*
+
+end cross reference, 36 occurrences of 19 identifiers.

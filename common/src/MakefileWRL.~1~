@@ -1,0 +1,68 @@
+# Modula-2 library:
+LIB	= 
+
+# Dirctories wherein to look for .def files:
+DEFSWRL = /usr/local/defs/wrl
+DEFSGMD = /usr/local/defs/gmd
+
+# Directory wherein to look for WRL Modula-2 compiler passes:
+PASSES  = /usr/wrlm2/m2-mips/lib 
+
+# options for modula compiler
+M2FLAGS = -O -s -v -g -C -B$(PASSES) 
+#-I$(DEFSWRL)
+#-D($LIB)
+
+LIBOBJS = Checks.o DynArray.o Errors.o General.o Heap.o IO.o Idents.o \
+          Layout.o Lists.o Main.o Memory.o Positions.o Relations.o \
+          Sets.o SetsC.o Sort.o Source.o StdIO.o StringMem.o Strings.o \
+          Texts.o Times.o 
+
+UNIX = UNIX
+CFLAGS	= $(OPT) -D$(UNIX)
+CC	= cc
+COBJS = System.o Arguments.o
+       	 
+DRVOBJS = DynArrDrv.o IODrv.o MemoryDrv.o RelDrv.o SetsDrv.o SysIODrv.o 
+        
+OBJS = $(LIBOBJS) $(DRVOBJS)
+ 
+.SUFFIXES :  
+.SUFFIXES : .def .mod .c .o 
+
+.c.o:
+	$(CC) $(CFLAGS) -c $*.c;
+ 
+.def.mod : 
+	touch $*.mod 
+ 
+.mod.o :
+	mod -c $(M2FLAGS) $*.mod 
+ 
+all : Main drivers
+ 
+Main : $(LIBOBJS) $(COBJS)
+	mod -o Main $(M2FLAGS) -m"$(M2FLAGS)" $(LIBOBJS) $(COBJS) 
+
+drivers : DynArrayDrv IODrv MemoryDrv RelDrv SetsDrv SysIODrv
+ 
+DynArrayDrv : $(LIBOBJS) DynArrayDrv.o
+	mod -o DynArrayDrv $(M2FLAGS) -m$(M2FLAGS) DynArrayDrv.o
+ 
+IODrv : $(LIBOBJS) IODrv.o
+	mod -o IODrv $(M2FLAGS) -m$(M2FLAGS) IODrv.o
+ 
+MemoryDrv : $(LIBOBJS) MemoryDrv.o
+	mod -o MemoryDrv $(M2FLAGS) -m$(M2FLAGS) MemoryDrv.o 
+ 
+RelDrv : $(LIBOBJS) RelDrv.o
+	mod -o RelDrv $(M2FLAGS) -m$(M2FLAGS) RelDrv.o
+ 
+SetsDrv : $(LIBOBJS) SetsDrv.o
+	mod -o SetsDrv $(M2FLAGS) -m$(M2FLAGS) SetsDrv.o 
+ 
+SysIODrv : $(LIBOBJS) SysIODrv.o
+	mod -o SysIODrv $(M2FLAGS) -m$(M2FLAGS) SysIODrv.o
+ 
+CLEAN	:	; rm -f core *.def *.mod *.o 
+ 

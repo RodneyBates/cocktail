@@ -1,0 +1,284 @@
+     1 (* error listing *)
+     2 
+     3 (* $Id: Listing.mi,v 1.3 1991/11/21 14:47:50 grosch rel $ *)
+     4 
+     5 (* $Log: Listing.mi,v $
+c    6  * Revision 1.3  1991/11/21  14:47:50  grosch
+c    7  * new version of RCS on SPARC
+c    8  *
+c    9  * Revision 1.2  90/06/11  18:45:03  grosch
+c   10  * layout improvements
+c   11  * 
+c   12  * Revision 1.1  89/01/23  15:46:50  vielsack
+c   13  * fixed bug in handling no position
+c   14  * 
+c   15  * Revision 1.0  88/10/04  14:26:50  vielsack
+c   16  * Initial revision
+c   17  * 
+c   18  *)
+    19 
+    20 IMPLEMENTATION MODULE Listing;                                                *     *
+    21 
+    22 FROM    IO              IMPORT  StdInput,       StdError,       tFile,        *     *     *     *
+    23                                 EndOfFile,      WriteNl,        WriteC;       *     *     *
+    24 FROM    Memory          IMPORT  Alloc,          Free;                         *     *     *
+    25 FROM    Strings         IMPORT  tString,        ReadL,          WriteL;       *     *     *     *
+    26 FROM    SYSTEM          IMPORT  ADDRESS,        TSIZE;                        *     *     *
+    27 
+    28 
+    29 CONST
+    30   ColFlag  = '^';                                                             *
+    31   LineFlag = '@';                                                             *
+    32 
+    33 TYPE
+    34   tErrPtr  =  POINTER TO tErrElmt;                                            *     *
+    35   tErrElmt =  RECORD                                                          *
+    36                 code, class, line, column, infcl   : SHORTCARD;               *     *     *     *     *     *
+    37                 info    : ADDRESS;                                            *    26
+    38                 next    : tErrPtr;                                            *    34
+    39               END;
+    40 
+    41 VAR
+    42   start, stop, last, read: tErrPtr;                                           *     *     *     *    34
+    43   SourceLine : SHORTCARD;                                                     *     *
+    44 
+    45 PROCEDURE PutError (Code,Class,Line,Column,InfoClass: CARDINAL; Info: ADDRESS);     *     *     *     *     *     *     *
+                                                                                     *    26
+    46   VAR err : tErrPtr;                                                          *    34
+    47   BEGIN
+    48     err := Alloc (TSIZE (tErrElmt));                                         46    24    26    35
+    49     IF Line = 0 THEN Line := MAX (SHORTCARD) END;                            45    45     *     *
+    50     WITH err^ DO                                                             46
+    51       code    := Code;                                                       36    45
+    52       class   := Class;                                                      36    45
+    53       line    := Line;                                                       36    45
+    54       column  := Column;                                                     36    45
+    55       infcl   := InfoClass;                                                  36    45
+    56       info    := Info;                                                       37    45
+    57     END;
+    58 
+    59     IF start = NIL THEN                                                      42     *
+    60                                                  (* list is emty *)
+    61       start := err;                                                          42    46
+    62       read  := err;                                                          42    46
+    63       stop  := err;                                                          42    46
+    64       err^.next := NIL;                                                      46    38     *
+    65       last  := err;                                                          42    46
+    66 
+    67     ELSIF (Line < start^.line) OR                                            45    42    36
+    68     (  (Line = start^.line) & (Column < start^.column) ) THEN                45    42    36    45    42    36
+    69                                                 (* insert before start *)
+    70       err^.next := start;                                                    46    38    42
+    71       start := err;                                                          42    46
+    72       read  := err;                                                          42    46
+    73     
+    74     ELSE                                
+    75       IF (Line > stop^.line) OR                                              45    42    36
+    76       (  (Line = stop^.line) & (Column >= stop^.column)  )  THEN             45    42    36    45    42    36
+    77                                                 (* insert after stop    *)
+    78         last := stop;                                                        42    42
+    79         stop := err;                                                         42    46
+    80       ELSIF (Line > last^.line) OR                                           45    42    36
+    81       (  (Line = last^.line) & (Column >= last^.column)  )  THEN             45    42    36    45    42    36
+    82                                                 (* insert after last    *)
+    83         ;
+    84       ELSE
+    85                                                 (* insert after start   *)
+    86         last := start;                                                       42    42
+    87       END;
+    88 
+    89 
+    90       WHILE (last^.next # NIL) &                                             42    38     *
+    91        (   (Line > last^.next^.line) OR                                      45    42    38    36
+    92          ( (Line = last^.next^.line) & (Column >= last^.next^.column) )  ) DO      45    42    38    36    45    42    38
+                                                                                    36
+    93                                                 (* find exact position *)
+    94         last := last^.next;                                                  42    42    38
+    95       END;
+    96 
+    97       err^.next := last^.next;                                               46    38    42    38
+    98       last^.next := err;                                                     42    38    46
+    99       last := err;                                                           42    46
+   100     END;
+   101   END PutError;                                                              45
+   102 
+   103 PROCEDURE HasError (): BOOLEAN;                                               *     *
+   104   VAR Buf : tString;                                                          *    25
+   105   BEGIN
+   106     IF start = NIL THEN                                                      42     *
+   107       IF ListMode = Listing THEN                                              *    20
+   108         WHILE NOT EndOfFile (SourceFile) DO                                  23     *
+   109           ReadL (SourceFile, Buf);                                           25     *   104
+   110           WriteL (ListFile, Buf);                                            25     *   104
+   111         END;
+   112         WriteC (ListFile, LineFlag);                                         23     *    31
+   113       END;
+   114     END;
+   115     RETURN start # NIL;                                                      42     *
+   116   END HasError;                                                             103
+   117 
+   118 PROCEDURE GetError (VAR Code,Class,Line,Column,InfoClass: CARDINAL; VAR Info: ADDRES\     *    45    45    45    45    45
+                                                                                     *    45
+      \S);                                                                          26
+   119   VAR
+   120     Next : tErrPtr;                                                           *    34
+   121     col  : SHORTCARD;                                                         *     *
+   122     Buf : tString;                                                          104    25
+   123   BEGIN
+   124     WITH start^ DO                                                           42
+   125       Code       := code;                                                   118    36
+   126       Class      := class;                                                  118    36
+   127       Line       := line;                                                   118    36
+   128       Column     := column;                                                 118    36
+   129       InfoClass  := infcl;                                                  118    36
+   130       Info       := info;                                                   118    37
+   131       Next       := next;                                                   120    38
+   132     END;
+   133 
+   134     Free (TSIZE (tErrElmt), start);                                          24    26    35    42
+   135 
+   136     IF ListMode = Listing THEN                                                *    20
+   137       IF read = start THEN                                                   42    42
+   138         LOOP
+   139           IF EndOfFile (SourceFile) THEN EXIT END;                           23     *
+   140           IF SourceLine >= Line THEN EXIT END;                               43   118
+   141           ReadL (SourceFile, Buf);                                           25     *   122
+   142           WriteL (ListFile, Buf);                                            25     *   122
+   143           INC (SourceLine);                                                   *    43
+   144         END;
+   145         WriteC (ListFile, LineFlag);                                         23     *    31
+   146         col := 2;                                                           121
+   147         WHILE (read # NIL) & (read^.line = Line) DO                          42     *    42    36   118
+   148           WHILE (col < read^.column) DO                                     121    42    36
+   149             WriteC (ListFile, ' ');                                          23     *
+   150             INC (col);                                                        *   121
+   151           END;
+   152           IF col = read^.column THEN                                        121    42    36
+   153             WriteC (ListFile, ColFlag);                                      23     *    30
+   154             INC (col);                                                        *   121
+   155           END;
+   156           read := read^.next;                                                42    42    38
+   157         END;
+   158         WriteNl (ListFile);                                                  23     *
+   159       END;
+   160       WriteC (ListFile, LineFlag);                                           23     *    31
+   161     END;
+   162 
+   163     IF last = start THEN                                                     42    42
+   164       last := Next;                                                          42   120
+   165     END;
+   166 
+   167     IF stop = start THEN                                                     42    42
+   168       stop := Next;                                                          42   120
+   169     END;
+   170 
+   171     start := Next;                                                           42   120
+   172     IF Line = MAX (SHORTCARD) THEN Line := 0; END;                          118     *     *   118
+   173   END GetError;                                                             118
+   174 
+   175 BEGIN
+   176   start := NIL;                                                              42     *
+   177   read  := NIL;                                                              42     *
+   178   stop  := NIL;                                                              42     *
+   179   last  := NIL;                                                              42     *
+   180   SourceFile := StdInput;                                                     *    22
+   181   ListFile := StdError;                                                       *    22
+   182   ListMode := NoListing;                                                      *     *
+   183   SourceLine := 0;                                                           43
+   184 END Listing.                                                                 20
+Cross reference: * is declaration, = is assignment
+
+-A-
+ ADDRESS                         26*   37    45   118 
+ Alloc                           24*   48 
+
+-B-
+ BOOLEAN                        103 
+ Buf                            104*  109   110   122*  141   142 
+
+-C-
+ CARDINAL                        45   118 
+ Class                           45*   52   118*  126=
+ class                           36*   52=  126 
+ Code                            45*   51   118*  125=
+ code                            36*   51=  125 
+ col                            121*  146=  148   150   152   154 
+ ColFlag                         30*  153 
+ Column                          45*   54    68    76    81    92   118*  128=
+ column                          36*   54=   68    76    81    92   128   148   152 
+
+-E-
+ EndOfFile                       23*  108   139 
+ err                             46*   48=   50    61    62    63    64=   65    70=   71    72    79    97=   98    99 
+
+-F-
+ Free                            24*  134 
+
+-G-
+ GetError                       118*  173 
+
+-H-
+ HasError                       103*  116 
+
+-I-
+ IMPLEMENTATION                  20*
+ INC                            143   150   154 
+ infcl                           36*   55=  129 
+ Info                            45*   56   118*  130=
+ info                            37*   56=  130 
+ InfoClass                       45*   55   118*  129=
+ IO                              22*
+
+-L-
+ last                            42*   65=   78=   80    81    81    86=   90    91    92    92    94=   94    97    98=   99=  163 
+                                164=  179=
+ Line                            45*   49    49=   53    67    68    75    76    80    81    91    92   118*  127=  140   147   172 
+                                172=
+ line                            36*   53=   67    68    75    76    80    81    91    92   127   147 
+ LineFlag                        31*  112   145   160 
+ ListFile                       110   112   142   145   149   153   158   160   181=
+ Listing                         20*  107   136   184 
+ ListMode                       107   136   182=
+
+-M-
+ MAX                             49   172 
+ Memory                          24*
+
+-N-
+ Next                           120*  131=  164   168   171 
+ next                            38*   64=   70=   90    91    92    92    94    97=   97    98=  131   156 
+ NIL                             59    64    90   106   115   147   176   177   178   179 
+ NoListing                      182 
+
+-P-
+ PutError                        45*  101 
+
+-R-
+ read                            42*   62=   72=  137   147   147   148   152   156=  156   177=
+ ReadL                           25*  109   141 
+
+-S-
+ SHORTCARD                       36    43    49   121   172 
+ SourceFile                     108   109   139   141   180=
+ SourceLine                      43*  140   143   183=
+ start                           42*   59    61=   67    68    68    70    71=   86   106   115   124   134   137   163   167   171=
+                                176=
+ StdError                        22*  181 
+ StdInput                        22*  180 
+ stop                            42*   63=   75    76    76    78    79=  167   168=  178=
+ Strings                         25*
+ SYSTEM                          26*
+
+-T-
+ tErrElmt                        34    35*   48   134 
+ tErrPtr                         34*   38    42    46   120 
+ tFile                           22*
+ TSIZE                           26*   48   134 
+ tString                         25*  104   122 
+
+-W-
+ WriteC                          23*  112   145   149   153   160 
+ WriteL                          25*  110   142 
+ WriteNl                         23*  158 
+
+end cross reference, 289 occurrences of 58 identifiers.

@@ -1,0 +1,1204 @@
+     1 (* Ich, Doktor Josef Grosch, Informatiker, 4.3.1992 *)
+     2 
+     3 (* Modified, Rodney M. Bates: 
+c    4 
+c    5    10-1998: Added colons to labels. 
+c    6    July 99 Add VAR to rule local decls. 
+c    7 
+c    8 *)
+     9 
+    10 TRAFO EvalMod3                                                                *     *
+    11 TREE Tree                                                                     *     *
+    12 PUBLIC EvalImplMod ToBit0                                                     *     *     *
+    13 
+    14 GLOBAL {                                                                      *
+    15 
+    16 FROM SYSTEM     IMPORT ADR, TSIZE;                                            *     *     *     *     *
+    17 FROM General    IMPORT Max;                                                  16     *    16     *
+    18 FROM DynArray   IMPORT MakeArray;                                            17     *    17     *
+    19 FROM IO         IMPORT WriteS, WriteNl, WriteI, WriteB, StdOutput;           18     *    18     *     *     *     *     *
+    20 FROM Texts      IMPORT WriteText;                                            19     *    19     *
+    21 FROM Sets       IMPORT tSet, MakeSet, ReleaseSet, Include, Exclude, Minimum,       20     *    20     *     *     *     *
+                                                                                     *     *
+    22                         Maximum, IsElement, WriteSet, IsEmpty, Extract;       *     *     *     *     *
+    23 FROM Relations  IMPORT IsRelated;                                            21     *    21     *
+    24 FROM TreeMod1   IMPORT BSS;                                                  23     *    23     *
+    25 FROM TreeMod2   IMPORT GetIterator, Iterator, WriteLine;                     24     *    24     *     *     *
+    26 FROM EvalMod    IMPORT Class;                                                25     *    25     *
+    27 FROM Errors     IMPORT Error, Short, MessageI;                               26     *    26     *     *     *
+    28 FROM Positions  IMPORT NoPosition;                                           27     *    27     *
+    29 IMPORT EvalMod;                                                              28    26
+    30 
+    31 FROM Tree       IMPORT                                                       28    11    29
+    32    NoTree       , tTree         , Referenced    , NoCodeClass   ,             *     *     *     *
+    33    Computed     , Reverse       , Write         , Read          ,             *     *     *     *
+    34    Inherited    , Synthesized   , Input         , Output        ,             *     *     *     *
+    35    Virtual      , Test          , Left          , Right         ,             *     *     *     *
+    36    HasOutput    , NonBaseComp   , Dummy         , Trace         ,             *     *     *     *
+    37    Demand       , Funct         , NoClass       , Options       ,             *     *     *     *
+    38    TreeRoot     , iModule       , iMain         , itTree        ,             *     *     *     *
+    39    ForallClasses, ForallAttributes, f           , WI    , WN    ,             *     *     *     *     *
+    40    ClassCount   , IdentifyClass , IdentifyAttribute,                          *     *     *
+    41    tBitIndex    , tBitInfo      , iNoTree       , QueryTree     ;             *     *     *     *
+    42 
+    43 VAR                                                                           *
+    44    i, i2, j, k, n, MaxBit, MaxInstCount, Check: SHORTCARD;                    *     *     *     *     *     *     *     *
+                                                                                     *
+    45    Node, Attr, ChildsClass      : tTree;                                      *     *     *    32
+    46    Success, IsStable            : BOOLEAN;                                    *     *     *
+    47    BitIndexSize                 : LONGINT;                                    *     *
+    48    gBitIndex                    : tBitIndex;                                  *    41
+    49    InhIndices                   : tSet;                                       *    21
+    50    InhIndexSize                 : LONGINT;                                    *    47
+    51    InhIndexCount                : POINTER TO ARRAY [1..1000000] OF SHORTCARD;       *     *     *     *     *    44
+    52 
+    53 PROCEDURE GenCall (t: tTree; j: SHORTCARD);                                   *     *     *    45    44    51
+    54    BEGIN                                                                      *
+    55       WITH t^.Class.Instance^ [j] DO                                          *    53    26     *    53     *
+    56          IF ({Synthesized, Left} <= Properties) THEN                          *    34    35     *     *
+    57             k := ToBit0 (t, j);                                              44    12    55    55
+    58             !IFNOTIN (! WN (k MOD BSS); !, yyt^.yyHead.yyIsComp! WN (k DIV BSS); !) \     *    39    57     *    24     *
+                                                                                     *     *     *     *     *     *
+      \! 
+    59             !yyS! WN (k); ! (yyt); (* ! WI (Attribute^.Child.Name); ! *) END;!      *    58    58    58     *
+    60          ELSIF ({Inherited, Left} <= Properties) THEN                         *    34    56    56    56
+    61             k := ToBit0 (t, j);                                              59    57    57    57
+    62             !IFNOTIN (! WN (k MOD BSS); !, yyt^.yyHead.yyIsComp! WN (k DIV BSS); !) \    58    59    61    58    58    59
+                                                                                    58    58     *     *    58     *
+      \! 
+    63    IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN       56    22     *    37     *    36     *
+                                                                                    61    55    60    60
+    64             !yyVisitParent (yyt); !                                           *    62
+    65             !yyI [yyt^.yyHead.yyOffset + ! WN (k); !](yyt^.yyHead.yyParent); (* !         *    64    62     *    62    62
+                                                                                     *     *     *
+c   66             WI (Attribute^.Child.Name); ! *) ! 
+    67             @yyWriteVisit (yyt^.yyHead.yyParent, "?"); END;@                  *    65    65    65    59
+    68    ELSE                                                                       *
+    69             !yyI [yyt^.yyHead.yyOffset + ! WN (k); !](yyt^.yyHead.yyParent); (* !        65    67    67    65    65    65
+                                                                                     *     *    67
+c   70             WI (Attribute^.Child.Name); ! *) END;!                           67
+    71    END;                                                                      70
+    72          ELSIF ({Inherited, Right} <= Properties) THEN                       60    60    35    63    63
+    73             k := ToBit1 (Selector, j - t^.Class.AttrCount - Selector^.Child.InstOffs\    69     *     *    61    63    63
+                                                                                     *     *     *
+      \et);                                                                          *
+    74             !IFNOTIN (! WN (k MOD BSS); !, yyt^.! WI (Class^.Class.Name);    62    69    73    62    62    69    39    73
+                                                                                     *     *
+    75             !.! WI (Selector^.Child.Name); !^.yyHead.yyIsComp! WN (k DIV BSS); !) !      74    73    73    74    69    62
+                                                                                    74    74    62    74
+    76             k := ToBit2 (t, Selector, j);                                    75     *    73    75    73
+    77             !yyI! WN (k); ! (yyt); (* ! WI (Selector^.Child.Name);           69    75    76    74
+c   78             !:! WI (Attribute^.Child.Name); ! *) END;!                       71
+    79          ELSIF ({Synthesized, Right} <= Properties) THEN                     72    56    72    72    72
+    80             k := ToBit1 (Selector, j - t^.Class.AttrCount - Selector^.Child.InstOffs\    77    73    76    76    76    74
+                                                                                    73     *    75
+      \et);                                                                         73
+    81             !IFNOTIN (! WN (k MOD BSS); !, yyt^.! WI (Class^.Class.Name);    74    77    80    74    75    77    75    80
+                                                                                     *    75
+    82             !.! WI (Selector^.Child.Name); !^.yyHead.yyIsComp! WN (k DIV BSS); !) !      81    80    80    81    75    75
+                                                                                    81    81    75    81
+    83    IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN       63    63    63    63    63    63    63
+                                                                                    80    81    79    79
+    84             @yyWriteVisit (yyt, "@ WI (Selector^.Child.Name); @"); @         67    81
+    85             !yyS! WN (k);                                                    59    82    82
+    86             ! (yyt^.! WI (Class^.Class.Name); !.! WI (Selector^.Child.Name);       84    82    83     *    82     *    82
+                                                                                    82     *
+    87             !); (* ! WI (Selector^.Child.Name); !:! WI (Attribute^.Child.Name); ! *)\
+      \ ! 
+    88             !yyVisitParent (yyt^.! WI (Class^.Class.Name); !.! WI (Selector^.Child.N\    64    86    86    86     *    86
+                                                                                     *    86    86
+      \ame); !); END;!                                                               *    78
+    89    ELSE                                                                      68
+    90             !yyS! WN (k);                                                    85    85    85
+    91             ! (yyt^.! WI (Class^.Class.Name); !.! WI (Selector^.Child.Name);       88    88    88     *    88     *    88
+                                                                                    88     *
+    92             !); (* ! WI (Selector^.Child.Name); !:! WI (Attribute^.Child.Name); ! *)\
+      \ END;!                                                                       88
+    93    END;                                                                      92
+    94          END;                                                                93
+    95       END;                                                                   94
+    96    END GenCall;                                                              95    53
+    97 
+    98 PROCEDURE GenEvalAttr (t: tTree; i: INTEGER);                                53     *    83    53    44     *
+    99    BEGIN                                                                     54
+   100       Class := t;                                                            91    98
+   101       WITH t^.Class.Instance^ [i] DO                                         55   100   100    55    98    55
+   102    IF IsElement (ORD ('X'), Options) AND (Trace IN t^.Class.Properties) THEN       83    83    83    83    83    83    83
+                                                                                   101   101    83    83
+   103          @yyWriteEval (yyt, "@ WI (Attribute^.Child.Name); @");@              *    91
+   104          IF (Action # ADR (Action)) AND NOT (Virtual IN Properties) THEN    102     *    16     *   102     *    35   102
+                                                                                   102   102
+   105             GenEvaluator (Action);                                            *   104
+   106             EvalMod.GenEvaluator (Action); !!                                29   105   105
+   107             IF Test IN Properties THEN                                      104    35   104   104   104
+   108                !writeBOOLEAN (yyb) yyWriteNl;!                                *     *     *
+   109             ELSIF (Attribute^.Kind = Tree.Child) OR (Attribute^.Attribute.Type = itT\    79     *     *    31    91     *
+                                                                                     *     *     *
+      \ree) THEN                                                                    38   107
+   110                !write! WI (itTree);                                           *    91   109
+   111                ! (yyt^.! WI (t^.Class.Name); !.! WI (Attribute^.Child.Name); !)!        103   110   102   102    91     *
+                                                                                   109   109     *
+   112             ELSE                                                             89
+   113                !write! WI (Attribute^.Child.Type);                          110   111   111   111   109
+   114                ! (yyt^.! WI (t^.Class.Name); !.! WI (Attribute^.Child.Name); !) yyWr\   111   113   111   111   111     *
+                                                                                   113   113     *
+      \iteNl;!                                                                     108
+   115             END;                                                             96
+   116          ELSE                                                               112
+   117             !yyWriteNl;!                                                    114
+   118          END;                                                               115
+   119    ELSIF IsElement (ORD ('Y'), Options) AND (Trace IN t^.Class.Properties) THEN   109   102   102   102   104   102   107
+                                                                                   114   114   107   109
+   120          @yyWriteEval (yyt, "@ WI (Attribute^.Child.Name); @");@            103   114
+   121          IF (Action # ADR (Action)) AND NOT (Virtual IN Properties) THEN    107   106   104     *   119   104   104   119
+                                                                                   119   119
+   122             GenEvaluator (Action);                                          106   121
+   123             EvalMod.GenEvaluator (Action);                                  106   122   122
+   124          END;                                                               118
+   125    ELSE                                                                     116
+   126          IF (Action # ADR (Action)) AND NOT (Virtual IN Properties) THEN    121   123   121     *   121   121   121   121
+                                                                                   121   121
+   127             GenEvaluator (Action);                                          123   126
+   128             EvalMod.GenEvaluator (Action);                                  123   127   127
+   129          END;                                                               124
+   130    END;                                                                     129
+   131       END;                                                                  130
+   132    END GenEvalAttr;                                                         131    98
+   133 }
+   134 
+   135 PROCEDURE EvalImplMod (t: Tree)                                              98    12   119   109
+   136         
+   137 Ag (..) :- {                                                                  *
+   138         MaxBit := 0;                                                         44
+   139         MaxInstCount := 0;                                                   44
+   140         ForallClasses (Classes, CompBitInfo);                                39     *     *
+   141         MakeSet (InhIndices, MaxInstCount);                                  21    49   139
+   142         InhIndexSize := MaxInstCount;                                        50   141
+   143         MakeArray (InhIndexCount, InhIndexSize, TSIZE (SHORTCARD));          18    51   142    16    53
+   144         FOR i := 1 TO MaxInstCount DO InhIndexCount^ [i] := 0; END;           *   101    51   142   101   143     *   132
+   145         ForallClasses (Classes, CompInhIndices);                            140   140     *
+   146         !# define IFNOTIN(b, s) IF NOT (b IN s) THEN!                         *    81     *     *   126   126     *   126
+                                                                                     *   126
+   147         !# define REMOTE_SYN(i, b, c, n, t, a) n^.t.a!                      146     *   144   146     *    44   135     *
+                                                                                     *     *     *
+   148         !# define REMOTE_INH(i, b, k, n, t, a) n^.t.a!                      147     *   147   147    90   147   147   147
+                                                                                     *     *     *
+   149         EvalMod.EvalImplHead (t);                                           128     *   148
+   150         !!
+   151         !VAR yyI: ARRAY [0..! WN (Maximum (InhIndices)); !] OF ! WI (iMain); !.tProc\    43    77    51    90    22   141
+                                                                                    51   114    38
+      \Tree;!                                                                        *
+   152         !!
+   153         !PROCEDURE yyAbort (yyt: ! WI (iMain); !.! WI (itTree); !);!        135     *   120   151   151     *   110
+   154         ! BEGIN!                                                             99
+   155         !  IO.WriteS (IO.StdError, 'Error: module ! WI (EvalName); !, cyclic depende\    19    19     *     *
+      \ncies');!
+   156         !  IO.WriteNl (IO.StdError);!                                       155    19     *   155
+   157         !  IO.CloseIO;!                                                     156     *
+   158         !  ! WI (iMain); !.yyExit;!                                         153   153     *
+   159         ! END yyAbort;!                                                     144   153
+   160         !!
+   161       IF NOT IsElement (ORD ('9'), Options) THEN                            146   146   119   119   119   146
+   162         !!
+   163         !PROCEDURE Eval (yyt: ! WI (iMain); !.! WI (itTree); !);!           153     *   153   158   158     *   153
+   164         ! BEGIN ! WI (iMain); !.Init! WI (iModule); ! (yyt); yyE (yyt); END Eval;!      154   163   163     *     *    38
+                                                                                   163     *     *   159   163
+   165       ELSE                                                                  125
+   166         !!
+   167         !VAR xxStack: CARDINAL;!                                            151     *     *
+   168         !!
+   169         !PROCEDURE Eval (yyt: ! WI (iMain); !.! WI (itTree); !);!           163   164   164   164   164     *   163
+   170         ! VAR xxHigh: BOOLEAN;!                                             167     *    46
+   171         ! BEGIN!                                                            164
+   172         !  xxStack := MAX (INTEGER);!                                       167     *    98
+   173         !  ! WI (iMain); !.Init! WI (iModule); ! (yyt); yyE (yyt);!         169   169   164     *   164   169   164     *
+   174         !  IO.WriteS (IO.StdOutput, 'Stacksize ');!                         157   155     *    19
+   175         !  IO.WriteI (IO.StdOutput, CARDINAL (SYSTEM.ADR (xxHigh)) - xxStack, 0);!      174    19     *   174   167    16
+                                                                                   126   170   172
+   176         !  IO.WriteNl (IO.StdOutput);!                                      175   156     *   175
+   177         ! END Eval;!                                                        164   169
+   178       END;                                                                  177
+   179         !!
+   180         REPEAT IsStable := TRUE; ForallClasses (Classes, CompOutput); UNTIL IsStable\     *    46     *   145   145     *
+                                                                                     *     *
+      \;
+   181         !PROCEDURE yyE (yyt: ! WI (iMain); !.! WI (itTree); !);!            169   173   173   173   173     *   169
+   182         WriteLine (TreeRoot^.Ag.EvalCodes^.Codes.LocalLine);                 25    38   137     *     *     *
+   183         WriteText (f, TreeRoot^.Ag.EvalCodes^.Codes.Local);                  20    39   182   182   182   182     *
+   184         Node := TreeRoot^.Ag.Modules;                                        45   183   183     *
+   185         WHILE Node^.Kind = Tree.Module DO                                     *   184   109   135     *   144
+   186            WriteLine (Node^.Module.EvalCodes^.Codes.LocalLine);             182   185   185   183   183   182
+   187            WriteText (f, Node^.Module.EvalCodes^.Codes.Local);              183   183   186   186   186   186   183
+   188            Node := Node^.Module.Next;                                       187     *   187     *
+   189         END;                                                                178
+   190       IF IsElement (ORD ('9'), Options) THEN                                161   161   161   161   161
+   191         ! VAR xxLow: BOOLEAN;!                                              170     *   170
+   192         ! BEGIN!                                                            171
+   193         !  xxStack := General.Min (xxStack, CARDINAL (SYSTEM.ADR (xxLow)));!      175    17     *     *   175   175   175
+                                                                                   191
+   194       ELSE                                                                  165
+   195         ! BEGIN!                                                            192
+   196       END;                                                                  189
+   197         !  LOOP!                                                              *
+   198         !   IF (yyt = ! WI (iMain); !.! WI (iNoTree); !) OR (0 IN yyt^.yyHead.yyIsCo\   190   181   181   181     *    41
+                                                                                   109   146     *    82
+      \mp0) THEN RETURN; END;!                                                       *   190     *   196
+   199         !   INCL (yyt^.yyHead.yyIsComp0, 0);!                                 *   198   198   198
+   200         !   CASE yyt^.Kind OF!                                                *   199   185   151
+   201         ForallClasses (Classes, GenE);                                      180   180     *
+   202         !   ELSE RETURN;!                                                   194   198
+   203         !   END;!                                                           198
+   204         !  END;!                                                            203
+   205         ! END yyE;!                                                         204   181
+   206         !!
+   207         FOR i := 2 TO MaxBit DO                                             144   148   144   138   185
+   208            n := 0;                      (* are there any SYN attributes ? *)      148
+   209            ForallClasses (Classes, CountSynAttr);                           201   201     *
+   210            IF n > 0 THEN                                                    198   208   198
+   211               !PROCEDURE yyS! WN (i - 1); ! (yyt: ! WI (iMain); !.! WI (itTree); !);\   181    90   151   207   200   198
+                                                                                   198     *   181
+      \!
+   212               WriteLine (TreeRoot^.Ag.EvalCodes^.Codes.LocalLine);          186   184   184   187   187   186
+   213               WriteText (f, TreeRoot^.Ag.EvalCodes^.Codes.Local);           187   187   212   212   212   212   187
+   214               Node := TreeRoot^.Ag.Modules;                                 188   213   213   184
+   215               WHILE Node^.Kind = Tree.Module DO                             185   214   200   185   188   207
+   216                  WriteLine (Node^.Module.EvalCodes^.Codes.LocalLine);       212   215   215   213   213   212
+   217                  WriteText (f, Node^.Module.EvalCodes^.Codes.Local);        213   213   216   216   216   216   213
+   218                  Node := Node^.Module.Next;                                 217     *   217   188
+   219               END;                                                          205
+   220       IF IsElement (ORD ('9'), Options) THEN                                210   190   190   190   210
+   221               ! VAR xxLow: BOOLEAN;!                                        191   193   191
+   222               ! BEGIN!                                                      195
+   223               !  xxStack := General.Min (xxStack, CARDINAL (SYSTEM.ADR (xxLow)));!      193   193   193     *   193   193
+                                                                                   193   221
+   224       ELSE                                                                  202
+   225               ! BEGIN!                                                      222
+   226       END;                                                                  219
+   227       IF IsElement (ORD ('5'), Options) THEN                                220   220   220   220   220
+   228               ! IFNOTIN (! WN ((i - 1) MOD BSS); !, yyt^.yyHead.yyIsDone! WN ((i - 1\   146   211   211    81    82   211
+                                                                                   199     *     *     *
+      \) DIV BSS);                                                                  82     *
+   229               !) INCL (yyt^.yyHead.yyIsDone! WN ((i - 1) DIV BSS); !, ! WN ((i - 1) \   199   228   228   228   228   228
+                                                                                   228   228     *     *
+      \MOD BSS); !); ELSE yyAbort (yyt); END;!                                     228     *   224   159     *   226
+   230       END;                                                                  229
+   231               IF n > 1 THEN                                                 227   210   227
+   232                  !  CASE yyt^.Kind OF!                                      200   229   215   200
+   233                  ForallClasses (Classes, GenS);                             209   209     *
+   234                  !  END;!                                                   230
+   235               ELSE                                                          229
+   236                  ForallClasses (Classes, GenS);                             233   233   233
+   237               END;                                                          234
+   238               !  INCL (yyt^.yyHead.yyIsComp! WN ((i - 1) DIV BSS); !, ! WN ((i - 1) \   229   232   229    82   229   229
+                                                                                   229   229     *     *
+      \MOD BSS); !);!                                                              229     *
+   239               ! END yyS! WN (i - 1); !;!                                    237   211   238   238
+   240               !!
+   241            END;                                                             239
+   242         END;                                                                241
+   243         FOR i := Minimum (InhIndices) TO Maximum (InhIndices) DO            207   239    21   151   207   151     *   215
+   244            IF IsElement (i, InhIndices) THEN                                231   227   243   243   231
+   245               !PROCEDURE yyI! WN (i); ! (yyt: ! WI (iMain); !.! WI (itTree); !);!       211   151   239   244   238   211
+                                                                                   211     *   211
+   246               WriteLine (TreeRoot^.Ag.EvalCodes^.Codes.LocalLine);          216   214   214   217   217   216
+   247               WriteText (f, TreeRoot^.Ag.EvalCodes^.Codes.Local);           217   217   246   246   246   246   217
+   248               Node := TreeRoot^.Ag.Modules;                                 218   247   247   214
+   249               WHILE Node^.Kind = Tree.Module DO                             215   248   232   215   218   243
+   250                  WriteLine (Node^.Module.EvalCodes^.Codes.LocalLine);       246   249   249   247   247   246
+   251                  WriteText (f, Node^.Module.EvalCodes^.Codes.Local);        247   247   250   250   250   250   247
+   252                  Node := Node^.Module.Next;                                 251     *   251   218
+   253               END;                                                          242
+   254       IF IsElement (ORD ('9'), Options) THEN                                244   244   227   227   244
+   255               ! VAR xxLow: BOOLEAN;!                                        221   223   221
+   256               ! BEGIN!                                                      225
+   257               !  xxStack := General.Min (xxStack, CARDINAL (SYSTEM.ADR (xxLow)));!      223   223   223     *   223   223
+                                                                                   223   255
+   258       ELSE                                                                  235
+   259               ! BEGIN!                                                      256
+   260       END;                                                                  253
+   261               Check := 0;                                                    44
+   262               IF InhIndexCount^ [i] > 1 THEN                                254   144   245   254
+   263                  !  CASE yyt^.Kind OF!                                      232   245   249   232
+   264                  ForallClasses (Classes, EvalImplMod);                      236   236   135
+   265                  !  END;!                                                   260
+   266               ELSE                                                          258
+   267                  ForallClasses (Classes, EvalImplMod);                      264   264   264
+   268               END;                                                          265
+   269               IF Check # InhIndexCount^ [i] THEN                            262   261   262   262   262
+   270                  MessageI ("internal error in yyI", Error, NoPosition, Short, ADR (i\    27    27    28    27   257   269
+      \));
+   271               END;                                                          268
+   272               ! END yyI! WN (i); !;!                                        271   245   245   270
+   273               !!
+   274            END;                                                             272
+   275         END;                                                                274
+   276         !PROCEDURE Begin! WI (EvalName); !;!                                245     *   245     *
+   277         ! BEGIN!                                                            259
+   278         WriteLine (EvalCodes^.Codes.BeginLine);                             250   251   251     *
+   279         WriteText (f, EvalCodes^.Codes.Begin);                              251   251   278   278   276
+   280         Node := Modules;                                                    252   248
+   281         WHILE Node^.Kind = Tree.Module DO                                   249   280   263   249   252   249
+   282            WriteLine (Node^.Module.EvalCodes^.Codes.BeginLine);             278   281   281   279   279   278
+   283            WriteText (f, Node^.Module.EvalCodes^.Codes.Begin);              279   279   282   282   282   282   279
+   284            Node := Node^.Module.Next;                                       283     *   283   252
+   285         END;                                                                275
+   286         ! END Begin! WI (EvalName); !;!                                     285   283   276   276
+   287         !!
+   288         !PROCEDURE Close! WI (EvalName); !;!                                276     *   286   286
+   289         ! BEGIN!                                                            277
+   290         WriteLine (EvalCodes^.Codes.CloseLine);                             282   283   283     *
+   291         WriteText (f, EvalCodes^.Codes.Close);                              283   283   290   290   288
+   292         Node := Modules;                                                    284   280
+   293         WHILE Node^.Kind = Tree.Module DO                                   281   292   281   281   284   281
+   294            WriteLine (Node^.Module.EvalCodes^.Codes.CloseLine);             290   293   293   291   291   290
+   295            WriteText (f, Node^.Module.EvalCodes^.Codes.Close);              291   291   294   294   294   294   291
+   296            Node := Node^.Module.Next;                                       295     *   295   284
+   297         END;                                                                286
+   298         ! END Close! WI (EvalName); !;!                                     297   295   288   288
+   299         !!
+   300         !BEGIN!                                                             289
+   301       IF IsElement (ORD ('X'), Options) THEN                                269   254   254   254   269
+   302         ! yyf := IO.StdOutput;!                                               *   176   176
+   303       END;                                                                  298
+   304         FOR i := Minimum (InhIndices) TO Maximum (InhIndices) DO            243   272   243   244   243   243     *   293
+   305            IF IsElement (i, InhIndices) THEN                                301   301   304   304   301
+   306               ! yyI [! WN (i); !] := yyI! WN (i); !;!                       272   272   305     *     *     *
+   307            END;                                                             303
+   308         END;                                                                307
+   309         !END ! WI (EvalName); !.!                                           308   298   298
+   310 }; .
+   311 Class (..) :-                                                               119
+   312         NoCodeClass * Properties = {{}};                                     32   126
+   313         i <= InstCount;                                                     306     *
+   314         VAR a : SHORTCARD ;                                                 255   148   143
+   315 {       a := ToAttr (t, i);                                                 314     *   149   313
+   316         IF a = 0 THEN RETURN; END;                                          305   315   305   202   309
+   317         WITH Instance^ [a] DO                                               101   101   316   304
+   318            IF {Inherited, Right} <= Properties THEN                         316    72    79   312   316
+   319               Class := t;                                                   311   315
+   320               IF InhIndexCount^ [i] > 1 THEN                                318   269   315   318
+   321                  !   | ! WI (iMain); !.! WI (Name); !:!                     309   245     *   114
+   322               END;                                                          316
+   323               INC (Check);                                                    *   269
+   324               k := ToBit1 (Selector, a - AttrCount - Selector^.Child.InstOffset);       148    80    91   317    80     *
+                                                                                   114    80
+   325       IF IsElement (ORD ('5'), Options) THEN                                320   305   301   301   320
+   326               ! IFNOTIN (! WN (k MOD BSS); !, yyt^.! WI (Class^.Class.Name);      228   306   324   238   238   263   321
+                                                                                   319     *   321
+   327               !.! WI (Selector^.Child.Name); !^.yyHead.yyIsDone! WN (k DIV BSS);        326   324   324   326   238   229
+                                                                                   326   326   238   326
+   328               !) INCL (yyt^.! WI (Class^.Class.Name); !.! WI (Selector^.Child.Name);    238   326   327   326     *   327
+                                                                                     *   327   327     *
+   329               !^.yyHead.yyIsDone! WN (k DIV BSS); !, ! WN (k MOD BSS); !); ELSE yyAb\   327   327   327   327   327   327
+                                                                                     *     *   326     *   266
+      \ort (yyt); END;!                                                            229   328   322
+   330       END;                                                                  329
+   331               FOR j := 1 TO InstCount DO                                    304    80   304   313   317
+   332                  IF IsRelated (a, j, DP) THEN                               325    23   324   331     *   325
+   333                     GenCall (t, j);                                          96   319   332
+   334                  END;                                                       330
+   335               END;                                                          334
+   336       IF IsElement (ORD ('X'), Options) AND (Trace IN t^.Class.Properties) THEN   332   325   325   325   126   119   198
+                                                                                   333   328   318   332
+   337               @yyWriteEval (yyt, "@ WI (Selector^.Child.Name); !:! WI (Attribute^.Ch\   120   329
+      \ild.Name); @");@
+   338               IF (Action # ADR (Action)) AND NOT (Virtual IN Properties) THEN     336   128   270     *   336   161   126
+                                                                                   336   336   336
+   339                  GenEvaluator (Action);                                     128   338
+   340                  EvalMod.GenEvaluator (Action); !!                          149   339   339
+   341                  IF (Attribute^.Kind = Tree.Child) OR (Attribute^.Attribute.Type = i\   338   114   293   293   328   198
+                                                                                     *     *   113
+      \tTree) THEN                                                                 245   338
+   342                     !write! WI (itTree);                                    113   328   341
+   343                     ! (yyt^.! WI (Name); !.! WI (Selector^.Child.Name);     337   342   328     *   328   341     *
+   344                     !^.! WI (Selector^.Child.Type); !.! WI (Attribute^.Child.Name); \   343   343   343   341     *   341
+                                                                                     *   343
+      \!)!
+   345                  ELSE                                                       329
+   346                     !write! WI (Attribute^.Child.Type);                     342   344   344   344   344
+   347                     ! (yyt^.! WI (Name); !.! WI (Selector^.Child.Name);     343   346   344     *   344   346     *
+   348                     !^.! WI (Selector^.Child.Type); !.! WI (Attribute^.Child.Name); \   347   347   347   346     *   346
+                                                                                     *   347
+      \!) yyWriteNl;!                                                              117
+   349                  END;                                                       335
+   350               ELSE                                                          345
+   351                  !yyWriteNl;!                                               348
+   352               END;                                                          349
+   353       ELSIF IsElement (ORD ('Y'), Options) AND (Trace IN t^.Class.Properties) THEN      119   336   336   336   338   336
+                                                                                   338   336   336   338   341
+   354               @yyWriteEval (yyt, "@ WI (Selector^.Child.Name); !:! WI (Attribute^.Ch\   337   347
+      \ild.Name); @");@
+   355               IF (Action # ADR (Action)) AND NOT (Virtual IN Properties) THEN     341   340   338     *   353   338   338
+                                                                                   353   353   353
+   356                  GenEvaluator (Action);                                     340   355
+   357                  EvalMod.GenEvaluator (Action);                             340   356   356
+   358               END;                                                          352
+   359       ELSE                                                                  350
+   360               IF (Action # ADR (Action)) AND NOT (Virtual IN Properties) THEN     355   357   355     *   355   355   355
+                                                                                   355   355   355
+   361                  GenEvaluator (Action);                                     357   360
+   362                  EvalMod.GenEvaluator (Action);                             357   361   361
+   363               END;                                                          358
+   364       END;                                                                  363
+   365               IF NOT (Input IN Properties) AND (Attribute^.Kind = Tree.Child) THEN      360   360    34   360   360   360
+                                                                                   348   341   341   348   360
+   366                  !WITH yyt^.! WI (Name); !.! WI (Selector^.Child.Name);     317   354   348   348     *   348   365     *
+   367                  !^.! WI (Selector^.Child.Type); !.! WI (Attribute^.Child.Name);        366   366   366   348     *   365
+                                                                                     *   366
+   368                  !^.yyHead DO IF yyParent = ! WI (iMain); !.! WI (iNoTree); ! THEN y\   329   331   365    69   367   321
+                                                                                     *   198   365
+      \yOffset := !                                                                 69
+   369                  WN (Selector^.Child.Class^.Class.BitCount + Attribute^.Child.BitOff\   329   367   367   353     *     *
+                                                                                   367     *
+      \set);                                                                         *
+   370                  !; yyParent := yyt^.! WI (Name); !.! WI (Selector^.Child.Name); !; \   368   366   368   367     *   369
+                                                                                   369     *
+      \!
+   371                  WI (iMain); !.Init! WI (iModule); ! (yyt^.! WI (Name); !.! WI (Sele\   370   368   173     *   173   370
+                                                                                     *   370     *
+      \ctor^.Child.Name);                                                          370   370     *
+   372                  !^.! WI (Selector^.Child.Type); !.! WI (Attribute^.Child.Name); !);\   371   371   371   367     *   369
+                                                                                     *   371
+      \ END; END;!                                                                 364     *
+   373               END;                                                          372
+   374               FOR i2 := 1 TO InstCount DO       (* add group members *)     331    44   331   331   368
+   375                  IF Instance^[i2].Action = Action THEN                      368   317   374   362     *   368
+   376                     WITH Instance^[i2] DO                                   366   375   375   374
+   377                        IF Synthesized IN Properties THEN                    375    79   365   365   375
+   378                           k := ToBit0 (Class, i2);                          329    61   369   376
+   379                           !   INCL (yyt^.yyHead.yyIsComp! WN (k DIV BSS); !, ! WN (k\   328   371   368   238   369   378
+                                                                                   329   329     *     *
+      \ MOD BSS); !);!                                                             329     *
+   380                        ELSIF Inherited IN Properties THEN                   353   318   377   377   377
+   381                           k := ToBit1 (Selector, i2 - AttrCount - Selector^.Child.In\   379   324   372   378   324     *
+                                                                                   372
+      \stOffset);                                                                  324
+   382                           !   INCL (yyt^.! WI (Class^.Class.Name); !.! WI (Selector^\   379   379   372   378     *   372
+                                                                                     *   381
+      \.Child.Name);                                                               381     *
+   383                           !^.yyHead.yyIsComp! WN (k DIV BSS); !, ! WN (k MOD BSS); !\   379   379   379   381   379   379
+                                                                                     *     *   379     *
+      \);!
+   384                        END;                                                 373
+   385                     END;                                                    384
+   386                  END;                                                       385
+   387               END;                                                          386
+   388            END;                                                             387
+   389         END;                                                                388
+   390 }; .
+   391 
+   392 PROCEDURE CompBitInfo (t: Tree)                                             288   140   353   365
+   393 
+   394 Class (..) :-                                                               382
+   395         BitIndexSize := AttrCount;                                           47   381
+   396         MakeArray (BitIndex, BitIndexSize, TSIZE (tBitInfo));               143     *   395   143    41
+   397         i := 1;                                                             320
+   398         gBitIndex := BitIndex;                                               48   396
+   399         ForallAttributes (t, CompBitInfo);                                   39   392   392
+   400         MaxBit := Max (i, MaxBit);                                          207    17   397     *
+   401         MaxInstCount := Max (InstCount, MaxInstCount);                      144   400   374     *
+   402         .
+   403 Child (..) ;                                                                382
+   404 Attribute (..) :-                                                           372
+   405         ({{Input, Test, Dummy}} * Properties = {{}});                       365   107    36   380
+   406         INC (i);                                                            323   400
+   407         gBitIndex^ [AttrIndex].ToBit := i;                                  398     *     *   406
+   408         gBitIndex^ [i].ToAttr := AttrIndex;                                 407   407   315   407
+   409         .
+   410 
+   411 PROCEDURE CompInhIndices (t: Tree)                                          392   145   399   392
+   412 
+   413 Class (..) :-                                                               394
+   414         VAR b : INTEGER ;                                                   314   148   172
+   415 {       FOR j := AttrCount + 1 TO InstCount DO                              374   333   395   374   401   376
+   416            WITH Instance^ [j] DO                                            376   376   415   415
+   417               IF Inherited IN Properties THEN                               377   380   380   405   380
+   418                  b := ToBit2 (t, Selector, j);                              414    76   411   382   416
+   419                  Include (InhIndices, b);                                    21   305   418
+   420                  INC (InhIndexCount^ [b]);                                  406   320   419
+   421               END;                                                          389
+   422            END;                                                             421
+   423         END;                                                                422
+   424 };      .
+   425 
+   426 PROCEDURE CountSynAttr (t: Tree)                                            411   209   418   411
+   427 
+   428 Class (..) :-                                                               413
+   429         NoCodeClass * Properties = {{}};                                    312   417
+   430         i <= BitCount;                                                      408   369
+   431 {       WITH Instance^ [BitIndex^ [i].ToAttr] DO                            416   416   398   430   408   416
+   432            IF ({Synthesized, Left} <= Properties) AND NOT (Test IN Properties) THEN     417   377    60   429   365   365
+                                                                                   405   417     *   417
+   433               INC (n);                                                      420   231
+   434            END;                                                             423
+   435         END;                                                                434
+   436 };      .
+   437 
+   438 PROCEDURE WriteType (t: Tree)                                               426     *   426   426
+   439 
+   440 Class (..) :-                                                               428
+   441         NoCodeClass * Properties = {{}};                                    429   432
+   442         Trace IN Properties;                                                353   432   441
+   443         !| ! WI (TreeRoot^.Ag.TreeName); !.! WI (Name); !: yyWriteS ('! WI (Name); !\   382   248   248     *     *   382
+                                                                                     *
+      \');!
+   444         .
+   445 
+   446 PROCEDURE GenS (t: Tree)                                                    438   236   438   438
+   447 
+   448 Class (..) :-                                                               440
+   449         NoCodeClass * Properties = {{}};                                    441   442
+   450         i <= BitCount;                                                      431   430
+   451 {       WITH Instance^ [BitIndex^ [i].ToAttr] DO                            431   431   431   450   431   431
+   452            IF ({Synthesized, Left} <= Properties) AND NOT (Test IN Properties) THEN     432   432   432   449   432   432
+                                                                                   432   442     *   432
+   453               Class := t;                                                   448   446
+   454               IF n > 1 THEN                                                 452   433   452
+   455                  !   | ! WI (iMain); !.! WI (Name); !:!                     443   371     *   443
+   456               END;                                                          435
+   457               FOR j := 1 TO InstCount DO                                    415   418   415   415   451
+   458                  IF IsRelated (BitIndex^ [i].ToAttr, j, DP) THEN            454   332   451   451   451   457   332   454
+   459                     GenCall (t, j);                                         333   453   458
+   460                  END;                                                       456
+   461               END;                                                          460
+   462               GenEvalAttr (t, BitIndex^ [i].ToAttr);                        132   459   458   458   458
+   463               IF NOT (Input IN Properties) AND (Attribute^.Kind = Tree.Child) THEN      458   452   405   452   452   452
+                                                                                   404   365   446   403   458
+   464                  !WITH yyt^.! WI (Name); !.! WI (Attribute^.Child.Name);    451   382   455   455     *   463   463     *
+   465                  !^.yyHead DO IF yyParent = ! WI (iMain); !.! WI (iNoTree); ! THEN y\   383   457   463   370   464   455
+                                                                                     *   368   463
+      \yOffset := !                                                                368
+   466                  WN (BitCount + Attribute^.Child.BitOffset); !; yyParent := yyt; !      383   450   464   464   369   465
+                                                                                   464
+   467                  WI (iMain); !.Init! WI (iModule); ! (yyt^.! WI (Name); !.! WI (Attr\   465   465   371     *   371   466
+                                                                                     *   464     *
+      \ibute^.Child.Name); !); END; END;!                                          466   466     *   461     *
+   468               END;                                                          467
+   469               FOR i2 := 1 TO InstCount DO       (* add group members *)     457   381   457   457   465
+   470                  IF Instance^[i2].Action = Action THEN                      465   451   469   375     *   465
+   471                     WITH Instance^[i2] DO                                   464   470   470   469
+   472                        IF Synthesized IN Properties THEN                    470   452   463   463   470
+   473                           k := ToBit0 (Class, i2);                          383   378   453   471
+   474                           IF k # i - 1 THEN                                 472   473   462   472
+   475                              !   INCL (yyt^.yyHead.yyIsComp! WN (k DIV BSS); !, ! WN\   382   467   465   383   466   474
+                                                                                   383   383     *
+      \ (k MOD BSS); !);!                                                            *   383     *
+   476                           END;                                              468
+   477                        ELSIF Inherited IN Properties THEN                   380   417   472   472   474
+   478                           k := ToBit1 (Selector, i2 - AttrCount - Selector^.Child.In\   475   381   418   473   415     *
+                                                                                   467
+      \stOffset);                                                                  381
+   479                           !   INCL (yyt^.! WI (Class^.Class.Name); !.! WI (Selector^\   475   475   467   473     *   467
+                                                                                     *   478
+      \.Child.Name);                                                               478     *
+   480                           !^.yyHead.yyIsComp! WN (k DIV BSS); !, ! WN (k MOD BSS); !\   475   475   475   478   475   475
+                                                                                     *     *   475     *
+      \);!
+   481                        END;                                                 476
+   482                     END;                                                    481
+   483                  END;                                                       482
+   484               END;                                                          483
+   485            END;                                                             484
+   486         END;                                                                485
+   487 }; .
+   488 
+   489 PROCEDURE GenE (t: Tree)                                                    446   201   462   463
+   490 
+   491 Class (..) :-                                                               479
+   492         VAR ToCompute : tSet ;                                              414     *    49
+   493 {       GetIterator (t);                                                     25   489
+   494         n := 0;                                                             454
+   495         j := 2;                                                             459
+   496         LOOP                                                                197
+   497            IF j > InstCount THEN EXIT; END;                                 474   495   469   477     *   486
+   498            WITH Instance^ [j] DO                                            471   471   497   471
+   499               IF {Dummy, Output, Test} * Properties # {} THEN               497   405    34   452   477   497
+   500                  IF (Test IN Properties) OR                                 499   499   477   499   341
+   501                     ({Synthesized, Left} <= Properties) OR                  472   452   500   500
+   502                     ({Inherited,  Right} <= Properties) OR                  477   318   501   501
+   503                     ({Inherited,   Left} <= Properties) AND                 502   501   502   463
+   504                     NOT (Input IN Properties) AND (Attribute^.Kind = Tree.Child) OR     463   463   500   503   503   467
+                                                                                   463   489   479   502
+   505                     ({Synthesized, Right, Dummy} <= Properties) AND (Selector # Iter\   501   502   499   504   504   479
+      \ator) AND                                                                    25     *
+   506                     (HasOutput IN Selector^.Child.Class^.Class.Properties) THEN    36   504   505   504   491     *   505
+                                                                                   499
+   507                     INC (n); EXIT;                                          433   494   497
+   508                  END;                                                       497
+   509               END;                                                          508
+   510            END;                                                             509
+   511            INC (j);                                                         507   498
+   512         END;                                                                510
+   513         IF (n = 0) AND ((Iterator = NoTree) OR NOT (HasOutput IN Iterator^.Child.Cla\   500   507   505   505    32   504
+                                                                                   504   506   506     *   506
+      \ss^.Class.Properties)) THEN RETURN; END;                                    506     *   506   506   316   512
+   514 
+   515         Class := t;                                                         513   493
+   516         !   | ! WI (iMain); !.! WI (Name); !:!                              479   467     *   479
+   517         FOR j := 2 TO InstCount DO                                          469   511   469   497   498
+   518            WITH Instance^ [j] DO                                            498   498   517   517
+   519               IF {Dummy, Output} * Properties # {} THEN                     513   505   499   513   513
+   520                  IF ({Synthesized, Left} <= Properties) OR                  519   505   503   519   513
+   521                     ({Inherited,  Right} <= Properties) OR                  503   505   520   520
+   522                     ({Inherited,   Left} <= Properties) AND                 521   520   521   513
+   523                     NOT (Input IN Properties) AND (Attribute^.Kind = Tree.Child) THE\   513   504   513   522   522   504
+                                                                                   504   504   513
+      \N                                                                           519
+   524                     GenCall (t, j);                                         459   515   518
+   525                  ELSIF ({Synthesized, Right, Dummy} <= Properties) AND (Selector # I\   477   520   521   519   523   523
+                                                                                   506
+      \terator) AND                                                                513     *
+   526                     (HasOutput IN Selector^.Child.Class^.Class.Properties) THEN   513   523   525   523   515     *   525
+                                                                                   523
+   527       IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN   520   353   353   353   525   442   526
+                                                                                   524   526   526   526
+   528                     !yyWriteVisit (yyt, '! WI (Selector^.Child.Name); !'); !       84   479
+   529       END;                                                                  513
+   530                     !yyE (yyt^.! WI (Name); !.! WI (Selector^.Child.Name); !);!   205   528   516   516     *   526   526
+                                                                                     *
+   531       IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN   527   527   527   527   527   527   527
+                                                                                   527   527   527   527
+   532                     !yyVisitParent (yyt^.! WI (Name); !.! WI (Selector^.Child.Name);\    88   530   530   530     *   530
+                                                                                   530     *
+      \ !);!
+   533       END;                                                                  529
+   534                  END;                                                       533
+   535               END;                                                          534
+   536            END;                                                             535
+   537         END;                                                                536
+   538 
+   539         MakeSet (ToCompute, InstCount);                                     141   492   517
+   540         FOR i := 2 TO AttrCount DO                                          517   474   517   478   518
+   541            WITH Instance^ [i] DO                                            518   518   540   540
+   542               IF Test IN Properties THEN                                    531   500   531   531   531
+   543                  FOR j := 2 TO InstCount DO                                 540   524   540   539   541
+   544                     IF IsRelated (i, j, DP) THEN                            542   458   541   543   458   542
+   545                        IF {Synthesized, Inherited} * Instance^ [j].Properties # {} T\   544   525   522   541   544   542
+      \HEN                                                                         544
+   546                           Include (ToCompute, j);                           419   539   545
+   547                        END;                                                 537
+   548                     END;                                                    547
+   549                  END;                                                       548
+   550               END;                                                          549
+   551            END;                                                             550
+   552         END;                                                                551
+   553         FOR i := 2 TO InstCount DO                                          543   544   543   543   543
+   554            WITH Instance^ [i] DO                                            541   545   553   553
+   555               IF ({Synthesized, Left, Output} <= Properties) OR             545   545   522   519   545   521
+   556                  ({Inherited,  Right, Output} <= Properties) THEN           545   525   555   555   545
+   557                  Exclude (ToCompute, i);                                     21   546   554
+   558               END;                                                          552
+   559            END;                                                             558
+   560         END;                                                                559
+   561         WHILE NOT IsEmpty (ToCompute) DO                                    293   523    22   557   554
+   562            GenCall (t, Extract (ToCompute));                                524   531    22   561
+   563         END;                                                                560
+   564         ReleaseSet (ToCompute);                                              21   562
+   565         FOR i := 2 TO AttrCount DO                                          553   557   553   540   561
+   566            IF Test IN Instance^ [i].Properties THEN                         555   542   542   554   565   556   556
+   567               GenEvalAttr (t, i);                                           462   562   566
+   568            END;                                                             563
+   569         END;                                                                568
+   570 
+   571         IF (Iterator = NoTree) OR NOT (HasOutput IN Iterator^.Child.Class^.Class.Pro\   566   525   513   555   561   526
+                                                                                   566     *   532   531     *
+      \perties) THEN                                                               566   566
+   572            !RETURN;!                                                        513
+   573         ELSE                                                                359
+   574    IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN      571   531   531   531   531   531   571
+                                                                                   567   571   571   571
+   575            !yyWriteVisit (yyt, '! WI (Iterator^.Child.Name); !'); !         528   532
+   576    END;                                                                     569
+   577            !yyt := yyt^.! WI (Name); !.! WI (Iterator^.Child.Name); !;!     575     *   532   532     *   571   571     *
+   578         END;                                                                576
+   579 }; .
+   580 
+   581 PROCEDURE CompOutput (t: Tree)                                              489   180   574   523
+   582 
+   583 Class (..) :-                                                               574
+   584    NOT (HasOutput IN Properties);                                           571   571   574   574
+   585    Success := FALSE;                                                         46     *
+   586    ForallAttributes (t, CompOutput);                                        399   581   581
+   587    ForallClasses (Extensions, CompOutput2);                                 267     *     *
+   588    Success;                                                                 585
+   589    INCL (Properties, HasOutput);                                            479   584   584
+   590    IsStable := FALSE;                                                       180   585
+   591    .
+   592 Child (..) :-                                                               577
+   593    (Output IN Properties) OR (HasOutput IN Class^.Class.Properties);        556   584   589   571   589     *   583     *
+                                                                                     *
+   594    Success := TRUE;                                                         588   180
+   595    .
+   596 Attribute (..) :-                                                           523
+   597    ({{Test, Output}} * Properties # {{}});                                  566   593   593
+   598    Success := TRUE;                                                         594   594
+   599    .
+   600 
+   601 PROCEDURE CompOutput2 (t: Tree)                                             581   587   586   581
+   602 
+   603 Class (..) :-                                                               593
+   604    HasOutput IN Properties;                                                 593   593   597
+   605    Success := TRUE;                                                         598   598
+   606    .
+   607 
+   608 FUNCTION ToBit0 (Class, INTEGER) INTEGER                                      *   473   603   414     *
+   609    class:_, i:_ ? RETURN class^.Class.BitIndex^ [i].ToBit - 1; .              *     *   567     *   572     *   608   462
+                                                                                     *   407
+   610 
+   611 FUNCTION ToBit1 (Child, INTEGER) INTEGER                                    608   478   592   608     *
+   612    Selector:_, i:_ ? RETURN Selector^.Child.Class^.Class.BitIndex^ [i].ToBit - 1; .     532   609   609     *   609     *
+                                                                                   611   609     *   609     *   609
+   613 
+   614 FUNCTION ToBit2 (Class, Child, SHORTCARD) INTEGER                           611   418   612   612   314   611
+   615    class:_, Selector:_, i:_ RETURN _ ?                                      609   612   612     *   612     *   612     *
+   616 {  WITH Selector^.Child DO                                                  554   615   614   565
+   617       RETURN class^.Class.BitCount + BitOffset +                            615   615   614   466   466
+   618          Class^.Class.BitIndex^ [i - class^.Class.AttrCount - InstOffset].ToBit - 1;    617     *   612   615   617     *
+                                                                                   565   478   612
+   619    END;                                                                     578
+   620 }; .
+   621 
+   622 FUNCTION ToAttr (Class, INTEGER) INTEGER                                    614   462   618   614     *
+   623    LOCAL { VAR a: SHORTCARD; }                                                *   492   332   614
+   624    class:_, i:_ RETURN _ ?                                                  618   615   618     *   617     *
+   625 {  WITH class^.Class DO                                                     616   624   622   616
+   626       FOR a := AttrCount + 1 TO InstCount DO                                565   623   618   565   553   625
+   627          WITH Instance^ [a] DO                                              625   566   626   626
+   628             IF ({Input, Test, Dummy} * Properties = {}) AND                 574   523   597   525   604   574
+   629                (ToBit2 (class, Selector, a) = i) THEN RETURN a; END;        614   625   616   627   624   574   624     *
+                                                                                   619
+   630          END;                                                               629
+   631       END;                                                                  630
+   632    END;                                                                     631
+   633    RETURN 0;                                                                629
+   634 }; .
+   635 
+   636 PROCEDURE GenEvaluator (t: Tree)                                            601   362   601   601
+   637 
+   638 Assign (..) ;                                                                 *
+   639 Copy (..) :-                                                                  *
+   640    GenEvaluator (Arguments);                                                636     *
+   641    .
+   642 TargetCode (..) :-                                                            *
+   643    GenEvaluator (Code);                                                     640     *
+   644    .
+   645 Check (..) :-                                                               323
+   646    GenEvaluator (Condition);                                                643     *
+   647    GenEvaluator (Statement);                                                646     *
+   648    GenEvaluator (Actions);                                                  647     *
+   649    .
+   650 Designator (..) ;                                                             *
+   651 Ident (..) ;                                                                  *
+   652 Any (..) ;                                                                    *
+   653 Anys (..) :-                                                                  *
+   654    GenEvaluator (Next);                                                     648   296
+   655    .
+   656 Remote (..) :-                                                                *
+   657    VAR TheClass : Class ;                                                   623     *   625
+   658    VAR k : INTEGER ;                                                        657   480   622
+   659    TheClass := IdentifyClass (TreeRoot^.Ag.Classes, Type);                  657    40   443   443   267   372
+   660 {  IF TheClass # NoTree THEN                                                628   659   571   629
+   661       Attr := IdentifyAttribute (TheClass, Attribute);                       45    40   660   596
+   662       IF Attr # NoTree THEN                                                 660   661   660   660
+   663          WITH Attr^.Attribute DO                                            627   662   661   627
+   664             k := ToBit0 (TheClass, AttrIndex);                              658   608   661   408
+   665             IF Synthesized IN Properties THEN                               662   555   604   628   662
+   666                !IFNOTIN (! WN (k MOD BSS); !,! EvalMod.GenEvaluator (Designators);      326   480   664   480   480   362
+                                                                                   654     *
+   667                !^.yyHead.yyIsComp! WN (k DIV BSS); !) yyS! WN (k); ! (!     480   480   666   666   480   666   239     *
+                                                                                     *
+   668                EvalMod.GenEvaluator (Designators); !); END;!                666   666   666   632
+   669             ELSIF Inherited IN Properties THEN                              525   556   665   665   665
+   670                !IFNOTIN (! WN (k MOD BSS); !,! EvalMod.GenEvaluator (Designators);      666   667   667   666   667   668
+                                                                                   668   668
+   671                !^.yyHead.yyIsComp! WN (k DIV BSS); !) yyI [!                667   667   670   670   667   670   306
+   672                EvalMod.GenEvaluator (Designators); !^.yyHead.yyOffset + ! WN (k);       670   670   670   671   465   671
+                                                                                   671
+   673                !](! EvalMod.GenEvaluator (Designators); !^.yyHead.yyParent); END;!      672   672   672   672   466   668
+   674             END;                                                            673
+   675          END;                                                               674
+   676       END;                                                                  675
+   677    END;                                                                     676
+   678    GenEvaluator (Next);                                                     673   654
+   679 }; .
+Cross reference: 
+
+-A-
+ a                              147   147   148   148   314   315   316   317   324   332   623   626   627   629   629 
+ Action                         104   104   105   106   121   121   122   123   126   126   127   128   338   338   339   340   355 
+                                355   356   357   360   360   361   362   375   375   470   470 
+ Actions                        648 
+ ADR                             16   104   121   126   175   193   223   257   270   338   355   360 
+ Ag                             137   182   183   184   212   213   214   246   247   248   443   659 
+ AND                             63    83   102   104   119   121   126   336   338   353   355   360   365   432   452   463   503 
+                                504   505   505   513   522   523   525   525   527   531   574   628 
+ Any                            652 
+ Anys                           653 
+ Arguments                      640 
+ ARRAY                           51   151 
+ Assign                         638 
+ Attr                            45   661   662   663 
+ AttrCount                       73    80   324   381   395   415   478   540   565   618   626 
+ Attribute                      109   109   109   111   113   114   341   341   341   344   346   348   365   367   369   372   404 
+                                463   464   466   467   504   523   596   661   663 
+ AttrIndex                      407   408   664 
+
+-B-
+ b                              146   146   147   148   414   418   419   420 
+ BEGIN                           54    99   154   164   171   192   195   222   225   256   259   277   289   300 
+ Begin                          276   279   283   286 
+ BeginLine                      278   282 
+ BitCount                       369   430   450   466   617 
+ BitIndex                       396   398   431   451   458   462   609   612   618 
+ BitIndexSize                    47   395   396 
+ BitOffset                      369   466   617 
+ BOOLEAN                         46   170   191   221   255 
+ BSS                             24    58    58    62    62    74    75    81    82   228   228   229   229   238   238   326   327 
+                                329   329   379   379   383   383   475   475   480   480   666   667   670   671 
+
+-C-
+ c                              147 
+ CARDINAL                       167   175   193   223   257 
+ CASE                           200   232   263 
+ Check                           44   261   269   323   645 
+ Child                           73    75    80    82    86    88    91   109   111   113   114   324   327   328   341   343   344 
+                                344   346   347   348   348   365   366   367   367   369   369   370   371   372   372   381   382 
+                                403   463   464   466   467   478   479   504   506   513   523   526   530   532   571   577   592 
+                                611   612   614   616 
+ ChildsClass                     45 
+ Class                           26    55    63    73    74    74    80    81    81    83    86    86    88    88    91    91   100 
+                                101   102   111   114   119   311   319   326   326   328   328   336   353   369   369   378   382 
+                                382   394   413   428   440   448   453   473   479   479   491   506   506   513   513   515   526 
+                                526   527   531   571   571   574   583   593   593   603   608   609   612   612   614   617   618 
+                                618   618   622   625   657 
+ class                          609   609   615   617   618   624   625   629 
+ ClassCount                      40 
+ Classes                        140   145   180   201   209   233   236   264   267   659 
+ Close                          288   291   295   298 
+ CloseIO                        157 
+ CloseLine                      290   294 
+ Code                           643 
+ Codes                          182   183   186   187   212   213   216   217   246   247   250   251   278   279   282   283   290 
+                                291   294   295 
+ CompBitInfo                    140   392   399 
+ CompInhIndices                 145   411 
+ CompOutput                     180   581   586 
+ CompOutput2                    587   601 
+ Computed                        33 
+ Condition                      646 
+ Copy                           639 
+ CountSynAttr                   209   426 
+
+-D-
+ define                         146   147   148 
+ Demand                          37 
+ Designator                     650 
+ Designators                    666   668   670   672   673 
+ DIV                             58    62    75    82   228   229   238   327   329   379   383   475   480   667   671 
+ DO                              55   101   144   185   207   215   243   249   281   293   304   317   331   368   374   376   415 
+                                416   431   451   457   465   469   471   498   517   518   540   541   543   553   554   561   565 
+                                616   625   626   627   663 
+ DP                             332   458   544 
+ Dummy                           36   405   499   505   519   525   628 
+ DynArray                        18 
+
+-E-
+ ELSE                            68    89   112   116   125   165   194   202   224   229   235   258   266   329   345   350   359 
+                                573 
+ ELSIF                           60    72    79   109   119   353   380   477   525   669 
+ END                             59    67    70    71    78    88    92    93    94    95    96   115   118   124   129   130   131 
+                                132   144   159   164   177   178   189   196   198   203   204   205   219   226   229   230   234 
+                                237   239   241   242   253   260   265   268   271   272   274   275   285   286   297   298   303 
+                                307   308   309   316   322   329   330   334   335   349   352   358   363   364   372   372   373 
+                                384   385   386   387   388   389   421   422   423   434   435   456   460   461   467   467   468 
+                                476   481   482   483   484   485   486   497   508   509   510   512   513   529   533   534   535 
+                                536   537   547   548   549   550   551   552   558   559   560   563   568   569   576   578   619 
+                                629   630   631   632   668   673   674   675   676   677 
+ Error                           27   270 
+ Errors                          27 
+ Eval                           163   164   169   177 
+ EvalCodes                      182   183   186   187   212   213   216   217   246   247   250   251   278   279   282   283   290 
+                                291   294   295 
+ EvalImplHead                   149 
+ EvalImplMod                     12   135   264   267 
+ EvalMod                         26    29   106   123   128   149   340   357   362   666   668   670   672   673 
+ EvalMod3                        10 
+ EvalName                       276   286   288   298   309 
+ Exclude                         21   557 
+ EXIT                           497   507 
+ Extensions                     587 
+ Extract                         22   562 
+
+-F-
+ f                               39   183   187   213   217   247   251   279   283   291   295 
+ FALSE                          585   590 
+ FOR                            144   207   243   304   331   374   415   457   469   517   540   543   553   565   626 
+ ForallAttributes                39   399   586 
+ ForallClasses                   39   140   145   180   201   209   233   236   264   267   587 
+ FROM                            16    17    18    19    20    21    23    24    25    26    27    28    31 
+ Funct                           37 
+ FUNCTION                       608   611   614   622 
+
+-G-
+ gBitIndex                       48   398   407   408 
+ GenCall                         53    96   333   459   524   562 
+ GenE                           201   489 
+ General                         17   193   223   257 
+ GenEvalAttr                     98   132   462   567 
+ GenEvaluator                   105   106   122   123   127   128   339   340   356   357   361   362   636   640   643   646   647 
+                                648   654   666   668   670   672   673   678 
+ GenS                           233   236   446 
+ GetIterator                     25   493 
+ GLOBAL                          14 
+
+-H-
+ HasOutput                       36   506   513   526   571   584   589   593   604 
+
+-I-
+ i                               44    98   101   144   144   147   148   207   211   228   228   229   229   238   238   239   243 
+                                244   245   262   269   270   272   304   305   306   306   313   315   320   397   400   406   407 
+                                408   430   431   450   451   458   462   474   540   541   544   553   554   557   565   566   567 
+                                609   609   612   612   615   618   624   629 
+ i2                              44   374   375   376   378   381   469   470   471   473   478 
+ Ident                          651 
+ IdentifyAttribute               40   661 
+ IdentifyClass                   40   659 
+ IF                              56    63    83   102   104   107   121   126   146   161   190   198   210   220   227   231   244 
+                                254   262   269   301   305   316   318   320   325   332   336   338   341   355   360   365   368 
+                                375   377   417   432   452   454   458   463   465   470   472   474   497   499   500   513   519 
+                                520   527   531   542   544   545   555   566   571   574   628   660   662   665 
+ IFNOTIN                         58    62    74    81   146   228   326   666   670 
+ iMain                           38   151   153   158   163   164   169   173   181   198   211   245   321   368   371   455   465 
+                                467   516 
+ iModule                         38   164   173   371   467 
+ IMPORT                          16    17    18    19    20    21    23    24    25    26    27    28    29    31 
+ IN                              63    83   102   104   107   119   121   126   146   198   336   338   353   355   360   365   377 
+                                380   417   432   442   452   463   472   477   500   504   506   513   523   526   527   531   542 
+                                566   571   574   584   593   593   604   665   669 
+ INC                            323   406   420   433   507   511 
+ INCL                           199   229   238   328   379   382   475   479   589 
+ Include                         21   419   546 
+ Inherited                       34    60    72   318   380   417   477   502   503   521   522   545   556   669 
+ InhIndexCount                   51   143   144   262   269   320   420 
+ InhIndexSize                    50   142   143 
+ InhIndices                      49   141   151   243   243   244   304   304   305   419 
+ Init                           164   173   371   467 
+ iNoTree                         41   198   368   465 
+ Input                           34   365   405   463   504   523   628 
+ Instance                        55   101   317   375   376   416   431   451   470   471   498   518   541   545   554   566   627 
+ InstCount                      313   331   374   401   415   457   469   497   517   539   543   553   626 
+ InstOffset                      73    80   324   381   478   618 
+ INTEGER                         98   172   414   608   608   611   611   614   622   622   658 
+ IO                              19   155   155   156   156   157   174   174   175   175   176   176   302 
+ IsElement                       22    63    83   102   119   161   190   220   227   244   254   301   305   325   336   353   527 
+                                531   574 
+ IsEmpty                         22   561 
+ IsRelated                       23   332   458   544 
+ IsStable                        46   180   180   590 
+ Iterator                        25   505   513   513   525   571   571   577 
+ itTree                          38   109   110   153   163   169   181   211   245   341   342 
+
+-J-
+ j                               44    53    55    57    61    73    76    80   331   332   333   415   416   418   457   458   459 
+                                495   497   498   511   517   518   524   543   544   545   546 
+
+-K-
+ k                               44    57    58    58    59    61    62    62    65    69    73    74    75    76    77    80    81 
+                                 82    85    90   148   324   326   327   329   329   378   379   379   381   383   383   473   474 
+                                475   475   478   480   480   658   664   666   667   667   670   671   672 
+ Kind                           109   185   200   215   232   249   263   281   293   341   365   463   504   523 
+
+-L-
+ Left                            35    56    60   432   452   501   503   520   522   555 
+ LOCAL                          623 
+ Local                          183   187   213   217   247   251 
+ LocalLine                      182   186   212   216   246   250 
+ LONGINT                         47    50 
+ LOOP                           197   496 
+
+-M-
+ MakeArray                       18   143   396 
+ MakeSet                         21   141   539 
+ MAX                            172 
+ Max                             17   400   401 
+ MaxBit                          44   138   207   400   400 
+ Maximum                         22   151   243   304 
+ MaxInstCount                    44   139   141   142   144   401   401 
+ MessageI                        27   270 
+ Min                            193   223   257 
+ Minimum                         21   243   304 
+ MOD                             58    62    74    81   228   229   238   326   329   379   383   475   480   666   670 
+ Module                         185   186   187   188   215   216   217   218   249   250   251   252   281   282   283   284   293 
+                                294   295   296 
+ Modules                        184   214   248   280   292 
+
+-N-
+ n                               44   147   147   148   148   208   210   231   433   454   494   507   513 
+ Name                            74    75    81    82    86    86    88    88    91    91   111   111   114   114   321   326   327 
+                                328   328   343   343   344   347   347   348   366   366   367   370   370   371   371   372   382 
+                                382   443   455   464   464   467   467   479   479   516   530   530   532   532   577   577 
+ Next                           188   218   252   284   296   654   678 
+ NoClass                         37 
+ NoCodeClass                     32   312   429   441   449 
+ Node                            45   184   185   186   187   188   188   214   215   216   217   218   218   248   249   250   251 
+                                252   252   280   281   282   283   284   284   292   293   294   295   296   296 
+ NonBaseComp                     36 
+ NoPosition                      28   270 
+ NOT                            104   121   126   146   161   338   355   360   365   432   452   463   504   513   523   561   571 
+                                584 
+ NoTree                          32   513   571   660   662 
+
+-O-
+ OF                              51   151   200   232   263 
+ Options                         37    63    83   102   119   161   190   220   227   254   301   325   336   353   527   531   574 
+ OR                             109   198   341   500   501   502   504   513   520   521   555   571   593 
+ ORD                             63    83   102   119   161   190   220   227   254   301   325   336   353   527   531   574 
+ Output                          34   499   519   555   556   593   597 
+
+-P-
+ POINTER                         51 
+ Positions                       28 
+ PROCEDURE                       53    98   135   153   163   169   181   211   245   276   288   392   411   426   438   446   489 
+                                581   601   636 
+ Properties                      56    60    63    72    79    83   102   104   107   119   121   126   312   318   336   338   353 
+                                355   360   365   377   380   405   417   429   432   432   441   442   449   452   452   463   472 
+                                477   499   500   501   502   503   504   505   506   513   519   520   521   522   523   525   526 
+                                527   531   542   545   555   556   566   571   574   584   589   593   593   597   604   628   665 
+                                669 
+ PUBLIC                          12 
+
+-Q-
+ QueryTree                       41 
+
+-R-
+ Read                            33 
+ Referenced                      32 
+ Relations                       23 
+ ReleaseSet                      21   564 
+ Remote                         656 
+ REMOTE_INH                     148 
+ REMOTE_SYN                     147 
+ REPEAT                         180 
+ RETURN                         198   202   316   513   572   609   612   615   617   624   629   633 
+ Reverse                         33 
+ Right                           35    72    79   318   502   505   521   525   556 
+
+-S-
+ s                              146   146 
+ Selector                        73    73    75    76    80    80    82    86    88    91   324   324   327   328   343   344   347 
+                                348   366   367   369   370   371   372   381   381   382   418   478   478   479   505   506   525 
+                                526   530   532   612   612   615   616   629 
+ Sets                            21 
+ Short                           27   270 
+ SHORTCARD                       44    51    53   143   314   614   623 
+ Statement                      647 
+ StdError                       155   156 
+ StdOutput                       19   174   175   176   302 
+ Success                         46   585   588   594   598   605 
+ Synthesized                     34    56    79   377   432   452   472   501   505   520   525   545   555   665 
+ SYSTEM                          16   175   193   223   257 
+
+-T-
+ t                               53    55    57    61    63    73    76    80    83    98   100   101   102   111   114   119   135 
+                                147   147   148   148   149   315   319   333   336   353   392   399   411   418   426   438   446 
+                                453   459   462   489   493   515   524   527   531   562   567   574   581   586   601   636 
+ TargetCode                     642 
+ tBitIndex                       41    48 
+ tBitInfo                        41   396 
+ Test                            35   107   405   432   452   499   500   542   566   597   628 
+ Texts                           20 
+ TheClass                       657   659   660   661   664 
+ THEN                            56    60    63    72    79    83   102   104   107   109   119   121   126   146   161   190   198 
+                                210   220   227   231   244   254   262   269   301   305   316   318   320   325   332   336   338 
+                                341   353   355   360   365   368   375   377   380   417   432   452   454   458   463   465   470 
+                                472   474   477   497   499   506   513   519   523   526   527   531   542   544   545   556   566 
+                                571   574   629   660   662   665   669 
+ TO                              51   144   207   243   304   331   374   415   457   469   517   540   543   553   565   626 
+ ToAttr                         315   408   431   451   458   462   622 
+ ToBit                          407   609   612   618 
+ ToBit0                          12    57    61   378   473   608   664 
+ ToBit1                          73    80   324   381   478   611 
+ ToBit2                          76   418   614   629 
+ ToCompute                      492   539   546   557   561   562   564 
+ tProcTree                      151 
+ Trace                           36    63    83   102   119   336   353   442   527   531   574 
+ TRAFO                           10 
+ TREE                            11 
+ Tree                            11    31   109   135   185   215   249   281   293   341   365   392   411   426   438   446   463 
+                                489   504   523   581   601   636 
+ TreeMod1                        24 
+ TreeMod2                        25 
+ TreeName                       443 
+ TreeRoot                        38   182   183   184   212   213   214   246   247   248   443   659 
+ TRUE                           180   594   598   605 
+ tSet                            21    49   492 
+ TSIZE                           16   143   396 
+ tTree                           32    45    53    98 
+ Type                           109   113   341   344   346   348   367   372   659 
+
+-U-
+ UNTIL                          180 
+
+-V-
+ VAR                             43   151   167   170   191   221   255   314   414   492   623   657   658 
+ Virtual                         35   104   121   126   338   355   360 
+
+-W-
+ WHILE                          185   215   249   281   293   561 
+ WI                              39    74    75    81    82    86    86    88    88    91    91   110   111   111   113   114   114 
+                                151   153   153   158   163   163   164   164   169   169   173   173   181   181   198   198   211 
+                                211   245   245   276   286   288   298   309   321   321   326   327   328   328   342   343   343 
+                                344   344   346   347   347   348   348   366   366   367   367   368   368   370   370   371   371 
+                                371   371   372   372   382   382   443   443   455   455   464   464   465   465   467   467   467 
+                                467   479   479   516   516   530   530   532   532   577   577 
+ WITH                            55   101   317   366   376   416   431   451   464   471   498   518   541   554   616   625   627 
+                                663 
+ WN                              39    58    58    59    62    62    65    69    74    75    77    81    82    85    90   151   211 
+                                228   228   229   229   238   238   239   245   272   306   306   326   327   329   329   369   379 
+                                379   383   383   466   475   475   480   480   666   667   667   670   671   672 
+ Write                           33 
+ write                          110   113   342   346 
+ WriteB                          19 
+ writeBOOLEAN                   108 
+ WriteI                          19   175 
+ WriteLine                       25   182   186   212   216   246   250   278   282   290   294 
+ WriteNl                         19   156   176 
+ WriteS                          19   155   174 
+ WriteSet                        22 
+ WriteText                       20   183   187   213   217   247   251   279   283   291   295 
+ WriteType                      438 
+
+-X-
+ xxHigh                         170   175 
+ xxLow                          191   193   221   223   255   257 
+ xxStack                        167   172   175   193   193   223   223   257   257 
+
+-Y-
+ yyAbort                        153   159   229   329 
+ yyb                            108 
+ yyE                            164   173   181   205   530 
+ yyExit                         158 
+ yyf                            302 
+ yyHead                          58    62    65    65    67    69    69    75    82   198   199   228   229   238   327   329   368 
+                                379   383   465   475   480   667   671   672   673 
+ yyI                             65    69    77   151   245   272   306   306   671 
+ yyIsComp                        58    62    75    82   238   379   383   475   480   667   671 
+ yyIsComp0                      198   199 
+ yyIsDone                       228   229   327   329 
+ yyOffset                        65    69   368   465   672 
+ yyParent                        65    67    69   368   370   465   466   673 
+ yyS                             59    85    90   211   239   667 
+ yyt                             58    59    62    64    65    65    67    69    69    74    77    81    84    86    88    91   103 
+                                111   114   120   153   163   164   164   169   173   173   181   198   198   199   200   211   228 
+                                229   229   232   238   245   263   326   328   329   337   343   347   354   366   370   371   379 
+                                382   464   466   467   475   479   528   530   532   575   577   577 
+ yyVisitParent                   64    88   532 
+ yyWriteEval                    103   120   337   354 
+ yyWriteNl                      108   114   117   348   351 
+ yyWriteS                       443 
+ yyWriteVisit                    67    84   528   575 
+
+-_-
+ _                              609   609   612   612   615   615   615   615   624   624   624 
+
+end cross reference, 2536 occurrences of 258 identifiers.

@@ -1,0 +1,2043 @@
+     1 
+     2 (* file M3.puma *) 
+     3 
+     4 (*  Modula-3 generation of puma tree transformations 
+c    5    Rodney M. Bates Jan 98 
+c    6    Extensively modified from file M2.puma, which had these header comments: 
+c    7 
+c    8     (* Ich, Doktor Josef Grosch, Informatiker, 29.4.1991 *) 
+c    9     (* Modified, RMB: 
+c   10         3-97 To put the WITH statement in (-w option) when there is a 
+c   11              return expr or result parameter exprs. 
+c   12         5-97 To work with explicit/internal distinguished dont cares. 
+c   13         5-97 Changed trafo name to M2, since Mod clashes with an Ada
+c   14              operator, now recognized by puma. 
+c   15         5-97 Added writing a blank line after each call to WriteText, which
+c   16              can leave things not at BOL if the target code section is
+c   17              omitted.  This caused a bug in the case of GLOBAL, which is
+c   18              followed by a # include, which cpp misses if not at BOL. 
+c   19         6-97 Rename 'Then' to 'ThenPart' and 'Else' to 'ElsePart',
+c   20              to avoid conflicts with new case-insensitive recognition
+c   21              of Ada operators THEN and ELSE 
+c   22         9-97 Take backslashes out of !...! constructs and instead call
+c   23              IOUtils.WriteBackslash.  The cpp on Linux interprets the 
+c   24              backslashes as escaping the following closing quote, but 
+c   25              modula-2 does not.  IOUtils never goes through puma and thus
+c   26              not through cpp either. 
+c   27     *) 
+c   28 
+c   29    Modified, RMB: 
+c   30       8-1998 Add trailing semicolon after END (* Test... *) 
+c   31 
+c   32       9-1998 Changes to fix bug where a TYPECASE-bound identifier was
+c   33              assumed, but the TYPECASE statement could have been optimized
+c   34              away, if it was not a proper narrow.  For now, the M3 generation
+c   35              always does TYPECASE on a formal, even if its puma-declared type
+c   36              is equal to the type being tested for, because the M3 routine
+c   37              formal is of type tTree, which is broader, and references to
+c   38              fields of the puma-declared type would give M3 compilation 
+c   39              errors.  Later, fix semantics to give a routine formal an
+c   40              additional field which is the Class for the type its M3 
+c   41              declaration should have.  If _this_ type is narrow enough,
+c   42              then we can omit the TYPECASE check. 
+c   43 
+c   44      10-1998 Changes to go with new subtype RoutineFormal. 
+c   45      12-1998 Bug fix: missing module name qualifier on type of compose temp. 
+c   46       5-1999 Changes to properly utilize IsProperlyNarrowed, 
+c   47              Eliminate unnecessary TYPECASE when not properly
+c   48              narrower.
+c   49       7-1999 Eliminate type system violations grouping PreOperator and
+c   50              PostOperator 
+c   51       7-1999 Misc identifier renames, much reformatting to shorten lines.
+c   52       7-1999 Added 'VAR' to local declarations of rules. 
+c   53 
+c   54 *) 
+    55  
+    56 TRAFO M3                                                                      *     *
+    57 TREE Tree                                                                     *     *
+    58 PUBLIC Interface Module MacroM3                                               *     *     *     *
+    59 
+    60 GLOBAL {                                                                      *
+    61 
+    62 IMPORT Positions ;                                                            *     *
+    63 IMPORT Errors ;                                                              62     *
+    64 FROM Positions  IMPORT tPosition;                                             *    62    63     *
+    65 FROM IO         IMPORT WriteS , WriteNl , tFile;                             64     *    64     *     *     *
+    66 IMPORT StringMem ;                                                           65     *
+    67 IMPORT Strings ;                                                             66     *
+    68 IMPORT Assertions ;                                                          67     *
+    69 FROM Strings    IMPORT ArrayToString , Concatenate ;                         65    67    68     *     *
+    70 FROM Idents     IMPORT tIdent, NoIdent , GetString , MakeIdent ;             69     *    69     *     *     *     *
+    71 FROM Texts      IMPORT WriteText;                                            70     *    70     *
+    72 FROM Sets       IMPORT IsElement, IsNotEqual, Minimum, Maximum, IsEmpty;     71     *    71     *     *     *     *     *
+    73 FROM Semantics  IMPORT IdentifyVar, LookupClass;                             72     *    72     *     *
+    74 FROM Optimize   IMPORT NeedsTempo, NeedsMatch, NeedsNoFinale, GetRule;       73     *    73     *     *     *     *
+    75 FROM Tree       IMPORT NoTree, tTree, Options, f, SourceFile, WI, WN;        74    57    74     *     *     *     *     *
+                                                                                     *     *
+    76 FROM IOUtils    IMPORT WriteBackslash;                                       75     *    75     *
+    77 
+    78 VAR                                                                           *
+    79    RoutineKind  : (kProcedure, kFunction, kPredicate);                        *     *     *     *
+    80    i, j         : CARDINAL;                                                   *     *     *
+    81    ListCount    : INTEGER;                                                    *     *
+    82    rule         ,                                                             *
+    83    TheClass     ,                                                             *
+    84    InFormals    ,                                                             *
+    85    OutFormals   ,                                                             *
+    86    ReturnFormals,                                                             *
+    87    Decls        : tTree;                                                      *    75
+    88    TheName      : tIdent;                                                     *    70
+    89    TemposDone   : BOOLEAN;                                                    *     *
+    90 VAR TypeCaseDepth : CARDINAL;                                                78     *    80
+    91 
+    92 PROCEDURE WriteLine (Line: tPosition);                                        *     *     *    64
+    93    BEGIN                                                                      *
+    94       IF Line.Line # 0 THEN                                                   *    92     *     *
+    95          !(* line ! WN (Line.Line); @ "@ IO . WriteS (f, SourceFile); @" *)@
+    96       END;                                                                    *
+    97    END WriteLine;                                                            96    92
+    98 
+    99 PROCEDURE WriteString ( f : tFile ; r : StringMem . tStringRef )             92     *    75    65     *    66     *
+   100 ; VAR LIn : Strings . tString                                                90     *    69     *
+   101 ; VAR LLength , I : CARDINAL                                                100     *     *    90
+   102 ; VAR LCh : CHAR                                                            101     *     *
+   103 ; BEGIN                                                                      93
+   104     StringMem . GetString ( r , LIn )                                        99    70    99   100
+   105   ; LLength := Strings . Length ( LIn )                                     101   100     *   104
+   106   ; IF LLength < 2                                                           94   105
+   107     THEN                                                                     94
+   108       Strings . WriteS ( f , LIn )                                          105    65    99   105
+   109     ELSIF Strings . Char ( LIn , 1 ) = '"'                                    *   108     *   108
+   110     THEN                                                                    107
+   111       Strings . WriteS ( f , LIn )                                          109   108   108   109
+   112     ELSIF Strings . Char ( LIn , 1 ) = "'"                                  109   111   109   111
+   113     THEN                                                                    110
+   114       IO . WriteC ( f , '"' )                                                65     *   111
+   115     ; FOR I := 2 TO LLength - 1                                               *   101     *   106
+   116       DO                                                                      *
+   117         LCh := Strings . Char ( LIn , I )                                   102   112   112   112   115
+   118       ; IF LCh = '"'                                                        106   117
+   119         THEN                                                                113
+   120           WriteBackslash ( f ) ;                                             76   114
+   121         END (* IF *)                                                         97
+   122       ; IO . WriteC ( f , LCh )                                             114   114   120   118
+   123       END (* FOR *)                                                         121
+   124     ; IO . WriteC ( f , '"' )                                               122   122   122
+   125     ELSE                                                                      *
+   126       Strings . WriteS ( f , LIn )                                          117   111   124   117
+   127     END (* IF *)                                                            123
+   128   END WriteString ;                                                         127    99
+   129 
+   130 PROCEDURE CloseTypeCases ( ToDepth : CARDINAL )                              99     *     *   101
+   131 
+   132 ; BEGIN                                                                     103
+   133     WHILE TypeCaseDepth > ToDepth                                             *    90   130
+   134     DO                                                                      116
+   135       !      ELSE EXIT!                                                     125     *
+   136       !      END (* TYPECASE Depth ! WN ( TypeCaseDepth ) ; ! , CloseTypeCases *)!      128
+   137       DEC ( TypeCaseDepth )                                                   *   133
+   138     END (* WHILE *)                                                         136
+   139   END CloseTypeCases ;                                                      138   130
+   140 
+   141 PROCEDURE Match (t, Formals: tTree);                                        130     *     *     *    87
+   142    VAR TreeName : tIdent;                                                   102     *    88
+   143    VAR Pattern  : tTree;                                                    142     *   141
+   144    BEGIN                                                                    132
+   145       IF (t^.Kind = Tree.NoPattern)                                         118   141     *    75     *
+   146          OR NOT Tree . IsType ( Formals , Tree . Formal )                     *     *   145     *   141     *     *
+   147       THEN RETURN;                                                          119     *
+   148       END;                                                                  139
+   149       Pattern := t^.OnePattern.Pattern;                                     143   145     *     *
+   150       CASE Pattern^.Kind OF                                                   *   149   145     *
+   151       | Tree.Decompose: WITH Pattern^.Decompose DO                          146     *     *   150     *   134
+   152             TreeName := Object^.Class.TypeDesc^.NodeTypes.TreeName^.TreeName.Name;      142     *     *     *     *     *
+                                                                                     *     *
+   153             IF ( Formals^.Formal.TypeDesc^.Kind                             145   146   146   152   150
+   154                  = Tree.UserType (* sem will have generated an error *)     151     *
+   155                )
+   156                OR IsProperlyNarrowed                                        146     *
+   157             (* OR IsNotEqual 
+c  158                     ( Object^.Class.TypeDesc^.NodeTypes.Types
+c  159                     , Formals^.Formal.TypeDesc^.NodeTypes.Types
+c  160                     ) 
+c  161             *) 
+   162             THEN                                                            147
+   163               INC ( TypeCaseDepth ) ;                                         *   137
+   164               !      TYPECASE (* Depth ! WN ( TypeCaseDepth ) ;               *
+c  165               ! , Decompose *) ! WritePathNarrow ( Path ); !!                 *     *
+   166               !      OF ! WI (TreeName); ! . ! WI (Object^.Class.Name);     150    75   152     *   152   152   152
+   167                         ! ( ! PathPrefix ( Path , TRUE );                     *   165     *
+   168                         !_yy_! WI (Object^.Class.Name); ! ) !                 *   166   166   166   166
+   169               !      => ! (* Not end of line *) 
+   170             END;                                                            148
+   171             Match (Patterns, Object^.Class.Formals);                        141     *   168   168   153
+   172          END;                                                               170
+   173 
+   174       | Tree.VarDef: WITH Pattern^.VarDef DO                                154     *   151   151     *   151
+   175             IF Object # NoTree THEN                                         153   171    75   162
+   176                WITH Object^.Formal DO                                       174   175   153   174
+   177                   !      IF NOT (equal! Module (TypeDesc);                  175   146     *    58   153
+   178 (* This could require that a user provide a _lot_ of equal<Type> macros! *) 
+   179                   ! ( ! WritePathNarrow ( Path );                           165   167
+   180                   ! , ! WritePathNarrow (Pattern^.VarDef.Path);             179   174   174   179
+   181                   ! ) ) THEN EXIT END (* IF *) ;!                           175   135   172
+   182                END;                                                         181
+   183             END;                                                            182
+   184          END;                                                               183
+   185 
+   186       | Tree.NilTest:                                                       174     *
+   187          !      IF ! WritePathWide (Pattern^.NilTest.Path);                 177     *   180   186   180
+   188          ! # NIL THEN EXIT END (* IF *) ;!                                    *   181   181   184
+   189 
+   190       | Tree.DontCare1Explicit , Tree.DontCare1Internal :                   186     *     *     *
+   191       | Tree.DontCareExplicit , Tree.DontCareInternal : RETURN;             190     *     *     *   147
+   192 
+   193       | Tree.Value: WITH Pattern^.Value DO                                  191     *   176   187     *   176
+   194             AssignTempo (Expr);                                               *     *
+   195             !      IF NOT (equal! Module (Formals^.Formal.TypeDesc);        187   177   177   177   171   176   177
+   196             ! ( ! WritePathNarrow ( Path );                                 180   187
+   197             ! , ! Expression (Expr); ! ) ) THEN EXIT END (* IF *) ;!          *   194   188   188   188
+   198             MatchExpr (Expr);                                                 *   197
+   199          END;                                                               197
+   200       END;                                                                  199
+   201       Match (t^.OnePattern.Next, Formals^.Formal.Next);                     171   149   149     *   195   195     *
+   202    END Match;                                                               200   201
+   203 
+   204 (* MatchExprs and MatchExpr traverse over expression(s) and, for any contained
+c  205    Call of a puma routine which has out actuals (i.e. patterns), calls match 
+c  206    for the patterns. *) 
+   207 
+   208 PROCEDURE MatchExprs (t: tTree);                                            141     *   201   143
+   209    BEGIN                                                                    144
+   210       IF t^.Kind = Tree.NoExpr THEN RETURN; END;                            195   208   153   193     *   197   191   202
+   211       IF Tree . IsType ( t^.OneExpr.Expr , Tree.DontCare ) THEN RETURN; END;      210   210   146   210     *   198     *
+                                                                                     *   210   210   210
+   212       MatchExpr (t^.OneExpr.Expr);                                          198   211   211   211
+   213       MatchExprs (t^.OneExpr.Next);                                         208   212   212   201
+   214    END MatchExprs;                                                          211   213
+   215 
+   216 PROCEDURE MatchExpr (t: tTree);                                             208   212   213   208
+   217    BEGIN                                                                    209
+   218       CASE t^.Kind OF                                                       150   216   210   166
+   219       | Tree.Compose:                                                       211     *
+   220          MatchExprs (t^.Compose.Exprs);                                     214   218   219     *
+   221 
+   222       | Tree.VarUse     :                                                   219     *
+   223       | Tree.Nil        :                                                   222     *
+   224       | Tree.DontCare1Explicit  :                                           223   190
+   225       | Tree.DontCare1Internal  :                                           224   190
+   226       | Tree.TargetExpr :                                                   225     *
+   227       | Tree.StringExpr :                                                   226     *
+   228       | Tree.AttrDesc   :                                                   227     *
+   229 
+   230       | Tree.Call       : WITH t^.Call DO                                   228     *   193   220     *   193
+   231             MatchExpr (Expr);                                               216   212
+   232             MatchExprs (Exprs);                                             220   220
+   233             IF Object # NoTree THEN                                         211   176   175   211
+   234                Match (Patterns, Object^.Routine.OutForm);                   202   171   233     *     *
+   235             END;                                                            214
+   236          END;                                                               235
+   237 
+   238       | Tree.Binary     : WITH t^.Binary DO                                 230     *   230   230     *   230
+   239             MatchExpr (Lop);                                                231     *
+   240             MatchExpr (Rop);                                                239     *
+   241          END;                                                               236
+   242 
+   243       | Tree.PreOperator :                                                  238     *
+   244          MatchExpr (t^.PreOperator.Expr);                                   240   238   243   231
+   245 
+   246       | Tree.PostOperator     :                                             243     *
+   247          MatchExpr (t^.PostOperator.Expr);                                  244   244   246   244
+   248 
+   249       | Tree.Index      :                                                   246     *
+   250          MatchExpr (t^.Index.Expr);                                         247   247   249   247
+   251          MatchExprs (t^.Index.Exprs);                                       232   250   250   232
+   252 
+   253       | Tree.Parents    :                                                   249     *
+   254          MatchExpr (t^.Parents.Expr);                                       250   251   253   250
+   255       END;                                                                  241
+   256    END MatchExpr;                                                           255   254
+   257 
+   258 PROCEDURE AssignTempos (t: tTree);                                          216     *   254   216
+   259    BEGIN                                                                    217
+   260       IF t^.Kind = Tree.NoExpr THEN RETURN; END;                            233   258   218   253   210   233   211   256
+   261       IF Tree . IsType ( t^.OneExpr.Expr , Tree.DontCare ) THEN RETURN; END;      260   260   211   260   213   254     *
+                                                                                   211   260   260   260
+   262       AssignTempo (t^.OneExpr.Expr);                                        194   261   261   261
+   263       AssignTempos (t^.OneExpr.Next);                                       258   262   262   213
+   264    END AssignTempos;                                                        261   263
+   265 
+   266 PROCEDURE AssignTempo (t: tTree);                                           258   262   263   258
+   267    VAR TreeName : tIdent;                                                   143   166   142
+   268    BEGIN                                                                    259
+   269       CASE t^.Kind OF                                                       218   266   260   218
+   270       | Tree.Compose: WITH t^.Compose DO                                    261   220   238   269     *   238
+   271             TreeName := Object^.Class.TypeDesc^.NodeTypes.TreeName^.TreeName.Name;      267   234   171   195   152     *
+                                                                                     *   168
+   272             !      ! WI (Tempo); ! := NEW ( ! WI (TreeName);                168     *     *     *   271
+   273             ! . ! WI (Object^.Class.Name);  ! ) ;!                          272   271   271   271
+   274             IF ( Exprs ^ . Kind = Tree. OneExpr )                           261   251   269   270   263
+   275                AND NOT Tree . IsType ( Exprs ^ . OneExpr . Expr , Tree.DontCare )         *   195   274   261   274   274
+                                                                                   262     *   261
+   276             THEN                                                            261
+   277                AssignFormals ( Exprs , Object ^ . Class . Formals , Tempo ) ;       *   275   273   273   201   272
+   278             END;                                                            264
+   279          END;                                                               278
+   280 
+   281       | Tree.VarUse     :                                                   275   222
+   282       | Tree.Nil        :                                                   281   223
+   283       | Tree.DontCare1Explicit  :                                           282   224
+   284       | Tree.DontCare1Internal  :                                           283   225
+   285       | Tree.TargetExpr :                                                   284   226
+   286       | Tree.StringExpr :                                                   285   227
+   287       | Tree.AttrDesc   :                                                   286   228
+   288 
+   289       | Tree.Call       : WITH t^.Call DO                                   287   230   270   270     *   270
+   290             AssignTempo (Expr);                                             266   275
+   291             (*/* RMB: I don't believe the called routine name could contain 
+c  292                       a Compose, which is the only way this call could 
+c  293                       do anything */*) 
+   294             AssignTempos (Exprs);                                           264   277
+   295          END;                                                               279
+   296 
+   297       | Tree.Binary     : WITH t^.Binary DO                                 289   238   289   289     *   289
+   298             AssignTempo (Lop);                                              290   239
+   299             AssignTempo (Rop);                                              298   240
+   300          END;                                                               295
+   301 
+   302       | Tree.PreOperator :                                                  297   244
+   303          AssignTempo (t^.PreOperator.Expr);                                 299   297   302   290
+   304 
+   305       | Tree.PostOperator     :                                             302   247
+   306          AssignTempo (t^.PostOperator.Expr);                                303   303   305   303
+   307 
+   308       | Tree.Index      :                                                   305   251
+   309          AssignTempo (t^.Index.Expr);                                       306   306   308   306
+   310          AssignTempos (t^.Index.Exprs);                                     294   309   309   294
+   311 
+   312       | Tree.Parents    :                                                   308   254
+   313          AssignTempo (t^.Parents.Expr);                                     309   310   312   309
+   314       END;                                                                  300
+   315    END AssignTempo;                                                         314   313
+   316 
+   317 PROCEDURE MakeWith ( Id : tIdent ): tIdent;                                 266     *     *   267     *
+   318    VAR String1, String2 : Strings . tString;                                267     *     *   126   100
+   319    BEGIN                                                                    268
+   320       ArrayToString ( "yyWITH_" , String1 ) ;                                69   318
+   321       GetString ( Id , String2 ) ;                                          104   317   318
+   322       Concatenate (String1, String2);                                        69   320   321
+   323       RETURN MakeIdent (String1);                                           261    70   322
+   324    END MakeWith;                                                            315   317
+   325 
+   326 PROCEDURE WritePrefixIdent ( Id : tIdent ) ;                                317     *   321   317
+   327   BEGIN                                                                     319
+   328     IF Id # NoIdent                                                         274   326    70
+   329     THEN                                                                    276
+   330       WI ( Id ) ;                                                           273   328
+   331       ! . ! 
+   332     END (* IF *)                                                            324
+   333   END WritePrefixIdent ;                                                    332   326
+   334 
+   335 (* Generate assignments to a formals list *) 
+   336 
+   337 PROCEDURE AssignFormals (t, Formals: tTree ; PrefixIdent : tIdent );        326   277   313   277   266     *   326
+   338    BEGIN                                                                    327
+   339       IF (t^.Kind = Tree.NoExpr)                                            328   337   274   312   260
+   340          OR NOT Tree . IsType ( Formals , Tree . Formal )                   156   275   339   275   337     *   201
+   341       THEN RETURN;                                                          329   323
+   342       END;                                                                  333
+   343       IF Tree . IsType ( t^.OneExpr.Expr , Tree.DontCare ) THEN             339   340   340   339   275   313     *   275
+                                                                                   341
+   344          BeginFormals ( Formals , PrefixIdent );                              *   340   337
+   345          RETURN;                                                            341
+   346       END;                                                                  342
+   347       AssignFormal (t^.OneExpr.Expr, Formals , PrefixIdent );                 *   343   343   343   344   344
+   348       AssignFormals (t^.OneExpr.Next, Formals^.Formal.Next , PrefixIdent );       337   347   347   263   347   340     *
+                                                                                   347
+   349    END AssignFormals;                                                       346   348
+   350 
+   351 PROCEDURE AssignFormal (t, Formals: tTree ; PrefixIdent : tIdent );         337   347   348   348   337   348   337
+   352    VAR TreeName : tIdent;                                                   318   272   351
+   353    VAR LWithTemp : tIdent;                                                  352     *   352
+   354    BEGIN                                                                    338
+   355       IF t^.Kind = Tree.Compose THEN                                        343   351   339   343   270   343
+   356          WITH t^.Compose DO                                                 297   355   355   297
+   357             TreeName := Object^.Class.TypeDesc^.NodeTypes.TreeName^.TreeName.Name;      352   277   277   271   271     *
+                                                                                     *   273
+   358             IF ( Exprs ^ . Kind = Tree . OneExpr )                          355   310   355   355   348
+   359                AND NOT Tree . IsType ( Exprs ^ . OneExpr.Expr , Tree.DontCare )         275   340   358   343   358   358
+                                                                                   347     *   343
+   360             THEN                                                            355
+   361               LWithTemp := MakeWith ( Formals^.Formal.Name ) ;              353   324   351   348   357
+   362               !      WITH ! WI ( LWithTemp ); ! := NEW ( ! WI (TreeName);         356   330   361   272     *   357
+   363               ! . ! WI (Object^.Class.Name); ! ) DO!                        362   357   357   361   356
+   364               !      ! WI (Formals^.Formal.Name); ! := ! WI ( LWithTemp ) ; ! ;!        363   361   361   363     *   362
+   365               AssignFormals (Exprs, Object^.Class.Formals , LWithTemp );    349   359   363   363   364   364
+   366               !      END (* WITH *) ;!                                      349
+   367             ELSE                                                            135
+   368               !      ! WI (Formals^.Formal.Name); ! := NEW ( ! WI (TreeName);     364   365   364   364   362     *   362
+   369               ! . ! WI (Object^.Class.Name); ! )!                           368   365   365   368
+   370             END;                                                            366
+   371          END;                                                               370
+   372       ELSE                                                                  367
+   373          AssignTempo (t);                                                   315   356
+   374       END;                                                                  371
+   375 
+   376       CASE t^.Kind OF                                                       269   373   358   269
+   377       | Tree.VarUse, Tree.Nil, Tree.Call, Tree.Binary, Tree.PreOperator,    359   281     *   282     *   289     *   297
+                                                                                     *   303
+   378         Tree.PostOperator, Tree.Index, Tree.Parents, Tree.TargetExpr        377   306     *   310     *   313     *   285
+   379         , Tree.StringExpr, Tree.AttrDesc:                                   378   286     *   287
+   380          !      ! WritePrefixIdent ( PrefixIdent ) ;                        333   351
+   381                   WI (Formals^.Formal.Name); ! := ! Expression (t); ! ;!    369   368   368   369   197   376
+   382       | Tree.DontCare1Explicit , Tree.DontCare1Internal :                   379   283     *   284
+   383          !      begin! Module (Formals^.Formal.TypeDesc); ! ( !               *   195   381   381   357
+   384                 WritePrefixIdent ( PrefixIdent ) ;  WI (Formals^.Formal.Name); ! ) !    380   380   381   383   383   381
+   385       ELSE                                                                  372
+   386       END;                                                                  374
+   387    END AssignFormal;                                                        386   351
+   388 
+   389 PROCEDURE BeginFormals (Formals: tTree ; PrefixIdent : tIdent );            351   344   384   351   384   353
+   390    BEGIN                                                                    354
+   391       IF Tree . IsType ( Formals , Tree . Formal )                          358   382   359   389     *   384
+   392       THEN                                                                  360
+   393          WITH Formals^.Formal DO                                            362   391   391   363
+   394             !      begin! Module (TypeDesc);                                383   383   383
+   395             ! ( ! WritePrefixIdent ( PrefixIdent ) ; WI (Name); ! )!        384   389   384   384
+   396             BeginFormals ( Next , PrefixIdent );                            389   348   395
+   397          END;                                                               387
+   398       END;                                                                  397
+   399    END BeginFormals;                                                        398   396
+   400 
+   401 PROCEDURE ConsPatterns (t: tTree; ListCount: INTEGER): INTEGER;             389     *   381   389    81    81     *
+   402    BEGIN                                                                    390
+   403       IF t^.Kind = Tree.NoPattern THEN RETURN ListCount; END;               391   401   376   391   145   392   345   401
+                                                                                   399
+   404       WITH t^.OnePattern DO                                                 393   403   201   393
+   405          IF Tree . IsType ( Pattern , Tree.DontCare ) THEN                  403   403   391   193     *   359   403
+   406             RETURN ConsTempos (Pattern^.DontCare.Tempos, ListCount);        403     *   405   405     *   403
+   407          ELSE                                                               385
+   408             IF ListCount > 0 THEN ! , ! END;                                405   406   405   403
+   409             WI (Pattern^.Pattern.Tempo);                                    395   406     *   277
+   410             RETURN ConsPatterns (Next, ListCount + 1);                      406   401   396   408
+   411          END;                                                               408
+   412       END;                                                                  411
+   413    END ConsPatterns;                                                        412   410
+   414 
+   415 PROCEDURE ConsTempos (t: tTree; ListCount: INTEGER): INTEGER;               401   406   404   401   410   401     *
+   416    BEGIN                                                                    402
+   417       IF Tree . IsType ( t , Tree . Formal )                                408   405   405   415     *   393
+   418       THEN                                                                  408
+   419          IF ListCount > 0 THEN ! , ! END;                                   417   415   418   413
+   420          WI (t^.Formal.Name);                                               409   417   417   395
+   421          RETURN ConsTempos (t^.Formal.Next, ListCount + 1);                 410   415   420   420   410   419
+   422       ELSE                                                                  407
+   423          RETURN ListCount;                                                  421   421
+   424       END;                                                                  419
+   425    END ConsTempos;                                                          424   421
+   426 
+   427 PROCEDURE Expressions (t: tTree; ListCount: INTEGER): INTEGER;              415     *   421   415   423   415     *
+   428    BEGIN                                                                    416
+   429       IF t^.Kind = Tree.NoExpr THEN RETURN ListCount; END;                  419   427   403   417   339   419   423   427
+                                                                                   425
+   430       WITH t^.OneExpr DO                                                    404   429   359   404
+   431          IF Tree . IsType ( Expr , Tree.DontCare ) THEN                     429   429   417   359     *   406   429
+   432             RETURN ConsTempos (Expr^.DontCare.Tempos, ListCount);           429   425   431   431   406   429
+   433          ELSE                                                               422
+   434             IF ListCount > 0 THEN ! , ! END;                                431   432   431   429
+   435             Expression (Expr);                                              381   432
+   436             RETURN Expressions (Next, ListCount + 1);                       432   427   421   434
+   437          END;                                                               434
+   438       END;                                                                  437
+   439    END Expressions;                                                         438   436
+   440 
+   441 PROCEDURE Expression (t: tTree);                                            427   435   430   427
+   442    BEGIN                                                                    428
+   443       CASE t^.Kind OF                                                       376   441   429   376
+   444       | Tree.Compose    : WI (t^.Compose.Tempo);                            431   356   420   443     *   409
+   445 
+   446       | Tree.Nil        : !NIL!                                             444   377   188
+   447 
+   448       | Tree.VarUse     : WITH t^.VarUse DO                                 446   377   430   444     *   430
+   449             IF Object # NoTree THEN                                         434   369   233   434
+   450                WritePathNarrow (Object^.Formal.Path);                       196   449   421   196
+   451             ELSE                                                            433
+   452                WI (Name);                                                   444   420
+   453             END;                                                            439
+   454          END;                                                               453
+   455 
+   456       | Tree.DontCare1Explicit , Tree.DontCare1Internal : WI (t^.DontCare1.Tempo);      448   382     *   382   452   448
+                                                                                     *   444
+   457 
+   458       | Tree.Call       : WITH t^.Call DO                                   456   377   448   456     *   448
+   459             Expression (Expr); ! ( !                                        441   435
+   460             ListCount := Expressions (Exprs, 0);                            436   439   365
+   461             IF Object # NoTree THEN                                         449   450   449   449
+   462                ListCount := ConsPatterns (Patterns, ListCount);             460   413   234     *
+   463             ELSE                                                            451
+   464                ListCount := Expressions (Patterns, ListCount);              462   460   462     *
+   465             END;                                                            454
+   466             ! )! 
+   467          END;                                                               465
+   468 
+   469       | Tree.Binary :                                                       458   377
+   470          (* Semantics now transforms "." constructs into "::", where
+c  471             it makes sense.  *) 
+   472          WITH t^.Binary DO                                                  458   458   469   458
+   473             Expression (Lop); ! ! WI (Operator); ! ! Expression (Rop);      459   298   456     *     *   299
+   474          END;                                                               467
+   475 
+   476       | Tree.PreOperator        :                                           469   377
+   477          WI (t^.PreOperator.Operator); ! ! Expression (t^.PreOperator.Expr);      473   472   476   473   473     *     *
+                                                                                   459
+   478 
+   479       | Tree.PostOperator       :                                           476   378
+   480          Expression (t^.PostOperator.Expr); ! ! WI (t^.PostOperator.Operator);    477   477   479   477   477     *     *
+                                                                                   477
+   481 
+   482       | Tree.Index      :                                                   479   378
+   483          Expression (t^.Index.Expr);                                        480   480   482   480
+   484          ! [ ! ListCount := Expressions (t^.Index.Exprs, 0); ! ]!           464   464   483   483   460
+   485 
+   486       | Tree.Parents    : !( ! Expression (t^.Parents.Expr); ! )!           482   378   483   484     *   483
+   487 
+   488       | Tree.TargetExpr : Module (t^.TargetExpr.Expr);                      486   378   394   486     *   486
+   489 
+   490       | Tree.StringExpr : WriteString (f, t^.StringExpr.String);            488   379   128   126   488     *     *
+   491 
+   492       | Tree.AttrDesc   : WITH t^.AttrDesc DO                               490   379   472   490     *   472
+   493             PathPrefix ( Object^.Formal.Path , FALSE ) ;                    167   461   450   450     *
+   494             ! . ! WI (Attribute);                                           480     *
+   495          END;                                                               474
+   496       END;                                                                  495
+   497    END Expression;                                                          496   486
+   498 
+   499 PROCEDURE OpenWITHRenames (t, Formals: tTree)                               441     *   492   393   441
+   500 ; VAR Object , LSubFormals , LPath : tTree                                  353   493     *     *   499
+   501 ; VAR Count : CARDINAL                                                      500     *   130
+   502 ; VAR FormalName : tIdent                                                   501     *   389
+   503 
+   504 ;  PROCEDURE OpenWITHRenamesAttrs ( AttrFormals : tTree )                   499     *     *   500
+   505    ; VAR LNewFormalName : tIdent                                            502     *   502
+   506    ; VAR LString1 , LString2 : Strings . tString                            505     *     *   318   318
+   507    ; BEGIN                                                                  442
+   508        IF Tree . IsType ( AttrFormals , Tree . Formal )                     461   492   431   504     *   493
+   509        THEN                                                                 461
+   510          (* This renaming would need some work, requiring a routine 
+c  511             which does something like PathPrefix, but builds a tIdent 
+c  512             to compare to, instead of writing. Since the constructed 
+c  513             identifiers have _yy_ in them, consider it too unlikely
+c  514             they will clash with a user-defined child/field name 
+c  515             and forget the renaming. 
+c  516              IF AttrFormals ^ . Formal . Name = FormalName 
+c  517              THEN (* Rename FormalName, possibly again. *) 
+c  518                ArrayToString ( "yy_Rename_" , LString1 ) ;
+c  519                GetString ( FormalName , LString2 ) ; 
+c  520                Concatenate ( LString1 , LString2 ) ; 
+c  521                LNewFormalName := MakeIdent ( LString1 ) ; 
+c  522                !      ! WI ( LNewFormalName ) ; 
+c  523                ! = ! WI ( FormalName  ) ; ! ; ! 
+c  524                FormalName := LNewFormalName ; 
+c  525              ELSE 
+c  526              END (* IF *) ; 
+c  527          *) 
+   528          IF Count = 0 THEN !        ! ELSE !      , ! END (* IF *) ;        508   501   509   463   497
+   529          INC ( Count ) ;                                                    163   528
+   530          WI ( AttrFormals ^ . Formal . Name ) ;                             494   508   508   452
+   531          ! = ! PathPrefix ( LPath , FALSE ) ;                               493   500   493
+   532                !_yy_! WI ( t ^ . OnePattern . Pattern ^ . Decompose . Object      168   530   499   404   409   151   500
+   533                            ^ . Class . Name                                 369   530
+   534                          ) ;
+   535                  (* Its type is t ^ . OnePattern . Pattern ^ . Decompose . Object 
+c  536                     ^ . Class . Name  *)
+   537          ! . ! WI ( AttrFormals ^ . Formal . Name ) ; !!                    532   530   530   533
+   538                  (*/* attribute's type is 
+c  539                       Interface ( AttrFormals ^ . Formal . TypeDesc ) */*) 
+   540          OpenWITHRenamesAttrs ( AttrFormals ^ . Formal . Next ) ;           504   537   537   436
+   541        END (* IF *) ;                                                       528
+   542      END OpenWITHRenamesAttrs ;                                             541   540
+   543 
+   544    BEGIN (* OpenWITHRenames *)                                              507
+   545       IF (t^.Kind = Tree.NoPattern)                                         528   532   443   508   403
+   546          OR (Formals^.Kind = Tree.NoFormal)                                 340   499   545   545     *
+   547       THEN RETURN;                                                          528   436
+   548       END;                                                                  542
+   549       CASE t^.OnePattern.Pattern^.Kind OF                                   443   545   532   532   546   443
+   550       | Tree.Decompose:                                                     546   532
+   551          Object := t^.OnePattern.Pattern^.Decompose.Object ;                532   549   549   549   550     *
+   552          IF Object # NoTree                                                 545   551   461
+   553          THEN                                                               547
+   554            LSubFormals := Object ^ . Class . Formals ;                      500   552   533   546
+   555            IF Tree . IsType ( LSubFormals , Tree . Formal )                 552   550   508   554     *   540
+   556            THEN                                                             553
+   557              !    WITH (* Renames *) !                                      492
+   558              LPath := t^.OnePattern.Pattern^.Decompose.Path ;               531   551   551   551   551   493
+   559              Count := 0 ;                                                   529
+   560              (* FormalName 
+c  561                   := PathPrefixIdent ( LPath , Object ^ . Class . Name ) ; *)
+   562                (* Formals ^ . Formal . Name might need to be renamed later. *) 
+   563              OpenWITHRenamesAttrs ( LSubFormals ) ;                         542   555
+   564              !    DO (* Renames *) !                                        492
+   565              OpenWITHRenames (                                              499
+   566                 t^.OnePattern.Pattern^.Decompose.Patterns , LSubFormals ) ;       558   558   558   558   464   563
+   567            END (* IF *)                                                     548
+   568          END (* IF *)                                                       567
+   569       | Tree.VarDef , Tree.NilTest , Tree.Value , Tree.DontCare1Explicit    555   180     *   187     *   193     *   456
+   570         , Tree.DontCare1Internal :                                          569   456
+   571       ELSE RETURN;                                                          528   547
+   572       END;                                                                  568
+   573       OpenWITHRenames (t^.OnePattern.Next, Formals^.Formal.Next);           565   566   566   540   554   555     *
+   574    END OpenWITHRenames;                                                     572   573
+   575 
+   576 PROCEDURE CloseWITHRenames (t, Formals: tTree)                              504     *   573   573   504
+   577 ; VAR Object , LSubFormals : tTree                                          506   554   566   576
+   578 ; BEGIN (* CloseWITHRenames *)                                              544
+   579       IF (t^.Kind = Tree.NoPattern)                                         555   576   549   570   545
+   580          OR (Formals^.Kind = Tree.NoFormal)                                 546   576   579   579   546
+   581       THEN RETURN;                                                          556   571
+   582       END;                                                                  574
+   583       CASE t^.OnePattern.Pattern^.Kind OF                                   549   579   573   566   580   549
+   584       | Tree.Decompose:                                                     580   566
+   585          Object := t^.OnePattern.Pattern^.Decompose.Object ;                577   583   583   583   584     *
+   586          IF Object # NoTree                                                 579   585   552
+   587          THEN                                                               581
+   588            LSubFormals := Object ^ . Class . Formals ;                      577   586   554   580
+   589            IF Tree . IsType ( LSubFormals , Tree . Formal )                 586   584   555   588     *   573
+   590            THEN                                                             587
+   591              CloseWITHRenames                                               576
+   592                ( t^.OnePattern.Pattern^.Decompose.Patterns , LSubFormals ) ;      585   585   585   585   566   589
+   593              !    END (* WITH Renames *) !                                  582
+   594            END (* IF *)                                                     593
+   595          END (* IF *)                                                       594
+   596       | Tree.VarDef , Tree.NilTest , Tree.Value , Tree.DontCare1Explicit    589   569     *   569     *   569     *   569
+   597         , Tree.DontCare1Internal :                                          596   570
+   598       ELSE RETURN;                                                          571   581
+   599       END;                                                                  595
+   600       CloseWITHRenames (t^.OnePattern.Next, Formals^.Formal.Next);          591   592   592   573   588   589     *
+   601    END CloseWITHRenames;                                                    599   600
+   602 
+   603 } (* END GLOBAL *) 
+   604 
+   605 PROCEDURE MacroM3 (t: Tree)                                                 576    58   600   597
+   606 
+   607 Spec (..) :- {                                                                *
+   608         MacroM3 (TreeNames);                                                605     *
+   609 }; .
+   610 TreeName (..) :- {                                                          368
+   611         !# define begint! WI (Name); !(a)       a := NIL;!                    *     *   537   537     *     *   446
+   612         !# define equalt! WI (Name); !(a, b)    ! WI (Name);                611     *   611   611   611     *     *     *
+   613         !.IsEqual! WI (Name); ! (a, b)!                                       *   612   612   612   612
+   614         MacroM3 (Next);                                                     608   600
+   615 }; .
+   616 
+   617 
+   618 PROCEDURE Interface (t: Tree)                                               605    58   605   605
+   619 
+   620 Spec (..) :- {                                                              607
+   621         !!
+   622         !(* This interface file was mechanically generated by puma. *)!
+   623         !!
+   624         !INTERFACE ! WI (TrafoName); !;!                                      *   613     *
+   625         !!
+   626         !IMPORT Wr ! Interface (TreeNames); ! ;!                             76     *   618   608
+   627         !    ! WriteLine (Codes^.Codes.ImportLine);                          97     *     *     *
+   628         WriteText (f, Codes^.Codes.Import);                                  71   490   627     *     *
+   629         !!
+   630         !    ! WriteLine (Codes^.Codes.ExportLine);                         627   628     *     *
+   631         WriteText (f, Codes^.Codes.Export);                                 628   628   630     *     *
+   632         !!
+   633         !VAR yyf        : Wr . T ;!                                         577     *   626     *
+   634         !VAR Exit       : PROCEDURE ( ) ;!                                  633     *   618
+   635         !!
+   636         Interface (Public);                                                 626     *
+   637         !!
+   638         !PROCEDURE Begin! WI (TrafoName); ! ( ) ;!                          634     *   624   624
+   639         !PROCEDURE Close! WI (TrafoName); ! ( ) ;!                          638     *   638   638
+   640         !!
+   641         !END ! WI (TrafoName); ! .!                                         601   639   639
+   642         !!
+   643 }; .
+   644 TreeName (..) :- {                                                          610
+   645         !, ! WI (Name);                                                     641   613
+   646         Interface (Next);                                                   636   614
+   647 }; .
+   648 Name (..) :- {                                                              645
+   649         IF Object # NoTree THEN                                             589   588   586   590
+   650            ListCount := 0;                                                  484
+   651            !PROCEDURE ! WI (Name); ! (!                                     639   645   648
+   652            Interface (Object^.Routine.InForm);                              646   649   234     *
+   653            Interface (Object^.Routine.OutForm);                             652   652   652   234
+   654            !)! 
+   655            IF Object^.Kind = Tree.Predicate THEN                            649   653   583   618     *   649
+   656               !: BOOLEAN!                                                    89
+   657            ELSIF Object^.Kind = Tree.Function THEN                          112   655   655   655     *   655
+   658               !: ! Interface (Object^.Function.ReturnForm^.Formal.TypeDesc);      653   657   657     *   600   394
+   659            END;                                                             641
+   660            !;!
+   661         END;                                                                659
+   662         Interface (Next);                                                   658   646
+   663 }; .
+   664 RoutineFormal                                                                 *
+   665   ( Name := LFormalName :                                                   651     *
+   666   , TypeDesc := NodeTypes ( TreeName := TreeName ( Name := LTreeName : ) )        658   357   644     *   665     *
+   667   , TargetClass := Class                                                      *   588
+   668       ( (* Name := LClassName : , *) TypeDesc := NodeTypes ( .. ) )         666   666
+   669 (*         ^ Find out why puma doesnt find this child name *)  
+   670   ) 
+   671   :- { IF ListCount > 0 THEN !; ! END;                                      655   650   657   661
+   672        IF Path^.Var.IsOutput THEN !VAR ! END;                               671   558     *     *   671   634   671
+   673        WI ( LFormalName ) ; ! : !                                           651   665
+   674        WI ( LTreeName ) ; ! . !                                             673   666
+   675        WI ( (* LClassName *) TargetClass ^ . Class . Name ) ;               674   667   667   666
+   676        INC (ListCount);                                                     529   671
+   677        Interface ( t :: Next);                                              662   618   662
+   678      } ; .
+   679 (* Not as nicely coded: 
+c  680 RoutineFormal ( TargetClass := Class ( TypeDesc := NodeTypes ( .. ) ) ) 
+c  681   :- { IF ListCount > 0 THEN !; ! END;
+c  682        IF Path^.Var.IsOutput THEN !VAR ! END;
+c  683        WI ( t ^ . RoutineFormal . Name ) ; ! : ! 
+c  684        WI ( TypeDesc ^ . NodeTypes . TreeName ^ . TreeName . Name ) ; ! . !
+c  685        WI ( TargetClass ^ . Class . Name ) ;  
+c  686        INC (ListCount);
+c  687        Interface (Next);
+c  688      } ; .
+c  689 *) 
+   690 Formal (..) :- {                                                            658
+   691         IF ListCount > 0 THEN !; ! END;                                     672   676   672   672
+   692         IF Path^.Var.IsOutput THEN !VAR ! END;                              691   672   672   672   691   672   691
+   693         WI (Name); !: !                                                     675   675
+   694         Interface (TypeDesc);                                               677   668
+   695         INC (ListCount);                                                    676   691
+   696         Interface (Next);                                                   694   677
+   697 }; .
+   698 NodeTypes (..) :- {                                                         668
+   699         WI (TreeName^.TreeName.Name); ! .t! WI (TreeName^.TreeName.Name);   693   666     *   693   677     *     *     *
+                                                                                     *
+   700 }; .
+   701 UserType (..) :- {                                                          154
+   702         WI (Type);                                                          699     *
+   703 }; .
+   704 
+   705 
+   706 PREDICATE NeedsWITHStmt (t: Rule)                                             *     *   699     *
+   707 
+   708 Rule (..) :- ( { IsElement (ORD ('w'), Options) } ) ;                       706    72     *    75
+   709              ( { ( Statements^.Kind <> Tree.NoStatement )                     *   657   657     *
+   710                  OR ( Exprs^.Kind <> Tree.NoExpr )                          580   484   709   709   429
+   711                  OR ( Expr^.Kind <> Tree.NoExpr )                           710   488   710   710   710
+   712                }
+   713              ) ; 
+   714 
+   715           . 
+   716 
+   717 PROCEDURE Module (t: Tree)                                                  651   488   706   711
+   718 
+   719 Spec (..) :- {                                                              620
+   720         !!
+   721         !(* This module file was mechanically generated by puma. *)!
+   722         !!
+   723         !MODULE ! WI (TrafoName); !;!                                         *   702   641
+   724         !!
+   725         !IMPORT Wr , Stdio , Process ! Interface (TreeNames); ! ;!          626   633     *     *   696   626
+   726         !# define yyWrite(s) Wr.PutText (yyf, s)!                           612     *     *   725     *   633     *
+   727         !# define yyWriteNl Wr.PutText(yyf,Wr.EOL)!                         726     *   726   726   726     *     *
+   728         !!
+   729         !    ! WriteLine (Codes^.Codes.GlobalLine);                         630   631     *     *
+   730         WriteText (f, Codes^.Codes.Global);                                 631   631   729     *     *
+   731         !!
+   732         @# include "yy@ WI (TrafoName); @.w"@                                 *
+   733         !!
+   734         !PROCEDURE yyAbort ( yyFunction : TEXT )!                           717     *     *     *
+   735         != BEGIN!                                                           578
+   736         @    Wr . PutText @                                                 727   727
+   737         @      (Stdio . stderr, "Error: module @ WI (TrafoName); @, routine " ) ;@      725     *
+   738         !    Wr . PutText (Stdio . stderr, yyFunction);!                    736   736   737   737   734
+   739         @    Wr . PutText (Stdio . stderr, " failed" ) ;@                   738   738   738   738
+   740         !    Wr . PutText (Stdio . stderr , Wr . EOL ) ;!                   739   739   739   739     *   727
+   741         !    Exit ( ) !                                                     634
+   742         !   END yyAbort ;!                                                  692   734
+   743         !!
+   744 (*      Where is this used? Eliminate it for now *)
+   745 (*      !PROCEDURE yyIsEqual (yya, yyb: ARRAY OF SYSTEM.BYTE): BOOLEAN;!
+c  746         ! VAR yyi       : INTEGER;!
+c  747         ! BEGIN!
+c  748         !  FOR yyi := 0 TO INTEGER (HIGH (yya)) DO!
+c  749         !   IF yya [yyi] # yyb [yyi] THEN RETURN FALSE; END;!
+c  750         !  END;!
+c  751         !  RETURN TRUE;!
+c  752         ! END yyIsEqual;!
+c  753         !!
+c  754 *)
+   755         Module (Routines);                                                  717     *
+   756         !PROCEDURE Begin! WI (TrafoName); ! ( )!                            734   638   723   723
+   757         !=BEGIN!                                                            735
+   758         !    ! WriteLine (Codes^.Codes.BeginLine);                          729   730     *     *
+   759         WriteText (f, Codes^.Codes.Begin);                                  730   730   758     *   756
+   760         !!
+   761         ! END Begin! WI (TrafoName); ! ;!                                   742   759   756   756
+   762         !!
+   763         !PROCEDURE Close! WI (TrafoName); !( )!                             756   639   761   761
+   764         !=BEGIN!                                                            757
+   765         !    ! WriteLine (Codes^.Codes.CloseLine);                          758   759     *     *
+   766         WriteText (f, Codes^.Codes.Close);                                  759   759   765     *   763
+   767         !!
+   768         ! END Close! WI (TrafoName); ! ;!                                   761   766   763   763
+   769         !!
+   770         !PROCEDURE yyExit ( )!                                              763     *
+   771         !=BEGIN!                                                            764
+   772         !   Process . Exit ( 1 ) ;!                                         725   741
+   773         ! END yyExit ;!                                                     768   770
+   774         !!
+   775         !BEGIN!                                                             771
+   776         ! yyf   := Stdio . stdout ;!                                        727   740     *
+   777         ! Exit  := yyExit;!                                                 772   773
+   778         ! Begin! WI (TrafoName); ! ( ) ;!                                   761   768   768
+   779         !END ! WI (TrafoName); !.!                                          773   778   778
+   780         !!
+   781         TypeCaseDepth := 0 ;                                                163
+   782 }; .
+   783 Procedure (..) :- {                                                           *
+   784         ListCount := 0;                                                     695
+   785         !PROCEDURE ! WI (Name); ! ( !                                       770   779   699
+   786         Interface (InForm);                                                 725   652
+   787         Interface (OutForm);                                                786   653
+   788         ! ) =!
+   789         !    ! WriteLine (LocalLine);                                       765     *
+   790         WriteText (f, Local);                                               766   766     *
+   791         !!
+   792         RoutineKind := kProcedure;                                           79    79
+   793         InFormals := InForm;                                                 84   786
+   794         OutFormals := OutForm;                                               85   787
+   795         ! BEGIN!                                                            775
+   796       IF IsElement (ORD ('n'), Options) THEN                                692   708   708   708   692
+   797         NilCheck (InForm);                                                    *   793
+   798       END;                                                                  779
+   799       IF IsElement (ORD ('b'), Options) THEN                                796   796   796   796   796
+   800         Module (Rules);                                                     755     *
+   801         IF IsElement (ORD ('f'), Options) THEN                              799   799   799   799   799
+   802            @  yyAbort ( "@ WI (Name); @" ) ;@                               742
+   803         END;                                                                798
+   804       ELSE                                                                  598
+   805         TemposDone := FALSE;                                                 89   531
+   806         CommonTestElim (Decisions);                                           *     *
+   807         IF IsElement (ORD ('f'), Options) AND NOT NeedsNoFinale (Decisions) THEN        801   801   801   801   359   359
+                                                                                    74   806   801
+   808            @  yyAbort ( "@ WI (Name); @" ) ;@                               802
+   809         END;                                                                803
+   810       END;                                                                  809
+   811         ! END ! WI (Name); ! ;!                                             810   785   785
+   812         !!
+   813         Module (Next);                                                      800   696
+   814 }; .
+   815 Function (..) :- {                                                          658
+   816         ListCount := 0;                                                     784
+   817         !PROCEDURE ! WI (Name); ! ( !                                       785   811   811
+   818         Interface (InForm);                                                 787   797
+   819         Interface (OutForm);                                                818   794
+   820         ! ) : ! Interface (ReturnForm^.Formal.TypeDesc); !=!                819   658   690   694
+   821         !    ! WriteLine (LocalLine);                                       789   789
+   822         WriteText (f, Local);                                               790   790   790
+   823         !!
+   824         RoutineKind := kFunction;                                           792    79
+   825         InFormals := InForm;                                                793   818
+   826         OutFormals := OutForm;                                              794   819
+   827         ReturnFormals := ReturnForm;                                         86   820
+   828         ! BEGIN!                                                            795
+   829       IF IsElement (ORD ('b'), Options) THEN                                807   807   807   807   807
+   830         Module (Rules);                                                     813   800
+   831         @  yyAbort ( "@ WI (Name); @" ) ;@                                  808
+   832       ELSE                                                                  804
+   833         TemposDone := FALSE;                                                805   805
+   834         CommonTestElim (Decisions);                                         806   807
+   835         IF NOT NeedsNoFinale (Decisions) THEN                               829   807   807   834   829
+   836            @  yyAbort (" @ WI (Name); @" ) ;@                               831
+   837         END;                                                                811
+   838       END;                                                                  837
+   839         ! END ! WI (Name); ! ;!                                             838   817   817
+   840         !!
+   841         Module (Next);                                                      830   813
+   842 }; .
+   843 Predicate (..) :- {                                                         655
+   844         ListCount := 0;                                                     816
+   845         !PROCEDURE ! WI (Name); ! ( !                                       817   839   839
+   846         Interface (InForm);                                                 820   825
+   847         Interface (OutForm);                                                846   826
+   848         ! ) : BOOLEAN = !                                                   656
+   849         !    ! WriteLine (LocalLine);                                       821   821
+   850         WriteText (f, Local);                                               822   822   822
+   851         !!
+   852         RoutineKind := kPredicate;                                          824    79
+   853         InFormals := InForm;                                                825   846
+   854         OutFormals := OutForm;                                              826   847
+   855         ! BEGIN!                                                            828
+   856       IF IsElement (ORD ('n'), Options) THEN                                835   829   829   829   835
+   857         NilCheck (InForm);                                                  797   853
+   858       END;                                                                  839
+   859       IF IsElement (ORD ('b'), Options) THEN                                856   856   856   856   856
+   860         Module (Rules);                                                     841   830
+   861         !  RETURN FALSE;!                                                   598   833
+   862       ELSE                                                                  832
+   863         TemposDone := FALSE;                                                833   861
+   864         CommonTestElim (Decisions);                                         834   835
+   865         IF NOT NeedsNoFinale (Decisions) THEN                               859   835   835   864   859
+   866            !  RETURN FALSE;!                                                861   863
+   867         END;                                                                858
+   868       END;                                                                  867
+   869         ! END ! WI (Name); ! ;!                                             868   845   845
+   870         !!
+   871         Module (Next);                                                      860   841
+   872 }; .
+   873 Rule (..) :-                                                                708
+   874     VAR LTypeCaseDepth : CARDINAL ;                                         692     *   501
+   875     {
+   876         !    ! WriteLine (Line);                                            849    94
+   877         IF HasTempos                                                        865     *
+   878         THEN                                                                865
+   879           !    (* Tempo declarations, Module: *)!
+   880           Declare ( t ) ;                                                     *   717
+   881           !    BEGIN (* Block of Tempo declarations, Module *)!             855
+   882         END;                                                                869
+   883         !   LOOP!                                                             *
+   884         Decls := VarDecls;                                                   87     *
+   885         LTypeCaseDepth := TypeCaseDepth ;                                   874   781
+   886         Match (Patterns, InFormals);                                        234   592   853
+   887       IF NeedsWITHStmt ( t )                                                877   706   880
+   888       THEN                                                                  878
+   889         OpenWITHRenames (Patterns, InFormals);                              574   886   886
+   890       END;                                                                  882
+   891         Module (Statements);                                                871   709
+   892         IF NOT HasRejectOrFail THEN                                         887   865     *   888
+   893            AssignFormals (Exprs, OutFormals , NoIdent );                    365   710   854   328
+   894            MatchExprs (Exprs);                                              251   893
+   895            CASE RoutineKind OF                                              583   852   583
+   896            | kProcedure: !      RETURN;!                                    792   866
+   897 
+   898            | kFunction :                                                    824
+   899               AssignTempo (Expr);                                           373   711
+   900               IF HasPatterns                                                892     *
+   901                  AND ( Expr ^ . Kind # Tree . Compose )                     807   899   711   717   444
+   902                  AND NOT Tree . IsType ( t , Tree . DontCare1 )             901   892   901   589   887     *   456
+   903                       (* ^ RMB this looks identically FALSE to me *)
+   904                  THEN                                                       892
+   905                  !      ! WI (Tempo); ! := ! Expression (Expr); !;!         869   456   497   901
+   906                  MatchExpr (Expr);                                          256   905
+   907                  !      RETURN ! WI (Tempo); !;!                            896   905   905
+   908               ELSE                                                          862
+   909                  MatchExpr (Expr);                                          906   906
+   910                  !      RETURN ! Expression (Expr); !;!                     907   905   909
+   911               END;                                                          890
+   912 
+   913            | kPredicate: !      RETURN TRUE;!                               852   910   167
+   914            END;                                                             911
+   915         END;                                                                914
+   916         CloseTypeCases ( LTypeCaseDepth ) ;                                 139   885
+   917       IF NeedsWITHStmt ( t )                                                900   887   902
+   918       THEN                                                                  904
+   919         CloseWITHRenames (Patterns, InFormals);                             601   889   889
+   920       END;                                                                  915
+   921         !   END (* LOOP *) ;!                                               920
+   922         IF HasTempos THEN !    END (* Block of Tempo declarations, Module *) ;!   917   877   918   921
+   923         END;                                                                922
+   924         !!
+   925         Module (Next);                                                      891   871
+   926 }; .
+   927 ProcCall (..) :-                                                              *
+   928     {
+   929         !      ! WriteLine (Pos);                                           876     *
+   930         AssignTempo (Call);                                                 899   458
+   931         !      ! Expression (Call); !;!                                     910   930
+   932         MatchExpr (Call);                                                   909   931
+   933         Module (Next);                                                      925   925
+   934 }; .
+   935 Condition (..) :-                                                             *
+   936     {
+   937         !      ! WriteLine (Pos);                                           929   929
+   938         AssignTempo (Expr);                                                 930   910
+   939         !      IF NOT ( ! Expression (Expr); ! ) THEN EXIT END (* IF *) ;!        922   902   931   938   922   197   923
+   940         MatchExpr (Expr);                                                   932   939
+   941         Module (Next);                                                      933   933
+   942 }; .
+   943 Assignment (..) :-                                                            *
+   944     {
+   945         !      ! WriteLine (Pos);                                           937   937
+   946         AssignTempo (Adr);                                                  938     *
+   947         AssignTempo (Expr);                                                 946   940
+   948         IF Object # NoTree THEN                                             939   658   649   939
+   949            !      ! WritePathWide (Object^.Formal.Path);                    187   948   820   692
+   950         ELSE                                                                908
+   951            !      ! Expression (Adr);                                       939   946
+   952         END;                                                                939
+   953         ! := ! Expression (Expr); ! ;!                                      951   947
+   954         MatchExpr (Adr);                                                    940   951
+   955         MatchExpr (Expr);                                                   954   953
+   956         Module (Next);                                                      941   941
+   957 }; .
+   958 Reject (..) :- {                                                              *
+   959         !      ! WriteLine (Pos);                                           945   945
+   960         !      EXIT;!                                                       939
+   961 }; .
+   962 Fail (..) :- {                                                                *
+   963         !      ! WriteLine (Pos);                                           959   959
+   964         !      RETURN ! IF RoutineKind = kPredicate THEN !FALSE ! END; !;!        913   948   895   913   948   866   952
+   965 }; .
+   966 TargetStmt (..) :- {                                                          *
+   967         !      ! WriteLine (Pos);                                           963   963
+   968         !      ! Module (Stmt); !;!                                         956     *
+   969         Module (Next);                                                      968   956
+   970 }; .
+   971 Nl (..) :- {                                                                  *
+   972         !      ! WriteLine (Pos);                                           967   967
+   973         !      yyWriteNl;!                                                  727
+   974         Module (Next);                                                      969   969
+   975 }; .
+   976 WriteStr (..) :- {                                                            *
+   977         !      ! WriteLine (Pos);                                           972   972
+   978         !      yyWrite ( ! WriteString (f, String); ! ) ;!                  726   490   850   490
+   979         Module (Next);                                                      974   974
+   980 }; .
+   981 Ident (..) :- {                                                               *
+   982         IF Object # NoTree                                                  964   949   948
+   983         THEN                                                                964
+   984           WritePathNarrow (Object^.Formal.Path);                            450   982   949   949
+   985         ELSE                                                                950
+   986           WI (Attribute);                                                   907   494
+   987         END;                                                                964
+   988         Module (Next);                                                      979   979
+   989 }; .
+   990 Any (..) :- {                                                                 *
+   991         StringMem . WriteString (f, Code);                                  104   978   978     *
+   992         (* Target code, no delimiter conversion here. *) 
+   993         Module (Next);                                                      988   988
+   994 }; .
+   995 Anys (..) :- {                                                                *
+   996         Module (Layouts);                                                   993     *
+   997         Module (Next);                                                      996   993
+   998 }; .
+   999 LayoutAny (..) :- {                                                           *
+  1000         StringMem . WriteString (f, Code);                                  991   991   991   991
+  1001         (* Target code, no delimiter conversion here. *) 
+  1002         Module (Next);                                                      997   997
+  1003 }; .
+  1004 Designator (..) :- {                                                          *
+  1005         PathPrefix ( Object^.Formal.Path , FALSE ) ; ! . ! WI (Attribute);        531   984   984   984   964   986   986
+  1006         Module (Next);                                                     1002  1002
+  1007 }; .
+  1008 Field (..) :- {                                                               *
+  1009       Assertions . CantHappen ( "Module called on Field" ) ;                 68     *
+  1010 }; .
+  1011 ConsType (..) :- {                                                            *
+  1012       Assertions . CantHappen ( "Module called on ConsType" ) ;            1009  1009
+  1013 }; .
+  1014 Var (..) :- {                                                               692
+  1015       Assertions . CantHappen ( "Module called on Var" ) ;                 1012  1012
+  1016 }; .
+  1017 NodeTypes (..) :- {                                                         698
+  1018         !t! WI (TreeName^.TreeName.Name);                                   917  1005   699     *   869
+  1019 }; .
+  1020 UserType (..) :- {                                                          701
+  1021         WI (Type);                                                         1018   702
+  1022 }; .
+  1023 
+  1024 PROCEDURE PathPrefix ( FPath : Tree , IsNarrowed : BOOLEAN )                845  1005     *   902     *   848
+  1025 
+  1026 Field (..) , _ :- {                                                        1008     *
+  1027         PathPrefix ( Next , IsNarrowed );                                  1024  1006  1024
+  1028         IF IsNarrowed                                                       982  1027
+  1029         THEN !_y_!  (* Not Eol *)                                           983     *
+  1030         ELSE ! . ! (* Not Eol *)                                            985
+  1031         END (* IF *) ;                                                      987
+  1032         WI (Name);                                                         1021  1018
+  1033 }; .
+  1034 ConsType (..) , _                                                          1011  1026
+  1035   :- VAR LIsNarrowed : BOOLEAN ;                                            874     *  1024
+  1036      { LIsNarrowed := IsNarrowed OR IsProperlyNarrowed ;                   1035  1028   711   156
+  1037        PathPrefix ( Next , LIsNarrowed );                                  1027  1027  1036
+  1038        IF LIsNarrowed                                                      1028  1037
+  1039        THEN                                                                1029
+  1040          !_yy_! WI (Name);                                                  532  1032  1032
+  1041        END (* IF *) ;                                                      1031
+  1042      } ; 
+  1043   .
+  1044 Var (..) , _ :- {                                                          1014  1034
+  1045         WI (Name);                                                         1040  1040
+  1046 }; .
+  1047 _ , _ :- {                                                                 1044     *
+  1048       Assertions . CantHappen ( "PathPrefix, bad node kind" ) ;            1015  1015
+  1049 };. 
+  1050 
+  1051 PROCEDURE WritePathWide ( FPath : Tree )                                   1024   949  1024  1024
+  1052 
+  1053 ConsType ( .. ) :- WritePathWide ( Next ) ; .                              1034  1051  1037
+  1054   (* Ignore ConsType on top of path *)   
+  1055 
+  1056 Field ( .. ) (* First field is always dotted *)                            1026
+  1057   :- PathPrefix ( Next , FALSE ) ;                                         1037  1053  1005
+  1058      { ! . ! ; 
+  1059        WI ( Name ) ;                                                       1045  1045
+  1060      } ; 
+  1061   .  
+  1062 
+  1063 Var ( .. ) :- { WI (Name); } ; .                                           1044  1059  1059
+  1064 
+  1065 PROCEDURE WritePathNarrow ( FPath : Tree )                                 1051   984  1051  1051
+  1066 
+  1067 _ :- PathPrefix ( FPath , FALSE ) ; .                                      1047  1057  1065  1057
+  1068 
+  1069 PROCEDURE Declare (t: Tree)                                                1065   880  1018  1065
+  1070 
+  1071 Formal (..) :- {                                                           1005
+  1072         !       VAR ! WI (Name); ! : ! Interface (TypeDesc); ! ;!          1035  1063  1063   847   820
+  1073         Declare (Next);                                                    1069  1057
+  1074 }; .
+  1075 Param (..) :-                                                                 *
+  1076         VAR LVar : tTree ;                                                 1072     *   577
+  1077      {  LVar := IdentifyVar (Decls, Name);                                 1076    73   884  1072
+  1078         !       VAR ! WI (Name); ! : ! Interface (LVar^.Formal.TypeDesc); ! ;!   1076  1072  1077  1072  1077  1071  1072
+  1079         Declare (Next);                                                    1073  1073
+  1080      }; .
+  1081 Rule (..) :- {                                                              873
+  1082         IF HasTempos THEN                                                  1038   922  1039
+  1083            Decls := VarDecls;                                              1077   884
+  1084            Declare (Patterns);                                             1079   919
+  1085            Declare (Exprs);                                                1084   894
+  1086            IF RoutineKind = kFunction THEN                                 1082   964   898  1082
+  1087               Declare (Expr);                                              1085   955
+  1088               IF HasPatterns                                               1086   900
+  1089               AND ( Expr ^ . Kind # Tree . Compose )                        902  1087   901  1069   901
+  1090                  AND NOT Tree . IsType ( t , Tree. DontCare1 )             1089   939  1089   902  1069     *   902
+  1091               THEN                                                         1086
+  1092                       (* ^ looks identically TRUE to me *) 
+  1093                       (* This is identical to the condition in sem.puma for creating\
+c     \ tempo name *) 
+  1094                  !       VAR ! WI (Tempo);                                 1078  1078   907
+  1095                  ! : ! Interface (ReturnFormals^.Formal.TypeDesc); ! ;!    1078   827  1078  1078
+  1096               END;                                                         1041
+  1097            END;                                                            1096
+  1098            Declare (Statements);                                           1087   891
+  1099         END;                                                               1097
+  1100 }; .
+  1101 ProcCall (..) :- {                                                          927
+  1102         Declare (Call);                                                    1098   932
+  1103         Declare (Next);                                                    1102  1079
+  1104 }; .
+  1105 Condition (..) :- {                                                         935
+  1106         Declare (Expr);                                                    1103  1089
+  1107         Declare (Next);                                                    1106  1103
+  1108 }; .
+  1109 Assignment (..) :- {                                                        943
+  1110         Declare (Adr);                                                     1107   954
+  1111         Declare (Expr);                                                    1110  1106
+  1112         Declare (Next);                                                    1111  1107
+  1113 }; .
+  1114 TargetStmt (..) :- {                                                        966
+  1115         Declare (Parameters);                                              1112     *
+  1116         Declare (Next);                                                    1115  1112
+  1117 }; .
+  1118 Statement (..) :- {                                                           *
+  1119         Declare (Next);                                                    1116  1116
+  1120 }; .
+  1121 OnePattern (..) :- {                                                        600
+  1122         IF ( Pattern ^ . Pattern . Tempo # NoIdent )                       1088   592     *  1094   893
+  1123            AND NOT Tree . IsType ( Pattern , Tree . DontCare1 )            1090  1090  1090  1090  1122     *  1090
+  1124         THEN                                                               1091
+  1125 (*                 ^ Look for DontCare1 inside Parents *)                     
+  1126            !       VAR ! WI (Pattern^.Pattern.Tempo);                      1094  1094  1123     *  1122
+  1127            ! : ! Interface (Pattern^.Pattern.TypeDesc); ! ;!               1095  1126     *  1095
+  1128         END;                                                               1099
+  1129         Declare (Pattern);                                                 1119  1127
+  1130         Declare (Next);                                                    1129  1119
+  1131 }; .
+  1132 OneExpr (..) :- {                                                           430
+  1133         Declare (Expr);                                                    1130  1111
+  1134         Declare (Next);                                                    1133  1130
+  1135 }; .
+  1136 Decompose (..) :- {                                                         592
+  1137         Declare (Patterns);                                                1134  1084
+  1138 }; .
+  1139 DontCare (..) :- {                                                          432
+  1140         Declare (Tempos);                                                  1137   432
+  1141 }; .
+  1142 DontCare1 (..) :- {                                                        1123
+  1143         IF Tempo # NoIdent THEN                                            1122  1126  1122  1124
+  1144            !       VAR ! WI (Tempo); ! : ! Interface (TypeDesc); ! ;!      1126  1126  1143  1127  1127
+  1145         END;                                                               1128
+  1146 }; .
+  1147 Value (..) :- {                                                             596
+  1148         Declare (Expr);                                                    1140  1133
+  1149 }; .
+  1150 Compose (..) :- {                                                          1089
+  1151         IF Tempo # NoIdent THEN                                            1143  1144  1143  1143
+  1152            !       VAR ! WI (Tempo); ! : ! (* not EOL *)                   1144  1144  1151
+  1153 (* Was Interface (TypeDesc); This is the type of the corresponding
+c 1154    formal to the compose, which is too wide. *) 
+  1155            WI ( Object^.Class.TypeDesc^.NodeTypes.TreeName^.TreeName.Name);      1152  1005   675  1144  1017  1018     *
+                                                                                  1078
+  1156            ! . !
+  1157            WI ( Object^.Class.Name ) ;                                     1155  1155  1155  1155
+  1158            ! ;!
+  1159         END;                                                               1145
+  1160         Declare (Exprs);                                                   1148  1085
+  1161 }; .
+  1162 Call (..) :- {                                                             1102
+  1163         Declare (Expr);                                                    1160  1148
+  1164         Declare (Exprs);                                                   1163  1160
+  1165         Declare (Patterns);                                                1164  1137
+  1166 }; .
+  1167 Binary (..) :- {                                                            472
+  1168         Declare (Lop);                                                     1165   473
+  1169         Declare (Rop);                                                     1168   473
+  1170 }; .
+  1171 PreOperator (..) ;                                                          477
+  1172 PostOperator (..) ;                                                         480
+  1173 Parents (..) :- {                                                           486
+  1174         Declare (Expr);                                                    1169  1163
+  1175 }; .
+  1176 Index (..) :- {                                                             484
+  1177         Declare (Expr);                                                    1174  1174
+  1178         Declare (Exprs);                                                   1177  1164
+  1179 }; .
+  1180 
+  1181 
+  1182 PROCEDURE NilCheck (t: Tree)                                               1069   857  1090  1123
+  1183 
+  1184 Formal (..) :- {                                                           1095
+  1185         TheName := Name;                                                     88  1157
+  1186         NilCheck (TypeDesc);                                               1182  1155
+  1187         NilCheck (Next);                                                   1186  1134
+  1188 }; .
+  1189 NodeTypes (..) :- {                                                        1155
+  1190         !  IF ! WI (TheName); ! = ! WI (TreeName^.TreeName.Name); ! . No!        1151  1157  1185     *  1155     *  1185
+                                                                                     *
+  1191         WI (TreeName^.TreeName.Name);                                      1190  1190     *  1190
+  1192         ! THEN RETURN ! IF RoutineKind = kPredicate THEN !FALSE ! END;     1151   964  1190  1086   964     *  1067  1159
+  1193         ! ; END (* IF *) ;!                                                1192
+  1194 }; .
+  1195 
+  1196 
+  1197 PROCEDURE CommonTestElim2 (OneTest: OneTest, Decisions)                    1182     *     *     *   865
+  1198 
+  1199 TestValue (..), ThenPart : :-                                                 *     *
+  1200    (NeedsMatch (Expr));                                                      74  1177
+  1201    VAR LTypeCaseDepth : CARDINAL ;                                         1152   916   874
+  1202 
+  1203    CommonTestElim (OneTest);                                                864  1197
+  1204    !    LOOP!                                                               883
+  1205    LTypeCaseDepth := TypeCaseDepth ;                                       1201   885
+  1206    MatchExpr (OneTest^.TestValue.Expr);                                     955  1203  1199  1200
+  1207    CommonTestElim (ThenPart);                                              1203  1199
+  1208    CloseTypeCases ( LTypeCaseDepth ) ;                                      916  1205
+  1209    !    EXIT; END (* LOOP *) ; !                                            960  1193
+  1210    .
+  1211 _, ThenPart : :-                                                           1067  1207
+  1212    CommonTestElim (OneTest);                                               1207  1206
+  1213    CommonTestElim (ThenPart);                                              1212  1211
+  1214    .
+  1215 
+  1216 PROCEDURE CommonTestElim (t: Tree)                                         1197  1213  1182  1182
+  1217 
+  1218 Decision (..) :- {                                                            *
+  1219         IF Cases = 0 THEN                                                  1192     *  1192
+  1220            IF NOT TemposDone                                               1219  1123   863
+  1221               AND (OneTest^.Kind = Tree.TestValue)                         1123  1212  1089  1216  1206
+  1222               AND NeedsTempo (ThenPart, rule)                              1221    74  1213    82
+  1223            THEN                                                            1219
+  1224               !    (* Tempo declarations, Decision: *)!
+  1225               Declare ( rule ) ;                                           1178  1222
+  1226               !    BEGIN (* Block of Tempo declarations, Decision *)!       881
+  1227               TemposDone := TRUE;                                          1220   913
+  1228               CommonTestElim2 (OneTest, ThenPart);                         1197  1221  1222
+  1229               !      ELSE!                                                 1030
+  1230               !      END (* Test... *) ;!                                  1209
+  1231               DEC ( TypeCaseDepth ) ;                                       137  1205
+  1232               !    END (* Block of Tempo declarations, Decision *) ; !     1230
+  1233            ELSE                                                            1229
+  1234               GetRule (ThenPart, rule);                                      74  1228  1225
+  1235               Decls := rule^.Rule.VarDecls;                                1083  1234  1081  1083
+  1236               CommonTestElim2 (OneTest, ThenPart);                         1228  1228  1234
+  1237               !      ELSE!                                                 1233
+  1238               !      END (* Test... *) ;!                                  1232
+  1239               DEC ( TypeCaseDepth )                                        1231  1231
+  1240            END;                                                            1238
+  1241            TemposDone := FALSE;                                            1227  1192
+  1242            CommonTestElim (ElsePart);                                      1216     *
+  1243         ELSE                                                               1237
+  1244            i := Cases; Case (t);                                             80  1219     *  1216
+  1245         END;                                                               1240
+  1246 }; .
+  1247 Decided (..) :- {                                                             *
+  1248         CommonTestElim (Rule);                                             1242  1235
+  1249         IF Rule^.Rule.HasExit THEN                                         1220  1248     *     *  1223
+  1250            TemposDone := FALSE;                                            1241  1241
+  1251            CommonTestElim (ElsePart);                                      1248  1242
+  1252         END;                                                               1245
+  1253 }; .
+  1254 TestKind (..) :- {                                                            *
+  1255         !      TYPECASE (* TestKind *) !  WritePathNarrow ( Path ); !!      164  1065  1005
+  1256         !      OF ! WI (TypeDesc^.NodeTypes.TreeName^.TreeName.Name);       895  1191  1186  1189  1191     *  1191
+  1257         ! . ! WI (Name);                                                   1256  1256
+  1258                   ! ( ! PathPrefix ( Path , TRUE ) ; !_yy_! WI ( Name ) ; ! ) !  1067  1255  1227  1040  1257  1257
+  1259         !      => ! (* Not end of line *) 
+  1260 }; .
+  1261 TestIsType (..) :- {                                                          *
+  1262         !      TYPECASE (* TestIsType *) ! WritePathNarrow ( Path ); !!    1255  1255  1258
+  1263         !      OF ! WI (TypeDesc^.NodeTypes.TreeName^.TreeName.Name);      1256  1258  1256  1256  1256     *  1258
+  1264         ! . ! WI (Name);                                                   1263  1263
+  1265                   ! ( ! PathPrefix ( Path , TRUE ) ; !_yy_! WI ( Name ) ; ! ) !  1258  1262  1258  1258  1264  1264
+  1266         !      => ! (* Not end of line *) 
+  1267 }; .
+  1268 TestNil (..) :- {                                                             *
+  1269         !  IF ! WritePathWide ( Path ); ! = NIL (* TestNil *) THEN!        1249  1053  1265   611  1249
+  1270 }; .
+  1271 TestNonlin (..) :- {                                                          *
+  1272         !  IF (equal! Module (TypeDesc); ! ( ! WritePathNarrow ( Path );   1269   195  1006  1263  1262  1269
+  1273         ! , ! WritePathNarrow (Path2); ! ) ) (* TestNonlin *) THEN!        1272     *  1269
+  1274 }; .
+  1275 TestValue (..) :- {                                                        1221
+  1276         AssignTempo (Expr);                                                 947  1206
+  1277         !  IF (equal! Module (TypeDesc); ! ( ! WritePathNarrow ( Path );   1272  1272  1272  1272  1273  1272
+  1278         ! , ! Expression (Expr); ! ) ) (* TestValue *) THEN!                953  1276  1273
+  1279 }; .
+  1280 Rule (..) :-                                                               1249
+  1281     VAR LTypeCaseDepth : CARDINAL ;                                        1201  1208  1201
+  1282     VAR LGenerateBlock : BOOLEAN ;                                         1281     *  1035
+  1283     {
+  1284         !    ! WriteLine (Line);                                            977   876
+  1285         LGenerateBlock                                                     1282
+  1286            := HasTempos                                                    1082
+  1287               AND NOT TemposDone ; (* Just paranoia about TemposDone *)    1222  1220  1250
+  1288         IF LGenerateBlock                                                  1277  1285
+  1289         THEN                                                               1278
+  1290           !    (* Tempo declarations, CommonTestElim: *)!
+  1291           Declare ( t ) ;                                                  1225  1244
+  1292           !    BEGIN (* Block of Tempo declarations, CommonTestElim *)!    1226
+  1293         END;                                                               1252
+  1294         IF HasExit THEN !   LOOP!                                          1288  1249  1289  1204
+  1295         END;                                                               1293
+  1296         Decls := VarDecls;                                                 1235  1235
+  1297       IF NeedsWITHStmt ( t )                                               1294   917  1291
+  1298       THEN                                                                 1294
+  1299         OpenWITHRenames (Patterns, InFormals);                              889  1165   919
+  1300       END;                                                                 1295
+  1301         LTypeCaseDepth := TypeCaseDepth ;                                  1281  1239
+  1302         Module (Statements);                                               1277  1098
+  1303         IF NOT HasRejectOrFail THEN                                        1297  1287   892  1298
+  1304            AssignFormals (Exprs, OutFormals , NoIdent );                    893  1178   893  1151
+  1305            MatchExprs (Exprs);                                              894  1304
+  1306            CASE RoutineKind OF                                              895  1192  1263
+  1307            | kProcedure: !      RETURN ;!                                   896  1192
+  1308 
+  1309            | kFunction :                                                   1086
+  1310               AssignTempo (Expr);                                          1276  1278
+  1311               IF HasPatterns                                               1303  1088
+  1312                  AND ( Expr ^ . Kind # Tree . Compose )                    1287  1310  1221  1221  1150
+  1313                  AND NOT Tree . IsType ( t , Tree . DontCare1 )            1312  1303  1312  1123  1297     *  1142
+  1314               THEN                                                         1303
+  1315                  !      ! WI (Tempo); ! := ! Expression (Expr); ! ;!       1265  1152  1278  1312
+  1316                  MatchExpr (Expr);                                         1206  1315
+  1317                  !      RETURN ! WI (Tempo); ! ;!                          1307  1315  1315
+  1318               ELSE                                                         1243
+  1319                  MatchExpr (Expr);                                         1316  1316
+  1320                  !      RETURN ! Expression (Expr); ! ;!                   1317  1315  1319
+  1321               END;                                                         1300
+  1322 
+  1323            | kPredicate: !      RETURN TRUE ;!                             1192  1320  1265
+  1324            END;                                                            1321
+  1325         END;                                                               1324
+  1326         CloseTypeCases ( LTypeCaseDepth ) ;                                1208  1301
+  1327       IF NeedsWITHStmt ( t )                                               1311  1297  1313
+  1328       THEN                                                                 1314
+  1329         CloseWITHRenames (Patterns, InFormals);                             919  1299  1299
+  1330       END;                                                                 1325
+  1331         IF HasExit THEN !   END (* LOOP *) ;!                              1327  1294  1328  1330
+  1332         END;                                                               1331
+  1333         IF LGenerateBlock                                                  1331  1288
+  1334         THEN                                                               1331
+  1335           !    END (* Block of Tempo declarations, CommonTestElim *) ;  !  1332
+  1336         END;                                                               1335
+  1337         !!
+  1338 }; .
+  1339 
+  1340 
+  1341 PROCEDURE Case (t: Tree)        (* reads GLOBAL i *)                       1216  1244  1327  1313
+  1342 
+  1343 Decision (..) :-                                                           1218
+  1344         VAR n : CARDINAL ;                                                 1282     *  1281
+  1345       { !!
+  1346         !  TYPECASE (* Decision *) ! WritePathNarrow (OneTest^.OneTest.Path); ! OF!    1262  1277  1236     *  1277  1306
+  1347         n := i;                                                            1344  1244
+  1348         WHILE n > 0 DO                                                      133  1347   564
+  1349            IF NOT IsEmpty                                                  1333  1313    72
+  1350                     (t^.Decision.OneTest^.TestIsType.TypeDesc^.NodeTypes.Types)        1341  1343  1346  1261  1277  1263
+                                                                                     *
+  1351            THEN                                                            1334
+  1352               Case (t^.Decision.OneTest);                                  1341  1350  1350  1350
+  1353               CommonTestElim (t^.Decision.ThenPart);                       1251  1352  1352  1236
+  1354            END;                                                            1336
+  1355            t := t^.Decision.ElsePart;                                      1353     *  1353  1251
+  1356            DEC (n);                                                        1239  1348
+  1357         END;                                                               1354
+  1358         !  ELSE!                                                           1318
+  1359         !  END (* TYPECASE Decision *) ;!                                  1357
+  1360         !!
+  1361         CommonTestElim (t);                                                1353  1355
+  1362       } ; .
+  1363 TestKind (..) :- {                                                         1254
+  1364         !  | ! WI (TypeDesc^.NodeTypes.TreeName^.TreeName.Name); ! . ! WI (Name);      1317  1350  1350  1263     *  1265
+                                                                                     *     *
+  1365                ! ( ! PathPrefix ( Path , TRUE ) ; !_yy_! WI ( Name ); ! ) => !   1265  1346  1323  1265  1364  1364
+  1366 }; .
+  1367 TestIsType (..) :- {                                                       1350
+  1368         !  | ! WI (TypeDesc^.NodeTypes.TreeName^.TreeName.Name); ! . ! WI (Name);      1365  1364  1364  1364     *  1365
+                                                                                     *     *
+  1369                ! ( ! PathPrefix ( Path , TRUE ) ; !_yy_! WI ( Name ); ! ) => !   1365  1365  1365  1365  1368  1368
+  1370 };. 
+  1371 
+  1372 (* End of file M3.puma *) 
+  1373 
+  1374 
+  1375 
+Cross reference: 
+
+-"-
+ " @ WI (Name); @"               836 
+ " failed"                       739 
+ "'"                             112 
+ "@ WI (Name); @"                802   808   831 
+ "Error: module @ WI (TrafoNam\  737 
+   e); @, routine "
+ "Module called on ConsType"    1012 
+ "Module called on Field"       1009 
+ "Module called on Var"         1015 
+ "PathPrefix, bad node kind"    1048 
+ "yy@ WI (TrafoName); @.w"       732 
+ "yyWITH_"                       320 
+
+-'-
+ '"'                             109   114   118   124 
+ 'b'                             799   829   859 
+ 'f'                             801   807 
+ 'n'                             796   856 
+ 'w'                             708 
+
+-0-
+ 0                                94   408   419   434   460   484   528   559 
+                                 650   671   691   781   784   816   844  1219 
+                                1348 
+
+-1-
+ 1                               109   112   115   410   421   436   772 
+
+-2-
+ 2                               106   115 
+
+-A-
+ a                               611   611   612   613 
+ Adr                             946   951   954  1110 
+ AND                             275   359   807   901   902  1089  1090  1123 
+                                1221  1222  1287  1312  1313 
+ Any                             990 
+ Anys                            995 
+ ArrayToString                    69   320 
+ Assertions                       68  1009  1012  1015  1048 
+ AssignFormal                    347   351   387 
+ AssignFormals                   277   337   348   349   365   893  1304 
+ Assignment                      943  1109 
+ AssignTempo                     194   262   266   290   298   299   303   306 
+                                 309   313   315   373   899   930   938   946 
+                                 947  1276  1310 
+ AssignTempos                    258   263   264   294   310 
+ AttrDesc                        228   287   379   492   492 
+ AttrFormals                     504   508   530   537   540 
+ Attribute                       494   986  1005 
+
+-B-
+ b                               612   613 
+ BEGIN                            93   103   132   144   209   217   259   268 
+                                 319   327   338   354   390   402   416   428 
+                                 442   507   544   578   735   757   764   771 
+                                 775   795   828   855   881  1226  1292 
+ Begin                           638   756   759   761   778 
+ begin                           383   394 
+ BeginFormals                    344   389   396   399 
+ BeginLine                       758 
+ begint                          611 
+ Binary                          238   238   297   297   377   469   472  1167 
+ BOOLEAN                          89   656   848  1024  1035  1282 
+
+-C-
+ Call                            230   230   289   289   377   458   458   930 
+                                 931   932  1102  1162 
+ CantHappen                     1009  1012  1015  1048 
+ CARDINAL                         80    90   101   130   501   874  1201  1281 
+                                1344 
+ CASE                            150   218   269   376   443   549   583   895 
+                                1306 
+ Case                           1244  1341  1352 
+ Cases                          1219  1244 
+ CHAR                            102 
+ Char                            109   112   117 
+ Class                           152   166   168   171   271   273   277   357 
+                                 363   365   369   533   554   588   667   675 
+                                1155  1157 
+ Close                           639   763   766   768 
+ CloseLine                       765 
+ CloseTypeCases                  130   139   916  1208  1326 
+ CloseWITHRenames                576   591   600   601   919  1329 
+ Code                            991  1000 
+ Codes                           627   627   628   628   630   630   631   631 
+                                 729   729   730   730   758   758   759   759 
+                                 765   765   766   766 
+ CommonTestElim                  806   834   864  1203  1207  1212  1213  1216 
+                                1242  1248  1251  1353  1361 
+ CommonTestElim2                1197  1228  1236 
+ Compose                         219   220   270   270   355   356   444   444 
+                                 901  1089  1150  1312 
+ Concatenate                      69   322 
+ Condition                       935  1105 
+ ConsPatterns                    401   410   413   462 
+ ConsTempos                      406   415   421   425   432 
+ ConsType                       1011  1034  1053 
+ Count                           501   528   529   559 
+
+-D-
+ DEC                             137  1231  1239  1356 
+ Decided                        1247 
+ Decision                       1218  1343  1350  1352  1353  1355 
+ Decisions                       806   807   834   835   864   865  1197 
+ Declare                         880  1069  1073  1079  1084  1085  1087  1098 
+                                1102  1103  1106  1107  1110  1111  1112  1115 
+                                1116  1119  1129  1130  1133  1134  1137  1140 
+                                1148  1160  1163  1164  1165  1168  1169  1174 
+                                1177  1178  1225  1291 
+ Decls                            87   884  1077  1083  1235  1296 
+ Decompose                       151   151   532   550   551   558   566   584 
+                                 585   592  1136 
+ define                          611   612   726   727 
+ Designator                     1004 
+ DO                              116   134   151   174   176   193   230   238 
+                                 270   289   297   356   363   393   404   430 
+                                 448   458   472   492   564  1348 
+ DontCare                        211   261   275   343   359   405   406   431 
+                                 432  1139 
+ DontCare1                       456   902  1090  1123  1142  1313 
+ DontCare1Explicit               190   224   283   382   456   569   596 
+ DontCare1Internal               190   225   284   382   456   570   597 
+ DontCareExplicit                191 
+ DontCareInternal                191 
+
+-E-
+ ELSE                            125   135   367   372   385   407   422   433 
+                                 451   463   528   571   598   804   832   862 
+                                 908   950   985  1030  1229  1233  1237  1243 
+                                1318  1358 
+ ElsePart                       1242  1251  1355 
+ ELSIF                           109   112   657 
+ END                              96    97   121   123   127   128   136   138 
+                                 139   148   170   172   181   182   183   184 
+                                 188   197   199   200   202   210   211   214 
+                                 235   236   241   255   256   260   261   264 
+                                 278   279   295   300   314   315   324   332 
+                                 333   342   346   349   366   370   371   374 
+                                 386   387   397   398   399   403   408   411 
+                                 412   413   419   424   425   429   434   437 
+                                 438   439   453   454   465   467   474   495 
+                                 496   497   528   541   542   548   567   568 
+                                 572   574   582   593   594   595   599   601 
+                                 641   659   661   671   672   691   692   742 
+                                 761   768   773   779   798   803   809   810 
+                                 811   837   838   839   858   867   868   869 
+                                 882   890   911   914   915   920   921   922 
+                                 923   939   952   964   987  1031  1041  1096 
+                                1097  1099  1128  1145  1159  1192  1193  1209 
+                                1230  1232  1238  1240  1245  1252  1293  1295 
+                                1300  1321  1324  1325  1330  1331  1332  1335 
+                                1336  1354  1357  1359 
+ EOL                             727   740 
+ equal                           177   195  1272  1277 
+ equalt                          612 
+ Errors                           63 
+ EXIT                            135   181   188   197   939   960  1209 
+ Exit                            634   741   772   777 
+ Export                          631 
+ ExportLine                      630 
+ Expr                            194   197   198   211   212   231   244   247 
+                                 250   254   261   262   275   290   303   306 
+                                 309   313   343   347   359   431   432   435 
+                                 459   477   480   483   486   488   711   899 
+                                 901   905   906   909   910   938   939   940 
+                                 947   953   955  1087  1089  1106  1111  1133 
+                                1148  1163  1174  1177  1200  1206  1276  1278 
+                                1310  1312  1315  1316  1319  1320 
+ Expression                      197   381   435   441   459   473   473   477 
+                                 480   483   486   497   905   910   931   939 
+                                 951   953  1278  1315  1320 
+ Expressions                     427   436   439   460   464   484 
+ Exprs                           220   232   251   274   275   277   294   310 
+                                 358   359   365   460   484   710   893   894 
+                                1085  1160  1164  1178  1304  1305 
+
+-F-
+ f                                75    99   108   111   114   120   122   124 
+                                 126   490   628   631   730   759   766   790 
+                                 822   850   978   991  1000 
+ Fail                            962 
+ FALSE                           493   531   805   833   861   863   866   964 
+                                1005  1057  1067  1192  1241  1250 
+ Field                          1008  1026  1056 
+ FOR                             115 
+ Formal                          146   153   176   195   201   340   348   361 
+                                 364   368   381   383   384   391   393   417 
+                                 420   421   450   493   508   530   537   540 
+                                 555   573   589   600   658   690   820   949 
+                                 984  1005  1071  1078  1095  1184 
+ FormalName                      502 
+ Formals                         141   146   153   171   195   201   277   337 
+                                 340   344   347   348   351   361   364   365 
+                                 368   381   383   384   389   391   393   499 
+                                 546   554   573   576   580   588   600 
+ FPath                          1024  1051  1065  1067 
+ FROM                             64    65    69    70    71    72    73    74 
+                                  75    76 
+ Function                        657   658   815 
+
+-G-
+ GetRule                          74  1234 
+ GetString                        70   104   321 
+ GLOBAL                           60 
+ Global                          730 
+ GlobalLine                      729 
+
+-H-
+ HasExit                        1249  1294  1331 
+ HasPatterns                     900  1088  1311 
+ HasRejectOrFail                 892  1303 
+ HasTempos                       877   922  1082  1286 
+
+-I-
+ I                               101   115   117 
+ i                                80  1244  1347 
+ Id                              317   321   326   328   330 
+ Ident                           981 
+ IdentifyVar                      73  1077 
+ Idents                           70 
+ IF                               94   106   118   145   153   175   177   187 
+                                 195   210   211   233   260   261   274   328 
+                                 339   343   355   358   391   403   405   408 
+                                 417   419   429   431   434   449   461   508 
+                                 528   545   552   555   579   586   589   649 
+                                 655   671   672   691   692   796   799   801 
+                                 807   829   835   856   859   865   877   887 
+                                 892   900   917   922   939   948   964   982 
+                                1028  1038  1082  1086  1088  1122  1143  1151 
+                                1190  1192  1219  1220  1249  1269  1272  1277 
+                                1288  1294  1297  1303  1311  1327  1331  1333 
+                                1349 
+ IMPORT                           62    63    64    65    66    67    68    69 
+                                  70    71    72    73    74    75    76   626 
+                                 725 
+ Import                          628 
+ ImportLine                      627 
+ INC                             163   529   676   695 
+ include                         732 
+ Index                           249   250   251   308   309   310   378   482 
+                                 483   484  1176 
+ InForm                          652   786   793   797   818   825   846   853 
+                                 857 
+ InFormals                        84   793   825   853   886   889   919  1299 
+                                1329 
+ INTEGER                          81   401   401   415   415   427   427 
+ INTERFACE                       624 
+ Interface                        58   618   626   636   646   652   653   658 
+                                 662   677   694   696   725   786   787   818 
+                                 819   820   846   847  1072  1078  1095  1127 
+                                1144 
+ IO                               65   114   122   124 
+ IOUtils                          76 
+ IsElement                        72   708   796   799   801   807   829   856 
+                                 859 
+ IsEmpty                          72  1349 
+ IsEqual                         613 
+ IsNarrowed                     1024  1027  1028  1036 
+ IsNotEqual                       72 
+ IsOutput                        672   692 
+ IsProperlyNarrowed              156  1036 
+ IsType                          146   211   261   275   340   343   359   391 
+                                 405   417   431   508   555   589   902  1090 
+                                1123  1313 
+
+-J-
+ j                                80 
+
+-K-
+ kFunction                        79   824   898  1086  1309 
+ Kind                            145   150   153   210   218   260   269   274 
+                                 339   355   358   376   403   429   443   545 
+                                 546   549   579   580   583   655   657   709 
+                                 710   711   901  1089  1221  1312 
+ kPredicate                       79   852   913   964  1192  1323 
+ kProcedure                       79   792   896  1307 
+
+-L-
+ LayoutAny                       999 
+ Layouts                         996 
+ LCh                             102   117   118   122 
+ Length                          105 
+ LFormalName                     665   673 
+ LGenerateBlock                 1282  1285  1288  1333 
+ LIn                             100   104   105   108   109   111   112   117 
+                                 126 
+ Line                             92    94    94   876  1284 
+ LIsNarrowed                    1035  1036  1037  1038 
+ ListCount                        81   401   403   406   408   410   415   419 
+                                 421   423   427   429   432   434   436   460 
+                                 462   462   464   464   484   650   671   676 
+                                 691   695   784   816   844 
+ LLength                         101   105   106   115 
+ LNewFormalName                  505 
+ Local                           790   822   850 
+ LocalLine                       789   821   849 
+ LookupClass                      73 
+ LOOP                            883  1204  1294 
+ Lop                             239   298   473  1168 
+ LPath                           500   531   558 
+ LString1                        506 
+ LString2                        506 
+ LSubFormals                     500   554   555   563   566   577   588   589 
+                                 592 
+ LTreeName                       666   674 
+ LTypeCaseDepth                  874   885   916  1201  1205  1208  1281  1301 
+                                1326 
+ LVar                           1076  1077  1078 
+ LWithTemp                       353   361   362   364   365 
+
+-M-
+ M3                               56 
+ MacroM3                          58   605   608   614 
+ MakeIdent                        70   323 
+ MakeWith                        317   324   361 
+ Match                           141   171   201   202   234   886 
+ MatchExpr                       198   212   216   231   239   240   244   247 
+                                 250   254   256   906   909   932   940   954 
+                                 955  1206  1316  1319 
+ MatchExprs                      208   213   214   220   232   251   894  1305 
+ Maximum                          72 
+ Minimum                          72 
+ MODULE                          723 
+ Module                           58   177   195   383   394   488   717   755 
+                                 800   813   830   841   860   871   891   925 
+                                 933   941   956   968   969   974   979   988 
+                                 993   996   997  1002  1006  1272  1277  1302 
+
+-N-
+ n                              1344  1347  1348  1356 
+ Name                            152   166   168   271   273   357   361   363 
+                                 364   368   369   381   384   395   420   452 
+                                 530   533   537   611   612   612   613   645 
+                                 648   651   665   666   675   693   699   699 
+                                 785   811   817   839   845   869  1018  1032 
+                                1040  1045  1059  1063  1072  1077  1078  1155 
+                                1157  1185  1190  1191  1256  1257  1258  1263 
+                                1264  1265  1364  1364  1365  1368  1368  1369 
+ NeedsMatch                       74  1200 
+ NeedsNoFinale                    74   807   835   865 
+ NeedsTempo                       74  1222 
+ NeedsWITHStmt                   706   887   917  1297  1327 
+ NEW                             272   362   368 
+ Next                            201   201   213   263   348   348   396   410 
+                                 421   436   540   573   573   600   600   614 
+                                 646   662   677   696   813   841   871   925 
+                                 933   941   956   969   974   979   988   993 
+                                 997  1002  1006  1027  1037  1053  1057  1073 
+                                1079  1103  1107  1112  1116  1119  1130  1134 
+                                1187 
+ NIL                             188   446   611  1269 
+ Nil                             223   282   377   446 
+ NilCheck                        797   857  1182  1186  1187 
+ NilTest                         186   187   569   596 
+ Nl                              971 
+ No                             1190 
+ NodeTypes                       152   271   357   666   668   698  1017  1155 
+                                1189  1256  1263  1350  1364  1368 
+ NoExpr                          210   260   339   429   710   711 
+ NoFormal                        546   580 
+ NoIdent                          70   328   893  1122  1143  1151  1304 
+ NoPattern                       145   403   545   579 
+ NoStatement                     709 
+ NOT                             146   177   195   275   340   359   807   835 
+                                 865   892   902   939  1090  1123  1220  1287 
+                                1303  1313  1349 
+ NoTree                           75   175   233   449   461   552   586   649 
+                                 948   982 
+
+-O-
+ Object                          152   166   168   171   175   176   233   234 
+                                 271   273   277   357   363   365   369   449 
+                                 450   461   493   500   532   551   551   552 
+                                 554   577   585   585   586   588   649   652 
+                                 653   655   657   658   948   949   982   984 
+                                1005  1155  1157 
+ OF                              150   166   218   269   376   443   549   583 
+                                 895  1256  1263  1306  1346 
+ OneExpr                         211   212   213   261   262   263   274   275 
+                                 343   347   348   358   359   430  1132 
+ OnePattern                      149   201   404   532   549   551   558   566 
+                                 573   583   585   592   600  1121 
+ OneTest                        1197  1197  1203  1206  1212  1221  1228  1236 
+                                1346  1346  1350  1352 
+ OpenWITHRenames                 499   565   573   574   889  1299 
+ OpenWITHRenamesAttrs            504   540   542   563 
+ Operator                        473   477   480 
+ Optimize                         74 
+ Options                          75   708   796   799   801   807   829   856 
+                                 859 
+ OR                              146   156   340   546   580   710   711  1036 
+ ORD                             708   796   799   801   807   829   856   859 
+ OutForm                         234   653   787   794   819   826   847   854 
+ OutFormals                       85   794   826   854   893  1304 
+
+-P-
+ Param                          1075 
+ Parameters                     1115 
+ Parents                         253   254   312   313   378   486   486  1173 
+ Path                            165   167   179   180   187   196   450   493 
+                                 558   672   692   949   984  1005  1255  1258 
+                                1262  1265  1269  1272  1277  1346  1365  1369 
+ Path2                          1273 
+ PathPrefix                      167   493   531  1005  1024  1027  1037  1057 
+                                1067  1258  1265  1365  1369 
+ Pattern                         143   149   149   150   151   174   180   187 
+                                 193   405   406   409   409   532   549   551 
+                                 558   566   583   585   592  1122  1122  1123 
+                                1126  1126  1127  1127  1129 
+ Patterns                        171   234   462   464   566   592   886   889 
+                                 919  1084  1137  1165  1299  1329 
+ Pos                             929   937   945   959   963   967   972   977 
+ Positions                        62    64 
+ PostOperator                    246   247   305   306   378   479   480   480 
+                                1172 
+ PREDICATE                       706 
+ Predicate                       655   843 
+ PrefixIdent                     337   344   347   348   351   380   384   389 
+                                 395   396 
+ PreOperator                     243   244   302   303   377   476   477   477 
+                                1171 
+ ProcCall                        927  1101 
+ PROCEDURE                        92    99   130   141   208   216   258   266 
+                                 317   326   337   351   389   401   415   427 
+                                 441   499   504   576   605   618   634   638 
+                                 639   651   717   734   756   763   770   785 
+                                 817   845  1024  1051  1065  1069  1182  1197 
+                                1216  1341 
+ Procedure                       783 
+ Process                         725   772 
+ PUBLIC                           58 
+ Public                          636 
+ PutText                         726   727   736   738   739   740 
+
+-R-
+ r                                99   104 
+ Reject                          958 
+ RETURN                          147   191   210   211   260   261   323   341 
+                                 345   403   406   410   421   423   429   432 
+                                 436   547   571   581   598   861   866   896 
+                                 907   910   913   964  1192  1307  1317  1320 
+                                1323 
+ ReturnForm                      658   820   827 
+ ReturnFormals                    86   827  1095 
+ Rop                             240   299   473  1169 
+ Routine                         234   652   653 
+ RoutineFormal                   664 
+ RoutineKind                      79   792   824   852   895   964  1086  1192 
+                                1306 
+ Routines                        755 
+ Rule                            706   708   873  1081  1235  1248  1249  1249 
+                                1280 
+ rule                             82  1222  1225  1234  1235 
+ Rules                           800   830   860 
+
+-S-
+ s                               726   726 
+ Semantics                        73 
+ Sets                             72 
+ SourceFile                       75 
+ Spec                            607   620   719 
+ Statement                      1118 
+ Statements                      709   891  1098  1302 
+ stderr                          737   738   739   740 
+ Stdio                           725   737   738   739   740   776 
+ stdout                          776 
+ Stmt                            968 
+ String                          490   978 
+ String1                         318   320   322   323 
+ String2                         318   321   322 
+ StringExpr                      227   286   379   490   490 
+ StringMem                        66    99   104   991  1000 
+ Strings                          67    69   100   105   108   109   111   112 
+                                 117   126   318   506 
+
+-T-
+ T                               633 
+ t                               141   145   149   201   208   210   211   212 
+                                 213   216   218   220   230   238   244   247 
+                                 250   251   254   258   260   261   262   263 
+                                 266   269   270   289   297   303   306   309 
+                                 310   313   337   339   343   347   348   351 
+                                 355   356   373   376   381   401   403   404 
+                                 415   417   420   421   427   429   430   441 
+                                 443   444   448   456   458   472   477   477 
+                                 480   480   483   484   486   488   490   492 
+                                 499   532   545   549   551   558   566   573 
+                                 576   579   583   585   592   600   605   618 
+                                 677   699   706   717   880   887   902   917 
+                                1018  1069  1090  1182  1216  1244  1291  1297 
+                                1313  1327  1341  1350  1352  1353  1355  1355 
+                                1361 
+ TargetClass                     667   675 
+ TargetExpr                      226   285   378   488   488 
+ TargetStmt                      966  1114 
+ Tempo                           272   277   409   444   456   905   907  1094 
+                                1122  1126  1143  1144  1151  1152  1315  1317 
+ Tempos                          406   432  1140 
+ TemposDone                       89   805   833   863  1220  1227  1241  1250 
+                                1287 
+ TestIsType                     1261  1350  1367 
+ TestKind                       1254  1363 
+ TestNil                        1268 
+ TestNonlin                     1271 
+ TestValue                      1199  1206  1221  1275 
+ TEXT                            734 
+ Texts                            71 
+ tFile                            65    99 
+ TheClass                         83 
+ THEN                             94   107   110   113   119   147   162   175 
+                                 181   188   197   210   211   233   260   261 
+                                 276   329   341   343   355   360   392   403 
+                                 405   408   418   419   429   431   434   449 
+                                 461   509   528   547   553   556   581   587 
+                                 590   649   655   657   671   672   691   692 
+                                 796   799   801   807   829   835   856   859 
+                                 865   878   888   892   904   918   922   939 
+                                 948   964   983  1029  1039  1082  1086  1091 
+                                1124  1143  1151  1192  1192  1219  1223  1249 
+                                1269  1273  1278  1289  1294  1298  1303  1314 
+                                1328  1331  1334  1351 
+ TheName                          88  1185  1190 
+ ThenPart                       1199  1207  1211  1213  1222  1228  1234  1236 
+                                1353 
+ tIdent                           70    88   142   267   317   317   326   337 
+                                 351   352   353   389   502   505 
+ TO                              115 
+ ToDepth                         130   133 
+ tPosition                        64    92 
+ TRAFO                            56 
+ TrafoName                       624   638   639   641   723   756   761   763 
+                                 768   778   779 
+ TREE                             57 
+ Tree                             57    75   145   146   146   151   154   174 
+                                 186   190   190   191   191   193   210   211 
+                                 211   219   222   223   224   225   226   227 
+                                 228   230   238   243   246   249   253   260 
+                                 261   261   270   274   275   275   281   282 
+                                 283   284   285   286   287   289   297   302 
+                                 305   308   312   339   340   340   343   343 
+                                 355   358   359   359   377   377   377   377 
+                                 377   378   378   378   378   379   379   382 
+                                 382   391   391   403   405   405   417   417 
+                                 429   431   431   444   446   448   456   456 
+                                 458   469   476   479   482   486   488   490 
+                                 492   508   508   545   546   550   555   555 
+                                 569   569   569   569   570   579   580   584 
+                                 589   589   596   596   596   596   597   605 
+                                 618   655   657   709   710   711   717   901 
+                                 902   902  1024  1051  1065  1069  1089  1090 
+                                1090  1123  1123  1182  1216  1221  1312  1313 
+                                1313  1341 
+ TreeName                        142   152   152   152   166   267   271   271 
+                                 271   272   352   357   357   357   362   368 
+                                 610   644   666   666   699   699   699   699 
+                                1018  1018  1155  1155  1190  1190  1191  1191 
+                                1256  1256  1263  1263  1364  1364  1368  1368 
+ TreeNames                       608   626   725 
+ TRUE                            167   913  1227  1258  1265  1323  1365  1369 
+ tString                         100   318   506 
+ tStringRef                       99 
+ tTree                            75    87   141   143   208   216   258   266 
+                                 337   351   389   401   415   427   441   499 
+                                 500   504   576   577  1076 
+ Type                            702  1021 
+ TYPECASE                        164  1255  1262  1346 
+ TypeCaseDepth                    90   133   137   163   781   885  1205  1231 
+                                1239  1301 
+ TypeDesc                        152   153   177   195   271   357   383   394 
+                                 658   666   668   694   820  1072  1078  1095 
+                                1127  1144  1155  1186  1256  1263  1272  1277 
+                                1350  1364  1368 
+ Types                          1350 
+
+-U-
+ UserType                        154   701  1020 
+
+-V-
+ Value                           193   193   569   596  1147 
+ VAR                              78    90   100   101   102   142   143   267 
+                                 318   352   353   500   501   502   505   506 
+                                 577   633   634   672   692   874  1035  1072 
+                                1076  1078  1094  1126  1144  1152  1201  1281 
+                                1282  1344 
+ Var                             672   692  1014  1044  1063 
+ VarDecls                        884  1083  1235  1296 
+ VarDef                          174   174   180   569   596 
+ VarUse                          222   281   377   448   448 
+
+-W-
+ WHILE                           133  1348 
+ WI                               75   166   166   168   272   272   273   330 
+                                 362   362   363   364   364   368   368   369 
+                                 381   384   395   409   420   444   452   456 
+                                 473   477   480   494   530   532   537   611 
+                                 612   612   613   624   638   639   641   645 
+                                 651   673   674   675   693   699   699   702 
+                                 723   756   761   763   768   778   779   785 
+                                 811   817   839   845   869   905   907   986 
+                                1005  1018  1021  1032  1040  1045  1059  1063 
+                                1072  1078  1094  1126  1144  1152  1155  1157 
+                                1190  1190  1191  1256  1257  1258  1263  1264 
+                                1265  1315  1317  1364  1364  1365  1368  1368 
+                                1369 
+ WITH                            151   174   176   193   230   238   270   289 
+                                 297   356   362   393   404   430   448   458 
+                                 472   492   557 
+ WN                               75 
+ Wr                              626   633   725   726   727   727   736   738 
+                                 739   740   740 
+ WriteBackslash                   76   120 
+ WriteC                          114   122   124 
+ WriteLine                        92    97   627   630   729   758   765   789 
+                                 821   849   876   929   937   945   959   963 
+                                 967   972   977  1284 
+ WriteNl                          65 
+ WritePathNarrow                 165   179   180   196   450   984  1065  1255 
+                                1262  1272  1273  1277  1346 
+ WritePathWide                   187   949  1051  1053  1269 
+ WritePrefixIdent                326   333   380   384   395 
+ WriteS                           65   108   111   126 
+ WriteStr                        976 
+ WriteString                      99   128   490   978   991  1000 
+ WriteText                        71   628   631   730   759   766   790   822 
+                                 850 
+
+-Y-
+ yyAbort                         734   742   802   808   831   836 
+ yyExit                          770   773   777 
+ yyf                             633   726   727   776 
+ yyFunction                      734   738 
+ yyWrite                         726   978 
+ yyWriteNl                       727   973 
+
+-_-
+ _                              1026  1034  1044  1047  1047  1067  1211 
+ _yy_                            168   532  1040  1258  1265  1365  1369 
+ _y_                            1029 
+
+end cross reference, 2953 occurrences of 347 identifiers.

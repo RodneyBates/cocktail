@@ -1,0 +1,224 @@
+MODULE AstIn 
+
+PROPERTY INPUT
+
+RULE
+
+Classes		= <
+   NoClass	= .
+   Class	= [Name: tIdent] [Properties: tClassProperties]
+		  Attributes Extensions: Classes Next: Classes REV .
+>.
+Attributes	= <
+   NoAttribute	= .
+   AttrOrAction	= Next: Attributes REV <
+      Child	= [Name: tIdent] [Type: tIdent] [Properties: tAttrProperties] .
+      Attribute	= [Name: tIdent] [Type: tIdent] [Properties: tAttrProperties] .
+      ActionPart= .
+   >.
+>.
+
+END AstIn 
+
+MODULE Ast
+
+RULE
+
+Class		= BaseClass: Classes .
+
+END Ast
+
+MODULE Cg 
+
+PROPERTY INPUT
+
+RULE
+
+Ag		= [Name: tIdent]
+		  [ScannerName	: tIdent]
+		  [ParserName	: tIdent] ParserCodes: Codes
+		  [TreeName	: tIdent] TreeCodes  : Codes
+		  [EvalName	: tIdent] EvalCodes  : Codes
+		  Precs Props Decls Classes Modules .
+Precs		= <
+   NoPrec	= .
+   Prec		= Names Next: Precs REV <
+      LeftAssoc	= .
+      RightAssoc= .
+      NonAssoc	= .
+   >.
+>.
+Class		= [Selector: tIdent] [Pos: tPosition] [Code: SHORTCARD] [Prec: tIdent] Names .
+Child		= [Pos: tPosition] .
+Attribute	= [Pos: tPosition] .
+ActionPart	= Actions .
+
+Actions		= <
+   NoAction	= .
+   Action	= Next: Actions REV [Pos: tPosition] <
+      Assign	= Results: Designators Arguments: Designators .
+      Copy	= Results: Designators Arguments: Designators .
+      TargetCode= Results: Designators Code: Designators .
+      Order	= Results: Designators Arguments: Designators .
+      Check	= Condition: Designators Statement: Designators Actions .
+   >.
+>.
+Modules		= <
+   NoModule	= .
+   Module	= [Name: tIdent] ParserCodes: Codes TreeCodes: Codes EvalCodes: Codes
+		  Props Decls Classes Next: Modules REV .
+>.
+Props		= <
+   NoProp	= .
+   Prop		= [Properties: BITSET] Names Next: Props REV .
+   Select	= Names Next: Props REV .
+>.
+Decls		= <
+   NoDecl	= .
+   Decl		= Names Attributes [Properties: tClassProperties]
+		  Next: Decls REV .
+>.
+
+END Cg
+
+MODULE Ag 
+
+RULE
+
+Ag		= [Properties: BITSET] .
+
+Class		= [AttrCount: SHORTCARD] [InstCount: SHORTCARD] [Instance: tInstancePtr]
+		  [DP: tRelation] [SNC: tRelation] [DNC: tRelation] [OAG: tRelation]
+		  [Part: tRelation] [Index: SHORTCARD] [Visits: SHORTCARD] [Users: tSet]
+		  [Generated: INTEGER0] [BitCount: SHORTCARD] [BitIndex: tBitIndex]
+		  [D: tSetOfRelPtr] .
+Child		= [AttrIndex: SHORTCARD] [Partition: INTEGER9999] [Usage: BITSET]
+		  [InstOffset: SHORTCARD] [Class: tClass] [ParsIndex: SHORTCARD]
+		  [BitOffset: SHORTCARD] .
+Attribute	= [AttrIndex: SHORTCARD] [Partition: INTEGER9999] [Usage: BITSET] .
+ActionPart	= [Name: SHORTCARD] [ParsIndex: SHORTCARD] [Properties: BITSET] .
+
+AttrOrAction	= [Item: SHORTCARD] .
+
+Check		= Results: Designators .
+
+Module		= [Properties: BITSET] .
+
+END Ag
+
+MODULE PumaIn
+
+PROPERTY INPUT
+
+RULE
+
+Spec		= [TrafoName: tIdent] TreeNames Public: Names Extern: Names Codes Routines .
+
+TreeNames	= <
+   NoTreeName	= .
+   TreeName	= [Name: tIdent] [Pos: tPosition] Next: TreeNames REV .
+>.
+Routines	= <
+   NoRoutine	= .
+   Routine	= Next: Routines REV [Name: tIdent] [Pos: tPosition] InParams: Parameters
+		  OutParams: Parameters Extern: Names [Local: tText] [LocalLine: tPosition]
+		  Rules <
+      Procedure	= .
+      Function	= ReturnParams: Parameters .
+      Predicate	= .
+   >.
+>.
+Parameters	= <
+   NoParameter	= .
+   Param	= [IsRef: BOOLEAN] [Name: tIdent] [Pos: tPosition] Type Next: Parameters REV .
+>.
+Type		= [Name: tIdent] [Pos: tPosition] Names .
+
+Rules		= <
+   NoRule	= .
+   Rule		= [Line: tPosition] Patterns Exprs Expr Statements Next: Rules REV .
+>.
+Patterns	= <
+   NoPattern	= [Pos: tPosition] .
+   OnePattern	= Pattern Next: Patterns REV .
+>.
+PatternsList		= <
+   NoPatternsList	= .
+   OnePatternsList	= Patterns Next: PatternsList .
+>.
+Pattern		= [Pos: tPosition] <
+   Decompose	= [Selector: tIdent] Expr Patterns [Widen: BOOLEAN] .
+   VarDef	= [Name: tIdent] .
+   NilTest	= [Selector: tIdent] .
+   DontCare1	= .
+   DontCare	= .
+   Value	= Expr .
+>.
+Exprs		= <
+   NoExpr	= [Pos: tPosition] .
+   OneExpr	= Expr Next: Exprs REV <
+      NamedExpr	= [Name: tIdent] .
+   >.
+>.
+Expr		= [Pos: tPosition] <
+   Compose	= [Selector: tIdent] Expr Exprs [Widen: BOOLEAN] .
+   VarUse	= [Name: tIdent] <
+      AttrDesc	= [Attribute: tIdent] .
+   >.
+   Nil		= [Selector: tIdent] .
+   Call		= Expr Exprs Patterns .
+   Binary	= Lop: Expr [Operator: tIdent] Rop: Expr .
+   PreOperator	= [Operator: tIdent] Expr .
+   PostOperator	= [Operator: tIdent] Expr .
+   Index	= Expr Exprs .
+   Parents	= Expr .
+   TargetExpr	= Expr: Designators .
+   StringExpr	= [String: tStringRef] .
+>.
+Statements	 = <
+   NoStatement	 = .
+   Statement	 = [Pos: tPosition] Next: Statements REV <
+      ProcCall	 = Call .
+      Condition	 = Expr .
+      Assignment = Adr: Expr Expr .
+      Reject	 = .
+      Fail	 = .
+      TargetStmt = Parameters Stmt: Designators .
+      Nl	 = .
+      WriteStr	 = [String: tStringRef] .
+   >.
+>.
+
+Formals		= <
+   NoFormal	= .
+   Formal	= Next: Formals REV [Name: tIdent] TypeDesc Path .
+   DummyFormal	= Next: Formals .
+>.
+TypeDesc	= <
+   NodeTypes	= TreeName [Types: tSet] .
+   UserType	= [Type: tIdent] .
+>.
+Path		= <
+   Var		= [Name: tIdent] [IsOutput: BOOLEAN] [IsRegister: BOOLEAN] .
+   ConsType	= Next: Path [Name: tIdent] .
+   Field	= Next: Path [Name: tIdent] .
+>.
+Tests		= <
+   NoTest	= .
+   OneTest	= Next: Tests Path <
+      TestKind	= TypeDesc: NodeTypes [Name: tIdent] .
+      TestIsType= TypeDesc: NodeTypes [Name: tIdent] .
+      TestNil	= .
+      TestNonlin= Path2: Path TypeDesc .
+      TestValue	= Expr TypeDesc .
+   >.
+>.
+Decisions	= <
+   NoDecision	= .
+   Decision	= Then: Decisions Else: Decisions OneTest [Cases: SHORTCARD] [IsUnchanged: BOOLEAN] .
+   Decided	= Else: Decisions Rule .
+>.
+
+END PumaIn
+
+

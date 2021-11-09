@@ -1,0 +1,4 @@
+#!/bin/sh
+#script gmdcp
+#called by Cocktail tools 
+cp -p $1 $2

@@ -1,0 +1,245 @@
+BIN	= $(INSTALLGMD)/bin
+LIB	= $(INSTALLGMD)/lib
+OPT	= -O0 -g
+CC	= cc
+
+                # C library (reuse)
+REUSE	= ../../reuse/m2c
+
+                # C libraries
+CLIBS	= $(REUSE)/libreuse.a
+
+                # options for C compiler
+CFLAGS	= -w -I$(REUSE) $(OPT)
+
+M2FLAGS	= -c -d../../reuse/src
+
+EXE     = puma
+
+all	: puma
+
+cleanm2c:
+	cd ../src; make cleanm2c
+
+cleancompile: cleanm2c
+	rm -f *.o $(EXE)
+
+compile: $(EXE)
+
+m2c:   sources
+
+# Special case cc's:
+
+#C.o: C.c
+#	$(CC) $(CFLAGS) -c -Olimit 600 C.c
+
+#Tree.o: Tree.c
+#	$(CC) $(CFLAGS) -c -Olimit 1050 Tree.c
+
+install:	puma $(LIB)/puma \
+        ../src/TypeTab.c ../src/TypeTab.a ../src/TypeTab.m ../src/TypeTab.m3
+	if test $(LIB) = $(BIN); then echo error: BIN = LIB; false; else true; fi
+	sed 's;LIB;$(LIB);g' < ../src/puma.sh > $(BIN)/puma
+	chmod a+rx $(BIN)/puma
+#	install -c -s -m 755 puma $(LIB)/puma
+	install -c    -m 755 puma $(LIB)/puma
+	install -c -m 644 ../src/Scanner.Tab $(LIB)/puma
+	install -c -m 644 ../src/Parser.Tab $(LIB)/puma
+	install -c -m 644 ../src/TypeTab.c $(LIB)/puma
+	install -c -m 644 ../src/TypeTab.a $(LIB)/puma
+	install -c -m 644 ../src/TypeTab.m $(LIB)/puma 
+	install -c -m 644 ../src/TypeTab.m3 $(LIB)/puma 
+
+saveStable : 
+	cp -p puma stable
+	cp -p ../src/puma.sh stable 
+	cp -p ../src/Scanner.Tab stable 
+	cp -p ../src/Parser.Tab stable 
+	cp -p ../src/TypeTab.c stable 
+	cp -p ../src/TypeTab.a stable 
+	cp -p ../src/TypeTab.m stable 
+	cp -p ../src/TypeTab.m3 stable 
+
+# installation directories
+
+stable:	
+	sh -c "if test ! -d stable; then mkdir stable; else true; fi"
+
+$(LIB)/puma:	$(LIB)
+	sh -c "if test ! -d $(LIB)/puma; then mkdir $(LIB)/puma; else true; fi"
+
+# swap all byte pairs of the files Scanner.Tab and Parser.Tab
+
+bin.conv:
+	dd conv=swab < Scanner.Tab > .Scanner.Tab; mv .Scanner.Tab Scanner.Tab
+	dd conv=swab < Parser.Tab > .Parser.Tab; mv .Parser.Tab Parser.Tab
+
+# SYSTEM_	= SYSTEM_.o
+
+lint:
+	lint $(CFLAGS) *.c
+
+
+# HEAD
+
+sources : IOUtils.h
+
+sources : IOUtils.c
+IOUtils.0 : IOUtils.h IOUtils.c 
+
+sources : Assertions.h
+
+sources : Assertions.c
+Assertions.o : Assertions.h Assertions.c
+
+sources	: C.h
+C.h	: Tree.h
+
+sources	: C.c
+C.o	: C.c C.h
+C.o	: Tree.h
+C.o	: Semantics.h
+C.o	: Optimize.h
+C.o	: Tree.h
+C.o	: IOUtils.h
+
+sources	: M2.h
+M2.h	: Tree.h
+
+sources	: M2.c
+M2.o	: M2.c M2.h
+M2.o	: Tree.h
+M2.o	: Semantics.h
+M2.o	: Optimize.h
+M2.o	: Tree.h
+M2.o	: IOUtils.h
+
+sources	: M3.h
+M3.h	: Tree.h
+
+sources	: M3.c
+M3.o	: M3.c M3.h
+M3.o	: Tree.h
+M3.o	: Semantics.h
+M3.o	: Optimize.h
+M3.o	: Tree.h
+M3.o	: IOUtils.h
+
+sources	: Ada.h
+Ada.h	: Tree.h
+
+sources	: Ada.c
+Ada.o	: Ada.c Ada.h
+Ada.o	: Tree.h
+Ada.o	: Semantics.h
+Ada.o	: Optimize.h
+Ada.o	: Tree.h
+
+sources	: Optimize.h
+Optimize.h	: Tree.h
+
+sources	: Optimize.c
+Optimize.o	: Optimize.c Optimize.h
+Optimize.o	: Tree.h
+Optimize.o	: M2.h
+Optimize.o	: Tree.h
+Optimize.o	: Scanner.h
+
+sources	: Parser.h
+
+sources	: Parser.c
+Parser.o	: Parser.c Parser.h
+Parser.o	: Scanner.h
+Parser.o	: Scanner.h
+Parser.o	: Tree.h
+
+sources	: Scanner.h
+
+sources	: Scanner.c
+Scanner.o	: Scanner.c Scanner.h
+Scanner.o	: Tree.h
+
+sources	: Semantics.h
+Semantics.h	: Tree.h
+Semantics.h	: Tree.h
+
+sources	: Semantics.c
+Semantics.o	: Semantics.c Semantics.h
+Semantics.o	: Tree.h
+Semantics.o	: Scanner.h
+Semantics.o	: Tree.h
+Semantics.o     : Assertions.h
+
+sources	: Tree.h
+
+sources	: Tree.c
+Tree.o	: Tree.c Tree.h
+
+sources	: Tree2.h
+Tree2.h	: Tree.h
+
+sources	: Tree2.c
+Tree2.o	: Tree2.c Tree2.h
+Tree2.o	: Tree.h
+
+sources	: puma.c
+all	: puma
+puma.o	: puma.c
+puma.o	: Scanner.h
+puma.o	: Parser.h
+puma.o	: Tree.h
+puma.o	: Tree2.h
+puma.o	: Semantics.h
+puma.o	: Optimize.h
+puma.o	: M2.h
+puma.o	: M3.h
+puma.o	: Ada.h
+puma.o	: C.h
+
+SYSTEM_.o	: SYSTEM_.c SYSTEM_.h
+
+puma	: $(CLIBS)	\
+	puma.o	\
+	C.o	\
+	Tree.o	\
+	Optimize.o	\
+	Scanner.o	\
+	M2.o	\
+	M3.o	\
+	Ada.o	\
+	Semantics.o	\
+	Tree2.o	\
+	Parser.o	\
+	Assertions.o	\
+	IOUtils.o	\
+;	$(CC) $(CFLAGS) -o puma 	\
+	puma.o	\
+	C.o	\
+	Tree.o	\
+	Optimize.o	\
+	Scanner.o	\
+	M2.o	\
+	M3.o	\
+	Ada.o	\
+	Semantics.o	\
+	Tree2.o	\
+	Parser.o	\
+	Assertions.o	\
+	IOUtils.o	\
+	$(CLIBS)
+
+# TAIL
+
+clean	:
+	rm -f core *.o
+
+.SUFFIXES: .md .mi .h .c .o
+
+.mi.c:
+	mtc $(M2FLAGS) $*.mi;
+
+.md.h:
+	mtc $(M2FLAGS) $*.md;
+
+.c.o:
+	$(CC) $(CFLAGS) -c $*.c

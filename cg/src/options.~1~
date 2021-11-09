@@ -1,0 +1,362 @@
+EvalC.mi:235:      IF IsElement (ORD ('Y'), Options) OR
+EvalC.mi:236:         IsElement (ORD ('Z'), Options) OR
+EvalC.mi:237:         IsElement (ORD ('L'), Options) THEN
+EvalC.mi:240:      IF IsElement (ORD ('Y'), Options) OR
+EvalC.mi:241:         IsElement (ORD ('Z'), Options) THEN
+EvalC.mi:252:      IF IsElement (ORD ('9'), Options) THEN
+EvalC.mi:272:      IF IsElement (ORD ('X'), Options) THEN
+EvalC.mi:278:      IF IsElement (ORD ('Y'), Options) OR
+EvalC.mi:279:         IsElement (ORD ('Z'), Options) THEN
+EvalC.mi:300:      IF IsElement (ORD ('X'), Options) THEN
+EvalC.mi:314:      IF IsElement (ORD ('X'), Options) THEN
+EvalC.mi:332:      ELSIF IsElement (ORD ('Y'), Options) THEN
+EvalC.mi:348:      IF IsElement (ORD ('Z'), Options) THEN
+EvalC.mi:401:      IF NOT IsElement (ORD ('9'), Options) THEN
+EvalC.mi:430:      IF IsElement (ORD ('9'), Options) THEN
+EvalC.mi:440:      IF IsElement (ORD ('Z'), Options) THEN
+EvalC.mi:535:      IF IsElement (ORD ('X'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalC.mi:547:      ELSIF IsElement (ORD ('Y'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalC.mi:555:      IF IsElement (ORD ('X'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalC.mi:567:      ELSIF IsElement (ORD ('Y'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalC.mi:576:      IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalC.mi:585:      IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalC.mi:635:      IF IsElement (ORD ('X'), Options) THEN
+EvalC.mi:644:      IF IsElement (ORD ('X'), Options) THEN
+EvalC2.mi:331:      IF NOT IsElement (ORD ('9'), Options) THEN
+EvalC2.mi:413:      IF IsElement (ORD ('9'), Options) THEN
+EvalC2.mi:424:      IF IsElement (ORD ('Z'), Options) THEN
+EvalC2.mi:536:      IF IsElement (ORD ('X'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalC2.mi:544:      ELSIF IsElement (ORD ('Y'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalC2.mi:553:      IF IsElement (ORD ('X'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalC2.mi:563:      ELSIF IsElement (ORD ('Y'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalC2.mi:572:      IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalC2.mi:585:      IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalC2.mi:645:      IF IsElement (ORD ('X'), Options) THEN
+EvalC2.mi:653:      IF IsElement (ORD ('X'), Options) THEN
+EvalC3.mi:66:   IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalC3.mi:86:   IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalC3.mi:105:   IF IsElement (ORD ('X'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalC3.mi:121:   ELSIF IsElement (ORD ('Y'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalC3.mi:322:      IF NOT IsElement (ORD ('9'), Options) THEN
+EvalC3.mi:349:      IF IsElement (ORD ('9'), Options) THEN
+EvalC3.mi:382:      IF IsElement (ORD ('9'), Options) THEN
+EvalC3.mi:386:      IF IsElement (ORD ('5'), Options) THEN
+EvalC3.mi:419:      IF IsElement (ORD ('9'), Options) THEN
+EvalC3.mi:488:      IF IsElement (ORD ('5'), Options) THEN
+EvalC3.mi:499:      IF IsElement (ORD ('X'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalC3.mi:515:      ELSIF IsElement (ORD ('Y'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalC3.mi:818:      IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalC3.mi:822:      IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalC3.mi:865:      IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod.mi:227:      IF IsElement (ORD ('Y'), Options) OR
+EvalMod.mi:228:         IsElement (ORD ('Z'), Options) THEN
+EvalMod.mi:231:      IF IsElement (ORD ('Y'), Options) OR
+EvalMod.mi:232:         IsElement (ORD ('Z'), Options) OR
+EvalMod.mi:233:         IsElement (ORD ('L'), Options) OR
+EvalMod.mi:234:         IsElement (ORD ('9'), Options) THEN
+EvalMod.mi:237:      IF IsElement (ORD ('9'), Options) THEN
+EvalMod.mi:250:      IF IsElement (ORD ('X'), Options) THEN
+EvalMod.mi:272:      IF IsElement (ORD ('Y'), Options) OR
+EvalMod.mi:273:         IsElement (ORD ('Z'), Options) THEN
+EvalMod.mi:290:      IF IsElement (ORD ('X'), Options) THEN
+EvalMod.mi:303:      ELSIF IsElement (ORD ('Y'), Options) THEN
+EvalMod.mi:316:      IF IsElement (ORD ('Z'), Options) THEN
+EvalMod.mi:350:      IF NOT IsElement (ORD ('9'), Options) THEN
+EvalMod.mi:383:      IF IsElement (ORD ('9'), Options) THEN
+EvalMod.mi:395:      IF IsElement (ORD ('Z'), Options) THEN
+EvalMod.mi:427:      IF IsElement (ORD ('X'), Options) THEN
+EvalMod.mi:503:      IF IsElement (ORD ('X'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod.mi:515:      ELSIF IsElement (ORD ('Y'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod.mi:523:      IF IsElement (ORD ('X'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod.mi:535:      ELSIF IsElement (ORD ('Y'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod.mi:544:      IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod.mi:553:      IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod.mi:601:      IF IsElement (ORD ('X'), Options) THEN
+EvalMod.mi:613:      IF IsElement (ORD ('X'), Options) THEN
+EvalMod2.mi:318:      IF NOT IsElement (ORD ('9'), Options) THEN
+EvalMod2.mi:385:      IF IsElement (ORD ('X'), Options) THEN
+EvalMod2.mi:422:      IF IsElement (ORD ('9'), Options) THEN
+EvalMod2.mi:437:      IF IsElement (ORD ('Z'), Options) THEN
+EvalMod2.mi:509:      IF IsElement (ORD ('X'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod2.mi:517:      ELSIF IsElement (ORD ('Y'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod2.mi:526:      IF IsElement (ORD ('X'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod2.mi:536:      ELSIF IsElement (ORD ('Y'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod2.mi:545:      IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod2.mi:558:      IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod2.mi:616:      IF IsElement (ORD ('X'), Options) THEN
+EvalMod2.mi:627:      IF IsElement (ORD ('X'), Options) THEN
+EvalMod3.mi:66:   IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod3.mi:86:   IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod3.mi:105:   IF IsElement (ORD ('X'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod3.mi:122:   ELSIF IsElement (ORD ('Y'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod3.mi:297:      IF NOT IsElement (ORD ('9'), Options) THEN
+EvalMod3.mi:326:      IF IsElement (ORD ('9'), Options) THEN
+EvalMod3.mi:356:      IF IsElement (ORD ('9'), Options) THEN
+EvalMod3.mi:363:      IF IsElement (ORD ('5'), Options) THEN
+EvalMod3.mi:390:      IF IsElement (ORD ('9'), Options) THEN
+EvalMod3.mi:437:      IF IsElement (ORD ('X'), Options) THEN
+EvalMod3.mi:473:      IF IsElement (ORD ('5'), Options) THEN
+EvalMod3.mi:484:      IF IsElement (ORD ('X'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod3.mi:501:      ELSIF IsElement (ORD ('Y'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod3.mi:811:      IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod3.mi:815:      IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+EvalMod3.mi:858:   IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+GramYacc.mi:524:      IF NOT IsElement (ORD ('v'), Options) THEN
+Optimize.mi:341:      IF IsElement (ORD ('0'), Options) THEN
+Optimize.mi:360:      IF IsElement (ORD ('3'), Options) THEN
+Order.mi:356:	ELSIF NOT IsElement (ORD ('L'), Options) THEN
+Order.mi:374:	ELSIF NOT IsElement (ORD ('L'), Options) THEN
+Order.mi:381:      IF IsElement (ORD ('/'), Options) THEN
+Order.mi:392:	ELSIF NOT IsElement (ORD ('L'), Options) THEN
+Order.mi:398:      IF NOT IsElement (ORD ('L'), Options) THEN
+Order.mi:400:      IF IsElement (ORD ('/'), Options) THEN
+Order.mi:406:      IF IsElement (ORD ('0'), Options) THEN
+Order.mi:415:      IF IsElement (ORD ('3'), Options) THEN
+Order.mi:431:      IF IsElement (ORD ('3'), Options) THEN
+Order.mi:674:      IF NOT IsElement (ORD ('L'), Options) THEN
+Order.mi:688:      IF IsElement (ORD ('S'), Options) THEN
+Order.mi:764:      IF NOT IsElement (ORD ('L'), Options) THEN
+Order.mi:778:      IF IsElement (ORD ('N'), Options) THEN
+Order.mi:1184:      IF IsElement (ORD ('C'), Options) THEN
+Order.mi:1211:      IF NOT IsElement (ORD ('L'), Options) THEN
+Order.mi:1226:      IF IsElement (ORD ('O'), Options) THEN
+Order.mi:1360:      IF IsElement (ORD ('G'), Options) THEN WriteOrderDecl (t); END;
+Order.mi:1361:      IF IsElement (ORD ('E'), Options) THEN WriteOrderEval (t); END;
+Order.mi:1362:      IF IsElement (ORD ('V'), Options) THEN WriteVisitSequence (t); END;
+Order.mi:1545:      IF IsElement (ORD ('G'), Options) THEN WriteOrderDecl (t); END;
+Order.mi:1546:      IF IsElement (ORD ('E'), Options) THEN WriteOrderEval (t); END;
+Order.mi:1547:      IF IsElement (ORD ('V'), Options) THEN WriteVisitSequence (t); END;
+Scanner.mi:338:			    IF IsElement (ORD ('c'), Options)
+Scanner.mi:349:			    IF IsElement (ORD ('c'), Options)
+Semantics.mi:768:      IF IsElement (ORD ('c'), Options) THEN
+Semantics.mi:797:      IF IsElement (ORD ('x'), Options) OR
+Semantics.mi:798:	 IsElement (ORD ('z'), Options) OR
+Semantics.mi:799:	 IsElement (ORD ('u'), Options) THEN
+Semantics.mi:825:      IF IsElement (ORD ('.'), Options) THEN		(* ag *)
+Semantics.mi:832:      IF IsElement (ORD ('2'), Options) THEN
+Semantics.mi:840:      IF IsElement (ORD ('1'), Options) THEN
+Semantics.mi:1555:      IF NOT IsElement (ORD ('j'), Options) THEN
+Semantics.mi:1685:	   IF NOT (IsElement (ORD ('x'), Options) OR
+Semantics.mi:1686:		   IsElement (ORD ('z'), Options) OR
+Semantics.mi:1687:		   IsElement (ORD ('u'), Options)) THEN
+Semantics.mi:1975:	IF (Class = NoTree) AND NOT IsElement (ORD ('x'), Options) AND
+Semantics.mi:1976:				NOT IsElement (ORD ('z'), Options) AND
+Semantics.mi:1977:				NOT IsElement (ORD ('u'), Options) THEN
+Semantics.mi:2052:      IF IsElement (ORD ('2'), Options) THEN
+Semantics.mi:2097:      IF NOT IsElement (ORD ('W'), Options) AND NOT IsAbstract THEN
+Semantics.mi:2102:	   NOT IsElement (ORD ('x'), Options) AND
+Semantics.mi:2103:	   NOT IsElement (ORD ('z'), Options) AND
+Semantics.mi:2104:	   NOT IsElement (ORD ('u'), Options) THEN
+Semantics.mi:2127:           IF NOT IsElement (ORD ('W'), Options) AND NOT IsAbstract THEN
+Semantics.mi:2164:      IF NOT (NOT IsElement (ORD ('W'), Options)) THEN EXIT; END;
+Semantics.mi:2242:           NOT IsElement (ORD ('B'), Options) THEN
+Semantics.mi:2271:      IF IsElement (ORD ('L'), Options) THEN
+Semantics.mi:2302:      IF IsElement (ORD ('M'), Options) THEN
+Semantics.mi:2305:      IF IsElement (ORD ('P'), Options) THEN
+Semantics.mi:2372:      IF IsElement (ORD ('1'), Options) THEN
+TreeC1.mi:183:      IF IsElement (ORD ('<'), Options) THEN
+TreeC1.mi:198:      IF NOT IsElement (ORD ('<'), Options) THEN
+TreeC1.mi:221:      IF NOT IsElement (ORD ('<'), Options) THEN
+TreeC1.mi:225:      IF IsElement (ORD ('L'), Options) THEN
+TreeC1.mi:229:      IF IsElement (ORD ('5'), Options) THEN
+TreeC1.mi:234:      IF IsElement (ORD ('5'), Options) THEN
+TreeC1.mi:264:      IF IsElement (ORD ('n'), Options) THEN
+TreeC1.mi:268:      IF IsElement (ORD ('m'), Options) THEN
+TreeC1.mi:272:      IF IsElement (ORD ('f'), Options) THEN
+TreeC1.mi:275:      IF IsElement (ORD ('F'), Options) AND NOT IsElement (ORD ('<'), Options) THEN
+TreeC1.mi:278:      IF IsElement (ORD ('o'), Options) THEN
+TreeC1.mi:281:      IF IsElement (ORD ('w'), Options) THEN
+TreeC1.mi:284:      IF IsElement (ORD ('r'), Options) THEN
+TreeC1.mi:287:      IF IsElement (ORD ('p'), Options) THEN
+TreeC1.mi:290:      IF IsElement (ORD ('g'), Options) THEN
+TreeC1.mi:293:      IF IsElement (ORD ('t'), Options) THEN
+TreeC1.mi:296:      IF IsElement (ORD ('b'), Options) THEN
+TreeC1.mi:299:      IF IsElement (ORD ('R'), Options) THEN
+TreeC1.mi:302:      IF IsElement (ORD ('y'), Options) THEN
+TreeC1.mi:305:      IF IsElement (ORD ('k'), Options) THEN
+TreeC1.mi:308:      IF IsElement (ORD ('q'), Options) THEN
+TreeC1.mi:311:      IF IsElement (ORD ('='), Options) THEN
+TreeC1.mi:314:      IF IsElement (ORD ('L'), Options) THEN
+TreeC1.mi:643:      IF NOT IsElement (ORD ('<'), Options) THEN
+TreeC1.mi:702:      IF IsElement (ORD ('L'), Options) THEN
+TreeC1.mi:719:      IF IsElement (ORD ('n'), Options) THEN
+TreeC1.mi:723:      IF IsElement (ORD ('m'), Options) THEN
+TreeC1.mi:727:      IF IsElement (ORD ('f'), Options) THEN
+TreeC1.mi:764:      IF IsElement (ORD ('F'), Options) AND NOT IsElement (ORD ('<'), Options) THEN
+TreeC1.mi:779:      IF IsElement (ORD ('t'), Options) OR
+TreeC1.mi:780:         IsElement (ORD ('b'), Options) THEN
+TreeC1.mi:784:      IF IsElement (ORD ('t'), Options) THEN
+TreeC1.mi:817:      IF IsElement (ORD ('b'), Options) THEN
+TreeC1.mi:848:      IF IsElement (ORD ('R'), Options) THEN
+TreeC1.mi:876:      IF IsElement (ORD ('y'), Options) THEN
+TreeC1.mi:946:      IF IsElement (ORD ('k'), Options) THEN
+TreeC1.mi:1002:      IF IsElement (ORD ('q'), Options) THEN
+TreeC1.mi:1060:      IF IsElement (ORD ('='), Options) THEN
+TreeC1.mi:1077:      IF IsElement (ORD ('L'), Options) THEN
+TreeC1.mi:1091:      IF IsElement (ORD ('5'), Options) THEN
+TreeC1.mi:1149:	 IF IsElement (ORD ('L'), Options) THEN
+TreeC1.mi:1206:	 IF IsElement (ORD ('L'), Options) THEN
+TreeC2.mi:38:	 IF IsElement (ORD ('6'), Options) THEN
+TreeC2.mi:178:      IF IsElement (ORD (','), Options) THEN
+TreeC2.mi:197:      IF IsElement (ORD (';'), Options) THEN
+TreeC2.mi:223:      IF IsElement (ORD ('w'), Options) OR
+TreeC2.mi:224:	 IsElement (ORD ('o'), Options) THEN
+TreeC2.mi:251:      IF IsElement (ORD ('o'), Options) THEN
+TreeC2.mi:282:      IF IsElement (ORD ('w'), Options) THEN
+TreeC2.mi:351:      IF IsElement (ORD ('r'), Options) THEN
+TreeC2.mi:450:      IF IsElement (ORD ('p'), Options) THEN
+TreeC2.mi:520:      IF IsElement (ORD ('g'), Options) THEN
+TreeMod1.mi:176:      IF IsElement (ORD ('<'), Options) THEN
+TreeMod1.mi:189:      IF NOT IsElement (ORD ('<'), Options) THEN
+TreeMod1.mi:207:      IF NOT IsElement (ORD ('<'), Options) THEN
+TreeMod1.mi:212:      IF IsElement (ORD ('L'), Options) THEN
+TreeMod1.mi:216:      IF IsElement (ORD ('5'), Options) THEN
+TreeMod1.mi:221:      IF IsElement (ORD ('5'), Options) THEN
+TreeMod1.mi:250:      IF IsElement (ORD ('n'), Options) THEN
+TreeMod1.mi:254:      IF IsElement (ORD ('m'), Options) THEN
+TreeMod1.mi:258:      IF IsElement (ORD ('f'), Options) THEN
+TreeMod1.mi:261:      IF IsElement (ORD ('F'), Options) AND NOT IsElement (ORD ('<'), Options) THEN
+TreeMod1.mi:264:      IF IsElement (ORD ('o'), Options) THEN
+TreeMod1.mi:267:      IF IsElement (ORD ('w'), Options) THEN
+TreeMod1.mi:270:      IF IsElement (ORD ('r'), Options) THEN
+TreeMod1.mi:273:      IF IsElement (ORD ('p'), Options) THEN
+TreeMod1.mi:276:      IF IsElement (ORD ('g'), Options) THEN
+TreeMod1.mi:279:      IF IsElement (ORD ('t'), Options) THEN
+TreeMod1.mi:282:      IF IsElement (ORD ('b'), Options) THEN
+TreeMod1.mi:285:      IF IsElement (ORD ('R'), Options) THEN
+TreeMod1.mi:288:      IF IsElement (ORD ('y'), Options) THEN
+TreeMod1.mi:291:      IF IsElement (ORD ('k'), Options) THEN
+TreeMod1.mi:294:      IF IsElement (ORD ('q'), Options) THEN
+TreeMod1.mi:297:      IF IsElement (ORD ('='), Options) THEN
+TreeMod1.mi:300:      IF IsElement (ORD ('L'), Options) THEN
+TreeMod1.mi:491:      IF IsElement (ORD ('<'), Options) THEN
+TreeMod1.mi:515:      IF NOT IsElement (ORD ('<'), Options) THEN
+TreeMod1.mi:557:      IF IsElement (ORD ('n'), Options) THEN
+TreeMod1.mi:561:      IF IsElement (ORD ('m'), Options) THEN
+TreeMod1.mi:565:      IF IsElement (ORD ('f'), Options) THEN
+TreeMod1.mi:593:      IF IsElement (ORD ('F'), Options) AND NOT IsElement (ORD ('<'), Options) THEN
+TreeMod1.mi:608:      IF IsElement (ORD ('t'), Options) OR
+TreeMod1.mi:609:         IsElement (ORD ('b'), Options) THEN
+TreeMod1.mi:613:      IF IsElement (ORD ('t'), Options) THEN
+TreeMod1.mi:636:      IF IsElement (ORD ('b'), Options) THEN
+TreeMod1.mi:657:      IF IsElement (ORD ('R'), Options) THEN
+TreeMod1.mi:679:      IF IsElement (ORD ('y'), Options) THEN
+TreeMod1.mi:734:      IF IsElement (ORD ('k'), Options) THEN
+TreeMod1.mi:776:      IF IsElement (ORD ('q'), Options) THEN
+TreeMod1.mi:823:      IF IsElement (ORD ('='), Options) THEN
+TreeMod1.mi:844:      IF IsElement (ORD ('L'), Options) THEN
+TreeMod1.mi:852:      IF IsElement (ORD ('5'), Options) THEN
+TreeMod1.mi:888:      IF NOT IsElement (ORD ('<'), Options) THEN
+TreeMod1.mi:896:      IF IsElement (ORD ('r'), Options) THEN
+TreeMod1.mi:899:      IF NOT IsElement (ORD ('<'), Options) THEN
+TreeMod1.mi:913:      IF IsElement (ORD (';'), Options) THEN
+TreeMod1.mi:918:      IF IsElement (ORD ('y'), Options) THEN
+TreeMod1.mi:1613:      IF NOT IsElement (ORD ('<'), Options) THEN
+TreeMod1.mi:1617:      IF IsElement (ORD ('f'), Options) THEN
+TreeMod1.mi:1620:      IF IsElement (ORD ('F'), Options) AND NOT IsElement (ORD ('<'), Options) THEN
+TreeMod1.mi:1623:      IF IsElement (ORD ('o'), Options) THEN
+TreeMod1.mi:1626:      IF IsElement (ORD ('w'), Options) THEN
+TreeMod1.mi:1629:      IF IsElement (ORD ('r'), Options) THEN
+TreeMod1.mi:1632:      IF IsElement (ORD ('p'), Options) THEN
+TreeMod1.mi:1635:      IF IsElement (ORD ('g'), Options) THEN
+TreeMod1.mi:1638:      IF IsElement (ORD ('t'), Options) THEN
+TreeMod1.mi:1641:      IF IsElement (ORD ('b'), Options) THEN
+TreeMod1.mi:1644:      IF IsElement (ORD ('R'), Options) THEN
+TreeMod1.mi:1647:      IF IsElement (ORD ('y'), Options) THEN
+TreeMod1.mi:1650:      IF IsElement (ORD ('k'), Options) THEN
+TreeMod1.mi:1653:      IF IsElement (ORD ('q'), Options) THEN
+TreeMod1.mi:1656:      IF IsElement (ORD ('='), Options) THEN
+TreeMod1.mi:1659:      IF IsElement (ORD ('L'), Options) THEN
+TreeMod1.mi:1676:      IF IsElement (ORD ('n'), Options) THEN
+TreeMod1.mi:1679:      IF IsElement (ORD ('m'), Options) THEN
+TreeMod2.mi:178:      IF IsElement (ORD (','), Options) THEN
+TreeMod2.mi:194:      IF IsElement (ORD (';'), Options) THEN
+TreeMod2.mi:220:      IF IsElement (ORD ('w'), Options) OR
+TreeMod2.mi:221:	 IsElement (ORD ('o'), Options) THEN
+TreeMod2.mi:237:      IF IsElement (ORD ('o'), Options) THEN
+TreeMod2.mi:263:      IF IsElement (ORD ('w'), Options) THEN
+TreeMod2.mi:314:      IF IsElement (ORD ('r'), Options) THEN
+TreeMod2.mi:409:      IF IsElement (ORD ('p'), Options) THEN
+TreeMod2.mi:463:      IF IsElement (ORD ('g'), Options) THEN
+cg.mi:58:   IF IsElement (ORD ('c'), Options) THEN
+cg.mi:126:   IF IsElement (ORD ('c'), Options) THEN
+cg.mi:179:   IF IsElement (ORD ('c'), Options) THEN
+cg.mi:258:      IF IsElement (ORD ('7'), Options) THEN
+cg.mi:274:      IF IsElement (ORD ('7'), Options) THEN
+cg.mi:344:   IF IsElement (ORD ('a'), Options) THEN	(* a -> {a-z, F, R, =} - {c, h, u, x, z} *)
+cg.mi:361:   IF IsElement (ORD ('k'), Options) OR		(* {k, q} -> o		*)
+cg.mi:362:      IsElement (ORD ('q'), Options) THEN
+cg.mi:366:   IF IsElement (ORD ('w'), Options) OR		(* {w, p, f, k, t, b, y} -> , = Mark *)
+cg.mi:367:      IsElement (ORD ('p'), Options) OR
+cg.mi:368:      IsElement (ORD ('f'), Options) OR
+cg.mi:369:      IsElement (ORD ('k'), Options) OR
+cg.mi:370:      IsElement (ORD ('t'), Options) OR
+cg.mi:371:      IsElement (ORD ('b'), Options) OR
+cg.mi:372:      IsElement (ORD ('y'), Options) THEN
+cg.mi:376:   IF IsElement (ORD ('w'), Options) OR		(* {w, r, p, g} -> ; = TreeStore *)
+cg.mi:377:      IsElement (ORD ('r'), Options) OR
+cg.mi:378:      IsElement (ORD ('p'), Options) OR
+cg.mi:379:      IsElement (ORD ('g'), Options) THEN
+cg.mi:383:   IF IsElement (ORD ('A'), Options) THEN	(* A -> {D, I}		*)
+cg.mi:388:   IF IsElement (ORD ('T'), Options) OR		(* {T, X, Y, Z} -> I	*)
+cg.mi:389:      IsElement (ORD ('X'), Options) OR
+cg.mi:390:      IsElement (ORD ('Y'), Options) OR
+cg.mi:391:      IsElement (ORD ('Z'), Options) THEN
+cg.mi:395:   IF IsElement (ORD ('I'), Options) OR		(* {I, V, M, P, S, N, O, G, E, C, J, x, z, u} -> . = Order *)
+cg.mi:396:      IsElement (ORD ('V'), Options) OR
+cg.mi:397:      IsElement (ORD ('M'), Options) OR
+cg.mi:398:      IsElement (ORD ('P'), Options) OR
+cg.mi:399:      IsElement (ORD ('S'), Options) OR
+cg.mi:400:      IsElement (ORD ('N'), Options) OR
+cg.mi:401:      IsElement (ORD ('O'), Options) OR
+cg.mi:402:      IsElement (ORD ('G'), Options) OR
+cg.mi:403:      IsElement (ORD ('E'), Options) OR
+cg.mi:404:      IsElement (ORD ('C'), Options) OR
+cg.mi:405:      IsElement (ORD ('J'), Options) OR
+cg.mi:406:      IsElement (ORD ('x'), Options) OR
+cg.mi:407:      IsElement (ORD ('z'), Options) OR
+cg.mi:408:      IsElement (ORD ('u'), Options) THEN
+cg.mi:412:   IF IsElement (ORD ('x'), Options) OR		(* {x, z, u} -> B	*)
+cg.mi:413:      IsElement (ORD ('z'), Options) OR
+cg.mi:414:      IsElement (ORD ('u'), Options) THEN
+cg.mi:418:   IF IsElement (ORD ('T'), Options) THEN	(* T -> {X, Z}		*)
+cg.mi:423:   IF IsElement (ORD ('X'), Options) THEN	(* X -> Y		*)
+cg.mi:427:   IF IsElement (ORD ('h'), Options) THEN
+cg.mi:474:   IF IsElement (ORD ('H'), Options) THEN
+cg.mi:545:   IF IsElement (ORD ('c'), Options) THEN
+cg.mi:564:   IF IsElement (ORD ('x'), Options) THEN
+cg.mi:573:   IF IsElement (ORD ('c'), Options) THEN
+cg.mi:581:   IF IsElement (ORD ('z'), Options) THEN
+cg.mi:587:   IF IsElement (ORD ('c'), Options) THEN
+cg.mi:593:   ELSIF IsElement (ORD ('u'), Options) THEN
+cg.mi:603:   IF IsElement (ORD ('.'), Options) THEN
+cg.mi:610:   IF IsElement (ORD ('Q'), Options) THEN
+cg.mi:614:   IF IsElement (ORD ('J'), Options) THEN
+cg.mi:620:   IF IsElement (ORD ('i'), Options) OR
+cg.mi:621:      IsElement (ORD ('X'), Options) THEN
+cg.mi:625:   IF IsElement (ORD ('d'), Options) THEN
+cg.mi:628:   IF IsElement (ORD ('c'), Options) THEN
+cg.mi:636:   IF IsElement (ORD ('c'), Options) THEN
+cg.mi:643:   IF NOT IsElement (ORD ('c'), Options) THEN
+cg.mi:652:   IF IsElement (ORD ('4'), Options) THEN
+cg.mi:662:   IF IsElement (ORD ('i'), Options) THEN
+cg.mi:665:   IF IsElement (ORD ('c'), Options) THEN
+cg.mi:673:   IF IsElement (ORD ('c'), Options) THEN
+cg.mi:680:   IF NOT IsElement (ORD ('c'), Options) THEN
+cg.mi:689:   IF IsElement (ORD ('s'), Options) AND NOT IsElement (ORD ('c'), Options) THEN
+cg.mi:699:   IF IsElement (ORD ('U'), Options) THEN
+cg.mi:705:   IF IsElement (ORD ('D'), Options) THEN
+cg.mi:708:   IF IsElement (ORD ('c'), Options) THEN
+cg.mi:715:   IF IsElement (ORD ('c'), Options) THEN
+cg.mi:723:   IF IsElement (ORD ('I'), Options) THEN
+cg.mi:726:   IF IsElement (ORD ('c'), Options) THEN
+cg.mi:734:   IF IsElement (ORD ('c'), Options) THEN
+cg.mi:735:      IF IsElement (ORD ('L'), Options) THEN
+cg.mi:737:      ELSIF IsElement (ORD ('0'), Options) THEN
+cg.mi:743:      IF IsElement (ORD ('L'), Options) THEN
+cg.mi:745:      ELSIF IsElement (ORD ('0'), Options) THEN
+cg.mi:753:   IF NOT IsElement (ORD ('c'), Options) THEN
+cg.mi:762:   IF NOT IsElement (ORD ('c'), Options) THEN
+cg.mi:763:      IF IsElement (ORD ('i'), Options) OR
+cg.mi:764:	 IsElement (ORD ('X'), Options) THEN
+cg.mi:776:   IF IsElement (ORD ('8'), Options) THEN

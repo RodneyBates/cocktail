@@ -1,0 +1,114 @@
+(* This code is removed from partially converted MThree2.mi, for generation of
+   binary readers and writers, using Cocktail's own internal algorithm.  
+   Instead, M3's Pkl was used.  These are saved here in case somebody wants to 
+   generate binary readers and writers this way some day. *)
+
+      IF IsElement (ORD ('p'), Options) THEN
+	!PROCEDURE Put! WI (iModule); ! (f: Wr.T; Tree: ! WI (itTree); !);!
+	! BEGIN!
+	!  yyf := f;!
+	!  IF yyRecursionLevel = 0 THEN yyLabelCount := 0; END;!
+	!  INC (yyRecursionLevel);!
+	!  yyMark (Tree);!
+	!  yyPut! WI (iModule); ! (Tree);!
+	!  DEC (yyRecursionLevel);!
+	! END Put! WI (iModule); !;!
+	!!
+	!PROCEDURE yyPut! WI (iModule); ! (yyt: ! WI (itTree); !);!
+	! BEGIN!
+	!  LOOP!
+	!   IF yyt = ! WI (iNoTree); ! THEN!
+	!    Wr . PutChar (yyf, yyNil); RETURN;!
+	!   ELSIF yyt^.yyHead.yyMark = 0 THEN!
+	!    Wr . PutChar (yyf, yyLabelUse); yyLabel := yyMapToLabel (yyt); yyPut (yyLabel);!
+	!    RETURN;!
+	!   ELSIF yyt^.yyHead.yyMark > 1 THEN!
+	!    Wr . PutChar (yyf, yyLabelDef); yyLabel := yyMapToLabel (yyt); yyPut (yyLabel);!
+	IF ClassCount > 251 THEN
+	!    yyPut (yyt^.Kind);!
+	!   ELSIF yyt^.Kind > 251 THEN!
+	!    Wr . PutChar (yyf, yyNoLabel); yyPut (yyt^.Kind);!
+	ELSE
+	!    Wr . PutChar (yyf, CHR (yyt^.Kind));!
+	END;
+	!   ELSE!
+	!    Wr . PutChar (yyf, CHR (yyt^.Kind));!
+	!   END;!
+	!   yyt^.yyHead.yyMark := 0;!
+	!!
+	!   CASE yyt^.Kind OF!
+	ForallClasses (Classes, PutAttributes);
+	!   ELSE RETURN;!
+	!   END;!
+	!  END;!
+	! END yyPut! WI (iModule); !;!
+	!!
+	!PROCEDURE yyPut (VAR yyx: ARRAY OF SYSTEM.BYTE);!
+	! VAR yyi	: INTEGER;!
+	! BEGIN!
+	!  yyi := IO.Write (yyf, SYSTEM.ADR (yyx), INTEGER (HIGH (yyx)) + 1);!
+	! END yyPut;!
+	!!
+	!PROCEDURE yyPutIdent (yyi: Idents.tIdent);!
+	! VAR yys	: Strings.tString;!
+	! BEGIN!
+	!  Idents.GetString (yyi, yys);!
+	!  Strings.WriteL (yyf, yys);!
+	! END yyPutIdent;!
+	!!
+      END;
+      IF IsElement (ORD ('g'), Options) THEN
+	!PROCEDURE Get! WI (iModule); ! (f: Rd.T): ! WI (itTree); !;!
+	! VAR yyt	: ! WI (itTree); !;!
+	! BEGIN!
+	!  yyf := f;!
+	!  IF yyRecursionLevel = 0 THEN yyLabelCount := 0; END;!
+	!  INC (yyRecursionLevel);!
+	!  yyGet! WI (iModule); ! (SYSTEM.ADR (yyt));!
+	!  DEC (yyRecursionLevel);!
+	!  RETURN yyt;!
+	! END Get! WI (iModule); !;!
+	!!
+	!PROCEDURE yyGet! WI (iModule); ! (yyt: yyPtrtTree);!
+	! BEGIN!
+	!  LOOP!
+	!   yyc := IO.ReadC (yyf);!
+	!   CASE yyc OF!
+	!   | yyNil	: yyt^ := ! WI (iNoTree); !; RETURN;!
+	!   | yyLabelUse	: yyGet (yyLabel); yyt^ := yyMapToTree (yyLabel); RETURN;!
+	!   | yyLabelDef	: yyGet (yyLabel);! 
+	IF ClassCount > 251 THEN
+	! yyGet (yyKind);! 
+	ELSE
+	! yyKind := ORD (IO.ReadC (yyf));! 
+	END;
+	! yyt^ := Make! WI (iMain); ! (yyKind);!
+	@    IF yyLabel # yyMapToLabel (yyt^) THEN Wr . PutText ( Stdio . stderr , "@ WI (iModule); @: error in Get@ 
+	WI (iModule); @" ) ; Wr . PutText ( Stdio . stderr , Wr . EOL ) ; yyExit ; END ;@
+	IF ClassCount > 251 THEN
+	!   | yyNoLabel	: yyGet (yyKind); yyt^ := Make! WI (iMain); ! (yyKind);!
+	END;
+	!   ELSE yyKind := ORD (yyc); yyt^ := Make! WI (iMain); ! (yyKind);!
+	!   END;!
+	!!
+	!   CASE yyKind OF!
+	ForallClasses (Classes, GetAttributes);
+	!   ELSE RETURN;!
+	!   END;!
+	!  END;!
+	! END yyGet! WI (iModule); !;!
+	!!
+	!PROCEDURE yyGet (VAR yyx: ARRAY OF SYSTEM.BYTE);!
+	! VAR yyi	: INTEGER;!
+	! BEGIN!
+	!  yyi := IO.Read (yyf, SYSTEM.ADR (yyx), INTEGER (HIGH (yyx)) + 1);!
+	! END yyGet;!
+	!!
+	!PROCEDURE yyGetIdent (VAR yyi: Idents.tIdent);!
+	! VAR yys	: Strings.tString;!
+	! BEGIN!
+	!  Strings.ReadL (yyf, yys);!
+	!  yyi := Idents.MakeIdent (yys);!
+	! END yyGetIdent;!
+	!!
+      END;

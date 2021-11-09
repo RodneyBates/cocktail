@@ -1,0 +1,1205 @@
+(* $Id: Parser.mi,v 2.8 1992/08/12 06:54:05 grosch rel $ *)
+(* Skeleton parser for Cocktail lalr. *)
+(* Modified Rodney M. Bates. Various times. *)
+
+IMPLEMENTATION MODULE Parser;
+
+IMPORT SYSTEM, Scanner, Positions, Errors, Strings, DynArray, Sets, System;
+
+(* line 9 "../src/Estral.lalr" *)
+
+
+FROM	Scanner		IMPORT	tScanAttribute, NoIdent,	NoValue,
+				BeginScanner,	CloseScanner;
+FROM	Tree		IMPORT	tTree,		NoTree;
+FROM	Positions	IMPORT	NoPosition;
+
+IMPORT	Tree;
+
+TYPE
+  tParsAttribute =
+    RECORD
+      CASE :INTEGER OF
+      | 0: Scan: tScanAttribute;
+      | 1: Tree: tTree;
+      | 2: List: RECORD first, last: tTree; END;
+      | 3: Pair: RECORD tree: tTree; scan: tScanAttribute; END;
+      END;
+    END;
+      
+VAR tree	: tTree;
+
+
+CONST
+   yyInitStackSize      = 100;
+   yyNoState            = 0;
+
+   yyFirstTerminal		= 0;
+   yyLastTerminal		= 61;
+   yyFirstSymbol		= 0;
+   yyLastSymbol		= 90;
+   yyTableMax		= 255;
+   yyNTableMax		= 138;
+   yyFirstReadState		= 1;
+   yyLastReadState		= 91;
+   yyFirstReadTermState		= 92;
+   yyLastReadTermState		= 123;
+   yyLastReadNontermState		= 134;
+   yyFirstReduceState		= 135;
+   yyLastReduceState		= 214;
+   yyStartState		= 1;
+   yyStopState		= 135;
+
+   yyFirstFinalState    = yyFirstReadTermState;
+   yyLastState          = yyLastReduceState;
+
+TYPE
+   yyTableElmt          = SHORTCARD;
+   yyTCombRange         = yyTableElmt [0 .. yyTableMax];
+   yyNCombRange         = yyTableElmt [yyLastTerminal + 1 .. yyNTableMax];
+   yyStateRange         = yyTableElmt [0 .. yyLastState];
+   yyReadRange          = yyTableElmt [yyFirstReadState .. yyLastReadState];
+   yyReadReduceRange    = yyTableElmt 
+                            [yyFirstReadTermState ..yyLastReadNontermState];
+   yyReduceRange        = yyTableElmt [yyFirstReduceState .. yyLastReduceState];
+   yySymbolRange        = yyTableElmt [yyFirstSymbol .. yyLastSymbol];
+   yyTCombType          = RECORD Check, Next: yyStateRange; END;
+   yyNCombType          = yyStateRange;
+   yyTCombTypePtr       = POINTER TO yyTCombType;
+   yyNCombTypePtr       = POINTER TO yyNCombType;
+   yyStackPtrType       = yyTableElmt [ MIN(yyTableElmt) .. MAX (yyTableElmt) ];
+   yyStackType          = POINTER TO ARRAY yyStackPtrType OF yyStateRange;
+   yyAttributeStackType = POINTER TO ARRAY yyStackPtrType OF tParsAttribute;
+
+VAR
+   yyTBasePtr           : ARRAY yyTableElmt [0 .. yyLastReadState] 
+                          OF yyTCombTypePtr;
+   yyNBasePtr           : ARRAY yyTableElmt [0 .. yyLastReadState]      
+                          OF yyNCombTypePtr;
+   yyDefault            : ARRAY yyTableElmt [0 .. yyLastReadState]      
+                          OF yyReadRange  ;
+   yyTComb              : ARRAY yyTCombRange            OF yyTCombType  ;
+   yyNComb              : ARRAY yyNCombRange            OF yyNCombType  ;
+   yyLength             : ARRAY yyReduceRange           OF yyTableElmt  ;
+   yyLeftHandSide       : ARRAY yyReduceRange           OF yySymbolRange;
+   yyContinuation       : ARRAY yyTableElmt [0 .. yyLastReadState]      
+                          OF yySymbolRange;
+   yyFinalToProd        : ARRAY yyReadReduceRange       OF yyReduceRange;
+   yyIsInitialized      : BOOLEAN;
+   yyTableFile          : System.tFile;
+
+PROCEDURE TokenName (Token: SHORTCARD; VAR Name: ARRAY OF CHAR);
+   PROCEDURE Copy (Source: ARRAY OF CHAR; VAR Target: ARRAY OF CHAR);
+      VAR i, j: CARDINAL;
+      BEGIN
+         IF HIGH (Source) < HIGH (Target)
+         THEN j := HIGH (Source); ELSE j := HIGH (Target); END;
+         FOR i := 0 TO j DO Target [i] := Source [i]; END;
+         IF HIGH (Target) > j THEN Target [j + 1] := CHR (0); END;
+      END Copy;
+   BEGIN
+      CASE Token OF
+      | 0: Copy ("_EndOfFile", Name);
+      | 1: Copy ('(', Name);
+      | 2: Copy (')', Name);
+      | 3: Copy (',', Name);
+      | 4: Copy ('.', Name);
+      | 5: Copy ('/', Name);
+      | 6: Copy (':', Name);
+      | 7: Copy (';', Name);
+      | 8: Copy ('=', Name);
+      | 11: Copy ('|', Name);
+      | 12: Copy ('{', Name);
+      | 13: Copy ('}', Name);
+      | 15: Copy ('->', Name);
+      | 21: Copy ("BEGIN", Name);
+      | 22: Copy ("CLOSE", Name);
+      | 23: Copy ("CONDITION", Name);
+      | 24: Copy ("COSTS", Name);
+      | 25: Copy ("DECLARE", Name);
+      | 26: Copy ("EXPORT", Name);
+      | 27: Copy ("GLOBAL", Name);
+      | 28: Copy ("GRAMMAR", Name);
+      | 30: Copy ("FUNCTION", Name);
+      | 31: Copy ("TRANSFORMATION", Name);
+      | 41: Copy ("Ident", Name);
+      | 42: Copy ("Number", Name);
+      | 43: Copy ("String", Name);
+      | 51: Copy ("{", Name);
+      | 52: Copy ("}", Name);
+      | 53: Copy (".", Name);
+      | 54: Copy ("(", Name);
+      | 55: Copy (")", Name);
+      | 56: Copy ("ident", Name);
+      | 57: Copy ("string", Name);
+      | 58: Copy ("space", Name);
+      | 59: Copy ("comment", Name);
+      | 60: Copy ("rest", Name);
+      | 61: Copy (",", Name);
+      END;
+   END TokenName;
+
+PROCEDURE Parser (): CARDINAL;
+
+   VAR
+      yyState           : yyStateRange;
+      yyTerminal        : yySymbolRange;
+      yyNonterminal     : yySymbolRange;        (* left-hand side symbol *)
+      yyStackPtr        : yyStackPtrType;
+      yyStateStackSize  : LONGINT;
+      yyAttrStackSize   : LONGINT;
+      yyShortStackSize  : yyStackPtrType;
+      yyStateStack      : yyStackType;
+      yyAttributeStack  : yyAttributeStackType;
+      yySynAttribute    : tParsAttribute;       (* synthesized attribute *)
+   yyRepairAttribute : Scanner.tScanAttribute;
+      yyRepairToken     : yySymbolRange;
+      yyTCombPtr        : yyTCombTypePtr;
+      yyNCombPtr        : yyNCombTypePtr;
+      yyIsRepairing     : BOOLEAN;
+      yyErrorCount      : CARDINAL;
+      yyTokenString     : ARRAY [0..127] OF CHAR;
+   BEGIN
+   BeginParser;
+      yyState           := yyStartState;
+   yyTerminal        := VAL ( yySymbolRange,Scanner.GetToken ());
+      yyStateStackSize  := yyInitStackSize;
+      yyAttrStackSize   := yyInitStackSize;
+      DynArray.MakeArray 
+        (yyStateStack, yyStateStackSize, SYSTEM.TSIZE (yyStateRange));
+      DynArray.MakeArray 
+        (yyAttributeStack, yyAttrStackSize, SYSTEM.TSIZE (tParsAttribute));
+      yyShortStackSize  := VAL ( yyStackPtrType , yyStateStackSize ) - 1;
+      yyStackPtr        := 0;
+      yyErrorCount      := 0;
+      yyIsRepairing     := FALSE;
+
+      LOOP
+         IF yyStackPtr >= yyShortStackSize THEN
+            DynArray.ExtendArray 
+              (yyStateStack, yyStateStackSize, SYSTEM.TSIZE (yyStateRange));
+            DynArray.ExtendArray 
+              (yyAttributeStack, yyAttrStackSize, 
+               SYSTEM.TSIZE (tParsAttribute)
+              );
+            yyShortStackSize := VAL ( yyStackPtrType , yyStateStackSize ) - 1;
+         END (* IF *) ;
+         yyStateStack^ [yyStackPtr] := yyState;
+
+         LOOP   (* SPEC State := Next (State, Terminal); terminal transition *)
+            yyTCombPtr := yyTCombTypePtr 
+                            ( LONGCARD ( yyTBasePtr [yyState] ) 
+                              + VAL ( LONGCARD , yyTerminal ) 
+                                * SYSTEM.TSIZE (yyTCombType)
+                            );
+            IF yyTCombPtr^.Check = yyState 
+            THEN
+               yyState := yyTCombPtr^.Next;
+               EXIT;
+            END (* IF *) ;
+            yyState := yyDefault [yyState];
+
+            IF yyState = yyNoState 
+            THEN (* syntax error *)
+               yyState := yyStateStack^ [yyStackPtr];
+               IF yyIsRepairing 
+               THEN (* repair *)
+                  yyRepairToken := yyContinuation [yyState];
+                  yyState := Next (yyState, yyRepairToken);
+                  IF yyState <= yyLastReadTermState 
+                  THEN (* read or read terminal reduce ? *)
+                  Scanner.ErrorAttribute 
+                       (VAL(INTEGER,yyRepairToken), yyRepairAttribute);
+                     TokenName (yyRepairToken, yyTokenString);
+                     Errors.ErrorMessageI 
+                       (Errors.TokenInserted, Errors.Repair,
+                     Scanner.Attribute.Position, Errors.Array, 
+                        SYSTEM.ADR (yyTokenString)
+                       );
+                     IF yyState >= yyFirstFinalState 
+                     THEN (* avoid second push *)
+                        yyState := yyFinalToProd [yyState];
+                     END (* IF *) ;
+                     INC (yyStackPtr);
+                     yyAttributeStack^ [yyStackPtr].Scan := yyRepairAttribute;
+                     yyStateStack^     [yyStackPtr] := yyState;
+                  END (* IF *) ;
+                  IF yyState >= yyFirstFinalState 
+                  THEN (* final state ? *)
+                    EXIT;
+                  END (* IF *) ;
+               ELSE (* report and recover *)
+                  INC (yyErrorCount);
+                  ErrorRecovery 
+                    (yyTerminal, yyStateStack, yyStateStackSize, yyStackPtr);
+                  yyIsRepairing := TRUE;
+               END (* IF *) ;
+            END (* IF *) ;
+         END (* LOOP *) ;
+
+         IF yyState >= yyFirstFinalState 
+         THEN (* final state ? *)
+            IF yyState <= yyLastReadTermState 
+            THEN (* read terminal reduce ? *)
+               INC (yyStackPtr);
+            yyAttributeStack^ [yyStackPtr].Scan := Scanner.Attribute;
+            yyTerminal := VAL( yySymbolRange , Scanner.GetToken () );
+               yyIsRepairing := FALSE;
+            END (* IF *) ;
+
+            LOOP (* reduce *)
+CASE yyState OF
+  | 135: (* _0000_ : spec _EndOfFile .*)
+  DynArray.ReleaseArray (yyStateStack, yyStateStackSize, SYSTEM.TSIZE (yyTableElmt));
+  DynArray.ReleaseArray (yyAttributeStack, yyAttrStackSize, SYSTEM.TSIZE (tParsAttribute));
+  RETURN yyErrorCount;
+
+  | 136: (* spec : TRANSFORMATION Ident export global begin close grammar functions .*)
+  DEC (yyStackPtr, 8); yyNonterminal := 68;
+(* line 82 "../src/Estral.lalr" *)
+  
+  AST	:= Tree.mSpec (	yyAttributeStack^[yyStackPtr+2].Scan.ident, yyAttributeStack^[yyStackPtr+2].Scan.Position,
+  			yyAttributeStack^[yyStackPtr+8].Pair.scan.ident, yyAttributeStack^[yyStackPtr+8].Pair.scan.Position,
+  			yyAttributeStack^[yyStackPtr+3].Tree, yyAttributeStack^[yyStackPtr+4].Tree,
+  			yyAttributeStack^[yyStackPtr+5].Tree, yyAttributeStack^[yyStackPtr+6].Tree,
+  			yyAttributeStack^[yyStackPtr+7].Tree,
+  			Tree.ReverseTree (yyAttributeStack^[yyStackPtr+8].Pair.tree));
+  
+  | 137,124: (* export : EXPORT code .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 62;
+(* line 93 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= yyAttributeStack^[yyStackPtr+2].Tree;
+  
+  | 138: (* export : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 62;
+(* line 98 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mCdEnd (NoPosition);
+  
+  | 139,125: (* global : GLOBAL code .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 63;
+(* line 104 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= yyAttributeStack^[yyStackPtr+2].Tree;
+  
+  | 140: (* global : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 63;
+(* line 109 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mCdEnd (NoPosition);
+  
+  | 141,126: (* begin : BEGIN code .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 64;
+(* line 115 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= yyAttributeStack^[yyStackPtr+2].Tree;
+  
+  | 142: (* begin : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 64;
+(* line 120 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mCdEnd (NoPosition);
+  
+  | 143,127: (* close : CLOSE code .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 65;
+(* line 126 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= yyAttributeStack^[yyStackPtr+2].Tree;
+  
+  | 144: (* close : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 65;
+(* line 131 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mCdEnd (NoPosition);
+  
+  | 145: (* grammar : GRAMMAR Ident classes .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 66;
+(* line 137 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Pair.scan.ident	:= yyAttributeStack^[yyStackPtr+2].Scan.ident;
+  yySynAttribute.Pair.scan.Position	:= yyAttributeStack^[yyStackPtr+2].Scan.Position;
+  yySynAttribute.Pair.tree		:= Tree.ReverseTree (yyAttributeStack^[yyStackPtr+3].Tree);
+  
+  | 146: (* classes : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 70;
+(* line 145 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mClass0 ();
+  
+  | 147: (* classes : classes Ident '->' Ident '=' nodes .*)
+  DEC (yyStackPtr, 6); yyNonterminal := 70;
+(* line 152 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mClass (yyAttributeStack^[yyStackPtr+2].Scan.ident, yyAttributeStack^[yyStackPtr+2].Scan.Position,
+  			yyAttributeStack^[yyStackPtr+4].Scan.ident, yyAttributeStack^[yyStackPtr+4].Scan.Position,
+  			Tree.ReverseTree (yyAttributeStack^[yyStackPtr+6].Tree),
+  			yyAttributeStack^[yyStackPtr+1].Tree,
+  			TRUE);
+  
+  | 148: (* classes : classes Ident '=' nodes .*)
+  DEC (yyStackPtr, 4); yyNonterminal := 70;
+(* line 163 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mClass (NoIdent, NoPosition,
+  			yyAttributeStack^[yyStackPtr+2].Scan.ident, yyAttributeStack^[yyStackPtr+2].Scan.Position,
+  			Tree.ReverseTree (yyAttributeStack^[yyStackPtr+4].Tree),
+  			yyAttributeStack^[yyStackPtr+1].Tree,
+  			TRUE);
+  
+  | 149: (* nodes : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 71;
+(* line 173 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mNode0 ();
+  
+  | 150,109: (* nodes : nodes '|' id_or_str ':' Ident '(' son_opt ')' .*)
+  DEC (yyStackPtr, 8); yyNonterminal := 71;
+(* line 180 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mNode ( yyAttributeStack^[yyStackPtr+3].Scan.ident, yyAttributeStack^[yyStackPtr+3].Scan.Position,
+  			yyAttributeStack^[yyStackPtr+5].Scan.ident, yyAttributeStack^[yyStackPtr+5].Scan.Position,
+  			yyAttributeStack^[yyStackPtr+7].Tree,
+  			yyAttributeStack^[yyStackPtr+1].Tree,
+  			TRUE);
+  
+  | 151,107: (* nodes : nodes '|' id_or_str '(' son_opt ')' .*)
+  DEC (yyStackPtr, 6); yyNonterminal := 71;
+(* line 191 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mNode ( yyAttributeStack^[yyStackPtr+3].Scan.ident, yyAttributeStack^[yyStackPtr+3].Scan.Position,
+  			NoIdent, NoPosition,
+  			yyAttributeStack^[yyStackPtr+5].Tree,
+  			yyAttributeStack^[yyStackPtr+1].Tree,
+  			TRUE);
+  
+  | 152: (* son_opt : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 73;
+(* line 201 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mSon0 ();
+  
+  | 153: (* son_opt : sons .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 73;
+(* line 207 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.ReverseTree (yyAttributeStack^[yyStackPtr+1].Tree);
+  
+  | 154: (* sons : Ident .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 74;
+(* line 213 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mSon ( 	yyAttributeStack^[yyStackPtr+1].Scan.ident, yyAttributeStack^[yyStackPtr+1].Scan.Position,
+  			yyAttributeStack^[yyStackPtr+1].Scan.ident, yyAttributeStack^[yyStackPtr+1].Scan.Position,
+  			Tree.mSon0 (),
+  			TRUE);
+  
+  | 155,106: (* sons : Ident ':' Ident .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 74;
+(* line 221 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mSon ( 	yyAttributeStack^[yyStackPtr+1].Scan.ident, yyAttributeStack^[yyStackPtr+1].Scan.Position,
+  			yyAttributeStack^[yyStackPtr+3].Scan.ident, yyAttributeStack^[yyStackPtr+3].Scan.Position,
+  			Tree.mSon0 (),
+  			TRUE);
+  
+  | 156: (* sons : sons ',' Ident .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 74;
+(* line 229 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mSon (	yyAttributeStack^[yyStackPtr+3].Scan.ident, yyAttributeStack^[yyStackPtr+3].Scan.Position,
+  			yyAttributeStack^[yyStackPtr+3].Scan.ident, yyAttributeStack^[yyStackPtr+3].Scan.Position,
+  			yyAttributeStack^[yyStackPtr+1].Tree,
+  			TRUE);
+  
+  | 157,108: (* sons : sons ',' Ident ':' Ident .*)
+  DEC (yyStackPtr, 5); yyNonterminal := 74;
+(* line 237 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mSon (	yyAttributeStack^[yyStackPtr+3].Scan.ident, yyAttributeStack^[yyStackPtr+3].Scan.Position,
+  			yyAttributeStack^[yyStackPtr+5].Scan.ident, yyAttributeStack^[yyStackPtr+5].Scan.Position,
+  			yyAttributeStack^[yyStackPtr+1].Tree,
+  			TRUE);
+  
+  | 158: (* attributes : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 75;
+(* line 246 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mAttribute0 ();
+  
+  | 159: (* attributes : attr_list .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 75;
+(* line 251 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.ReverseTree (yyAttributeStack^[yyStackPtr+1].Tree);
+  
+  | 160: (* attr_list : attr_idents ':' Ident .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 76;
+(* line 257 "../src/Estral.lalr" *)
+  
+  tree := yyAttributeStack^[yyStackPtr+1].List.first;
+  LOOP
+    tree^.Attribute.type := yyAttributeStack^[yyStackPtr+3].Scan.ident;
+    tree^.Attribute.typos := yyAttributeStack^[yyStackPtr+3].Scan.Position;
+    IF tree = yyAttributeStack^[yyStackPtr+1].List.last THEN EXIT END;
+    tree := tree^.Attribute.attributes;
+  END;
+  yyAttributeStack^[yyStackPtr+1].List.last^.Attribute.attributes := Tree.mAttribute0 ();
+  yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+1].List.first;
+  
+  | 161,115: (* attr_list : attr_idents ':' Ident '.' Ident .*)
+  DEC (yyStackPtr, 5); yyNonterminal := 76;
+(* line 270 "../src/Estral.lalr" *)
+  
+  tree := yyAttributeStack^[yyStackPtr+1].List.first;
+  LOOP
+    tree^.Attribute.mod := yyAttributeStack^[yyStackPtr+3].Scan.ident;
+    tree^.Attribute.mopos := yyAttributeStack^[yyStackPtr+3].Scan.Position;
+    tree^.Attribute.type := yyAttributeStack^[yyStackPtr+5].Scan.ident;
+    tree^.Attribute.typos := yyAttributeStack^[yyStackPtr+5].Scan.Position;
+    IF tree = yyAttributeStack^[yyStackPtr+1].List.last THEN EXIT END;
+    tree := tree^.Attribute.attributes;
+  END;
+  yyAttributeStack^[yyStackPtr+1].List.last^.Attribute.attributes := Tree.mAttribute0 ();
+  yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+1].List.first;
+  
+  | 162: (* attr_list : attr_list ';' attr_idents ':' Ident .*)
+  DEC (yyStackPtr, 5); yyNonterminal := 76;
+(* line 285 "../src/Estral.lalr" *)
+  
+  tree := yyAttributeStack^[yyStackPtr+3].List.first;
+  LOOP
+    tree^.Attribute.type := yyAttributeStack^[yyStackPtr+5].Scan.ident;
+    tree^.Attribute.typos := yyAttributeStack^[yyStackPtr+5].Scan.Position;
+    IF tree = yyAttributeStack^[yyStackPtr+3].List.last THEN EXIT END;
+    tree := tree^.Attribute.attributes;
+  END;
+  yyAttributeStack^[yyStackPtr+3].List.last^.Attribute.attributes := yyAttributeStack^[yyStackPtr+1].Tree;
+  yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+3].List.first;
+  
+  | 163,114: (* attr_list : attr_list ';' attr_idents ':' Ident '.' Ident .*)
+  DEC (yyStackPtr, 7); yyNonterminal := 76;
+(* line 298 "../src/Estral.lalr" *)
+  
+  tree := yyAttributeStack^[yyStackPtr+3].List.first;
+  LOOP
+    tree^.Attribute.mod := yyAttributeStack^[yyStackPtr+5].Scan.ident;
+    tree^.Attribute.mopos := yyAttributeStack^[yyStackPtr+5].Scan.Position;
+    tree^.Attribute.type := yyAttributeStack^[yyStackPtr+7].Scan.ident;
+    tree^.Attribute.typos := yyAttributeStack^[yyStackPtr+7].Scan.Position;
+    IF tree = yyAttributeStack^[yyStackPtr+3].List.last THEN EXIT END;
+    tree := tree^.Attribute.attributes;
+  END;
+  yyAttributeStack^[yyStackPtr+3].List.last^.Attribute.attributes := yyAttributeStack^[yyStackPtr+1].Tree;
+  yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+3].List.first;
+  
+  | 164,111: (* attr_idents : Ident .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 77;
+(* line 314 "../src/Estral.lalr" *)
+  
+  tree := Tree.mAttribute (yyAttributeStack^[yyStackPtr+1].Scan.ident, yyAttributeStack^[yyStackPtr+1].Scan.Position,
+  			NoIdent, NoPosition,
+  			NoIdent, NoPosition,
+  			NoTree);
+  yySynAttribute.List.first := tree;
+  yySynAttribute.List.last := tree;
+  
+  | 165,113: (* attr_idents : attr_idents ',' Ident .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 77;
+(* line 324 "../src/Estral.lalr" *)
+  
+  yySynAttribute.List.first :=
+  	Tree.mAttribute (yyAttributeStack^[yyStackPtr+3].Scan.ident, yyAttributeStack^[yyStackPtr+3].Scan.Position,
+  			  NoIdent, NoPosition,
+  			  NoIdent, NoPosition,
+  			  yyAttributeStack^[yyStackPtr+1].List.first);
+  yySynAttribute.List.last := yyAttributeStack^[yyStackPtr+1].List.last;
+  
+  | 166: (* functions : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 67;
+(* line 335 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mFunction0 ();
+  
+  | 167: (* functions : functions FUNCTION Ident in_out domain directives .*)
+  DEC (yyStackPtr, 6); yyNonterminal := 67;
+(* line 344 "../src/Estral.lalr" *)
+  
+  yyAttributeStack^[yyStackPtr+4].Tree^.Function.name	:= yyAttributeStack^[yyStackPtr+3].Scan.ident;
+  yyAttributeStack^[yyStackPtr+4].Tree^.Function.napos	:= yyAttributeStack^[yyStackPtr+3].Scan.Position;
+  yyAttributeStack^[yyStackPtr+4].Tree^.Function.domain	:= yyAttributeStack^[yyStackPtr+5].Tree;
+  yyAttributeStack^[yyStackPtr+4].Tree^.Function.directives	:= Tree.ReverseTree (yyAttributeStack^[yyStackPtr+6].Tree);
+  yyAttributeStack^[yyStackPtr+4].Tree^.Function.functions	:= yyAttributeStack^[yyStackPtr+1].Tree;
+  yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+4].Tree
+  
+  | 168,112: (* in_out : attributes '->' attributes ':' Ident '.' Ident .*)
+  DEC (yyStackPtr, 7); yyNonterminal := 78;
+(* line 355 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mFunction (NoIdent, NoPosition,
+  			yyAttributeStack^[yyStackPtr+1].Tree, yyAttributeStack^[yyStackPtr+3].Tree,
+  			Tree.mType (yyAttributeStack^[yyStackPtr+5].Scan.ident, yyAttributeStack^[yyStackPtr+5].Scan.Position,
+  				    yyAttributeStack^[yyStackPtr+7].Scan.ident, yyAttributeStack^[yyStackPtr+7].Scan.Position),
+  			NoTree, NoTree, NoTree);
+  
+  | 169: (* in_out : attributes '->' attributes ':' Ident .*)
+  DEC (yyStackPtr, 5); yyNonterminal := 78;
+(* line 365 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mFunction (NoIdent, NoPosition,
+  			yyAttributeStack^[yyStackPtr+1].Tree, yyAttributeStack^[yyStackPtr+3].Tree,
+  			Tree.mType (NoIdent, NoPosition,
+  				    yyAttributeStack^[yyStackPtr+5].Scan.ident, yyAttributeStack^[yyStackPtr+5].Scan.Position),
+  			NoTree, NoTree, NoTree);
+  
+  | 170: (* in_out : attributes '->' attributes .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 78;
+(* line 374 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mFunction (NoIdent, NoPosition,
+  			yyAttributeStack^[yyStackPtr+1].Tree, yyAttributeStack^[yyStackPtr+3].Tree,
+  			Tree.mNoResult (),
+  			NoTree, NoTree, NoTree);
+  
+  | 171,110: (* in_out : ':' Ident '.' Ident .*)
+  DEC (yyStackPtr, 4); yyNonterminal := 78;
+(* line 382 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mFunction (NoIdent, NoPosition,
+  			Tree.mAttribute0 (), Tree.mAttribute0 (),
+  			Tree.mType (yyAttributeStack^[yyStackPtr+2].Scan.ident, yyAttributeStack^[yyStackPtr+2].Scan.Position,
+  				    yyAttributeStack^[yyStackPtr+4].Scan.ident, yyAttributeStack^[yyStackPtr+4].Scan.Position),
+  			NoTree, NoTree, NoTree);
+  
+  | 172: (* in_out : ':' Ident .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 78;
+(* line 391 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mFunction (NoIdent, NoPosition,
+  			Tree.mAttribute0 (), Tree.mAttribute0 (),
+  			Tree.mType (NoIdent, NoPosition,
+  				    yyAttributeStack^[yyStackPtr+2].Scan.ident, yyAttributeStack^[yyStackPtr+2].Scan.Position),
+  			NoTree, NoTree, NoTree);
+  
+  | 173: (* in_out : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 78;
+(* line 400 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mFunction (NoIdent, NoPosition,
+  			Tree.mAttribute0 (), Tree.mAttribute0 (),
+  			Tree.mNoResult (),
+  			NoTree, NoTree, NoTree);
+  
+  | 174,116: (* domain : '/' '/' .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 79;
+(* line 409 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mIdent0 ();
+  
+  | 175,119: (* domain : '/' domain_idents '/' .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 79;
+(* line 414 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.ReverseTree (yyAttributeStack^[yyStackPtr+2].Tree);
+  
+  | 176,117: (* domain_idents : Ident .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 81;
+(* line 420 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mIdent (yyAttributeStack^[yyStackPtr+1].Scan.ident, yyAttributeStack^[yyStackPtr+1].Scan.Position,
+  			Tree.mIdent0 ());
+  
+  | 177,118: (* domain_idents : domain_idents ',' Ident .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 81;
+(* line 426 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mIdent (yyAttributeStack^[yyStackPtr+3].Scan.ident, yyAttributeStack^[yyStackPtr+3].Scan.Position, yyAttributeStack^[yyStackPtr+1].Tree);
+  
+  | 178: (* directives : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 80;
+(* line 432 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mDirective0 ();
+  
+  | 179,134: (* directives : directives pattern condition costs declarations instructions .*)
+  DEC (yyStackPtr, 6); yyNonterminal := 80;
+(* line 439 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mDirective (yyAttributeStack^[yyStackPtr+2].Tree, yyAttributeStack^[yyStackPtr+3].Tree, yyAttributeStack^[yyStackPtr+4].Tree,
+  			    yyAttributeStack^[yyStackPtr+5].Tree, yyAttributeStack^[yyStackPtr+6].Tree, yyAttributeStack^[yyStackPtr+1].Tree,
+  			    TRUE);
+  
+  | 180,121: (* pattern : Ident ':' id_or_str '(' pattern_opt ')' .*)
+  DEC (yyStackPtr, 6); yyNonterminal := 82;
+(* line 447 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mPattern (yyAttributeStack^[yyStackPtr+1].Scan.Position,
+  			  yyAttributeStack^[yyStackPtr+1].Scan.ident, yyAttributeStack^[yyStackPtr+1].Scan.Position,
+  			  yyAttributeStack^[yyStackPtr+3].Scan.ident, yyAttributeStack^[yyStackPtr+3].Scan.Position,
+  			  yyAttributeStack^[yyStackPtr+5].Tree, TRUE);
+  
+  | 181,120: (* pattern : id_or_str '(' pattern_opt ')' .*)
+  DEC (yyStackPtr, 4); yyNonterminal := 82;
+(* line 455 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mPattern (yyAttributeStack^[yyStackPtr+1].Scan.Position,
+  			  yyAttributeStack^[yyStackPtr+1].Scan.ident, yyAttributeStack^[yyStackPtr+1].Scan.Position,
+  			  yyAttributeStack^[yyStackPtr+1].Scan.ident, yyAttributeStack^[yyStackPtr+1].Scan.Position,
+  			  yyAttributeStack^[yyStackPtr+3].Tree, TRUE);
+  
+  | 182,122: (* pattern : ':' id_or_str '(' pattern_opt ')' .*)
+  DEC (yyStackPtr, 5); yyNonterminal := 82;
+(* line 463 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mPattern (yyAttributeStack^[yyStackPtr+1].Scan.Position,
+  			  NoIdent, NoPosition,
+  			  yyAttributeStack^[yyStackPtr+2].Scan.ident, yyAttributeStack^[yyStackPtr+2].Scan.Position,
+  			  yyAttributeStack^[yyStackPtr+4].Tree, TRUE);
+  
+  | 183: (* pattern : Ident ':' Ident .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 82;
+(* line 471 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mPattern1 (yyAttributeStack^[yyStackPtr+1].Scan.Position,
+  			   yyAttributeStack^[yyStackPtr+1].Scan.ident, yyAttributeStack^[yyStackPtr+1].Scan.Position,
+  			  yyAttributeStack^[yyStackPtr+3].Scan.ident, yyAttributeStack^[yyStackPtr+3].Scan.Position, TRUE);
+  
+  | 184: (* pattern : Ident .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 82;
+(* line 478 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mPattern1 (yyAttributeStack^[yyStackPtr+1].Scan.Position,
+  			   yyAttributeStack^[yyStackPtr+1].Scan.ident, yyAttributeStack^[yyStackPtr+1].Scan.Position,
+  			  yyAttributeStack^[yyStackPtr+1].Scan.ident, yyAttributeStack^[yyStackPtr+1].Scan.Position, TRUE);
+  
+  | 185: (* pattern : Ident ':' .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 82;
+(* line 485 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mPattern1 (yyAttributeStack^[yyStackPtr+1].Scan.Position,
+  			   yyAttributeStack^[yyStackPtr+1].Scan.ident, yyAttributeStack^[yyStackPtr+1].Scan.Position,
+  			   NoIdent, NoPosition, TRUE);
+  
+  | 186: (* pattern : ':' Ident .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 82;
+(* line 492 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mPattern1 (yyAttributeStack^[yyStackPtr+1].Scan.Position,
+  			   NoIdent, NoPosition,
+  			  yyAttributeStack^[yyStackPtr+2].Scan.ident, yyAttributeStack^[yyStackPtr+2].Scan.Position, TRUE);
+  
+  | 187: (* pattern : ':' .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 82;
+(* line 499 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mPattern1 (yyAttributeStack^[yyStackPtr+1].Scan.Position,
+  			   NoIdent, NoPosition,
+  			   NoIdent, NoPosition, TRUE);
+  
+  | 188: (* pattern_opt : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 87;
+(* line 507 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mPatterns0 ();
+  
+  | 189: (* pattern_opt : patterns .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 87;
+(* line 512 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.ReverseTree (yyAttributeStack^[yyStackPtr+1].Tree);
+  
+  | 190,128: (* patterns : pattern .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 88;
+(* line 518 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mPatterns (yyAttributeStack^[yyStackPtr+1].Tree,
+  			   Tree.mPatterns0 ());
+  
+  | 191,129: (* patterns : patterns ',' pattern .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 88;
+(* line 524 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mPatterns (yyAttributeStack^[yyStackPtr+3].Tree, yyAttributeStack^[yyStackPtr+1].Tree);
+  
+  | 192,104: (* id_or_str : Ident .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 72;
+(* line 530 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Scan := yyAttributeStack^[yyStackPtr+1].Scan;
+  
+  | 193,105: (* id_or_str : String .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 72;
+(* line 535 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Scan := yyAttributeStack^[yyStackPtr+1].Scan;
+  
+  | 194: (* condition : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 83;
+(* line 541 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mCondD ();
+  
+  | 195,130: (* condition : CONDITION code .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 83;
+(* line 546 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mCondF (yyAttributeStack^[yyStackPtr+2].Tree);
+  
+  | 196: (* costs : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 84;
+(* line 552 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mCostD ();
+  
+  | 197,123: (* costs : COSTS Number .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 84;
+(* line 557 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mCostN (yyAttributeStack^[yyStackPtr+2].Scan.val, yyAttributeStack^[yyStackPtr+2].Scan.Position);
+  
+  | 198,131: (* costs : COSTS code .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 84;
+(* line 562 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree	:= Tree.mCostF (yyAttributeStack^[yyStackPtr+2].Tree);
+  
+  | 199,132: (* declarations : DECLARE code .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 85;
+(* line 568 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+2].Tree;
+  
+  | 200: (* declarations : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 85;
+(* line 573 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mCdEnd (NoPosition);
+  
+  | 201,133: (* instructions : code .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 86;
+(* line 579 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+1].Tree;
+  
+  | 202,92: (* code : '{' code_list '}' .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 69;
+(* line 585 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.ReverseTree (yyAttributeStack^[yyStackPtr+2].Tree);
+  
+  | 203: (* code_list : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 89;
+(* line 591 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mCdEnd (NoPosition);
+  
+  | 204,99: (* code_list : code_list string .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 89;
+(* line 596 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mCdStr (yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+2].Scan.ident, yyAttributeStack^[yyStackPtr+1].Tree);
+  
+  | 205,98: (* code_list : code_list ident .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 89;
+(* line 601 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mCdId (yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+2].Scan.ident, yyAttributeStack^[yyStackPtr+1].Tree);
+  
+  | 206,95: (* code_list : code_list "." .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 89;
+(* line 606 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mCdDot (yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+1].Tree);
+  
+  | 207,96: (* code_list : code_list "(" .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 89;
+(* line 611 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mCdLPar (yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+1].Tree);
+  
+  | 208,97: (* code_list : code_list ")" .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 89;
+(* line 616 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mCdRPar (yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+1].Tree);
+  
+  | 209,93: (* code_list : code_list "{" .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 89;
+(* line 621 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mCdLBra (yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+1].Tree);
+  
+  | 210,94: (* code_list : code_list "}" .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 89;
+(* line 626 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mCdRBra (yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+1].Tree);
+  
+  | 211,100: (* code_list : code_list space .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 89;
+(* line 631 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mCdSpa ( yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+2].Scan.ref,yyAttributeStack^[yyStackPtr+1].Tree);
+  
+  | 212,101: (* code_list : code_list comment .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 89;
+(* line 636 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mCdCom (yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+2].Scan.ref, yyAttributeStack^[yyStackPtr+1].Tree);
+  
+  | 213,102: (* code_list : code_list rest .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 89;
+(* line 641 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mCdRst (yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+2].Scan.ref, yyAttributeStack^[yyStackPtr+1].Tree);
+  
+  | 214,103: (* code_list : code_list "," .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 89;
+(* line 646 "../src/Estral.lalr" *)
+  
+  yySynAttribute.Tree := Tree.mCdComma (yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+1].Tree);
+  
+END;
+              (* SPEC State 
+                   := Next (Top (), Nonterminal); nonterminal transition *)
+               yyNCombPtr 
+                 := yyNCombTypePtr 
+                      ( LONGCARD (yyNBasePtr [yyStateStack^ [yyStackPtr]])
+                        + VAL ( LONGCARD, yyNonterminal )
+                          * SYSTEM.TSIZE (yyNCombType)
+                      );
+               yyState := yyNCombPtr^;
+               INC (yyStackPtr);
+               yyAttributeStack^ [yyStackPtr] := yySynAttribute;
+               IF yyState < yyFirstFinalState 
+               THEN (* read nonterminal ? *)
+                 EXIT 
+               END (* IF *) ; 
+            END (* LOOP *) ;
+
+         ELSE (* read *)
+            INC (yyStackPtr);
+         yyAttributeStack^ [yyStackPtr].Scan := Scanner.Attribute;
+         yyTerminal := VAL(yySymbolRange,Scanner.GetToken ());
+            yyIsRepairing := FALSE;
+         END (* IF *);
+      END (* LOOP *) ;
+   END Parser;
+
+PROCEDURE ErrorRecovery (
+      VAR Terminal      : yySymbolRange ;
+          StateStack    : yyStackType   ;
+          StackSize     : LONGINT       ;
+          StackPtr      : yyStackPtrType);
+   VAR
+      TokensSkipped     : BOOLEAN;
+      ContinueSet       : Sets.tSet;
+      RestartSet        : Sets.tSet;
+      Token             : yySymbolRange;
+      TokenArray        : ARRAY [0..127] OF CHAR;
+      TokenString       : Strings.tString;
+      ContinueString    : Strings.tString;
+   BEGIN
+   (* 1. report the error *)
+         TokenName ( Terminal , TokenArray );
+         Strings.ArrayToString (TokenArray, TokenString);
+         Errors.ErrorMessageI (Errors.SyntaxError, Errors.Error, 
+         Scanner.Attribute.Position, Errors.String, SYSTEM.ADR(TokenString) );
+
+   (* 2. report the set of expected terminal symbols *)
+      Sets.MakeSet (ContinueSet, yyLastTerminal);
+      ComputeContinuation (StateStack, StackSize, StackPtr, ContinueSet);
+      Strings.AssignEmpty (ContinueString);
+      FOR Token := VAL(yySymbolRange,Sets.Minimum (ContinueSet)) TO VAL(yySymbolRange,Sets.Maximum (ContinueSet)) DO
+         IF Sets.IsElement (VAL(Sets.tElement,Token), ContinueSet) THEN
+            TokenName (Token, TokenArray);
+            Strings.ArrayToString (TokenArray, TokenString);
+            IF (Strings.Length (ContinueString) + Strings.Length (TokenString) + 1 <= Strings.cMaxStrLength) THEN
+               Strings.Concatenate (ContinueString, TokenString);
+               Strings.Append (ContinueString, ' ');
+            END;
+         END;
+      END;
+      Errors.ErrorMessageI (Errors.ExpectedTokens, Errors.Information,
+      Scanner.Attribute.Position, Errors.String, SYSTEM.ADR (ContinueString));
+      Sets.ReleaseSet (ContinueSet);
+
+   (* 3. compute the set of terminal symbols for restart of the parse *)
+      Sets.MakeSet (RestartSet, yyLastTerminal);
+      ComputeRestartPoints (StateStack, StackSize, StackPtr, RestartSet);
+
+   (* 4. skip terminal symbols until a restart point is reached *)
+      TokensSkipped := FALSE;
+      WHILE NOT Sets.IsElement (VAL(Sets.tElement,Terminal), RestartSet) DO
+      Terminal := VAL(yySymbolRange,Scanner.GetToken ());
+         TokensSkipped := TRUE;
+      END;
+      Sets.ReleaseSet (RestartSet);
+
+   (* 5. report the restart point *)
+      IF TokensSkipped THEN
+      Errors.ErrorMessage (Errors.RestartPoint, Errors.Information, Scanner.Attribute.Position);
+      END;
+   END ErrorRecovery;
+
+(*
+   compute the set of terminal symbols that can be accepted (read)
+   in a given stack configuration (eventually after reduce actions)
+*)
+
+PROCEDURE ComputeContinuation (
+          Stack         : yyStackType   ;
+          StackSize     : LONGINT       ;
+          StackPtr      : yyStackPtrType;
+      VAR ContinueSet   : Sets.tSet     );
+   VAR Terminal         : yySymbolRange;
+   BEGIN
+      Sets.AssignEmpty (ContinueSet);
+      FOR Terminal := yyFirstTerminal TO yyLastTerminal DO
+         IF IsContinuation (Terminal, Stack, StackSize, StackPtr) THEN
+            Sets.Include (ContinueSet, VAL(Sets.tElement,Terminal));
+         END;
+      END;
+   END ComputeContinuation;
+
+(*
+   check whether a given terminal symbol can be accepted (read)
+   in a certain stack configuration (eventually after reduce actions)
+*)
+
+PROCEDURE IsContinuation (
+      Terminal          : yySymbolRange ;
+      ParseStack        : yyStackType   ;
+      StackSize         : LONGINT       ;
+      StackPtr          : yyStackPtrType): BOOLEAN;
+   VAR
+      State             : yyStackPtrType;
+      Nonterminal       : yySymbolRange;
+      Stack             : yyStackType;
+   BEGIN
+      DynArray.MakeArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));
+      FOR State := 0 TO StackPtr DO
+         Stack^ [State] := ParseStack^ [State];
+      END;
+      State := Stack^ [StackPtr];
+      LOOP
+         Stack^ [StackPtr] := State;
+         State := Next (State, Terminal);
+         IF State = yyNoState THEN
+            DynArray.ReleaseArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));
+            RETURN FALSE;
+         END;
+         IF State <= yyLastReadTermState THEN           (* read or read terminal reduce ? *)
+            DynArray.ReleaseArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));
+            RETURN TRUE;
+         END;
+
+         LOOP                                           (* reduce *)
+            IF State =  yyStopState THEN
+               DynArray.ReleaseArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));
+               RETURN TRUE;
+            ELSE 
+               DEC (StackPtr, yyLength [State]);
+               Nonterminal := yyLeftHandSide [State];
+            END;
+
+            State := Next (Stack^ [StackPtr], Nonterminal);
+            IF StackPtr >= VAL ( yyStackPtrType , StackSize ) THEN
+               DynArray.ExtendArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));
+            END;
+            INC (StackPtr);
+            IF State < yyFirstFinalState THEN EXIT; END; (* read nonterminal ? *)
+            State := yyFinalToProd [State];             (* read nonterminal reduce *)
+         END;
+      END;
+   END IsContinuation;
+
+(*
+   compute a set of terminal symbols that can be used to restart
+   parsing in a given stack configuration. we simulate parsing until
+   end of file using a suffix program synthesized by the function
+   Continuation. All symbols acceptable in the states reached during
+   the simulation can be used to restart parsing.
+*)
+
+PROCEDURE ComputeRestartPoints (
+          ParseStack    : yyStackType   ;
+          StackSize     : LONGINT       ;
+          StackPtr      : yyStackPtrType;
+      VAR RestartSet    : Sets.tSet     );
+   VAR
+      Stack             : yyStackType;
+      State             : yyStackPtrType;
+      Nonterminal       : yySymbolRange;
+      ContinueSet       : Sets.tSet;
+   BEGIN
+      DynArray.MakeArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));
+      FOR State := 0 TO StackPtr DO
+         Stack^ [State] := ParseStack^ [State];
+      END;
+      Sets.MakeSet (ContinueSet, yyLastTerminal);
+      Sets.AssignEmpty (RestartSet);
+      State := Stack^ [StackPtr];
+
+      LOOP
+         IF StackPtr >= VAL ( yyStackPtrType , StackSize ) THEN
+            DynArray.ExtendArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));
+         END;
+         Stack^ [StackPtr] := State;
+         ComputeContinuation (Stack, StackSize, StackPtr, ContinueSet);
+         Sets.Union (RestartSet, ContinueSet);
+         State := Next (State, yyContinuation [State]);
+
+         IF State >= yyFirstFinalState THEN             (* final state ? *)
+            IF State <= yyLastReadTermState THEN        (* read terminal reduce ? *)
+               INC (StackPtr);
+               State := yyFinalToProd [State];
+            END;
+
+            LOOP                                        (* reduce *)
+               IF State = yyStopState THEN
+                  DynArray.ReleaseArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));
+                  Sets.ReleaseSet (ContinueSet);
+                  RETURN;
+               ELSE 
+                  DEC (StackPtr, yyLength [State]);
+                  Nonterminal := yyLeftHandSide [State];
+               END;
+
+               State := Next (Stack^ [StackPtr], Nonterminal);
+               INC (StackPtr);
+               IF State < yyFirstFinalState THEN EXIT; END; (* read nonterminal ? *)
+               State := yyFinalToProd [State];          (* read nonterminal reduce *)
+            END;
+         ELSE                                           (* read *)
+            INC (StackPtr);
+         END;
+      END;
+   END ComputeRestartPoints;
+
+(* access the parse table:   Next : State x Symbol -> State *)
+
+PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange;
+   VAR
+      TCombPtr          : yyTCombTypePtr;
+      NCombPtr          : yyNCombTypePtr;
+   BEGIN
+      IF Symbol <= yyLastTerminal THEN
+         LOOP
+            TCombPtr 
+              := yyTCombTypePtr 
+                   ( LONGCARD (yyTBasePtr [State]) 
+                     + VAL ( LONGCARD , Symbol )
+                       * SYSTEM.TSIZE (yyTCombType)
+                   );
+            IF TCombPtr^.Check # State THEN
+               State := yyDefault [State];
+               IF State = yyNoState THEN RETURN yyNoState; END;
+            ELSE
+               RETURN TCombPtr^.Next;
+            END;
+         END;
+      ELSE
+        NCombPtr 
+          := yyNCombTypePtr 
+               ( LONGCARD (yyNBasePtr [State]) 
+                 + VAL ( LONGCARD , Symbol )
+                   * SYSTEM.TSIZE (yyNCombType)
+               );
+        RETURN NCombPtr^;
+      END;
+   END Next;
+
+PROCEDURE yyGetTables;
+   VAR
+      BlockSize, j, n   : CARDINAL;
+      State     : yyStateRange;
+      TBase     : ARRAY yyTableElmt[0 .. yyLastReadState] OF yyTCombRange;
+      NBase     : ARRAY yyTableElmt[0 .. yyLastReadState] OF yyNCombRange;
+   BEGIN
+      BlockSize := 64000 DIV SYSTEM.TSIZE (yyTCombType);
+      yyTableFile := System.OpenInput (ParsTabName);
+      yyErrorCheck (Errors.OpenParseTable, yyTableFile);
+      IF 
+         (yyGetTable (SYSTEM.ADR (TBase         )) DIV SYSTEM.TSIZE (yyTCombRange ) - 1
+            # yyLastReadState) OR
+         (yyGetTable (SYSTEM.ADR (NBase         )) DIV SYSTEM.TSIZE (yyNCombRange ) - 1
+            # yyLastReadState) OR
+         (yyGetTable (SYSTEM.ADR (yyDefault     )) DIV SYSTEM.TSIZE (yyReadRange  ) - 1
+            # yyLastReadState) OR
+         (yyGetTable (SYSTEM.ADR (yyNComb       )) DIV SYSTEM.TSIZE (yyNCombType  )
+            # yyNTableMax - yyLastTerminal) OR
+         (yyGetTable (SYSTEM.ADR (yyLength      )) DIV SYSTEM.TSIZE (yyTableElmt  ) - 1
+            # yyLastReduceState - yyFirstReduceState) OR
+         (yyGetTable (SYSTEM.ADR (yyLeftHandSide)) DIV SYSTEM.TSIZE (yySymbolRange) - 1
+            # yyLastReduceState - yyFirstReduceState) OR
+         (yyGetTable (SYSTEM.ADR (yyContinuation)) DIV SYSTEM.TSIZE (yySymbolRange) - 1
+            # yyLastReadState) OR
+         (yyGetTable (SYSTEM.ADR (yyFinalToProd )) DIV SYSTEM.TSIZE (yyReduceRange) - 1
+            # yyLastReadNontermState - yyFirstReadTermState)
+      THEN
+         Errors.ErrorMessage (Errors.WrongParseTable, Errors.Fatal, Positions.NoPosition);
+      END;
+      n := 0;
+      j := 0;
+      WHILE j <= yyTableMax DO
+         INC (n, yyGetTable (SYSTEM.ADR (yyTComb [VAL(yyStateRange,j)])) DIV SYSTEM.TSIZE (yyTCombType));
+         INC (j, BlockSize);
+      END;
+      IF n # yyTableMax + 1 THEN 
+         Errors.ErrorMessage (Errors.WrongParseTable, Errors.Fatal, Positions.NoPosition);
+      END;
+      System.Close (yyTableFile);
+
+      FOR State := 1 TO yyLastReadState DO
+         yyTBasePtr [State] := SYSTEM.ADR (yyTComb [TBase [State]]);
+      END;
+      FOR State := 1 TO yyLastReadState DO
+         yyNBasePtr [State] := SYSTEM.ADR (yyNComb [NBase [State]]);
+      END;
+   END yyGetTables;
+
+PROCEDURE yyGetTable (Address: SYSTEM.ADDRESS): CARDINAL;
+   VAR
+      N         : INTEGER;
+      Length    : yyTableElmt;
+      LongLength : CARDINAL;
+   BEGIN
+      N := System.Read (yyTableFile, SYSTEM.ADR (Length), SYSTEM.TSIZE (yyTableElmt));
+      yyErrorCheck (Errors.ReadParseTable, N);
+      LongLength := VAL ( CARDINAL , Length );
+      N := System.Read (yyTableFile, Address, LongLength);
+      yyErrorCheck (Errors.ReadParseTable, N);
+      RETURN LongLength;
+   END yyGetTable;
+
+PROCEDURE yyErrorCheck (ErrorCode: INTEGER; Info: INTEGER);
+   VAR ErrNo: INTEGER;
+   BEGIN
+     IF Info < 0 THEN
+        ErrNo := System.ErrNum ();
+        Errors.ErrorMessageI (ErrorCode, Errors.Fatal, Positions.NoPosition,
+           Errors.Integer, SYSTEM.ADR (ErrNo));
+     END;
+   END yyErrorCheck;
+
+PROCEDURE BeginParser;
+   BEGIN
+(* line 32 "../src/Estral.lalr" *)
+ BeginScanner; 
+      IF NOT yyIsInitialized THEN
+         yyIsInitialized := TRUE;
+         yyGetTables;
+      END;
+   END BeginParser;
+
+PROCEDURE CloseParser;
+   BEGIN
+(* line 34 "../src/Estral.lalr" *)
+ CloseScanner; 
+   END CloseParser;
+
+BEGIN
+    yyIsInitialized := FALSE;
+    ParsTabName := 'Parser.Tab';
+END Parser.

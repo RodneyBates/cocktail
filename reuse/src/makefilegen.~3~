@@ -1,0 +1,77 @@
+#
+# Makefile for reuse/src
+# RMB 93/10/19 and earlier. 
+#     Modified for installation on local system
+#     Modified to support WRL compilation.
+#     Modified to support mocka_mtc compilation
+#     Apr 1999 Rework for new directory org
+#
+TARGET	= SUN
+MC      = mocka_mtc
+OPT	= -O
+UNIX	= UNIX
+CFLAGS	= $(OPT) -D$(UNIX)
+CC	= gcc
+
+DEFS    = $(INSTALLGMD)/defs/gmd
+
+MODULASOURCES = Arguments.md Checks.md Checks.mi DynArrDrv.mi \
+          DynArray.md DynArray.mi \
+          Errors.md Errors.mi General.md General.mi Heap.md Heap.mi \
+          IO.md IO.mi IODrv.mi Idents.md Idents.mi Layout.md Layout.mi \
+          Lists.md Lists.mi Main.mi Memory.md Memory.mi MemoryDrv.mi \
+          Positions.md Positions.mi RelDrv.mi Relations.md Relations.mi \
+          Sets.md Sets.mi SetsC.md SetsC.mi SetsDrv.mi Sort.md Sort.mi \
+          Source.md Source.mi StdIO.md StdIO.mi StringMem.md StringMem.mi \
+          Strings.md Strings.mi SysIODrv.mi System.md Texts.md Texts.mi \
+          Times.md Times.mi all.md force.mi
+OTHERSOURCES = 
+SOURCES = $(MODULASOURCES) $(OTHERSOURCES)
+
+OTHERMTCSOURCES = SYSTEM_.h SYSTEM_.c
+
+MODULAGENS    = 
+GENS    = 
+EXE     = Main
+MAKEINCLUDE = .
+MOCKAFLAGS = -index -range -noS -g -blip
+
+include $(MAKEINCLUDE)/make.include
+
+#defs :
+#	for file in `ls *.md`; do mocka -s `basename $$file .md` $(MOCKAFLAGS); done
+
+test : test_$(MC)
+
+install_modula:
+
+install_mocka: build_mocka_d
+	for file in `ls *.d`; do cp -p $$file $(DEFS); chmod a+r $(DEFS)/$$file; done
+
+build_mocka_d :
+	echo p force | mocka $(MOCKAFLAGS)
+
+test_mocka:	System.o
+	echo p DynArrDrv| mc
+	echo p IODrv	| mc
+	echo p MemoryDrv| mc
+	echo p RelDrv	| mc
+	echo p SetsDrv	| mc
+	echo p SysIODrv	| mc
+
+lint:
+	lint -u *.c
+
+CLEAN:	clean
+	rm -f *.[dimor] *.sym *.def *.mod
+
+clean:
+	rm -f *Drv.[dimor] *Drv.sym *Drv Main.[dimor] Main t *.bak
+
+.c.o:
+	$(CC) $(CFLAGS) -c $*.c;
+
+
+
+
+

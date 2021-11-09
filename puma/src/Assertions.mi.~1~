@@ -1,0 +1,29 @@
+IMPLEMENTATION MODULE Assertions
+
+; FROM IO IMPORT WriteS , WriteNl , StdError 
+; IMPORT System 
+
+; PROCEDURE Assert ( Condition : BOOLEAN ; Msg : ARRAY OF CHAR )
+  ; BEGIN
+      IF NOT Condition
+      THEN
+        CantHappen ( Msg )
+      END (* IF *)
+    END Assert
+        
+; PROCEDURE CantHappen ( Msg : ARRAY OF CHAR)
+  ; VAR C : CHAR
+  ; VAR I : INTEGER
+  ; BEGIN
+      WriteS ( StdError , "Assertion failure: " ) 
+    ; WriteS ( StdError , Msg ) 
+    ; WriteNl ( StdError ) 
+    ; System . Exit ( 777 ) 
+(*    ; I := - 1
+    ; C := Msg [ I ] (* Cheap crash, for now. *)
+   This doesn't seem to stop things anyway. 
+*)
+    END CantHappen
+
+; END Assertions
+.

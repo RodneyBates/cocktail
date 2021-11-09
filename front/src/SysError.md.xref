@@ -1,0 +1,56 @@
+     1 (* handle system errors *)
+     2 
+     3 (* $Id: SysError.md,v 1.2 1991/11/21 14:47:50 grosch rel $ *)
+     4 
+     5 (* $Log: SysError.md,v $
+c    6  * Revision 1.2  1991/11/21  14:47:50  grosch
+c    7  * new version of RCS on SPARC
+c    8  *
+c    9  * Revision 1.1  90/06/11  18:45:41  grosch
+c   10  * layout improvements
+c   11  * 
+c   12  * Revision 1.0  88/10/04  14:27:19  vielsack
+c   13  * Initial revision
+c   14  * 
+c   15  *)
+    16 
+    17 DEFINITION MODULE SysError;                                                   *
+    18 
+    19 FROM SYSTEM     IMPORT ADDRESS;                                               *     *
+    20 
+    21 PROCEDURE StatIsBad             (N: INTEGER): BOOLEAN;                        *     *     *     *
+    22 PROCEDURE SysErrorMessageI      (N: INTEGER; ErrCl, InfCl: CARDINAL; Info: ADDRESS);      *    21     *     *     *     *
+                                                                                     *    19
+    23 PROCEDURE SysErrorMessage       (N: INTEGER; ErrCl: CARDINAL);                *    22     *    22     *
+    24 
+    25 END SysError.                                                                17
+Cross reference: * is declaration, = is assignment
+
+-A-
+ ADDRESS                         19*   22 
+
+-B-
+ BOOLEAN                         21 
+
+-C-
+ CARDINAL                        22    23 
+
+-E-
+ ErrCl                           22*   23*
+
+-I-
+ InfCl                           22*
+ Info                            22*
+ INTEGER                         21    22    23 
+
+-N-
+ N                               21*   22*   23*
+
+-S-
+ StatIsBad                       21*
+ SysError                        17*   25*
+ SysErrorMessage                 23*
+ SysErrorMessageI                22*
+ SYSTEM                          19*
+
+end cross reference, 21 occurrences of 13 identifiers.

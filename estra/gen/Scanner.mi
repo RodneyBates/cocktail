@@ -1,0 +1,1419 @@
+
+(* $Id: Scanner.mi,v 2.11 1992/09/24 13:14:00 grosch rel $ *)
+
+(* Modified Rodney M. Bates 
+   Mar 94 to compile under WRL 
+   Mar 96 to fix a bug in PROCEDURE input 
+   Mar 96 to add functions UpperCase and LowerCase, to exploit
+          the arrays yyToUpper and yyToLower, already there.
+   Apr 96 to add yyTotalLineCount and TotalLineCount. 
+*) 
+
+IMPLEMENTATION MODULE Scanner;
+ 
+IMPORT SYSTEM, Checks, System, General, Positions, IO, DynArray, Strings, Source;
+(* line 80 "../src/Estral.rex" *)
+
+FROM	Errors		IMPORT	eError, eWarning, eCharacter, ErrorMessage, ErrorMessageI;
+FROM	Positions	IMPORT	tPosition;
+FROM	Idents		IMPORT	MakeIdent;
+FROM	Strings		IMPORT	tString, AssignEmpty, Append, Concatenate,
+				StringToInt, ArrayToString, Char;
+FROM	StringMem	IMPORT	tStringRef, PutString;
+FROM	SYSTEM		IMPORT	ADR;
+
+IMPORT	Idents;
+
+CONST
+  eEolString		= 21	;	(* string exceeds line *)
+  eEofCode		= 22	;	(* code exceeds file *)
+  eEofString		= 23	;	(* string exceeds file *)
+  eEofComment		= 24	;	(* comment exceeds file *)
+  eIllegalChar		= 25	;	(* illegal character *)
+  eDoNotUseYY		= 26	;	(* prefix yy is reserved *)
+
+VAR
+  word, string	: tString;
+  char		: CHAR;
+  level, clevel	: INTEGER;
+  CodePos, CommentPos	: tPosition;
+
+
+
+PROCEDURE ErrorAttribute (Symbol: INTEGER; VAR Attribute: tScanAttribute);
+  BEGIN
+    CASE Symbol OF
+    | SymIdent, SymString, SymCodeIdent, SymCodeString:
+	Attribute.ident := NoIdent;
+    | SymCodeSpace .. SymCodeRest:
+	Attribute.ref := NoStringRef;
+    | SymNumber:
+	Attribute.val := NoValue;
+    ELSE
+    END;
+  END ErrorAttribute;
+
+ 
+CONST
+   yyTabSpace		= 8;
+   yyDNoState		= 0;
+   yyFileStackSize	= 16;
+   yyInitBufferSize	= 1024 * 8 + 256;
+yyFirstCh	= 0C;
+yyLastCh	= 177C;
+yyEolCh	= 12C;
+yyEobCh	= 177C;
+yyDStateCount	= 188;
+yyTableSize	= 1881;
+yyEobState	= 46;
+yyDefaultState	= 47;
+STD	= 1;
+code	= 3;
+str1	= 5;
+str2	= 7;
+comment1	= 9;
+comment2	= 11;
+codestr1	= 13;
+codestr2	= 15;
+codecom1	= 17;
+codecom2	= 19;
+ 
+TYPE
+   yyTableElmt		= SHORTCARD;
+   yyStateRange		= yyTableElmt [0 .. yyDStateCount];
+   yyTableRange		= yyTableElmt [0 .. yyTableSize];
+   yyCombType		= RECORD Check, Next: yyStateRange; END;
+   yyCombTypePtr	= POINTER TO yyCombType;
+   yytChBufferPtr	= POINTER TO ARRAY [0 .. 1000000] OF CHAR;
+   yyChRange		= [yyFirstCh .. yyLastCh];
+   yyFileStackPtrTyp    = SHORTCARD;
+   yyFileStackSubscript = yyFileStackPtrTyp [1 .. yyFileStackSize];
+
+VAR
+   yyBasePtr		: ARRAY yyStateRange	OF LONGCARD	;
+   yyDefault		: ARRAY yyStateRange	OF yyStateRange	;
+   yyComb		: ARRAY yyTableRange	OF yyCombType	;
+   yyEobTrans		: ARRAY yyStateRange	OF yyStateRange	;
+   yyToLower, yyToUpper	: ARRAY yyChRange	OF CHAR		;
+
+   yyStateStack		: POINTER TO ARRAY [0 .. 1000000] OF yyStateRange;
+   yyStateStackSize	: LONGINT;
+   yyStartState		: yyStateRange;
+   yyPreviousStart	: yyStateRange;
+   yyCh			: CHAR;
+ 
+   yySourceFile		: System.tFile;
+   yyEof		: BOOLEAN;
+   yyChBufferPtr	: yytChBufferPtr;
+   yyChBufferStart	: INTEGER;
+   yyChBufferSize	: LONGINT;
+   yyChBufferIndex	: INTEGER;
+   yyBytesRead		: INTEGER;
+   yyLineCount		: SHORTCARD; (* Number of the current line,
+                                        of the current file. *) 
+   yyTotalLineCount	: CARDINAL;  (* Number of lines already read,
+                                        of all files. *) 
+   yyLineStart		: INTEGER;
+
+   yyFileStackPtr	: yyFileStackPtrTyp;
+   yyFileStack		: ARRAY yyFileStackSubscript OF RECORD
+   			     SourceFile		: System.tFile;
+			     Eof		: BOOLEAN;
+   			     ChBufferPtr	: yytChBufferPtr;
+			     ChBufferStart	: INTEGER;
+			     ChBufferSize	: LONGINT;
+   			     ChBufferIndex	: INTEGER;
+   			     BytesRead		: INTEGER;
+   			     LineCount		: SHORTCARD;
+   			     LineStart		: INTEGER;
+			  END;
+
+PROCEDURE GetToken (): INTEGER;
+   VAR
+      yyState		: yyStateRange;
+      yyTablePtr	: yyCombTypePtr;
+      yyRestartFlag	: BOOLEAN;
+      yyi, yySource, yyTarget : INTEGER;
+      yyChBufferFree	: LONGINT;
+
+BEGIN
+   LOOP
+      yyState		:= yyStartState;
+      TokenLength 	:= 0;
+ 
+      (* ASSERT yyChBuffer [yyChBufferIndex] = first character *)
+ 
+      LOOP		(* eventually restart after sentinel *)
+	 LOOP		(* execute as many state transitions as possible *)
+	    					(* determine next state *)
+	    yyTablePtr := yyCombTypePtr (yyBasePtr [yyState] +
+	       VAL(LONGCARD,ORD (yyChBufferPtr^ [yyChBufferIndex]) )
+               * VAL(LONGCARD, SYSTEM.TSIZE (yyCombType)) );
+	    IF yyTablePtr^.Check # yyState THEN
+	       yyState := yyDefault [yyState];
+	       IF yyState = yyDNoState THEN EXIT; END;
+	    ELSE
+	       yyState := yyTablePtr^.Next;
+	       INC (TokenLength);
+	       yyStateStack^ [TokenLength] := yyState;	(* push state *)
+	       INC (yyChBufferIndex);		(* get next character *)
+	    END;
+	 END;
+ 
+	 LOOP					(* search for last final state *)
+CASE yyStateStack^ [TokenLength] OF
+|188
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 151 "../src/Estral.rex" *)
+ yyStart (comment1);			
+yyRestartFlag := FALSE; EXIT;
+|187
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 152 "../src/Estral.rex" *)
+ level := 1; yyStart (comment2);	
+yyRestartFlag := FALSE; EXIT;
+|186
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 154 "../src/Estral.rex" *)
+ RETURN SymLParent;		
+yyRestartFlag := FALSE; EXIT;
+|185
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 155 "../src/Estral.rex" *)
+ RETURN SymRParent;		
+yyRestartFlag := FALSE; EXIT;
+|184
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 156 "../src/Estral.rex" *)
+ RETURN SymComma;		
+yyRestartFlag := FALSE; EXIT;
+|183
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 157 "../src/Estral.rex" *)
+ RETURN SymDot;		
+yyRestartFlag := FALSE; EXIT;
+|182
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 158 "../src/Estral.rex" *)
+ RETURN SymSlash;		
+yyRestartFlag := FALSE; EXIT;
+|181
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 159 "../src/Estral.rex" *)
+ RETURN SymColon;		
+yyRestartFlag := FALSE; EXIT;
+|180
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 160 "../src/Estral.rex" *)
+ RETURN SymSemiColon;	
+yyRestartFlag := FALSE; EXIT;
+|179
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 161 "../src/Estral.rex" *)
+ RETURN SymEqual;		
+yyRestartFlag := FALSE; EXIT;
+|178
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 162 "../src/Estral.rex" *)
+ RETURN SymBar;		
+yyRestartFlag := FALSE; EXIT;
+|177
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 164 "../src/Estral.rex" *)
+ RETURN SymRArrow;		
+yyRestartFlag := FALSE; EXIT;
+|175
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 166 "../src/Estral.rex" *)
+ RETURN SymBEGIN;		
+yyRestartFlag := FALSE; EXIT;
+|170
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 167 "../src/Estral.rex" *)
+ RETURN SymCLOSE;		
+yyRestartFlag := FALSE; EXIT;
+|166
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 168 "../src/Estral.rex" *)
+ RETURN SymCONDITION;	
+yyRestartFlag := FALSE; EXIT;
+|159
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 169 "../src/Estral.rex" *)
+ RETURN SymCOSTS;		
+yyRestartFlag := FALSE; EXIT;
+|154
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 170 "../src/Estral.rex" *)
+ RETURN SymDECLARE;		
+yyRestartFlag := FALSE; EXIT;
+|147
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 171 "../src/Estral.rex" *)
+ RETURN SymEXPORT;		
+yyRestartFlag := FALSE; EXIT;
+|141
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 172 "../src/Estral.rex" *)
+ RETURN SymGLOBAL;		
+yyRestartFlag := FALSE; EXIT;
+|136
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 173 "../src/Estral.rex" *)
+ RETURN SymGRAMMAR;		
+yyRestartFlag := FALSE; EXIT;
+|129
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 174 "../src/Estral.rex" *)
+ RETURN SymLOCAL;		
+yyRestartFlag := FALSE; EXIT;
+|124
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 175 "../src/Estral.rex" *)
+ RETURN SymFUNCTION;		
+yyRestartFlag := FALSE; EXIT;
+|116
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 176 "../src/Estral.rex" *)
+ RETURN SymTRANSFORMATION;	
+yyRestartFlag := FALSE; EXIT;
+|39
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 179 "../src/Estral.rex" *)
+
+			ErrorMessage (eDoNotUseYY, eWarning, Attribute.Position);
+			GetWord (word);
+			Attribute.ident := MakeIdent (word);
+			RETURN SymIdent;
+			
+yyRestartFlag := FALSE; EXIT;
+|37
+,43
+,44
+,103
+,104
+,105
+,106
+,107
+,108
+,109
+,110
+,111
+,112
+,113
+,114
+,115
+,117
+,118
+,119
+,120
+,121
+,122
+,123
+,125
+,126
+,127
+,128
+,130
+,131
+,132
+,133
+,134
+,135
+,137
+,138
+,139
+,140
+,142
+,143
+,144
+,145
+,146
+,148
+,149
+,150
+,151
+,152
+,153
+,155
+,156
+,157
+,158
+,160
+,161
+,162
+,163
+,164
+,165
+,167
+,168
+,169
+,171
+,172
+,173
+,174
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 187 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Attribute.ident := MakeIdent (word);
+			RETURN SymIdent;
+			
+yyRestartFlag := FALSE; EXIT;
+|38
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 193 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Attribute.val := StringToInt (word);
+			IF Attribute.val > MaxValue THEN
+			  MaxValue := Attribute.val
+			END;
+			RETURN SymNumber;
+			
+yyRestartFlag := FALSE; EXIT;
+|102
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 202 "../src/Estral.rex" *)
+ GetWord (string); yyStart (str1); 
+yyRestartFlag := FALSE; EXIT;
+|101
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 204 "../src/Estral.rex" *)
+ GetWord (string); yyStart (str2); 
+yyRestartFlag := FALSE; EXIT;
+|100
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 206 "../src/Estral.rex" *)
+
+			CodePos := Attribute.Position;
+			yyStart (code);
+			clevel := 1;
+			RETURN SymLBrace;
+			
+yyRestartFlag := FALSE; EXIT;
+|36
+,176
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 213 "../src/Estral.rex" *)
+
+			GetWord (word);
+			char := Char (word, 1);
+			ErrorMessageI (eIllegalChar, eError, Attribute.Position,
+				       eCharacter, ADR (char));
+			
+yyRestartFlag := FALSE; EXIT;
+|29
+,52
+:
+(* line 222 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Concatenate (string, word);
+			
+yyRestartFlag := FALSE; EXIT;
+|99
+:
+(* line 227 "../src/Estral.rex" *)
+
+			GetWord (word);
+			yyTab;
+			Concatenate (string, word);
+			
+yyRestartFlag := FALSE; EXIT;
+|98
+:
+(* line 233 "../src/Estral.rex" *)
+
+			Append (string, "'"); yyEol (0);
+			ErrorMessage (eEolString, eError, Attribute.Position);
+			Attribute.ident := MakeIdent (string);
+			yyStart (STD);
+			RETURN SymString;
+			
+yyRestartFlag := FALSE; EXIT;
+|97
+:
+(* line 241 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Concatenate (string, word);
+			Attribute.ident := MakeIdent (string);
+			yyStart (STD);
+			RETURN SymString;
+			
+yyRestartFlag := FALSE; EXIT;
+|28
+,53
+:
+(* line 250 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Concatenate (string, word);
+			
+yyRestartFlag := FALSE; EXIT;
+|96
+:
+(* line 256 "../src/Estral.rex" *)
+
+			GetWord (word);
+			yyTab;
+			Concatenate (string, word);
+			
+yyRestartFlag := FALSE; EXIT;
+|95
+:
+(* line 262 "../src/Estral.rex" *)
+
+			Append (string, '"'); yyEol (0);
+			ErrorMessage (eEolString, eError, Attribute.Position);
+			Attribute.ident := MakeIdent (string);
+			yyStart (STD);
+			RETURN SymString;
+			
+yyRestartFlag := FALSE; EXIT;
+|94
+:
+(* line 270 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Concatenate (string, word);
+			Attribute.ident := MakeIdent (string);
+			yyStart (STD);
+			RETURN SymString;
+			
+yyRestartFlag := FALSE; EXIT;
+|93
+:
+(* line 281 "../src/Estral.rex" *)
+ yyStart (STD); 
+yyRestartFlag := FALSE; EXIT;
+|27
+,54
+:
+(* line 282 "../src/Estral.rex" *)
+
+yyRestartFlag := FALSE; EXIT;
+|92
+:
+(* line 283 "../src/Estral.rex" *)
+
+yyRestartFlag := FALSE; EXIT;
+|91
+:
+(* line 285 "../src/Estral.rex" *)
+ INC (level); 
+yyRestartFlag := FALSE; EXIT;
+|90
+:
+(* line 286 "../src/Estral.rex" *)
+
+			DEC (level);
+			IF level = 0 THEN
+			  yyStart (STD);
+			END;
+			
+yyRestartFlag := FALSE; EXIT;
+|26
+,55
+:
+(* line 292 "../src/Estral.rex" *)
+
+yyRestartFlag := FALSE; EXIT;
+|89
+:
+(* line 293 "../src/Estral.rex" *)
+
+yyRestartFlag := FALSE; EXIT;
+|88
+:
+(* line 294 "../src/Estral.rex" *)
+
+yyRestartFlag := FALSE; EXIT;
+|87
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 300 "../src/Estral.rex" *)
+
+			CommentPos := Attribute.Position;
+			GetWord (string);
+			yyStart (codecom1);
+			
+yyRestartFlag := FALSE; EXIT;
+|85
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 306 "../src/Estral.rex" *)
+
+			CommentPos := Attribute.Position;
+			GetWord (string);
+			level := 1;
+			yyStart (codecom2);
+			
+yyRestartFlag := FALSE; EXIT;
+|84
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 313 "../src/Estral.rex" *)
+ RETURN SymCodeDot; 
+yyRestartFlag := FALSE; EXIT;
+|83
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 314 "../src/Estral.rex" *)
+ RETURN SymCodeComma; 
+yyRestartFlag := FALSE; EXIT;
+|82
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 315 "../src/Estral.rex" *)
+ RETURN SymCodeLParent; 
+yyRestartFlag := FALSE; EXIT;
+|81
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 316 "../src/Estral.rex" *)
+ RETURN SymCodeRParent; 
+yyRestartFlag := FALSE; EXIT;
+|80
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 318 "../src/Estral.rex" *)
+
+			INC (clevel);
+			RETURN SymCodeLBrace;
+			
+yyRestartFlag := FALSE; EXIT;
+|79
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 323 "../src/Estral.rex" *)
+
+			DEC (clevel);
+			IF clevel = 0 THEN
+			  yyStart (STD);
+			  RETURN SymRBrace;
+			ELSE
+			  RETURN SymCodeRBrace;
+			END;
+			
+yyRestartFlag := FALSE; EXIT;
+|33
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 334 "../src/Estral.rex" *)
+
+			ErrorMessage (eDoNotUseYY, eWarning, Attribute.Position);
+			GetWord (word);
+			Attribute.ident := MakeIdent (word);
+			RETURN SymCodeIdent;
+			
+yyRestartFlag := FALSE; EXIT;
+|31
+,42
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 342 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Attribute.ident := MakeIdent (word);
+			RETURN SymCodeIdent;
+			
+yyRestartFlag := FALSE; EXIT;
+|40
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 348 "../src/Estral.rex" *)
+ GetWord (string); yyStart (codestr1); 
+yyRestartFlag := FALSE; EXIT;
+|35
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 349 "../src/Estral.rex" *)
+ 
+			GetWord (word);
+			Attribute.ident := MakeIdent (word);
+			RETURN SymCodeString;
+			
+yyRestartFlag := FALSE; EXIT;
+|78
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 355 "../src/Estral.rex" *)
+ GetWord (string); yyStart (codestr2); 
+yyRestartFlag := FALSE; EXIT;
+|32
+,51
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 357 "../src/Estral.rex" *)
+
+			GetWord (string);
+			Attribute.ref := PutString (string);
+			RETURN SymCodeSpace;
+			
+yyRestartFlag := FALSE; EXIT;
+|77
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 363 "../src/Estral.rex" *)
+
+			GetWord (string);
+			Attribute.ref := PutString (string);
+			yyTab;
+			RETURN SymCodeSpace;
+			
+yyRestartFlag := FALSE; EXIT;
+|76
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 370 "../src/Estral.rex" *)
+
+			GetWord (string);
+			Attribute.ref := PutString (string);
+			yyEol (0);
+			RETURN SymCodeSpace;
+			
+yyRestartFlag := FALSE; EXIT;
+|30
+,41
+,86
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 378 "../src/Estral.rex" *)
+
+			GetWord (string);
+			Attribute.ref := PutString (string);
+			RETURN SymCodeRest;
+			
+yyRestartFlag := FALSE; EXIT;
+|25
+,56
+:
+(* line 387 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Concatenate (string, word);
+			
+yyRestartFlag := FALSE; EXIT;
+|75
+:
+(* line 392 "../src/Estral.rex" *)
+
+			GetWord (word);
+			yyTab;
+			Concatenate (string, word);
+			
+yyRestartFlag := FALSE; EXIT;
+|74
+:
+(* line 398 "../src/Estral.rex" *)
+
+			Append (string, "'"); yyEol (0);
+			ErrorMessage (eEolString, eError, Attribute.Position);
+			Attribute.ident := MakeIdent (string);
+			yyStart (code);
+			RETURN SymCodeString;
+			
+yyRestartFlag := FALSE; EXIT;
+|73
+:
+(* line 406 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Concatenate (string, word);
+			Attribute.ident := MakeIdent (string);
+			yyStart (code);
+			RETURN SymCodeString;
+			
+yyRestartFlag := FALSE; EXIT;
+|24
+,57
+:
+(* line 415 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Concatenate (string, word);
+			
+yyRestartFlag := FALSE; EXIT;
+|72
+:
+(* line 421 "../src/Estral.rex" *)
+
+			GetWord (word);
+			yyTab;
+			Concatenate (string, word);
+			
+yyRestartFlag := FALSE; EXIT;
+|71
+:
+(* line 427 "../src/Estral.rex" *)
+
+			Append (string, '"'); yyEol (0);
+			ErrorMessage (eEolString, eError, Attribute.Position);
+			Attribute.ident := MakeIdent (string);
+			yyStart (code);
+			RETURN SymCodeString;
+			
+yyRestartFlag := FALSE; EXIT;
+|70
+:
+(* line 435 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Concatenate (string, word);
+			Attribute.ident := MakeIdent (string);
+			yyStart (code);
+			RETURN SymCodeString;
+			
+yyRestartFlag := FALSE; EXIT;
+|69
+:
+(* line 445 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Concatenate (string, word);
+			Attribute.ref := PutString (string);
+			yyStart (code);
+			RETURN SymCodeComment;
+			
+yyRestartFlag := FALSE; EXIT;
+|23
+,58
+:
+(* line 453 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Concatenate (string, word);
+			
+yyRestartFlag := FALSE; EXIT;
+|68
+:
+(* line 458 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Concatenate (string, word);
+			yyTab;
+			
+yyRestartFlag := FALSE; EXIT;
+|67
+:
+(* line 464 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Concatenate (string, word);
+			Attribute.ref := PutString (string);
+			AssignEmpty (string);
+			yyEol (0);
+			RETURN SymCodeRest;
+			
+yyRestartFlag := FALSE; EXIT;
+|66
+:
+(* line 473 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Concatenate (string, word);
+			
+yyRestartFlag := FALSE; EXIT;
+|65
+:
+(* line 478 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Concatenate (string, word);
+			INC (level);
+			
+yyRestartFlag := FALSE; EXIT;
+|63
+:
+(* line 484 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Concatenate (string, word);
+			DEC (level);
+			IF level = 0 THEN
+			  yyStart (code);
+			  Attribute.ref := PutString (string);
+			  RETURN SymCodeComment;
+			END;
+			
+yyRestartFlag := FALSE; EXIT;
+|21
+,59
+:
+(* line 495 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Concatenate (string, word);
+			
+yyRestartFlag := FALSE; EXIT;
+|61
+:
+(* line 500 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Concatenate (string, word);
+			yyTab;
+			
+yyRestartFlag := FALSE; EXIT;
+|60
+:
+(* line 506 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Concatenate (string, word);
+			Attribute.ref := PutString (string);
+			AssignEmpty (string);
+			yyEol (0);
+			RETURN SymCodeRest;
+			
+yyRestartFlag := FALSE; EXIT;
+|22
+,62
+,64
+:
+(* line 515 "../src/Estral.rex" *)
+
+			GetWord (word);
+			Concatenate (string, word);
+			
+yyRestartFlag := FALSE; EXIT;
+|50
+:
+(* BlankAction *)
+WHILE yyChBufferPtr^ [yyChBufferIndex] = ' ' DO INC (yyChBufferIndex); END;
+yyRestartFlag := FALSE; EXIT;
+|49
+:
+(* TabAction *)
+DEC (yyLineStart, 7 - (yyChBufferIndex - yyLineStart - 2) MOD 8);
+yyRestartFlag := FALSE; EXIT;
+|48
+:
+(* EolAction *)
+INC (yyLineCount);
+yyLineStart := yyChBufferIndex - 1;
+yyRestartFlag := FALSE; EXIT;
+|1
+,2
+,3
+,4
+,5
+,6
+,7
+,8
+,9
+,10
+,11
+,12
+,13
+,14
+,15
+,16
+,17
+,18
+,19
+,20
+,34
+,45
+:
+	    (* non final states *)
+		  DEC (yyChBufferIndex);	(* return character *)
+		  DEC (TokenLength)		(* pop state *)
+ 
+| 47:
+		  Attribute.Position.Line   := yyLineCount;
+		  Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart);
+		  INC (yyChBufferIndex);
+		  TokenLength := 1;
+IO.WriteC (IO.StdOutput, yyChBufferPtr^ [yyChBufferIndex-1]);
+	          yyRestartFlag := FALSE; EXIT;
+
+	    |  yyDNoState	:		(* automatic initialization *)
+		  yyGetTables;
+		  yyStateStack^ [0] := yyDefaultState; (* stack underflow sentinel *)
+		  IF yyFileStackPtr = 0 THEN
+		     yyInitialize;
+		     yySourceFile := System.StdInput;
+		  END;
+	          yyRestartFlag := FALSE; EXIT;
+
+| 46:
+		  DEC (yyChBufferIndex);	(* undo last state transition *)
+		  DEC (TokenLength);		(* get previous state *)
+		  IF TokenLength = 0 THEN
+		     yyState := yyStartState;
+		  ELSE
+		     yyState := yyStateStack^ [TokenLength];
+		  END;
+
+		  IF yyChBufferIndex # yyChBufferStart + yyBytesRead THEN
+		     yyState := yyEobTrans [yyState];	(* end of buffer sentinel in buffer *)
+		     IF yyState # yyDNoState THEN
+			INC (yyChBufferIndex);
+			INC (TokenLength);
+			yyStateStack^ [TokenLength] := yyState;
+			yyRestartFlag := TRUE; EXIT;
+		     END;
+		  ELSE				(* end of buffer reached *)
+
+		     (* copy initial part of token in front of input buffer *)
+
+		     yySource := yyChBufferIndex - TokenLength - 1;
+		     yyTarget := General.MaxAlign - TokenLength MOD General.MaxAlign - 1;
+		     IF yySource # yyTarget THEN
+			FOR yyi := 1 TO TokenLength DO
+			   yyChBufferPtr^ [yyTarget + yyi] := yyChBufferPtr^ [yySource + yyi];
+			END;
+			DEC (yyLineStart, yySource - yyTarget);
+			yyChBufferStart := yyTarget + TokenLength + 1;
+		     ELSE
+			yyChBufferStart := yyChBufferIndex;
+		     END;
+
+		     IF NOT yyEof THEN		(* read buffer and restart *)
+			yyChBufferFree 
+                          := VAL( LONGINT 
+                                , General.Exp2 
+                                  (General.Log2 
+                                     (yyChBufferSize - 4 - VAL(LONGINT,General.MaxAlign) -VAL(LONGINT, TokenLength))
+                                  )
+                                );
+			IF yyChBufferFree < yyChBufferSize DIV 8 THEN
+			   DynArray.ExtendArray (yyChBufferPtr, yyChBufferSize, SYSTEM.TSIZE (CHAR));
+			   IF yyChBufferPtr = NIL THEN yyErrorMessage (1); END;
+			   yyChBufferFree 
+                             := VAL ( LONGINT
+                                    , General.Exp2 
+                                        (General.Log2 
+                                           (yyChBufferSize - 4 - VAL(LONGINT,General.MaxAlign) - VAL(LONGINT,TokenLength))
+                                        )
+                                    );
+			   IF yyStateStackSize < yyChBufferSize THEN
+			      DynArray.ExtendArray (yyStateStack, yyStateStackSize, SYSTEM.TSIZE (yyStateRange));
+			      IF yyStateStack = NIL THEN yyErrorMessage (1); END;
+			   END;
+			END;
+			yyChBufferIndex := yyChBufferStart;
+			yyBytesRead := Source.GetLine 
+                                 (yySourceFile
+                                  , SYSTEM.ADR (yyChBufferPtr^ [yyChBufferIndex])
+                                  , VAL ( CARDINAL , yyChBufferFree )
+                                  );
+			IF yyBytesRead <= 0 THEN yyBytesRead := 0; yyEof := TRUE; END;
+			yyChBufferPtr^ [yyChBufferStart + yyBytesRead    ] := yyEobCh;
+			yyChBufferPtr^ [yyChBufferStart + yyBytesRead + 1] := 0C;
+			yyRestartFlag := TRUE; EXIT;
+		     END;
+
+		     IF TokenLength = 0 THEN	(* end of file reached *)
+			Attribute.Position.Line   := yyLineCount;
+			Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart);
+			CloseFile;
+			IF yyFileStackPtr = 0 THEN
+(* line 131 "../src/Estral.rex" *)
+
+CASE yyStartState OF
+| STD: ;
+| code: ErrorMessage (eEofCode, eError, CodePos);
+| str1, str2, codestr1, codestr2: ErrorMessage (eEofString, eError, Attribute.Position);
+| codecom1, codecom2: ErrorMessage (eEofComment, eError, CommentPos);
+| comment1, comment2: ErrorMessage (eEofComment, eError, Attribute.Position);
+END;
+
+			END;
+			IF yyFileStackPtr = 0 THEN RETURN EofToken; END;
+			yyRestartFlag := FALSE; EXIT;
+		     END;
+		  END;
+	    ELSE
+	       yyErrorMessage (0);
+	    END;
+	 END;
+	 IF yyRestartFlag THEN ELSE EXIT; END;
+      END;
+   END;
+   END GetToken;
+ 
+PROCEDURE BeginFile (FileName: ARRAY OF CHAR);
+   BEGIN
+      IF yyStateStack^ [0] = yyDNoState THEN	(* have tables been read in ? *)
+	 yyGetTables;
+	 yyStateStack^ [0] := yyDefaultState;	(* stack underflow sentinel *)
+      END;
+      yyInitialize;
+      yySourceFile := Source.BeginSource (FileName);
+      IF yySourceFile < 0 THEN yyErrorMessage (5); END;
+   END BeginFile;
+
+PROCEDURE yyInitialize;
+   BEGIN
+      IF yyFileStackPtr >= yyFileStackSize THEN yyErrorMessage (3); END;
+      INC (yyFileStackPtr);			(* push file *)
+      WITH yyFileStack [yyFileStackPtr] DO
+	 SourceFile	:= yySourceFile		;
+	 Eof		:= yyEof		;
+	 ChBufferPtr	:= yyChBufferPtr	;
+	 ChBufferStart	:= yyChBufferStart	;
+	 ChBufferSize	:= yyChBufferSize	;
+	 ChBufferIndex	:= yyChBufferIndex	;
+	 BytesRead	:= yyBytesRead		;
+	 LineCount	:= yyLineCount		;
+	 LineStart	:= yyLineStart		;
+      END;
+						(* initialize file state *)
+      yyChBufferSize	:= yyInitBufferSize;
+      DynArray.MakeArray (yyChBufferPtr, yyChBufferSize, SYSTEM.TSIZE (CHAR));
+      IF yyChBufferPtr = NIL THEN yyErrorMessage (1); END;
+      yyChBufferStart	:= General.MaxAlign;
+      yyChBufferPtr^ [yyChBufferStart - 1] := yyEolCh; (* begin of line indicator *)
+      yyChBufferPtr^ [yyChBufferStart    ] := yyEobCh; (* end of buffer sentinel *)
+      yyChBufferPtr^ [yyChBufferStart + 1] := 0C;
+      yyChBufferIndex	:= yyChBufferStart;
+      yyEof		:= FALSE;
+      yyBytesRead	:= 0;
+      yyLineCount	:= 1;
+      yyTotalLineCount	:= 0;
+      yyLineStart	:= yyChBufferStart - 1;
+   END yyInitialize;
+
+PROCEDURE CloseFile;
+   BEGIN
+      IF yyFileStackPtr = 0 THEN yyErrorMessage (4); END;
+      Source.CloseSource (yySourceFile);
+      DynArray.ReleaseArray (yyChBufferPtr, yyChBufferSize, SYSTEM.TSIZE (CHAR));
+      WITH yyFileStack [yyFileStackPtr] DO	(* pop file *)
+	 yySourceFile	:= SourceFile		;
+	 yyEof		:= Eof			;
+	 yyChBufferPtr	:= ChBufferPtr		;
+	 yyChBufferStart:= ChBufferStart	;
+	 yyChBufferSize	:= ChBufferSize		;
+	 yyChBufferIndex:= ChBufferIndex	;
+	 yyBytesRead	:= BytesRead		;
+	 yyLineCount	:= LineCount		;
+	 yyLineStart	:= LineStart		;
+      END;
+      DEC (yyFileStackPtr);		
+   END CloseFile;
+
+PROCEDURE GetWord (VAR Word: Strings.tString);
+   VAR i, WordStart	: INTEGER;
+   BEGIN
+      WordStart := yyChBufferIndex - TokenLength - 1;
+      FOR i := 1 TO TokenLength DO
+	 Word.Chars [VAL(Strings.tStringIndex,i)] 
+           := yyChBufferPtr^ [WordStart + i];
+      END;
+      Word.Length := VAL(SHORTCARD,TokenLength);
+   END GetWord;
+ 
+PROCEDURE GetLower (VAR Word: Strings.tString);
+   VAR i, WordStart	: INTEGER;
+   BEGIN
+      WordStart := yyChBufferIndex - TokenLength - 1;
+      FOR i := 1 TO TokenLength DO
+	 Word.Chars [VAL(Strings.tStringIndex,i)] 
+           := yyToLower [yyChBufferPtr^ [WordStart + i]];
+      END;
+      Word.Length := VAL(SHORTCARD,TokenLength);
+   END GetLower;
+ 
+PROCEDURE GetUpper (VAR Word: Strings.tString);
+   VAR i, WordStart	: INTEGER;
+   BEGIN
+      WordStart := yyChBufferIndex - TokenLength - 1;
+      FOR i := 1 TO TokenLength DO
+	 Word.Chars [VAL(Strings.tStringIndex,i)] 
+           := yyToUpper [yyChBufferPtr^ [WordStart + i]];
+      END;
+      Word.Length := VAL(SHORTCARD,TokenLength);
+   END GetUpper;
+ 
+PROCEDURE yyStart (State: yyStateRange);
+   BEGIN
+      yyPreviousStart	:= yyStartState;
+      yyStartState	:= State;
+   END yyStart;
+ 
+PROCEDURE yyPrevious;
+   VAR s	: yyStateRange;
+   BEGIN
+      s		      := yyStartState;
+      yyStartState    := yyPreviousStart;
+      yyPreviousStart := s;
+   END yyPrevious;
+ 
+PROCEDURE yyEcho;
+   VAR i	: INTEGER;
+   BEGIN
+      FOR i := yyChBufferIndex - TokenLength TO yyChBufferIndex - 1 DO
+	 IO.WriteC (IO.StdOutput, yyChBufferPtr^ [i]);
+      END;
+   END yyEcho;
+ 
+PROCEDURE yyLess (n: INTEGER);
+   BEGIN
+      DEC (yyChBufferIndex, TokenLength - n);
+      TokenLength := n;
+   END yyLess;
+ 
+PROCEDURE yyTab;
+   BEGIN
+      DEC (yyLineStart, yyTabSpace - 1 - (yyChBufferIndex - yyLineStart - 2) MOD yyTabSpace);
+   END yyTab;
+
+PROCEDURE yyTab1 (a: INTEGER);
+   BEGIN
+      DEC (yyLineStart, yyTabSpace - 1 - (yyChBufferIndex - yyLineStart - TokenLength + a - 1) MOD yyTabSpace);
+   END yyTab1;
+
+PROCEDURE yyTab2 (a, b: INTEGER);
+   BEGIN
+      DEC (yyLineStart, yyTabSpace - 1 - (yyChBufferIndex - yyLineStart - TokenLength + a - 1) MOD yyTabSpace);
+   END yyTab2;
+
+PROCEDURE yyEol (Column: INTEGER);
+   BEGIN
+      INC (yyLineCount);
+      INC (yyTotalLineCount);
+      yyLineStart := yyChBufferIndex - 1 - Column;
+   END yyEol;
+
+PROCEDURE output (c: CHAR);
+   BEGIN
+      IO.WriteC (IO.StdOutput, c);
+   END output;
+
+PROCEDURE unput (c: CHAR);
+   BEGIN
+      DEC (yyChBufferIndex);
+      yyChBufferPtr^ [yyChBufferIndex] := c;
+   END unput;
+
+PROCEDURE input (): CHAR;
+   BEGIN
+      IF yyChBufferIndex = yyChBufferStart + yyBytesRead THEN
+	 IF NOT yyEof THEN
+	    DEC (yyLineStart, yyBytesRead);
+	    DEC (yyLineStart, yyChBufferStart); (* RMB *)
+	    yyChBufferIndex := 0;
+	    yyChBufferStart := 0;
+	    yyBytesRead := Source.GetLine 
+                    (yySourceFile, yyChBufferPtr
+                    , VAL(CARDINAL,General.Exp2 (General.Log2 (yyChBufferSize)))
+                    );
+	    IF yyBytesRead <= 0 THEN yyBytesRead := 0; yyEof := TRUE; END;
+	    yyChBufferPtr^ [yyBytesRead    ] := yyEobCh;
+	    yyChBufferPtr^ [yyBytesRead + 1] := 0C;
+	 END;
+      END;
+      IF yyChBufferIndex = yyChBufferStart + yyBytesRead THEN
+	 RETURN 0C;
+      ELSE
+	 INC (yyChBufferIndex);
+	 RETURN yyChBufferPtr^ [yyChBufferIndex - 1];
+      END
+   END input;
+
+(* VISIBLE: *) 
+PROCEDURE UpperCase ( Ch : CHAR ) : CHAR ; 
+   BEGIN
+     RETURN yyToUpper [ Ch ]; 
+   END UpperCase;
+
+(* VISIBLE: *) 
+PROCEDURE LowerCase ( Ch : CHAR ) : CHAR ; 
+   BEGIN
+     RETURN yyToLower [ Ch ]; 
+   END LowerCase;
+
+(* VISIBLE *) 
+PROCEDURE TotalLineCount ( ) : CARDINAL ;  
+   BEGIN
+     RETURN yyTotalLineCount 
+   END TotalLineCount;  
+
+PROCEDURE BeginScanner;
+   BEGIN
+(* line 121 "../src/Estral.rex" *)
+
+ArrayToString ('_no_string_ref_', word);
+NoStringRef := PutString (word);
+ArrayToString ('_no_identifier_', word);
+NoIdent := MakeIdent (word);
+MaxValue := 0;
+
+   END BeginScanner;
+ 
+PROCEDURE CloseScanner;
+   BEGIN
+(* line 129 "../src/Estral.rex" *)
+ MaxIdent := Idents.MaxIdent (); 
+   END CloseScanner;
+ 
+PROCEDURE yyGetTables;
+   VAR
+      BlockSize, j, n	: CARDINAL;
+      TableFile	: System.tFile;
+      i		: yyStateRange;
+      Base	: ARRAY yyStateRange OF yyTableRange;
+   BEGIN
+      BlockSize	:= 64000 DIV SYSTEM.TSIZE (yyCombType);
+      TableFile := System.OpenInput (ScanTabName);
+      Checks.ErrorCheck ("yyGetTables.OpenInput", TableFile);
+      IF (yyGetTable (TableFile, SYSTEM.ADR (Base      )) DIV SYSTEM.TSIZE (yyTableElmt) - 1 
+         # yyDStateCount) OR
+         (yyGetTable (TableFile, SYSTEM.ADR (yyDefault )) DIV SYSTEM.TSIZE (yyTableElmt) - 1 
+         # yyDStateCount) OR
+         (yyGetTable (TableFile, SYSTEM.ADR (yyEobTrans)) DIV SYSTEM.TSIZE (yyTableElmt) - 1 
+         # yyDStateCount)
+	 THEN
+	 yyErrorMessage (2);
+      END;
+      n := 0;
+      j := 0;
+      WHILE j <= yyTableSize DO
+         INC (n, yyGetTable (TableFile, SYSTEM.ADR (yyComb [VAL(SHORTCARD,j)])) DIV SYSTEM.TSIZE (yyCombType));
+         INC (j, BlockSize);
+      END;
+      IF n # yyTableSize + 1 THEN yyErrorMessage (2); END;
+      System.Close (TableFile);
+
+      FOR i := 0 TO yyDStateCount DO
+	 yyBasePtr [i] := LONGCARD (SYSTEM.ADR (yyComb [Base [i]]));
+      END;
+   END yyGetTables;
+ 
+PROCEDURE yyGetTable (TableFile: System.tFile; Address: SYSTEM.ADDRESS): CARDINAL;
+   VAR
+      N		: INTEGER;
+      Length	: yyTableElmt;
+   BEGIN
+      N := System.Read (TableFile, SYSTEM.ADR (Length), SYSTEM.TSIZE (yyTableElmt));
+      Checks.ErrorCheck ("yyGetTable.Read1", N);
+      N := System.Read (TableFile, Address, VAL(INTEGER,Length));
+      Checks.ErrorCheck ("yyGetTable.Read2", N);
+      RETURN VAL(CARDINAL,Length);
+   END yyGetTable;
+ 
+PROCEDURE yyErrorMessage (ErrorCode: SHORTCARD);
+   BEGIN
+      Positions.WritePosition (IO.StdError, Attribute.Position);
+      CASE ErrorCode OF
+   | 0: IO.WriteS (IO.StdError, ": Scanner: internal error");
+   | 1: IO.WriteS (IO.StdError, ": Scanner: out of memory");
+   | 2: IO.WriteS (IO.StdError, ": Scanner: table mismatch");
+   | 3: IO.WriteS (IO.StdError, ": Scanner: too many nested include files");
+   | 4: IO.WriteS (IO.StdError, ": Scanner: file stack underflow (too many calls of CloseFile)");
+   | 5: IO.WriteS (IO.StdError, ": Scanner: cannot open input file");
+      END;
+      IO.WriteNl (IO.StdError); Exit;
+   END yyErrorMessage;
+ 
+PROCEDURE yyExit;
+   BEGIN
+      IO.CloseIO; System.Exit (1);
+   END yyExit;
+
+BEGIN
+   ScanTabName		:= "Scanner.Tab";
+   Exit			:= yyExit;
+   yyFileStackPtr	:= 0;
+   yyStartState		:= 1;			(* set up for auto init *)
+   yyPreviousStart	:= 1;
+   yyBasePtr [yyStartState] := LONGCARD (SYSTEM.ADR (yyComb [0]));
+   yyDefault [yyStartState] := yyDNoState;
+   yyComb [0].Check	:= yyDNoState;
+   yyChBufferPtr	:= SYSTEM.ADR (yyComb [0]);	(* dirty trick *)
+   yyChBufferIndex	:= 1;				(* dirty trick *)
+   yyStateStackSize	:= yyInitBufferSize;
+   DynArray.MakeArray (yyStateStack, yyStateStackSize, SYSTEM.TSIZE (yyStateRange));
+   yyStateStack^ [0]	:= yyDNoState;
+   
+   FOR yyCh := yyFirstCh TO yyLastCh DO yyToLower [yyCh] := yyCh; END;
+   yyToUpper := yyToLower;
+   FOR yyCh := 'A' TO 'Z' DO
+      yyToLower [yyCh] := CHR (ORD (yyCh) - ORD ('A') + ORD ('a'));
+   END;
+   FOR yyCh := 'a' TO 'z' DO
+      yyToUpper [yyCh] := CHR (ORD (yyCh) - ORD ('a') + ORD ('A'));
+   END;
+END Scanner.

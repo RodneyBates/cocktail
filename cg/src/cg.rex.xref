@@ -1,0 +1,970 @@
+     1 
+     2 (* Ich, Doktor Josef Grosch, Informatiker, 20.3.1989 *)
+     3 (* 
+c    4    Rodney M. Bates Jun 96 Added Modula-2 style comments (* ... *) , 
+     5      including nesting thereof.                                               *     *     *
+     6    RMB Oct 96 Changed to scan comments inside target code blocks properly.          *     *     *     *     *     *     *
+                                                                                     *     *     *     *
+     7               (previously, a quote inside a comment inside target             *     *     *     6     *     *     *     6
+     8                code gave a spurious "unclosed string" message.)               6     *     7     *     *
+     9    RMB Jun 98 Added property 'LINK'                                           6     *     *     *
+    10    RMB July 98 Changed to recognize only "==>" as a cg arrow, and             9     *     6     6     *     *     *     8
+                                                                                     *     *     *
+    11                make "=>" always a target code operator, since the latter      *     *    10     7     8     *     *     *
+                                                                                     *
+    12                is one in Ada and Modula-3.  Both can appear in the            *     *     *     *    10     *     *     *
+                                                                                     *     *    11
+    13                same context, inside target code, where the                    *     *     7    11    11     *    12
+    14                REMOTE construct of cg, which involves a cg arrow,             *     *     *    10     *     *    11     *
+                                                                                    10
+    15                can appear.                                                   12    12
+    16    RMB July 1999 Fixed bugs in positions for comments and strings.           10    10     *     *    12     *     *     6
+                                                                                    12     *
+    17 *) 
+    18 
+    19 EXPORT  {                                                                     *
+    20 
+    21 FROM StringMem  IMPORT tStringRef       ;                                     *     *     *     *
+    22 FROM Idents     IMPORT tIdent   ;                                            21     *    21     *
+    23 FROM Texts      IMPORT tText    ;                                            22     *    22     *
+    24 FROM Positions  IMPORT tPosition;                                            23     *    23     *
+    25 
+    26 TYPE                                                                          *
+    27    tScanAttribute = RECORD                                                    *     *
+    28            Position     : tPosition     ;                                     *    24
+    29       CASE : INTEGER OF                                                       *     *     *
+    30       | 1: StringRef    : tStringRef    ;                                     *    21
+    31       | 2: Ident        : tIdent        ;                                     *    22
+    32       | 3: Integer      : INTEGER       ;                                     *    29
+    33       | 4: Text         : tText         ;                                     *    23
+    34       END;                                                                    *
+    35    END;                                                                      34
+    36 
+    37 VAR CurArg, ArgCount    : INTEGER;                                            *     *     *    32
+    38 
+    39 PROCEDURE ErrorAttribute (Token: CARDINAL; VAR Attribute: tScanAttribute);          *     *     *     *    37     *    27
+    40 }
+    41 
+    42 GLOBAL  {                                                                     *
+    43 
+    44 FROM SYSTEM     IMPORT ADR;                                                  24     *    24     *
+    45 FROM System     IMPORT GetArgument;                                          44     *    44     *
+    46 FROM StringMem  IMPORT PutString;                                            45    21    45     *
+    47 FROM Strings    IMPORT tString, Concatenate, Char, SubString, ArrayToString,       46     *    46     *     *     *     *
+                                                                                     *
+    48                         StringToInt, AssignEmpty, Length;                     *     *     *
+    49 FROM Idents     IMPORT MakeIdent, NoIdent, GetStringRef;                     47    22    47     *     *     *
+    50 FROM Texts      IMPORT MakeText, Append;                                     49    23    49     *     *
+    51 FROM Tree       IMPORT Options, ErrorCount, SourceFile;                      50     *    50     *     *     *
+    52 FROM Sets       IMPORT IsElement;                                            51     *    51     *
+    53 FROM Positions  IMPORT tPosition;                                            52    24    52    28
+    54 
+    55 IMPORT Errors;                                                               53     *
+    56 
+    57 CONST                                                                         *
+    58 
+    59    (* These must agree with values declared in cg.lalr, 
+c   60       with different spellings *) 
+    61    TokIdentifier        = 1;                                                  *
+    62    TokInteger           = 2;                                                  *
+    63    TokString            = 3;                                                  *
+    64    TokTargetCode        = 4;                                                  *
+    65    TokCode              = 5;                                                  *
+    66    TokWhiteSpace        = 7;                                                  *
+    67 
+    68    TokAfter             = 24;                                                 *
+    69    TokBefore            = 25;                                                 *
+    70    TokBegin             = 10;                                                 *
+    71    TokBodyWith          = 80;                                                 *
+    72    TokCheck             = 26;                                                 *
+    73    TokClose             = 11;                                                 *
+    74    TokDeclare           = 12;                                                 *
+    75    TokDemand            = 28;                                                 *
+    76    TokEnd               = 13;                                                 *
+    77    TokEval              = 14;                                                 *
+    78    TokExport            = 15;                                                 *
+    79    TokFor               = 71;                                                 *
+    80    TokFunction          = 6;                                                  *
+    81    TokGlobal            = 16;                                                 *
+    82    TokIgnore            = 72;                                                 *
+    83    TokImport            = 30;                                                 *
+    84    TokInherited         = 34;                                                 *
+    85    TokInput             = 31;                                                 *
+    86    TokLeft              = 37;                                                 *
+    87    TokLink              = 81;                                                 *
+    88    TokLocal             = 18;                                                 *
+    89    TokModule            = 19;                                                 *
+    90    TokNone              = 39;                                                 *
+    91    TokOutput            = 32;                                                 *
+    92    TokParser            = 35;                                                 *
+    93    TokPrec              = 36;                                                 *
+    94    TokProperty          = 70;                                                 *
+    95    TokRemote            = 76;                                                 *
+    96    TokReverse           = 21;                                                 *
+    97    TokRight             = 38;                                                 *
+    98    TokRule              = 22;                                                 *
+    99    TokScanner           = 77;                                                 *
+   100    TokSelect            = 74;                                                 *
+   101    TokSpecWith          = 79;                                                 *
+   102    TokStack             = 20;                                                 *
+   103    TokSubunit           = 75;                                                 *
+   104    TokSynthesized       = 33;                                                 *
+   105    TokThread            = 27;                                                 *
+   106    TokTree              = 23;                                                 *
+   107    TokView              = 78;                                                 *
+   108    TokVirtual           = 17;                                                 *
+   109 
+   110    TokLParent           = 40;   (* '('                  *)                    *
+   111    TokRParent           = 41;   (* ')'                  *)                    *
+   112    TokLBracket          = 42;   (* '['                  *)                    *
+   113    TokRBracket          = 43;   (* ']'                  *)                    *
+   114    TokLBrace            = 44;   (* '{'                  *)                    *
+   115    TokRBrace            = 45;   (* '}'                  *)                    *
+   116    TokComma             = 46;   (* ','                  *)                    *
+   117    TokSemiColon         = 47;   (* ';'                  *)                    *
+   118    TokDot               = 48;   (* '.'                  *)                    *
+   119    TokColon             = 49;   (* ':' or '::'          *)                    *
+   120    TokEqual             = 50;   (* '='                  *)                    *
+   121    TokBar               = 51;   (* '|'                  *) (* ? *)            *
+   122    TokAssign            = 52;   (* ':='                 *)                    *
+   123    TokPlus              = 53;   (* '+'                  *) (* ? *)            *
+   124    TokMinus             = 54;   (* '-'                  *) (* ? *)            *
+   125    TokAsterisk          = 55;   (* '*'                  *) (* ? *)            *
+   126    TokSlash             = 56;   (* '/'                  *) (* ? *)            *
+   127    TokLAngle            = 57;   (* '<'                  *)                    *
+   128    TokRAngle            = 58;   (* '>'                  *)                    *
+   129    TokRArrow            = 59;   (* '->'                 *)                    *
+   130    TokCopy              = 60;   (* ':-'                 *)                    *
+   131    TokArrow             = 61;   (* '==>' or '=>'        *)                    *
+   132    TokLArrow            = 62;   (* '<-'                 *)                    *
+   133 
+   134 PROCEDURE ErrorAttribute (Token: CARDINAL; VAR Attribute: tScanAttribute);         39    39    39    39    39    39    39
+   135    BEGIN                                                                      *
+   136       WITH Attribute DO                                                       *   134     *
+   137          CASE Token OF                                                       29   134    29
+   138          | TokIdentifier: Ident         := NoIdent;                          61    31    49
+   139          | TokInteger   : Integer       := 0;                                62    32
+   140          | TokTargetCode: MakeText (Text);                                   64    50    33
+   141          | TokString                                                         63
+   142          , TokCode                                                           65
+   143          , TokWhiteSpace: StringRef     := GetStringRef (NoIdent);           66    30    49   138
+   144          ELSE                                                                 *
+   145          END;                                                                35
+   146       END;                                                                  145
+   147    END ErrorAttribute;                                                      146   134
+   148 
+   149 VAR BraceNestingLevel , CommentNestingLevel : INTEGER;                      134     *     *    37
+   150 VAR CommentPos, StringPos, TargetPos : tPosition;                           149     *     *     *    53
+   151 VAR InsideTarget, InsideExpr : BOOLEAN;                                     150     *     *     *
+   152 
+   153 } (* End of GLOBAL *) 
+   154 
+   155 LOCAL                                                                         *
+   156   { VAR                                                                     151
+   157       String, Word, TargetCode: tString;                                      *     *     *    47
+   158       Argument  : ARRAY [0..255] OF CHAR;                                     *     *   137     *
+   159       j         : SHORTCARD;                                                  *     *
+   160       ch                : CHAR;                                               *   158
+   161 
+   162     PROCEDURE AccumComment ( ) ;                                            134     *
+   163     BEGIN                                                                   135
+   164       IF InsideTarget AND ( BraceNestingLevel > 0 )                           *   151     *   149
+   165       THEN                                                                    *
+   166         GetWord (Word);                                                       *   157
+   167         Concatenate (TargetCode, Word);                                      47   157   166
+   168       END (* IF *)                                                          147
+   169     END AccumComment;                                                       168   162
+   170 
+   171   } (* End of LOCAL *) 
+   172 
+   173 BEGIN                                                                       163
+   174   { BraceNestingLevel := 0;                                                 164
+   175     CommentNestingLevel := 0;                                               149
+   176     InsideTarget := FALSE;                                                  164     *
+   177     InsideExpr := FALSE;                                                    151   176
+   178   }
+   179 
+   180 DEFAULT {                                                                     *
+   181    GetWord (Word);                                                          166   167
+   182    Errors.MessageI                                                           55     *
+   183      ("illegal character", Errors.Error, Attribute.Position                 182     *   136    28
+   184      , Errors.String, ADR (Word)                                            183   157    44   181
+   185      );
+   186    INC (ErrorCount);                                                          *    51
+   187 }
+   188 
+   189 EOF     {                                                                     *
+   190    CASE yyStartState OF                                                     137     *   158
+   191    | targetcode , expr                                                        *     *
+   192        : Errors.Message                                                     184     *
+   193            ("unclosed target code", Errors.Error, TargetPos );              192   183   150
+   194          INC (ErrorCount);                                                  186   186
+   195 
+   196    | CComment , M2Comment                                                     *     *
+   197        : Errors.Message                                                     193   192
+   198            ("unclosed comment", Errors.Error, CommentPos );                 197   193   150
+   199          INC (ErrorCount);                                                  194   194
+   200          IF InsideTarget OR InsideExpr                                      164   176     *   177
+   201          THEN                                                               165
+   202            Errors.Message                                                   198   197
+   203              ("unclosed target code", Errors.Error, TargetPos );            202   198   193
+   204            INC (ErrorCount);                                                199   199
+   205          END (* IF *);                                                      169
+   206 
+   207    | CStr1, CStr2, Str1, Str2                                                 *     *     *     *
+   208        : Errors.Message                                                     203   202
+   209            ("unclosed string", Errors.Error, StringPos );                   208   203   150
+   210          INC (ErrorCount);                                                  204   204
+   211          IF InsideTarget OR InsideExpr                                      200   200   200   200
+   212          THEN                                                               201
+   213            Errors.Message                                                   209   208
+   214              ("unclosed target code", Errors.Error, TargetPos );            213   209   203
+   215            INC (ErrorCount);                                                210   210
+   216          END (* IF *);                                                      205
+   217    ELSE                                                                     144
+   218    END;                                                                     216
+   219    BraceNestingLevel := 0;                                                  174
+   220    CommentNestingLevel := 0;                                                175
+   221    InsideTarget := FALSE;                                                   211   177
+   222    InsideExpr := FALSE;                                                     211   221
+   223    yyStart (STD);                                                             *     *
+   224    INC (CurArg);                                                            215    37
+   225    IF CurArg <= ArgCount THEN                                               211   224    37   212
+   226       GetArgument (CurArg, Argument);                                        45   225   158
+   227       j := 0;                                                               159
+   228       REPEAT                                                                  *
+   229          ch := Argument [j];                                                160   226   227
+   230          SourceFile [j] := ch;                                               51   229   229
+   231          INC (j);                                                           224   230
+   232       UNTIL ch = 0C;                                                          *   230
+   233       BeginFile (SourceFile);                                                 *   230
+   234       ArrayToString (SourceFile, String);                                    47   233   184
+   235       Attribute.Position.File := MakeIdent (String);                        183   183     *    49   234
+   236    END;                                                                     218
+   237 }
+   238 
+   239 DEFINE  letter  = {A-Z a-z _}   .                                             *     *     *     *    14     *     *
+   240         digit   = {0-9}         .                                             *
+   241         CCmtCh  = - {*\t\n}     .                                             *     *     *
+   242         M2CmtCh = - {*(\t\n}    .                                             *   241   241
+   243         StrCh1  = - {'\t\n}     .                                             *
+   244         StrCh2  = - {"\t\n}     .                                             *
+   245         CStrCh1 = - {'\t\n\\}   .                                             *
+   246         CStrCh2 = - {"\t\n\\}   .                                             *
+   247         code    = - {\t\n\\{\}'"(/} .                                        13   242   242
+   248         anyExpr = - {\t\n\\{\}'"(/\ :;=a-zA-Z} .                              *   247   247
+   249 
+   250 START   CComment, M2Comment, Str1, Str2, CStr1, CStr2, targetcode, expr       *   196   196   207   207   207   207   191
+                                                                                   191
+   251 
+   252 RULES                                                                         *
+   253 
+   254 #targetcode#    "{"     : {                                                 250
+   255                            IF BraceNestingLevel = 0 THEN                    225   219   225
+   256                               MakeText (Attribute.Text);                    140   235   140
+   257                               AssignEmpty (TargetCode);                      48   167
+   258                               TargetPos := Attribute.Position;              214   256   235
+   259                               InsideTarget := TRUE;                         221     *
+   260                            ELSE                                             217
+   261                               GetWord (Word);                               181   184
+   262                               Concatenate (TargetCode, Word);               167   257   261
+   263                            END;                                             236
+   264                            INC (BraceNestingLevel);                         231   255
+   265                         }
+   266 
+   267 #targetcode#    "}"     :- {                                                254
+   268                            DEC (BraceNestingLevel);                           *   264
+   269                            IF BraceNestingLevel = 0 THEN                    255   268   255
+   270                               yyStart (STD);                                223   223
+   271                               InsideTarget := FALSE;                        259   222
+   272                               Append (Attribute.Text, TargetCode);           50   258   256   262
+   273                               Attribute.Position := TargetPos;              272   258   258
+   274                               RETURN TokTargetCode;                           *   140
+   275                            ELSE                                             260
+   276                               GetWord (Word);                               261   262
+   277                               Concatenate (TargetCode, Word);               262   272   276
+   278                            END;                                             263
+   279                         }
+   280 
+   281 #targetcode#    code +  | "/" | "("                                         267   247
+   282                         :- {
+   283                            IF BraceNestingLevel > 0 THEN                    269   269   269
+   284                               GetWord (Word);                               276   277
+   285                               Concatenate (TargetCode, Word);               277   277   284
+   286                            END;                                             278
+   287                         }
+   288 
+   289 #targetcode#    \t      :- {                                                281   248
+   290                            IF BraceNestingLevel > 0 THEN                    283   283   283
+   291                               Strings.Append (TargetCode, 11C);              47   272   285
+   292                            END;                                             286
+   293                            yyTab;                                             *
+   294                         }
+   295 
+   296 #targetcode#    \n      :- {                                                289   248
+   297                            IF BraceNestingLevel > 0 THEN                    290   290   290
+   298                               Append (Attribute.Text, TargetCode);          291   273   272   291
+   299                               AssignEmpty (TargetCode);                     257   298
+   300                            END;                                             292
+   301                            yyEol (0);                                         *
+   302                         }
+   303 
+   304 #targetcode#    \\ ANY  :- {                                                296     *
+   305                            IF BraceNestingLevel > 0 THEN                    297   297   297
+   306                               GetWord (Word);                               284   285
+   307                               Strings.Append (TargetCode, Char (Word, 2));        291   298   299    47   306
+   308                            END;                                             300
+   309                         }
+   310 
+   311 #targetcode#    \\      :- {                                                304
+   312                            IF BraceNestingLevel > 0 THEN                    305   305   305
+   313                               Strings.Append (TargetCode, '\');             307   307   307
+   314                            END;                                             308
+   315                         }
+   316 
+   317 #STD, expr, targetcode#                                                     270   250   311
+   318                 "(*"  :  { AccumComment ( );                                169
+   319                            CommentNestingLevel := 1;                        220
+   320                            CommentPos := Attribute.Position;                198   298   273
+   321                            yyStart (M2Comment);                             270   250
+   322                          }
+   323 
+   324 #M2Comment#  "(*"  :- { INC (CommentNestingLevel); AccumComment ( ); }      321   264   319   318
+   325 #M2Comment#  "*)"  :- { AccumComment ( ); DEC (CommentNestingLevel);        324   324   268   324
+   326                         IF CommentNestingLevel = 0 THEN yyPrevious; END;    312   325   312     *   314
+   327                       }
+   328 #M2Comment#  "(" | "*" | M2CmtCh + :- { AccumComment ( ); }                 325   242   325
+   329 
+   330 #STD, expr, targetcode#                                                     317   317   317
+   331              "/*"       :- { AccumComment ( );                              328
+   332                              yyStart (CComment);                            321   250
+   333                              CommentPos := Attribute.Position;              320   320   320
+   334                            }
+   335 #CComment# "*/"         :- { AccumComment ( ); yyPrevious; }                332   331   326
+   336 #CComment# "*" | CCmtCh +       :- { AccumComment ( ); }                    335   241   335
+   337 
+   338 #M2Comment, CComment#                                                       328   336
+   339               \t     :- {                                                   289
+   340                            IF InsideTarget AND ( BraceNestingLevel > 0 )    326   271   164   312
+   341                            THEN                                             326
+   342                               Strings.Append (TargetCode, 11C);             313   313   313
+   343                            END;                                             326
+   344                            yyTab;                                           293
+   345                         }
+   346 
+   347 #M2Comment, CComment#                                                       338   338
+   348               \n     :- {                                                   296
+   349                            IF InsideTarget AND ( BraceNestingLevel > 0 )    340   340   340   340
+   350                            THEN                                             341
+   351                               Append (Attribute.Text, TargetCode);          342   333   298   342
+   352                               AssignEmpty (TargetCode);                     299   351
+   353                            END;                                             343
+   354                            yyEol (0);                                       301
+   355                         }
+   356 
+   357 #STD# \f | \r           :- {}                                               330     *     *
+   358 
+   359 #STD#   digit +         :  {GetWord (Word);                                 357   240   306   307
+   360                            Attribute.Integer := StringToInt (Word);         351   139    48   359
+   361                            RETURN TokInteger;}                              274   139
+   362 
+   363 #STD, expr, targetcode# ' : { GetWord (String);                             359   330   330
+   364                               StringPos := Attribute.Position;              209   360   333
+   365                               IF IsElement (ORD ('c'), Options)             349    52     *    51
+   366                               THEN yyStart (CStr1);                         350   332   250
+   367                               ELSE yyStart (Str1);                          275   366   250
+   368                               END;                                          353
+   369                               StringPos := Attribute.Position;              364   364   364
+   370                             }
+   371 
+   372 #STD, expr, targetcode# \": { GetWord (String);                             363   363   363
+   373                               StringPos := Attribute.Position;              369   369   369
+   374                               IF IsElement (ORD ('c'), Options)             365   365   365   365
+   375                               THEN yyStart (CStr2);                         366   367   250
+   376                               ELSE yyStart (Str2);                          367   375   250
+   377                               END;                                          368
+   378                             }
+   379 
+   380 #Str1#  StrCh1 +        ,                                                   367   243
+   381 #Str2#  StrCh2 +        ,                                                   376   244
+   382 #CStr1# CStrCh1 + | \\ ANY ? ,                                              366   245   304
+   383 #CStr2# CStrCh2 + | \\ ANY ? :- {GetWord (Word); Concatenate (String, Word);}     375   246   382   359   360   285   235
+                                                                                     *
+   384 
+   385 #CStr1# \\ \n           ,                                                   382   348
+   386 #CStr2# \\ \n           :- {GetWord (Word); Concatenate (String, Word); yyEol (0);}     383   385   383   383   383   383
+                                                                                     *   354
+   387 
+   388 #Str1, CStr1# '         ,                                                   380   385
+   389 #Str2, CStr2# \"        :- {Strings.Append (String, Char (String, 1));      381   386
+   390                             yyPrevious;                                     335
+   391                             IF yyStartState = targetcode THEN               374   190   372   375
+   392                                Concatenate (TargetCode, String);            386   352   386
+   393                             ELSE                                            376
+   394                                Attribute.StringRef := PutString (String);   373   143    46   392
+   395                                RETURN TokString;                            361   141
+   396                             END;}                                           377
+   397 
+   398 #Str1, Str2, CStr1, CStr2# \t :- {Strings.Append (String, 11C); yyTab;}     388   389   388   389   339   342   351   394
+                                                                                   344
+   399 
+   400 #Str1, Str2, CStr1, CStr2# \n :- {                                          398   398   398   398   386
+   401                             Errors.Message ("unclosed string", Errors.Error, Attribu\   214   213     *   214
+      \te.Position);                                                               394   373
+   402                             INC (ErrorCount);                               324   215
+   403                             Strings.Append (String, Char (String, 1));      398   398   398   307     *
+   404                             yyEol (0); yyPrevious;                          386   390
+   405                             IF yyStartState = targetcode THEN               391   391   391   391
+   406                                Concatenate (TargetCode, String);            392   392   403
+   407                             ELSE                                            393
+   408                                Attribute.StringRef := PutString (String);   401   394   394   406
+   409                                RETURN TokString;                            395   395
+   410                             END;}                                           396
+   411 
+   412 #STD# "("               : {RETURN TokLParent            ;}                  372   409   110
+   413 #STD# ")"               : {RETURN TokRParent            ;}                  412   412   111
+   414 #STD# ","               : {RETURN TokComma              ;}                  413   413   116
+   415 #STD# "->"              : {RETURN TokRArrow             ;}                  414   414   129
+   416 #STD# "."               : {RETURN TokDot                ;}                  415   415   118
+   417 #STD# ":" | "::"        : {RETURN TokColon              ;}                  416   416   119
+   418 #STD# "<"               : {RETURN TokLAngle             ;}                  417   417   127
+   419 #STD# "<-"              : {RETURN TokLArrow             ;}                  418   418   132
+   420 #STD# "="               : {RETURN TokEqual              ;}                  419   419   120
+   421 #STD# ">"               : {RETURN TokRAngle             ;}                  420   420   128
+   422 #STD# "["               : {RETURN TokLBracket           ;}                  421   421   112
+   423 #STD# "]"               : {RETURN TokRBracket           ;}                  422   422   113
+   424 #STD# "{"               : { IF BraceNestingLevel = 0                        423   405   349
+   425                             THEN TargetPos := Attribute.Position;           405   273   408   401
+   426                             END;                                            410
+   427                             yyStart (expr);                                 376   372
+   428                             INC (BraceNestingLevel);                        402   424
+   429                             InsideExpr := TRUE;                             222   259
+   430                             RETURN TokLBrace;                               423   114
+   431                           }
+   432 
+   433 #expr# AFTER            : {RETURN TokAfter              ;}                  427     *   430    68
+   434 #expr# BEFORE           : {RETURN TokBefore             ;}                  433     *   433    69
+   435 #expr# CHECK            : {RETURN TokCheck              ;}                  434     *   434    72
+   436 #expr# REMOTE           : {RETURN TokRemote             ;}                  435    14   435    95
+   437 
+   438 #expr# "(" | "/" | anyExpr *                                                436   248
+   439                         : {GetWord (Word);                                  386   386
+   440                            Attribute.StringRef := PutString (Word);         425   408   408   439
+   441                            RETURN TokCode;}                                 436   142
+   442 
+   443 #STD, expr# ":="        : {IF BraceNestingLevel <= 1 THEN                   424   438   424   428   425
+   444                               RETURN TokAssign;                             441   122
+   445                            ELSE                                             407
+   446                               GetWord (Word);                               439   440
+   447                               Attribute.StringRef := PutString (Word);      440   440   440   446
+   448                               RETURN TokCode;                               444   441
+   449                            END;}                                            426
+   450 
+   451 #expr# ":-"             : {IF BraceNestingLevel <= 1 THEN                   443   443   443   443
+   452                               RETURN TokCopy;                               448   130
+   453                            ELSE                                             445
+   454                               GetWord (Word);                               446   447
+   455                               Attribute.StringRef := PutString (Word);      447   447   447   454
+   456                               RETURN TokCode;                               452   448
+   457                            END;}                                            449
+   458 
+   459 #expr# ";"              : {IF BraceNestingLevel <= 1 THEN                   451   451   451   451
+   460                               RETURN TokSemiColon;                          456   117
+   461                            ELSE                                             453
+   462                               GetWord (Word);                               454   455
+   463                               Attribute.StringRef := PutString (Word);      455   455   455   462
+   464                               RETURN TokCode;                               460   456
+   465                            END;}                                            457
+   466 
+   467 #expr# ":" | "::"       : {GetWord (Word);                                  459   462   463
+   468                            Attribute.StringRef := PutString (Word);         463   463   463   467
+   469                            RETURN TokColon;}                                464   417
+   470 
+   471 #expr# "==>"            : {RETURN TokArrow;}                                467   469   131
+   472 
+   473 #expr# "{"              : {INC (BraceNestingLevel);                         471   428   459
+   474                            IF BraceNestingLevel <= 2 THEN                   459   473   459
+   475                               RETURN TokLBrace;                             471   430
+   476                            ELSE                                             461
+   477                               GetWord (Word);                               467   468
+   478                               Attribute.StringRef := PutString (Word);      468   468   468   477
+   479                               RETURN TokCode;                               475   464
+   480                            END;}                                            465
+   481 
+   482 #expr# "}"              : {DEC (BraceNestingLevel);                         473   325   474
+   483                            IF BraceNestingLevel = 0                         474   482
+   484                            THEN yyStart (STD);                              474   427   443
+   485                                 InsideExpr := FALSE;                        429   271
+   486                            END;                                             480
+   487                            IF BraceNestingLevel <= 1 THEN                   483   483   484
+   488                               RETURN TokRBrace;                             479   115
+   489                            ELSE                                             476
+   490                               GetWord (Word);                               477   478
+   491                               Attribute.StringRef := PutString (Word);      478   478   478   490
+   492                               RETURN TokCode;                               488   479
+   493                            END;}                                            486
+   494 
+   495 #expr# "/"              : {GetWord (Word);                                  482   490   491
+   496                            Attribute.StringRef := PutString (Word);         491   491   491   495
+   497                            RETURN TokCode               ;}                  492   492
+   498 
+   499 #expr# "=>"             : {GetWord (Word);                                  495   495   496
+   500                            Attribute.StringRef := PutString (Word);         496   496   496   499
+   501                            RETURN TokCode               ;}                  497   497
+   502 
+   503 #expr# "="              : {GetWord (Word);                                  499   499   500
+   504                            Attribute.StringRef := PutString (Word);         500   500   500   503
+   505                            RETURN TokCode               ;}                  501   501
+   506 
+   507 #expr# " " +            : {GetWord (Word);                                  503   503   504
+   508                            Attribute.StringRef := PutString (Word);         504   504   504   507
+   509                            RETURN TokWhiteSpace         ;}                  505   143
+   510 
+   511 #expr# \n               : {GetWord (Word);                                  507   400   507   508
+   512                            Attribute.StringRef := PutString (Word);         508   508   508   511
+   513                            yyEol (0);                                       404
+   514                            RETURN TokWhiteSpace         ;}                  509   509
+   515 
+   516 #expr# \t               : {GetWord (Word);                                  511   398   511   512
+   517                            Attribute.StringRef := PutString (Word);         512   512   512   516
+   518                            yyTab;                                           398
+   519                            RETURN TokWhiteSpace         ;}                  514   514
+   520 
+   521 #expr# \\ ANY           : {GetWord (Word);                                  516   383   516   517
+   522                            SubString (Word, 2, 2, String);                   47   521   408
+   523                            Attribute.StringRef := PutString (String);       517   517   517   522
+   524                            RETURN TokCode               ;}                  519   505
+   525 
+   526 #expr# \\ letter (letter | digit) *: {GetWord (Word);                       521   239     *   359   521   522
+   527                            SubString (Word, 2, Length (Word), String);      522   526    48     *   523
+   528                            Attribute.StringRef := PutString (String);       523   523   523   527
+   529                            RETURN TokCode               ;}                  524   524
+   530 
+   531 #expr# \\               : {GetWord (Word);                                  526   526   527
+   532                            Attribute.StringRef := PutString (Word);         528   528   528   531
+   533                            RETURN TokCode               ;}                  529   529
+   534 
+   535 #STD# BEGIN             : {yyStart (targetcode); RETURN TokBegin        ;}        484   173   484   405   533    70
+   536 #STD# BODYWITH          : {yyStart (targetcode); RETURN TokBodyWith     ;}        535     *   535   535   535    71
+   537 #STD# CLOSE             : {yyStart (targetcode); RETURN TokClose        ;}        536     *   536   536   536    73
+   538 #STD# DECLARE           : {RETURN TokDeclare            ;}                  537     *   537    74
+   539 #STD# DEMAND            : {RETURN TokDemand             ;}                  538     *   538    75
+   540 #STD# END               : {RETURN TokEnd                ;}                  539   493   539    76
+   541 #STD# EVAL              : {RETURN TokEval               ;}                  540     *   540    77
+   542 #STD# EXPORT            : {yyStart (targetcode); RETURN TokExport       ;}        541    19   537   537   541    78
+   543 #STD# FOR               : {RETURN TokFor                ;}                  542     *   542    79
+   544 #STD# FUNCTION          : {RETURN TokFunction           ;}                  543     *   543    80
+   545 #STD# GLOBAL            : {yyStart (targetcode); RETURN TokGlobal       ;}        544    42   542   542   544    81
+   546 #STD# IGNORE            : {RETURN TokIgnore             ;}                  545     *   545    82
+   547 #STD# IMPORT            : {yyStart (targetcode); RETURN TokImport       ;}        546    55   545   545   546    83
+   548 #STD# IN PUT ?          : {RETURN TokInput              ;}                  547     *     *   547    85
+   549 #STD# INH ERITED ?      : {RETURN TokInherited          ;}                  548     *     *   548    84
+   550 #STD# LEFT              : {RETURN TokLeft               ;}                  549     *   549    86
+   551 #STD# LINK              : {RETURN TokLink               ;}                  550     *   550    87
+   552 #STD# LOCAL             : {yyStart (targetcode); RETURN TokLocal        ;}        551   155   547   547   551    88
+   553 #STD# MODULE            : {RETURN TokModule             ;}                  552     *   552    89
+   554 #STD# NONE              : {RETURN TokNone               ;}                  553     *   553    90
+   555 #STD# OUT PUT ?         : {RETURN TokOutput             ;}                  554     *   548   554    91
+   556 #STD# PARSER            : {RETURN TokParser             ;}                  555     *   555    92
+   557 #STD# PREC              : {RETURN TokPrec               ;}                  556     *   556    93
+   558 #STD# PROPERTY          : {RETURN TokProperty           ;}                  557     *   557    94
+   559 #STD# REV ERSE ?        : {RETURN TokReverse            ;}                  558     *     *   558    96
+   560 #STD# RIGHT             : {RETURN TokRight              ;}                  559     *   559    97
+   561 #STD# RULE              : {RETURN TokRule               ;}                  560     *   560    98
+   562 #STD# SCANNER           : {RETURN TokScanner            ;}                  561     *   561    99
+   563 #STD# SELECT            : {RETURN TokSelect             ;}                  562     *   562   100
+   564 #STD# SPECWITH          : {yyStart (targetcode); RETURN TokSpecWith     ;}        563     *   552   552   563   101
+   565 #STD# STACK             : {RETURN TokStack              ;}                  564     *   564   102
+   566 #STD# SUBUNIT           : {RETURN TokSubunit            ;}                  565     *   565   103
+   567 #STD# SYN THESIZED ?    : {RETURN TokSynthesized        ;}                  566     *     *   566   104
+   568 #STD# THREAD            : {RETURN TokThread             ;}                  567     *   567   105
+   569 #STD# TREE              : {RETURN TokTree               ;}                  568     *   568   106
+   570 #STD# VIEW              : {RETURN TokView               ;}                  569     *   569   107
+   571 #STD# VIRTUAL | VOID    : {RETURN TokVirtual            ;}                  570     *     *   570   108
+   572 
+   573 #STD, expr# letter (letter | digit) *   : {GetWord (Word);                  571   531   526     *   526   531   532
+   574                            Attribute.Ident := MakeIdent (Word);             532   138   235   573
+   575                            RETURN TokIdentifier;}                           571   138
+   576 
+   577 #STD# \\ letter (letter | digit) *      : {GetWord (Word);                  573   573     *   573   573   574
+   578                            SubString (Word, 2, Length (Word), String);      527   577   527     *   528
+   579                            Attribute.Ident := MakeIdent (String);           574   574   574   578
+   580                            RETURN TokIdentifier;}                           575   575
+Cross reference: 
+
+-A-
+ A                              239 
+ a                                7     7     8    10    11    14   239 
+ AccumComment                   162   169   318   324   325   328   331   335   336 
+ Ada                             12 
+ Added                            9 
+ ADR                             44   184 
+ AFTER                          433 
+ always                          11 
+ AND                            164   340   349 
+ and                             10    12    16 
+ ANY                            304   382   383   521 
+ anyExpr                        248   438 
+ appear                          12    15 
+ Append                          50   272   291   298   307   313   342   351   398   403 
+ ArgCount                        37   225 
+ Argument                       158   226   229 
+ ARRAY                          158 
+ ArrayToString                   47   234 
+ arrow                           10    14 
+ as                              10 
+ AssignEmpty                     48   257   299   352 
+ Attribute                       39   134   136   183   235   256   258   272   273   298   320   333   351   360   364   369   373 
+                                394   401   408   425   440   447   455   463   468   478   491   496   500   504   508   512   517 
+                                523   528   532   574   579 
+
+-B-
+ BEFORE                         434 
+ BEGIN                          135   163   173   535 
+ BeginFile                      233 
+ blocks                           6 
+ BODYWITH                       536 
+ BOOLEAN                        151 
+ Both                            12 
+ BraceNestingLevel              149   164   174   219   255   264   268   269   283   290   297   305   312   340   349   424   428 
+                                443   451   459   473   474   482   483   487 
+ bugs                            16 
+
+-C-
+ can                             12    15 
+ CARDINAL                        39   134 
+ CASE                            29   137   190 
+ CCmtCh                         241   336 
+ CComment                       196   250   332   335   336   338   347 
+ cg                              10    14    14 
+ ch                             160   229   230   232 
+ Changed                          6    10 
+ CHAR                           158   160 
+ Char                            47   307   403 
+ CHECK                          435 
+ CLOSE                          537 
+ code                             6     8    11    13   247   281 
+ comment                          7 
+ CommentNestingLevel            149   175   220   319   324   325   326 
+ CommentPos                     150   198   320   333 
+ comments                         6    16 
+ Concatenate                     47   167   262   277   285   383   386   392   406 
+ CONST                           57 
+ construct                       14 
+ context                         13 
+ CStr1                          207   250   366   382   385   388   398   400 
+ CStr2                          207   250   375   383   386   389   398   400 
+ CStrCh1                        245   382 
+ CStrCh2                        246   383 
+ CurArg                          37   224   225   226 
+
+-D-
+ DEC                            268   325   482 
+ DECLARE                        538 
+ DEFAULT                        180 
+ DEFINE                         239 
+ DEMAND                         539 
+ digit                          240   359   526   573   577 
+ DO                             136 
+
+-E-
+ ELSE                           144   217   260   275   367   376   393   407   445   453   461   476   489 
+ END                             34    35   145   146   147   168   169   205   216   218   236   263   278   286   292   300   308 
+                                314   326   343   353   368   377   396   410   426   449   457   465   480   486   493   540 
+ EOF                            189 
+ ERITED                         549 
+ Error                          183   193   198   203   209   214   401 
+ ErrorAttribute                  39   134   147 
+ ErrorCount                      51   186   194   199   204   210   215   402 
+ Errors                          55   182   183   184   192   193   197   198   202   203   208   209   213   214   401   401 
+ ERSE                           559 
+ EVAL                           541 
+ EXPORT                          19   542 
+ expr                           191   250   317   330   363   372   427   433   434   435   436   438   443   451   459   467   471 
+                                473   482   495   499   503   507   511   516   521   526   531   573 
+
+-F-
+ f                              357 
+ FALSE                          176   177   221   222   271   485 
+ File                           235 
+ Fixed                           16 
+ FOR                            543 
+ for                             16 
+ FROM                            21    22    23    24    44    45    46    47    49    50    51    52    53 
+ FUNCTION                       544 
+
+-G-
+ gave                             8 
+ GetArgument                     45   226 
+ GetStringRef                    49   143 
+ GetWord                        166   181   261   276   284   306   359   383   386   439   446   454   462   467   477   490   495 
+                                499   503   507   511   516   521   526   531   573   577 
+ GLOBAL                          42   545 
+
+-I-
+ Ident                           31   138   574   579 
+ Idents                          22    49 
+ IF                             164   200   211   225   255   269   283   290   297   305   312   326   340   349   365   374   391 
+                                405   424   443   451   459   474   483   487 
+ IGNORE                         546 
+ IMPORT                          21    22    23    24    44    45    46    47    49    50    51    52    53    55   547 
+ IN                             548 
+ in                              12    12    16 
+ INC                            186   194   199   204   210   215   224   231   264   324   402   428   473 
+ including                        5 
+ INH                            549 
+ inside                           6     7     7    13 
+ InsideExpr                     151   177   200   211   222   429   485 
+ InsideTarget                   151   164   176   200   211   221   259   271   340   349 
+ INTEGER                         29    32    37   149 
+ Integer                         32   139   360 
+ involves                        14 
+ is                              12 
+ IsElement                       52   365   374 
+
+-J-
+ j                              159   227   229   230   231 
+ July                            10    16 
+ Jun                              9 
+
+-L-
+ latter                          11 
+ LEFT                           550 
+ Length                          48   527   578 
+ letter                         239   526   526   573   573   577   577 
+ LINK                           551 
+ LOCAL                          155   552 
+
+-M-
+ M2CmtCh                        242   328 
+ M2Comment                      196   250   321   324   325   328   338   347 
+ make                            11 
+ MakeIdent                       49   235   574   579 
+ MakeText                        50   140   256 
+ Message                        192   197   202   208   213   401 
+ message                          8 
+ MessageI                       182 
+ Modula                          12 
+ MODULE                         553 
+
+-N-
+ n                              241   242   247   248   296   348   385   386   400   511 
+ nesting                          5 
+ NoIdent                         49   138   143 
+ NONE                           554 
+
+-O-
+ Oct                              6 
+ OF                              29   137   158   190 
+ of                              14 
+ one                             12 
+ only                            10 
+ operator                        11 
+ Options                         51   365   374 
+ OR                             200   211 
+ ORD                            365   374 
+ OUT                            555 
+
+-P-
+ PARSER                         556 
+ Position                        28   183   235   258   273   320   333   364   369   373   401   425 
+ Positions                       24    53 
+ positions                       16 
+ PREC                           557 
+ previously                       7 
+ PROCEDURE                       39   134   162 
+ properly                         6 
+ PROPERTY                       558 
+ property                         9 
+ PUT                            548   555 
+ PutString                       46   394   408   440   447   455   463   468   478   491   496   500   504   508   512   517   523 
+                                528   532 
+
+-Q-
+ quote                            7 
+
+-R-
+ r                              357 
+ recognize                       10 
+ RECORD                          27 
+ REMOTE                          14   436 
+ REPEAT                         228 
+ RETURN                         274   361   395   409   412   413   414   415   416   417   418   419   420   421   422   423   430 
+                                433   434   435   436   441   444   448   452   456   460   464   469   471   475   479   488   492 
+                                497   501   505   509   514   519   524   529   533   535   536   537   538   539   540   541   542 
+                                543   544   545   546   547   548   549   550   551   552   553   554   555   556   557   558   559 
+                                560   561   562   563   564   565   566   567   568   569   570   571   575   580 
+ REV                            559 
+ RIGHT                          560 
+ RMB                              6     9    10    16 
+ RULE                           561 
+ RULES                          252 
+
+-S-
+ same                            13 
+ scan                             6 
+ SCANNER                        562 
+ SELECT                         563 
+ Sets                            52 
+ SHORTCARD                      159 
+ since                           11 
+ SourceFile                      51   230   233   234 
+ SPECWITH                       564 
+ spurious                         8 
+ STACK                          565 
+ START                          250 
+ STD                            223   270   317   330   357   359   363   372   412   413   414   415   416   417   418   419   420 
+                                421   422   423   424   443   484   535   536   537   538   539   540   541   542   543   544   545 
+                                546   547   548   549   550   551   552   553   554   555   556   557   558   559   560   561   562 
+                                563   564   565   566   567   568   569   570   571   573   577 
+ Str1                           207   250   367   380   388   398   400 
+ Str2                           207   250   376   381   389   398   400 
+ StrCh1                         243   380 
+ StrCh2                         244   381 
+ String                         157   184   234   235   383   386   392   394   398   403   403   406   408   522   523   527   528 
+                                578   579 
+ StringMem                       21    46 
+ StringPos                      150   209   364   369   373 
+ StringRef                       30   143   394   408   440   447   455   463   468   478   491   496   500   504   508   512   517 
+                                523   528   532 
+ Strings                         47   291   307   313   342   398   403 
+ strings                         16 
+ StringToInt                     48   360 
+ SubString                       47   522   527   578 
+ SUBUNIT                        566 
+ SYN                            567 
+ SYSTEM                          44 
+ System                          45 
+
+-T-
+ t                              241   242   247   248   289   339   398   516 
+ target                           6     7    11    13 
+ TargetCode                     157   167   257   262   272   277   285   291   298   299   307   313   342   351   352   392   406 
+ targetcode                     191   250   254   267   281   289   296   304   311   317   330   363   372   391   405   535   536 
+                                537   542   545   547   552   564 
+ TargetPos                      150   193   203   214   258   273   425 
+ Text                            33   140   256   272   298   351 
+ Texts                           23    50 
+ the                             11    12    13 
+ THEN                           165   201   212   225   255   269   283   290   297   305   312   326   341   350   366   375   391 
+                                405   425   443   451   459   474   484   487 
+ thereof                          5 
+ THESIZED                       567 
+ THREAD                         568 
+ tIdent                          22    31 
+ to                               6    10 
+ TokAfter                        68   433 
+ TokArrow                       131   471 
+ TokAssign                      122   444 
+ TokAsterisk                    125 
+ TokBar                         121 
+ TokBefore                       69   434 
+ TokBegin                        70   535 
+ TokBodyWith                     71   536 
+ TokCheck                        72   435 
+ TokClose                        73   537 
+ TokCode                         65   142   441   448   456   464   479   492   497   501   505   524   529   533 
+ TokColon                       119   417   469 
+ TokComma                       116   414 
+ TokCopy                        130   452 
+ TokDeclare                      74   538 
+ TokDemand                       75   539 
+ TokDot                         118   416 
+ Token                           39   134   137 
+ TokEnd                          76   540 
+ TokEqual                       120   420 
+ TokEval                         77   541 
+ TokExport                       78   542 
+ TokFor                          79   543 
+ TokFunction                     80   544 
+ TokGlobal                       81   545 
+ TokIdentifier                   61   138   575   580 
+ TokIgnore                       82   546 
+ TokImport                       83   547 
+ TokInherited                    84   549 
+ TokInput                        85   548 
+ TokInteger                      62   139   361 
+ TokLAngle                      127   418 
+ TokLArrow                      132   419 
+ TokLBrace                      114   430   475 
+ TokLBracket                    112   422 
+ TokLeft                         86   550 
+ TokLink                         87   551 
+ TokLocal                        88   552 
+ TokLParent                     110   412 
+ TokMinus                       124 
+ TokModule                       89   553 
+ TokNone                         90   554 
+ TokOutput                       91   555 
+ TokParser                       92   556 
+ TokPlus                        123 
+ TokPrec                         93   557 
+ TokProperty                     94   558 
+ TokRAngle                      128   421 
+ TokRArrow                      129   415 
+ TokRBrace                      115   488 
+ TokRBracket                    113   423 
+ TokRemote                       95   436 
+ TokReverse                      96   559 
+ TokRight                        97   560 
+ TokRParent                     111   413 
+ TokRule                         98   561 
+ TokScanner                      99   562 
+ TokSelect                      100   563 
+ TokSemiColon                   117   460 
+ TokSlash                       126 
+ TokSpecWith                    101   564 
+ TokStack                       102   565 
+ TokString                       63   141   395   409 
+ TokSubunit                     103   566 
+ TokSynthesized                 104   567 
+ TokTargetCode                   64   140   274 
+ TokThread                      105   568 
+ TokTree                        106   569 
+ TokView                        107   570 
+ TokVirtual                     108   571 
+ TokWhiteSpace                   66   143   509   514   519 
+ tPosition                       24    28    53   150 
+ TREE                           569 
+ Tree                            51 
+ TRUE                           259   429 
+ tScanAttribute                  27    39   134 
+ tString                         47   157 
+ tStringRef                      21    30 
+ tText                           23    33 
+ TYPE                            26 
+
+-U-
+ UNTIL                          232 
+
+-V-
+ VAR                             37    39   134   149   150   151   156 
+ VIEW                           570 
+ VIRTUAL                        571 
+ VOID                           571 
+
+-W-
+ where                           13 
+ which                           14 
+ WITH                           136 
+ Word                           157   166   167   181   184   261   262   276   277   284   285   306   307   359   360   383   383 
+                                386   386   439   440   446   447   454   455   462   463   467   468   477   478   490   491   495 
+                                496   499   500   503   504   507   508   511   512   516   517   521   522   526   527   527   531 
+                                532   573   574   577   578   578 
+
+-Y-
+ yyEol                          301   354   386   404   513 
+ yyPrevious                     326   335   390   404 
+ yyStart                        223   270   321   332   366   367   375   376   427   484   535   536   537   542   545   547   552 
+                                564 
+ yyStartState                   190   391   405 
+ yyTab                          293   344   398   518 
+
+-Z-
+ Z                              239 
+ z                              239 
+
+-_-
+ _                              239 
+
+end cross reference, 1284 occurrences of 304 identifiers.

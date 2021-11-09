@@ -1,0 +1,103 @@
+# $Id: Makefile,v 2.8 1992/09/09 12:26:36 grosch rel $
+ifndef INSTALLGMD
+  INSTALLGMD=/usr/local
+endif
+export INSTALLGMD
+
+INSTALLLIB	= $(INSTALLGMD)/lib
+INSTALLBIN	= $(INSTALLGMD)/bin
+
+MAKEINCLUDE = .
+BIN = ../../bintobuildwith
+REX = $(BIN)/rex
+LALR = $(BIN)/lalr
+
+MLIB	= ../../reuse/gen
+MC	= mocka_mtc
+MOCKAFLAGS	= -noindex -norange
+MOCKALIBS = -d $(MLIB)
+
+DEFSMC	= Actions.md Character.md Checks.md Errors.md \
+	  Limits.md Listing.md Oper.md Path.md Rules.md \
+	  SysError.md TokenTab.md Tokens.md WriteTok.md
+
+MODSMC	= Actions.mi Character.mi Checks.mi Errors.mi Id.mi \
+	  Limits.mi Listing.mi Oper.mi Pars.mi Path.mi Rules.mi \
+	  SysError.mi TokenTab.mi Tokens.mi WriteTok.mi
+
+MODULASOURCES = $(DEFSMC) $(MODSMC) 
+OTHERSOURCES = 
+SOURCES = $(MODULASOURCES) $(OTHERSOURCES)
+
+GENDEFS = Scanner.md Parser.md
+
+GENMODS = Scanner.mi Parser.mi
+
+GENTABS = Scanner.Tab Parser.Tab
+
+MODULAGENS    = $(GENDEFS) $(GENMODS) 
+GENS    = $(MODULAGENS) $(GENTABS)
+
+EXE     = Pars
+
+include $(MAKEINCLUDE)/make.include
+
+Scanner.md Scanner.mi Scanner.Tab:	../src/input.rex
+	$(REX) -d ../src/input.rex;
+
+Parser.md Parser.mi Parser.Tab:	../src/input.lalr
+	$(LALR) -b -d ../src/input.lalr;
+
+install_modula:
+
+install_mocka:
+
+#install_modula:	Scanner.Tab Parser.Tab ErrorTab $(INSTALLLIB)/lalr
+#	install -c -m 644 Scanner.Tab $(INSTALLLIB)/lalr
+#	install -c -m 644 Parser.Tab $(INSTALLLIB)/lalr
+#	install -c -m 644 ErrorTab $(INSTALLLIB)/lalr
+
+# installation directories
+
+$(INSTALLLIB)/lalr:	$(INSTALLLIB)
+	sh -c "if test ! -d $(INSTALLLIB)/lalr; then mkdir $(INSTALLLIB)/lalr; else true; fi"
+
+# swap all byte pairs of the files Scanner.Tab and Parser.Tab
+
+bin.conv:
+	dd conv=swab < Scanner.Tab > .Scanner.Tab; mv .Scanner.Tab Scanner.Tab
+	dd conv=swab < Parser.Tab > .Parser.Tab; mv .Parser.Tab Parser.Tab
+
+# support for mkid
+
+lalrId:	input.rex
+	echo SCANNER lalrId | cat - input.rex | \
+	sed 's/\(RETURN.*Ident\)/yyEcho; IO.WriteNl (IO.StdOutput); \1/' | \
+	$(INSTALLBIN).sparc.t/rex -sd;
+	sed 's/@/lalrId/' < ../../front/src/Id.mi > lalrIdDrv.mi
+	echo p lalrIdDrv | mocka -d $(MLIB)
+	mv lalrIdDrv lalrId
+
+installId:	lalrId $(INSTALLLIB)/Id
+	echo exec $(INSTALLLIB)/Id/lalrId -l$(INSTALLLIB)/Id "2> /dev/null" > $(INSTALLBIN)/lalrId
+	chmod a+rx $(INSTALLBIN)/lalrId
+	install -c -m 644 lalrId.Tab $(INSTALLLIB)/Id
+	install -c -s -m 755 lalrId $(INSTALLLIB)/Id
+
+$(INSTALLLIB)/Id:	$(INSTALLLIB)
+	sh -c "if test ! -d $(INSTALLLIB)/Id; then mkdir $(INSTALLLIB)/Id; else true; fi"
+
+cleanId:
+	rm -f lalrId*
+
+clean:	cleanId
+	rm -f core *.[dimor] *.def *.mod *.sym ERRORS LISTING _Debug Pars *.bak
+
+.SUFFIXES:	.def .mod .md .mi
+
+.md.def:
+	ln $*.md $*.def
+
+.mi.mod:
+	ln $*.mi $*.mod
+

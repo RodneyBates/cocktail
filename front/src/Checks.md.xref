@@ -1,0 +1,53 @@
+     1 (* check i/o errors *)
+     2 
+     3 (* $Id: Checks.md,v 1.2 1991/11/21 14:47:50 grosch rel $ *)
+     4 
+     5 (* $Log: Checks.md,v $
+c    6  * Revision 1.2  1991/11/21  14:47:50  grosch
+c    7  * new version of RCS on SPARC
+c    8  *
+c    9  * Revision 1.1  90/06/11  18:44:42  grosch
+c   10  * layout improvements
+c   11  * 
+c   12  * Revision 1.0  88/10/04  14:26:39  vielsack
+c   13  * Initial revision
+c   14  * 
+c   15  *)
+    16 
+    17 DEFINITION MODULE Checks;                                                     *
+    18 
+    19 FROM    IO              IMPORT  tFile;                                        *     *
+    20 
+    21 PROCEDURE ErrorCheck     (s: ARRAY OF CHAR; n: INTEGER);                      *     *     *     *     *
+    22 PROCEDURE CheckReadOpen  (VAR f: tFile; s: ARRAY OF CHAR);                    *     *    19    21     *
+    23 PROCEDURE CheckWriteOpen (VAR f: tFile; s: ARRAY OF CHAR);                    *    22    19    22     *
+    24 
+    25 END Checks.                                                                  17
+Cross reference: * is declaration, = is assignment
+
+-C-
+ CHAR                            21    22    23 
+ CheckReadOpen                   22*
+ Checks                          17*   25*
+ CheckWriteOpen                  23*
+
+-E-
+ ErrorCheck                      21*
+
+-F-
+ f                               22*   23*
+
+-I-
+ INTEGER                         21 
+ IO                              19*
+
+-N-
+ n                               21*
+
+-S-
+ s                               21*   22*   23*
+
+-T-
+ tFile                           19*   22    23 
+
+end cross reference, 19 occurrences of 11 identifiers.

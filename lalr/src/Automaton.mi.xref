@@ -1,0 +1,1143 @@
+     1 (* handle LR automaton *)
+     2 
+     3 (* $Id: Automaton.mi,v 2.2 1992/08/07 15:22:49 grosch rel $ *)
+     4 
+     5 (* $Log: Automaton.mi,v $
+c    6  * Revision 2.2  1992/08/07  15:22:49  grosch
+c    7  * allow several scanner and parsers; extend module Errors
+c    8  *
+c    9  * Revision 2.1  1991/11/21  14:53:14  grosch
+c   10  * new version of RCS on SPARC
+c   11  *
+c   12  * Revision 2.0  91/03/08  18:31:33  grosch
+c   13  * turned tables into initialized arrays (in C)
+c   14  * moved mapping tokens -> strings from Errors to Parser
+c   15  * changed interface for source position
+c   16  * 
+c   17  * Revision 1.4  90/09/20  17:52:34  grosch
+c   18  * calmed down lint
+c   19  * 
+c   20  * Revision 1.3  90/09/10  16:25:43  grosch
+c   21  * added automatic alignment for ProdArray
+c   22  * 
+c   23  * Revision 1.2  90/06/12  16:53:36  grosch
+c   24  * renamed main program to lalr, added { } for actions, layout improvements
+c   25  * 
+c   26  * Revision 1.1  89/01/12  18:08:51  vielsack
+c   27  * supply a line number for each action
+c   28  * 
+c   29  * Revision 1.0  88/10/04  14:35:50  vielsack
+c   30  * Initial revision
+c   31  * 
+c   32  *)
+    33 
+    34 IMPLEMENTATION MODULE Automaton;                                              *     *
+    35 
+    36 FROM Continue   IMPORT Value, ValueNonterms;                                  *     *     *
+    37 FROM DynArray   IMPORT MakeArray, ExtendArray;                                *     *     *
+    38 FROM Errors     IMPORT eFatal, eError, eWarning, eInformation, eIdent, eString,     *     *     *     *     *     *     *
+    39                         eInternal, ErrorMessage, ErrorMessageI;               *     *     *
+    40 FROM Lists      IMPORT MakeList, tList;                                       *     *     *
+    41 FROM Oper       IMPORT OperKind, InitPrioReading, GetPriority, GetOperator;         *     *     *     *     *
+    42 FROM Rules      IMPORT Operation, Expression, InitRulesReading, GetNodeOperation,         *     *     *     *     *
+    43                         GetRule, GetBracketNode, GetUnaryNode, GetBinaryNode,       *     *     *     *
+    44                         GetLeafNode, GetActionNode, NoExpression;             *     *     *
+    45 FROM Sets       IMPORT MakeSet, ReleaseSet, AssignEmpty, Include, Extract,          *     *     *     *     *     *
+    46                         IsEmpty, IsElement, ForallDo, tSet;                   *     *     *     *
+    47 FROM Strings    IMPORT tString, ArrayToString;                                *     *     *
+    48 FROM Idents     IMPORT tIdent, MakeIdent;                                     *     *     *
+    49 FROM SYSTEM     IMPORT WORD, TSIZE, ADR;                                      *     *     *     *
+    50 FROM General    IMPORT MaxAlign;                                              *     *
+    51 FROM Positions  IMPORT NoPosition;                                            *     *
+    52 FROM TokenTab   IMPORT EndOfToken, MAXTerm, MINNonTerm, MAXNonTerm, cMAXNonTerm,          *     *     *     *     *     *
+    53                         PosType, TokenError, Prio, Terminal, NonTerminal, Vocabulary\     *     *     *     *     *     *
+      \,
+    54                         TokenToSymbol, MakeVoc;                               *     *
+    55 
+    56   CONST
+    57     eNoBNF      = 60;                                                         *
+    58     eActInside  = 61;                                                         *
+    59 
+    60     InitProdCount  = 1000;  (* Anfangsplatzgroesse fuer Produktionen in WORD *)     *
+    61     InitItemCount  = 200;   (* Anfangsplatzgroesse fuer Items *)              *
+    62     InitStateCount = 50;    (* Anfangsplatzgroesse fuer States *)             *
+    63     InitListCount  = 4;     (* Anfangsplatzgroesse fuer ProdList *)           *
+    64     InitHashListCount = 4;  (* Anfangsplatzgroesse fuer HashList *)           *
+    65     InitStackCount = 10;    (* Anfangsplatzgroesse fuer ActionStack *)        *
+    66     InitRelationListCount = 10; (* Anfagsplatxgroesse fuer Relationlisten *)        *
+    67 
+    68   TYPE
+    69     HashIndex = [0..99];                                                      *
+    70 
+    71     tDummyProduction =         (* vgl. tProduction in Def.-Module *)          *
+    72       RECORD
+    73         ProdNo  : tIndex;                                                     *     *
+    74         Reduce  : tIndexList;                                                 *     *
+    75         Act     : tList;                                                      *    40
+    76         ActPos  : PosType;                                                    *    53
+    77         Ass     : tAss;                                                       *     *
+    78         Pri     : Prio;                                                       *    53
+    79         Len     : tIndex;                                                     *     *
+    80         Left    : NonTerminal;                                                *    53
+    81       END;
+    82     
+    83     tDummyRight4 = ARRAY [1..4] OF SHORTCARD [0..cMAXNonTerm];                *     *    52
+    84     
+    85     tStackElmt = RECORD                                                       *
+    86         Act     : tList;                                                     75    40
+    87         ActPos  : PosType;                                                   76    53
+    88         Voc     : Vocabulary;                                                 *    53
+    89       END;
+    90 
+    91   VAR
+    92     ProdElmtCount  : LONGINT;            (* aktuelle Feldgroesse *)           *     *
+    93     Production     : tProduction;        (* Index akt. bzw. naechsten P.*)          *     *
+    94     ItemElmtCount  : LONGINT;            (* aktuelle Feldgroesse fuer I. *)         *     *
+    95     StateElmtCount : LONGINT;            (* aktuelle Feldgroesse fuer S. *)         *     *
+    96     StateHashList  : ARRAY               (* Hashtabelle fuer States     *)          *
+    97                      HashIndex OF tIndexList;                                69     *
+    98     StackArrayPtr  : POINTER TO ARRAY    (* Stack fuer nichtbearbeitete *)          *
+    99                      [1..Infinite] OF tStackElmt; (* NonTerminale, Aktionen *)      *    85
+   100     StackElmtCount : LONGINT;            (* Stackgroesse *)                   *     *
+   101     StackIndex     : LONGINT;            (* Index Top of Stack *)             *     *
+   102     
+   103     i         : CARDINAL;  (* Schleifenzaehler *)                             *     *
+   104     prio      : CARDINAL;  (* Prioritaet der aktuellen Produktion             *     *
+c  105                               fuer InsertProductions und InsertRight *)
+   106     NonTermNo : CARDINAL;                                                     *     *
+   107     ProdSet   : tSet;                                                         *    46
+   108 
+   109 PROCEDURE InitAutomaton;                                                      *
+   110 
+   111   (* Initialisiert den Automat, d.h. die zur Automatenkonstruktion
+c  112      noetigen Daten werden vom Module Rules uebernommen *)
+   113 
+   114   BEGIN
+   115     IsBnf := TRUE;                                                            *     *
+   116     InsertOperators;                                                          *
+   117     InsertProductions;                                                        *
+   118   END InitAutomaton;                                                        109
+   119 
+   120 PROCEDURE MakeFirstState (): tStateIndex;                                     *     *
+   121   VAR 
+   122     new : BOOLEAN;                                                            *     *
+   123     pi : tProdIndex;                                                          *     *
+   124     prod : tProduction;                                                       *     *
+   125     read : Vocabulary;                                                        *    53
+   126   BEGIN
+   127 
+   128     (* Bilde einen neun Zustand *)
+   129 
+   130     NextState;                                                                *
+   131     INC (StateArrayPtr^[StateIndex].Size);                                    *     *     *     *
+   132 
+   133     pi := ProdList[StartSymbol].Array^[1].Index;                            123     *     *     *     *
+   134     prod := ADR (ProdArrayPtr^[pi]);                                        124    49     *   123
+   135     read := prod^.Right [1];                                                125   124     *
+   136 
+   137     (* Beschaffe neues Item *)
+   138 
+   139     NextItem (read);                                                          *   125
+   140 
+   141     (* Trage die Produktion mit dem neuen Startsymbol ein *)
+   142 
+   143     ItemArrayPtr^[ItemIndex].Prod := pi;                                      *     *     *   123
+   144     ItemArrayPtr^[ItemIndex].Pos  := 0;                                       *     *     *
+   145 
+   146     (* Hilfsmenge fuer Closure *)
+   147 
+   148     MakeSet (ProdSet, ProdCount);                                            45   107     *
+   149 
+   150     (* Bilde Huelle *)
+   151 
+   152     Closure (read);                                                           *   125
+   153     RETURN UniqueState (new);                                                 *   122
+   154   END MakeFirstState;                                                       120
+   155 
+   156 PROCEDURE GotoSet (Index: tStateIndex; VAR Set: tSet);                        *     *     *     *    46
+   157   VAR
+   158     v  : Vocabulary;                                                          *    53
+   159     i  : tItemIndex;                                                        103     *
+   160     pr : tProdIndex;                                                          *     *
+   161     po : tIndex;                                                              *     *
+   162     p : tProduction;                                                          *     *
+   163   BEGIN
+   164     AssignEmpty (Set);                                                       45   156
+   165     WITH StateArrayPtr^[Index] DO         (* State *)                         *   156
+   166       FOR i:= Items TO Items + Size - 1 DO                                  159     *     *     *
+   167 
+   168       (* Symbol nach dem Punkt ist zu bearbeiten *)
+   169 
+   170         v  := ItemArrayPtr^[i].Read;                                        158     *   159     *
+   171         IF (v <= MAXNonTerm) THEN   (* gibt es ein naechstes Symbol *)      158    52
+   172           Include (Set,v);          (* trage es ein *)                       45   156   158
+   173         END;
+   174       END;
+   175     END;
+   176   END GotoSet;                                                              156
+   177 
+   178 PROCEDURE Goto (Index: tStateIndex; Symbol: Vocabulary; VAR new: BOOLEAN): tStateInd\     *   156     *     *    53   122
+                                                                                     *
+      \ex;                                                                           *
+   179   VAR
+   180     p : tProduction;                                                        162     *
+   181     i : tItemIndex;                                                         159     *
+   182     pr: tProdIndex;                                                         160     *
+   183     po: tIndex;                                                             161     *
+   184     s : tStateIndex;                                                          *     *
+   185     prod : tProduction;                                                     124     *
+   186     read : Vocabulary;                                                      125    53
+   187   BEGIN
+   188     (* Beschaffe neuen State *)
+   189 
+   190     NextState;                                                                *
+   191 
+   192     (* Set fuer Closure initialisieren *)
+   193 
+   194     AssignEmpty (ProdSet);                                                   45   107
+   195 
+   196     WITH StateArrayPtr^[Index] DO         (* State *)                         *   178
+   197 
+   198       (* Fuer alle Items *)
+   199 
+   200       FOR i:=Items TO Items + Size - 1 DO                                   181     *     *     *
+   201 
+   202         (* Mit Symbol nach den Punkt *)
+   203 
+   204         IF (ItemArrayPtr^[i].Read = Symbol) THEN                              *   181     *   178
+   205 
+   206           pr := ItemArrayPtr^[i].Prod;                                      182     *   181     *
+   207           po := ItemArrayPtr^[i].Pos;                                       183     *   181     *
+   208           p  := ADR(ProdArrayPtr^[pr]);                                     180    49     *   182
+   209 
+   210           (* erweitere den Zustand *)
+   211           IF (po+1 < p^.Len) THEN                                           183   180    79
+   212             read :=  p^.Right[po+2];                                        186   180     *   183
+   213           ELSE
+   214             read := MAXNonTerm + 1;                                         186    52
+   215           END;
+   216 
+   217           INC (StateArrayPtr^[StateIndex].Size);                              *     *     *     *
+   218           NextItem (read);                                                    *   186
+   219 
+   220           ItemArrayPtr^[ItemIndex].Prod := pr;                                *     *     *   182
+   221           ItemArrayPtr^[ItemIndex].Pos  := po+1;                              *     *     *   183
+   222 
+   223           IF (read >= MINNonTerm) AND (read <= MAXNonTerm) THEN             186    52   186    52
+   224             Closure (p^.Right[po+2]);                                         *   180     *   183
+   225           END;
+   226         END;
+   227       END;
+   228     END;                          (* State *)
+   229 
+   230     s := UniqueState(new);                                                  184     *   178
+   231 
+   232    (* Trage den berechneten State in Next ein *)
+   233 
+   234     WITH StateArrayPtr^[Index] DO         (* State *)                         *   178
+   235 
+   236       (* Fuer alle Items *)
+   237 
+   238       FOR i:=Items TO Items + Size - 1 DO                                   181     *     *     *
+   239 
+   240       (* nach dem Punkt ist zu bearbeiten *)
+   241 
+   242         (* Mit Symbol nach den Punkt *)
+   243 
+   244         IF ItemArrayPtr^[i].Read = Symbol THEN                                *   181     *   178
+   245           
+   246            (* Trage den Folgezustand ein *)
+   247 
+   248            ItemArrayPtr^[i].Next := s;                                        *   181     *   184
+   249         END;
+   250       END;
+   251     END;                          (* State *)
+   252     RETURN s;                                                               184
+   253   END Goto;                                                                 178
+   254 
+   255 PROCEDURE Closure (Symbol: NonTerminal);                                      *   178    53
+   256   VAR
+   257     i,u : tIndex;                                                           181     *     *
+   258     read : Vocabulary;                                                      186    53
+   259     pr : tProdIndex;                                                        182     *
+   260     po : tIndex;                                                            183     *
+   261     exists : BOOLEAN;                                                         *     *
+   262     p : tProduction;                                                        180     *
+   263   BEGIN
+   264       WITH StateArrayPtr^[StateIndex] DO                                      *     *
+   265         WITH ProdList[Symbol] DO          (* Production *)                    *   255
+   266           u := Used;                                                        257     *
+   267           FOR i := 1 TO u DO                                                257   257
+   268             
+   269             (* Fuege ein Item hinzu, falls dies noch nicht vorhanden *)
+   270 
+   271             pr := Array^[i].Index;                                          259     *   257   178
+   272             p := ADR (ProdArrayPtr^[pr]);                                   262    49     *   259
+   273 
+   274             IF NOT IsElement (p^.ProdNo, ProdSet) THEN                       46   262    73   107
+   275               Include (ProdSet, p^.ProdNo);                                  45   107   262    73
+   276               INC(Size);                                                      *     *
+   277 
+   278               (* read bestimmen *)
+   279 
+   280               WITH p^ DO                                                    262
+   281                 IF Len > 0 THEN                                              79
+   282                   read := Right [1];                                        258     *
+   283                 ELSE
+   284                   read := MAXNonTerm + 1;                                   258    52
+   285                 END;
+   286               END;
+   287 
+   288               NextItem (read);                                                *   258
+   289               WITH ItemArrayPtr^[ItemIndex] DO  (* Item *)                    *     *
+   290                 Prod := pr;                                                   *   259
+   291                 Pos  := 0;                                                    *
+   292               END;                      (* Item *)
+   293 
+   294               (* Falls Punkt vor Nichtterminal steht
+c  295                  ist dieser auch zu bearbeiten *)
+   296               
+   297               IF (read >= MINNonTerm) AND (read <= MAXNonTerm) THEN         258    52   258    52
+   298                 Closure (read);                                             255   258
+   299               END;
+   300             END;
+   301           END;
+   302         END;               (* Production *)
+   303       END;               (* State *)
+   304   END Closure;                                                              255
+   305 
+   306 PROCEDURE UniqueState (VAR new: BOOLEAN): tStateIndex;                        *   178     *     *
+   307   VAR
+   308     h: HashIndex;                                                             *    69
+   309     i: LONGINT;                                                             257     *
+   310   BEGIN
+   311     h := HashCode (StateIndex);                                             308     *     *
+   312     WITH StateHashList[h] DO                                                 96   308
+   313       
+   314       (* Pruefe ob der State bereits vorhanden *)
+   315 
+   316       FOR i:=1 TO Used DO                                                   309     *
+   317         IF AreEqualStates (StateIndex,Array^[i]) THEN                         *     *     *   309
+   318           (* State ist bereits vorhanden *)
+   319 
+   320           (* Speicher freigeben *)
+   321 
+   322           (* Items freigeben *)
+   323           DEC (ItemIndex, StateArrayPtr^[StateIndex].Size);                   *     *     *     *     *
+   324 
+   325           (* State freigeben *)
+   326           DEC (StateIndex);                                                   *     *
+   327 
+   328           (* bereits bekannten State zurueckgeben *)
+   329 
+   330           new := FALSE;                                                     306     *
+   331           RETURN Array^[i];                                                   *   309
+   332         END;
+   333       END;
+   334 
+   335       (* neuen State in Hashtabelle eintragen *)
+   336 
+   337       IF Used = 0 THEN                                                        *
+   338         Count := InitHashListCount;                                           *    64
+   339         MakeArray (Array,Count,TSIZE(tIndex));                               37     *     *    49     *
+   340       ELSIF Used >= Count THEN                                                *     *
+   341         ExtendArray (Array,Count,TSIZE(tIndex));                             37     *     *    49     *
+   342       END;
+   343       INC (Used);                                                             *     *
+   344       Array^[Used] := StateIndex;                                             *     *     *
+   345       new := TRUE;                                                          306     *
+   346       RETURN StateIndex;                                                      *
+   347     END;
+   348   END UniqueState;                                                          306
+   349   
+   350 PROCEDURE InsertOperators;                                                    *
+   351 
+   352   (* Einlesen des Abschnitts Oper, es werden steigende Prioritaeten zugeordnet *)
+   353 
+   354   VAR
+   355     o : tOper;                                                                *     *
+   356     t : Vocabulary;                                                           *    53
+   357     kn : OperKind;                                                            *    41
+   358     ps,cmp : PosType;                                                         *     *    53
+   359     cm : tList;                                                               *    40
+   360   BEGIN
+   361     o.Pri := 0;                                                             355    78
+   362     InitPrioReading;                                                         41
+   363       WHILE GetPriority (kn,ps,cm,cmp) DO                                    41   357   358   359   358
+   364         IF kn = Left THEN                                                   357    80
+   365           o.Ass := left;                                                    355    77     *
+   366         ELSIF kn = Right THEN                                               357     *
+   367           o.Ass := right;                                                   355    77     *
+   368         ELSE
+   369           o.Ass := nonassoc;                                                355    77     *
+   370         END;
+   371         INC (o.Pri);                                                          *   355    78
+   372         WHILE GetOperator (t,ps) DO                                          41   356   358
+   373           OperArray [t] := o;                                                 *   356   355
+   374         END;
+   375       END;
+   376   END InsertOperators;                                                      350
+   377 
+   378 PROCEDURE InsertProductions;                                                  *
+   379 
+   380   (* Die Produktionen werden vom Module Rules eingelesen *)
+   381 
+   382   VAR
+   383     left  : NonTerminal;                                                      *    53
+   384     lfp,clp,cmp,pnp,prp,prsp : PosType;                                       *     *   358     *     *     *    53
+   385     right : Expression;                                                       *    42
+   386     cm    : tList;                                                          359    40
+   387     hpr   : BOOLEAN;                                                          *     *
+   388     prs   : Terminal;                                                         *    53
+   389     act   : tList;                                                            *    40
+   390     actpos: PosType;                                                          *    53
+   391     voc   : Vocabulary;                                                       *    53
+   392     index : tProdIndex;                                                       *     *
+   393     maxIndex : tProdIndex;                                                    *     *
+   394     value : SHORTCARD;                                                        *     *
+   395     prod  : tProduction;                                                    185     *
+   396     i     : SHORTCARD;                                                      309     *
+   397   BEGIN
+   398 
+   399     (* Lese erste Regel *)
+   400 
+   401     InitRulesReading;                                                        42
+   402     IF NOT GetRule (left,lfp,clp,right,cm, cmp,pnp,hpr,prp,prs,prsp) THEN    43   383   384   384   385   386   384   384
+                                                                                   387   384   388   384
+   403       ERROR ('Automaton.InsertProduction');                                   *
+   404     END;
+   405 
+   406     (* Fuehre ein neues Startsymbol ein *)
+   407 
+   408     WITH Production^ DO                                                      93
+   409       MakeList (Act);                                                        40    86
+   410       ActPos := NoPosition;                                                  87    51
+   411       Ass := none;                                                           77     *
+   412       Pri := 0;                                                              78
+   413       Len := 0;                                                              79
+   414     END;
+   415     EnsureProdArray;                                                          *
+   416     WITH Production^ DO                                                      93
+   417       INC (Len);                                                              *    79
+   418       Right[Len] := left;                                                     *    79   383
+   419     END;
+   420     EnsureProdArray;                                                          *
+   421     WITH Production^ DO                                                      93
+   422       INC (Len);                                                              *    79
+   423       Right[Len] := EndOfToken;                                               *    79    52
+   424     END;
+   425     StartSymbol := MakeNonTerm();                                             *     *
+   426     Production^.Left := StartSymbol;                                         93    80     *
+   427     NextProduction;                                                           *
+   428 
+   429     (* Uebertrage die Regeln *)
+   430 
+   431     InitRulesReading;                                                        42
+   432     WHILE GetRule (left,lfp,clp,right,cm,cmp,pnp,hpr,prp,prs,prsp) DO        43   383   384   384   385   386   384   384
+                                                                                   387   384   388   384
+   433       WITH Production^ DO                                                    93
+   434         MakeList (Act);                                                      40    86
+   435         ActPos := NoPosition;                                                87    51
+   436         Ass := none;     (* Initialisierung auf keine Associativitaet *)     77     *
+   437         Pri := 0;        (* und minimale Prioritaet *)                       78
+   438         Len := 0;                                                            79
+   439       END;
+   440       InsertRight (right,TRUE);                                               *   385     *
+   441       WITH Production^ DO                                                    93
+   442         Left := left;                                                        80   383
+   443         prio := OperArray[prs].Pri;                                         104     *   388    78
+   444         IF hpr THEN                                                         387
+   445           (* explizite Prioritaet geht vor *)
+   446           Pri := OperArray[prs].Pri;                                         78     *   388    78
+   447           Ass := OperArray[prs].Ass;                                         77     *   388    77
+   448         END;
+   449       END;
+   450       NextProduction;                                                         *
+   451     END;
+   452 
+   453     (* Trage Regeln fuer innere semantische Ankopplungen nach *)
+   454 
+   455     WHILE PopAction (act,voc,actpos) DO                                       *   389   391   390
+   456       WITH Production^ DO                                                    93
+   457         Act := act;                                                          86   389
+   458         ActPos := actpos;                                                    87   390
+   459         Pri := 0;                                                            78
+   460         Ass := none;                                                         77     *
+   461         Len := 0;                                                            79
+   462         Left := voc;                                                         80   391
+   463       END;
+   464       NextProduction;                                                         *
+   465     END;
+   466 
+   467     ValueNonterms;                                                           36
+   468 
+   469     maxIndex := ProdIndex;                                                  393     *
+   470     index := 0;                                                             392
+   471     WHILE index < maxIndex DO                                               392   393
+   472       prod := ADR(ProdArrayPtr^[index]);                                    395    49     *   392
+   473       value := 0;                                                           394
+   474       WITH prod^ DO                                                         395
+   475         FOR i := 1 TO Len DO                                                396    79
+   476           INC (value, Value[Right[i]]);                                       *   394    36     *   396
+   477         END;
+   478       END;
+   479       PutInProdList (index, value);                                           *   392   394
+   480       index := NextProdIndex(index);                                        392     *   392
+   481     END;
+   482   END InsertProductions;                                                    378
+   483 
+   484 PROCEDURE InsertRight (Expr: Expression; Last: BOOLEAN);                      *     *    42     *     *
+   485   
+   486   (* Uebertrage einen Teilbaum in die rechte Seite der Regel 
+c  487      wenn eine Konstruktion angetroffen wird die nicht BNF 
+c  488      d.h., die nicht zulaessig ist wird eine Fehlermeldung ausgegeben
+c  489      und IsBnf auf false gesetzt *)
+   490 
+   491   VAR
+   492     pos,secpos : PosType;                                                     *     *    53
+   493     son,rson,lson : Expression;                                               *     *     *    42
+   494     art : Operation;                                                          *    42
+   495     voc : Vocabulary;                                                       391    53
+   496     act : tList;                                                            389    40
+   497     sym : tIdent;                                                             *    48
+   498     err : TokenError;                                                         *    53
+   499   BEGIN
+   500     CASE GetNodeOperation(Expr) OF                                           42   484
+   501       Plus, Star :                                                            *     *
+   502         IsBnf := FALSE;                                                       *     *
+   503         GetUnaryNode (Expr,pos,son);                                         43   484   492   493
+   504         InsertRight (son,Last);                                             484   493   484
+   505         ErrorMessage (eNoBNF,eError,pos);                                    39    57    38   492
+   506     |  Bracket :                                                              *
+   507         GetBracketNode (Expr,pos,secpos,son);                                43   484   492   492   493
+   508         ErrorMessage (eNoBNF,eWarning,pos);                                  39    57    38   492
+   509         InsertRight (son,Last);                                             484   493   484
+   510     | Optional :                                                              *
+   511         IsBnf := FALSE;                                                       *     *
+   512         GetBracketNode (Expr,pos,secpos,son);                                43   484   492   492   493
+   513         ErrorMessage (eNoBNF,eError,pos);                                    39    57    38   492
+   514     | Sequence :                                                              *
+   515         GetBinaryNode (Expr,pos,lson,rson);                                  43   484   492   493   493
+   516         IF rson = NoExpression THEN                                         493    44
+   517           InsertRight (lson,Last);                                          484   493   484
+   518         ELSE
+   519           InsertRight (lson,FALSE);                                         484   493     *
+   520         END;
+   521         InsertRight (rson,Last);                                            484   493   484
+   522     | Separator, Alternative:                                                 *     *
+   523         IsBnf := FALSE;                                                       *     *
+   524         GetBinaryNode (Expr,pos,lson,rson);                                  43   484   492   493   493
+   525         InsertRight (lson,FALSE);                                           484   493     *
+   526         ErrorMessage (eNoBNF,eError,pos);                                    39    57    38   492
+   527         InsertRight (rson,FALSE);                                           484   493     *
+   528     | TermLeaf:                                                               *
+   529         IF IsBnf THEN                                                         *
+   530           EnsureProdArray;                                                    *
+   531           GetLeafNode (Expr,voc,pos);                                        44   484   495   492
+   532           WITH Production^ DO                                                93
+   533             INC (Len);                                                        *    79
+   534             Right[Len] := voc;                                                *    79   495
+   535             IF OperArray [voc].Ass # none THEN                                *   495    77     *
+   536               (* der letzte Operator innerhalb der Regel gilt *)
+   537               Ass := OperArray[voc].Ass;                                     77     *   495    77
+   538               Pri := OperArray[voc].Pri;                                     78     *   495    78
+   539             END;
+   540           END;
+   541         END;
+   542     | NonTermLeaf:                                                            *
+   543         IF IsBnf THEN                                                         *
+   544           EnsureProdArray;                                                    *
+   545           GetLeafNode (Expr,voc,pos);                                        44   484   495   492
+   546           WITH Production^ DO                                                93
+   547             INC (Len);                                                        *    79
+   548             Right[Len] := voc;                                                *    79   495
+   549           END;
+   550         END;
+   551     | Action:                                                                 *
+   552         IF IsBnf THEN                                                         *
+   553           GetActionNode (Expr,act,pos);                                      44   484   496   492
+   554           IF Last THEN                                                      484
+   555             Production^.Act := act;                                          93    86   496
+   556             Production^.ActPos := pos;                                       93    87   492
+   557           ELSE
+   558             EnsureProdArray;                                                  *
+   559             voc := MakeNonTerm ();                                          495     *
+   560             sym := TokenToSymbol (voc,err);                                 497    54   495   498
+   561             ErrorMessageI (eActInside, eInformation, pos, eIdent, ADR (sym));      39    58    38   492    38    49   497
+   562             WITH Production^ DO                                              93
+   563               INC (Len);                                                      *    79
+   564               Right[Len] := voc;                                              *    79   495
+   565             END;
+   566             PushAction (act,voc,pos);                                         *   496   495   492
+   567           END;
+   568         END;
+   569     | NoOperation:                                                            *
+   570     END;
+   571   END InsertRight;                                                          484
+   572 
+   573 PROCEDURE PutInProdList (index: tProdIndex; value: SHORTCARD);                *   392     *   394     *
+   574 
+   575   (* Die angegebene  Produktion wird gem. ihrer linken Seite in die
+c  576      zugh. ProdList sortiert eingetragen *)
+   577   
+   578   VAR
+   579     prod : tProduction;                                                     395     *
+   580     i    : tIndex;                                                          396     *
+   581   BEGIN
+   582     prod := ADR (ProdArrayPtr^[index]);                                     579    49     *   573
+   583     WITH ProdList[prod^.Left] DO                                              *   579    80
+   584       IF Used = 0 THEN                                                        *
+   585         Count := InitListCount;                                               *    63
+   586         MakeArray (Array,Count,TSIZE(tProdListElmt));                        37     *     *    49     *
+   587         INC (Used);                                                           *     *
+   588         Array^[Used].Index := index;                                          *     *   178   573
+   589         Array^[Used].Value := value;                                          *     *    36   573
+   590       ELSE
+   591         IF Used >= Count THEN                                                 *     *
+   592           ExtendArray (Array,Count,TSIZE(tProdListElmt));                    37     *     *    49     *
+   593         END;
+   594         (* laengere Produktionen nach hinten verschieben *)
+   595         i := Used;                                                          580     *
+   596         WHILE (i > 0) AND (Array^[i].Value > value) DO                      580     *   580    36   573
+   597           Array^[i+1].Index := Array^[i].Index;                               *   580   178     *   580   178
+   598           Array^[i+1].Value := Array^[i].Value;                               *   580    36     *   580    36
+   599           DEC (i);                                                            *   580
+   600         END;
+   601         INC (i);                                                              *   580
+   602         (* neue Produktion eintragen *)
+   603         Array^[i].Index := index;                                             *   580   178   573
+   604         Array^[i].Value := value;                                             *   580    36   573
+   605         INC (Used);                                                           *     *
+   606       END;
+   607     END;
+   608   END PutInProdList;                                                        573
+   609 
+   610 PROCEDURE NextProduction;                                                     *
+   611 
+   612   (* Schalte die aktuelle Produktion weiter *)
+   613   (* wie immer nach dem ausfuellen einer Produktion aufgerufen *)
+   614 
+   615   BEGIN
+   616     INC (ProdCount);                                                          *     *
+   617     WITH Production^ DO                                                      93
+   618       ProdNo := ProdCount;                                                   73     *
+   619       Reduce.Used := 0;                                                      74     *
+   620     END;
+   621     ProdIndex := NextProdIndex(ProdIndex);                                    *     *     *
+   622     IF (ProdIndex + (TSIZE(tDummyProduction) + MaxAlign - 1) DIV MaxAlign * MaxAlign\     *    49    71    50    50    50
+      \) >= ProdElmtCount THEN                                                      92
+   623       ExtendArray (ProdArrayPtr, ProdElmtCount, TSIZE(WORD));                37     *    92    49    49
+   624     END;
+   625     Production := ADR(ProdArrayPtr^[ProdIndex]);                             93    49     *     *
+   626   END NextProduction;                                                       610
+   627 
+   628 PROCEDURE NextProdIndex (Index: tProdIndex): tProdIndex;                      *   178     *     *
+   629   VAR 
+   630     diff : CARDINAL;                                                          *     *
+   631     prod : tProduction;                                                     579     *
+   632   BEGIN
+   633     prod := ADR (ProdArrayPtr^[Index]);                                     631    49     *   628
+   634             (* Platzbedarf fuer konstantlangen Teil *)
+   635     diff := CARDINAL ((TSIZE(tDummyProduction) + MaxAlign - 1) DIV MaxAlign * MaxAli\   630     *    49    71    50    50
+      \gn)                                                                          50
+   636               (* Platzbedarf fuer variabellangen Teil *)
+   637             + ((prod^.Len+3) DIV 4) * TSIZE(tDummyRight4);                  631    79    49    83
+   638     RETURN Index + (diff-1) DIV TSIZE (WORD) + 1;                           628   630    49    49
+   639   END NextProdIndex;                                                        628
+   640 
+   641 PROCEDURE EnsureProdArray;                                                    *
+   642 
+   643   (* stelle sicher, dass in die rechte Seite der Produktion noch um
+c  644      mindestes eins verlaengert werden kann *)
+   645 
+   646   VAR diff : LONGINT;                                                       630     *
+   647   BEGIN
+   648             (* Platzbedarf fuer konstantlangen Teil *)
+   649     diff := CARDINAL ((TSIZE(tDummyProduction) + MaxAlign - 1) DIV MaxAlign * MaxAli\   646     *    49    71    50    50
+      \gn)                                                                          50
+   650               (* Platzbedarf fuer variabellangen Teil *)
+   651             + (((Production^.Len+1)+3) DIV 4) * TSIZE(tDummyRight4);         93    79    49    83
+   652     IF (ProdIndex + (diff-1) DIV TSIZE(WORD) + 1) >= ProdElmtCount THEN       *   646    49    49    92
+   653       ExtendArray (ProdArrayPtr, ProdElmtCount, TSIZE(WORD));                37     *    92    49    49
+   654       Production := ADR(ProdArrayPtr^[ProdIndex]);                           93    49     *     *
+   655     END;
+   656   END EnsureProdArray;                                                      641
+   657 
+   658 PROCEDURE NextItem (ReadSym: Vocabulary); (* Beschaffe das naechste Item *)         *     *    53
+   659   BEGIN
+   660     INC (ItemIndex);                                                          *     *
+   661     IF ItemIndex > ItemElmtCount THEN                                         *    94
+   662       ExtendArray (ItemArrayPtr, ItemElmtCount, TSIZE(tItem));               37     *    94    49     *
+   663       IF ItemArrayPtr = NIL THEN HALT; END;                                   *     *     *
+   664     END;
+   665     WITH ItemArrayPtr^[ItemIndex] DO                                          *     *
+   666       EmptyReadSet := TRUE;                                                   *     *
+   667       Relation.Used := 0;                                                     *     *
+   668       Relation.Count := InitRelationListCount;                                *     *    66
+   669       Read := ReadSym;                                                        *   658
+   670       Rep := NoRep;                                                           *     *
+   671       RepNo := Infinite;                                                      *     *
+   672       Next := Infinite;                                                       *     *
+   673       Number := 0;                                                            *
+   674     END;
+   675   END NextItem;                                                             658
+   676       
+   677 PROCEDURE NextState ();                                                       *
+   678 
+   679   (* Beschaffe den naechsten State und initialisiere ihn mit
+c  680      dem naechsten (aktuellen+1) Item *)
+   681 
+   682   BEGIN
+   683     INC (StateIndex);                                                         *     *
+   684     IF StateIndex > StateElmtCount THEN                                       *    95
+   685       ExtendArray (StateArrayPtr, StateElmtCount, TSIZE(tState));            37     *    95    49     *
+   686     END;
+   687     WITH StateArrayPtr^[StateIndex] DO                                        *     *
+   688       Size := 0;                                                              *
+   689       Items := ItemIndex+1;                                                   *     *
+   690       NewNumber := Infinite;                                                  *     *
+   691       Kind := sNone;                                                          *     *
+   692     END;
+   693   END NextState;                                                            677
+   694   
+   695 PROCEDURE MakeNonTerm (): NonTerminal; (* Erzeuge ein neues Nichtterminal *)        *    53
+   696   VAR
+   697     s : tString;                                                            184    47
+   698     max,i,j : CARDINAL;                                                       *   580     *     *
+   699     pos : PosType;                                                          492    53
+   700     voc : Vocabulary;                                                       495    53
+   701   BEGIN
+   702     s.Chars[1] := '_';                                                      697     *
+   703     s.Length := 6;                                                          697     *
+   704     max := MAXNonTerm;                                                      698    52
+   705     REPEAT
+   706       i := NonTermNo;                                                       698   106
+   707       FOR j:=5 TO 2 BY -1 DO                                                698
+   708         s.Chars[j]:=CHR(ORD('0')+(i MOD 10));                               697     *   698     *     *   698
+   709         i := i DIV 10;                                                      698   698
+   710       END;
+   711       s.Chars[6] := '_';                                                    697     *
+   712       pos := NoPosition;                                                    699    51
+   713       INC(NonTermNo);                                                         *   106
+   714       voc := MakeVoc (MakeIdent (s),pos);                                   700    54    48   697   699
+   715     UNTIL max < MAXNonTerm;                                                 698    52
+   716     RETURN voc;                                                             700
+   717   END MakeNonTerm;                                                          695
+   718 
+   719 PROCEDURE AreEqualStates (Index1, Index2: tStateIndex): BOOLEAN;              *     *     *     *     *
+   720   VAR
+   721     i1,i2 : tItemIndex;                                                       *     *     *
+   722     l1,l2 : tItemIndex;                                                       *     *     *
+   723   BEGIN
+   724     i1 := StateArrayPtr^[Index1].Items;                                     721     *   719     *
+   725     i2 := StateArrayPtr^[Index2].Items;                                     721     *   719     *
+   726     l1 := StateArrayPtr^[Index1].Size;                                      722     *   719     *
+   727     l2 := StateArrayPtr^[Index2].Size;                                      722     *   719     *
+   728     IF l1 # l2 THEN RETURN FALSE END;                                       722   722     *
+   729     INC (l1,i1);                                                              *   722   721
+   730     INC (l2,i2);                                                              *   722   721
+   731     WHILE (i1 < l1) AND (i2 < l2) DO                                        721   722   721   722
+   732       IF ItemArrayPtr^[i1].Prod # ItemArrayPtr^[i2].Prod THEN RETURN FALSE; END;          *   721     *     *   721     *
+                                                                                     *
+   733       IF ItemArrayPtr^[i1].Pos  # ItemArrayPtr^[i2].Pos  THEN RETURN FALSE; END;          *   721     *     *   721     *
+                                                                                     *
+   734       INC (i1);                                                               *   721
+   735       INC (i2);                                                               *   721
+   736     END;
+   737     IF    (i1 < l1) THEN RETURN ItemArrayPtr^[i1].Pos = 0;                  721   722     *   721     *
+   738     ELSIF (i2 < l2) THEN RETURN ItemArrayPtr^[i2].Pos = 0;                  721   722     *   721     *
+   739     ELSE RETURN TRUE;                                                         *
+   740     END;
+   741   END AreEqualStates;                                                       719
+   742 
+   743 PROCEDURE HashCode (Index: tStateIndex): HashIndex;                           *   628     *    69
+   744   BEGIN
+   745     WITH ItemArrayPtr^[StateArrayPtr^[Index].Items] DO                        *     *   743     *
+   746       RETURN (Prod+Pos) MOD (MAX(HashIndex)-MIN(HashIndex)+1) + MIN(HashIndex);     *     *     *    69     *    69     *
+                                                                                    69
+   747     END;
+   748   END HashCode;                                                             743
+   749       
+   750 PROCEDURE PushAction (act: tList; voc: Vocabulary; actpos: PosType);          *   496    40   700    53   390    53
+   751   BEGIN
+   752     INC (StackIndex);                                                         *   101
+   753     IF StackElmtCount = 0 THEN                                              100
+   754       StackElmtCount := InitStackCount;                                     100    65
+   755       MakeArray (StackArrayPtr,StackElmtCount,TSIZE(tStackElmt));            37    98   100    49    85
+   756     ELSIF StackIndex > StackElmtCount THEN                                  101   100
+   757       ExtendArray (StackArrayPtr,StackElmtCount,TSIZE(tStackElmt));          37    98   100    49    85
+   758     END;
+   759     StackArrayPtr^[StackIndex].Act := act;                                   98   101    86   750
+   760     StackArrayPtr^[StackIndex].ActPos := actpos;                             98   101    87   750
+   761     StackArrayPtr^[StackIndex].Voc := voc;                                   98   101    88   750
+   762   END PushAction;                                                           750
+   763 
+   764 PROCEDURE PopAction (VAR act: tList; VAR voc: Vocabulary; VAR actpos: PosType): BOOL\     *   750    40   750    53   750
+                                                                                    53
+      \EAN;                                                                          *
+   765   BEGIN
+   766     IF StackIndex < 1 THEN RETURN FALSE; END;                               101     *
+   767     act := StackArrayPtr^[StackIndex].Act;                                  764    98   101    86
+   768     actpos := StackArrayPtr^[StackIndex].ActPos;                            764    98   101    87
+   769     voc := StackArrayPtr^[StackIndex].Voc;                                  764    98   101    88
+   770     DEC (StackIndex);                                                         *   101
+   771     RETURN TRUE;                                                              *
+   772   END PopAction;                                                            764
+   773 
+   774 PROCEDURE ERROR (a: ARRAY OF CHAR);                                           *     *     *
+   775   VAR s: tString;                                                           697    47
+   776   BEGIN
+   777     ArrayToString (a, s);                                                    47   774   775
+   778     ErrorMessageI (eInternal, eFatal, NoPosition, eString, ADR (s));         39    39    38    51    38    49   775
+   779   END ERROR;                                                                774
+   780 
+   781 BEGIN
+   782   ProdElmtCount := InitProdCount;                                            92    60
+   783   MakeArray (ProdArrayPtr, ProdElmtCount, TSIZE(WORD));                      37     *    92    49    49
+   784 
+   785   ItemElmtCount := InitItemCount;                                            94    61
+   786   MakeArray (ItemArrayPtr, ItemElmtCount, TSIZE(tItem));                     37     *    94    49     *
+   787 
+   788   StateElmtCount := InitStateCount;                                          95    62
+   789   MakeArray (StateArrayPtr, StateElmtCount, TSIZE(tState));                  37     *    95    49     *
+   790 
+   791   FOR i := MIN(NonTerminal) TO MAX(NonTerminal) DO                          698     *    53     *    53
+   792     ProdList[i].Used := 0;                                                    *   698     *
+   793   END;
+   794 
+   795   FOR i := MIN(HashIndex) TO MAX(HashIndex) DO                              698     *    69     *    69
+   796     StateHashList[i].Used := 0;                                              96   698     *
+   797   END;
+   798 
+   799   FOR i:= MIN(Terminal) TO MAX (Terminal) DO                                698     *    53     *    53
+   800     WITH OperArray[i] DO                                                      *   698
+   801       Ass := none;                                                           77     *
+   802       Pri := 0;                                                              78
+   803     END;
+   804   END;
+   805 
+   806   ProdCount := 0;                                                             *
+   807   ProdIndex := 0;                                                             *
+   808   Production := ADR(ProdArrayPtr^[ProdIndex]);                               93    49     *     *
+   809   ItemIndex := 0;                                                             *
+   810   StateIndex := 0;                                                            *
+   811   StackElmtCount := 0;                                                      100
+   812   StackIndex := 0;                                                          101
+   813 END Automaton.                                                               34
+Cross reference: * is declaration, = is assignment
+
+-A-
+ a                              774*  777 
+ Act                             75*   86*  409   434   457=  555=  759=  767 
+ act                            389*  455   457   496*  553   555   566   750*  759   764*  767=
+ Action                         551 
+ ActPos                          76*   87*  410=  435=  458=  556=  760=  768 
+ actpos                         390*  455   458   750*  760   764*  768=
+ ADR                             49*  134   208   272   472   561   582   625   633   654   778   808 
+ Alternative                    522 
+ AreEqualStates                 317   719*  741 
+ Array                          133   271   317   331   339   341   344=  586   588=  589=  592   596   597=  597   598=  598   603=
+                                604=
+ ArrayToString                   47*  777 
+ art                            494*
+ Ass                             77*  365=  367=  369=  411=  436=  447=  447   460=  535   537=  537   801=
+ AssignEmpty                     45*  164   194 
+ Automaton                       34*  813 
+
+-B-
+ BOOLEAN                        122   178   261   306   387   484   719   764 
+ Bracket                        506 
+
+-C-
+ CARDINAL                       103   104   106   630   635   649   698 
+ CHAR                           774 
+ Chars                          702=  708=  711=
+ CHR                            708 
+ Closure                        152   224   255*  298   304 
+ clp                            384*  402   432 
+ cm                             359*  363   386*  402   432 
+ cMAXNonTerm                     52*   83 
+ cmp                            358*  363   384*  402   432 
+ Continue                        36*
+ Count                          338=  339   340   341   585=  586   591   592   668=
+
+-D-
+ DEC                            323   326   599   770 
+ diff                           630*  635=  638   646*  649=  652 
+ DynArray                        37*
+
+-E-
+ eActInside                      58*  561 
+ eError                          38*  505   513   526 
+ eFatal                          38*  778 
+ eIdent                          38*  561 
+ eInformation                    38*  561 
+ eInternal                       39*  778 
+ EmptyReadSet                   666=
+ EndOfToken                      52*  423 
+ eNoBNF                          57*  505   508   513   526 
+ EnsureProdArray                415   420   530   544   558   641*  656 
+ err                            498*  560 
+ ERROR                          403   774*  779 
+ ErrorMessage                    39*  505   508   513   526 
+ ErrorMessageI                   39*  561   778 
+ Errors                          38*
+ eString                         38*  778 
+ eWarning                        38*  508 
+ exists                         261*
+ Expr                           484*  500   503   507   512   515   524   531   545   553 
+ Expression                      42*  385   484   493 
+ ExtendArray                     37*  341   592   623   653   662   685   757 
+ Extract                         45*
+
+-F-
+ FALSE                          330   502   511   519   523   525   527   728   732   733   766 
+ ForallDo                        46*
+
+-G-
+ General                         50*
+ GetActionNode                   44*  553 
+ GetBinaryNode                   43*  515   524 
+ GetBracketNode                  43*  507   512 
+ GetLeafNode                     44*  531   545 
+ GetNodeOperation                42*  500 
+ GetOperator                     41*  372 
+ GetPriority                     41*  363 
+ GetRule                         43*  402   432 
+ GetUnaryNode                    43*  503 
+ Goto                           178*  253 
+ GotoSet                        156*  176 
+
+-H-
+ h                              308*  311=  312 
+ HALT                           663 
+ HashCode                       311   743*  748 
+ HashIndex                       69*   97   308   743   746   746   746   795   795 
+ hpr                            387*  402   432   444 
+
+-I-
+ i                              103*  159*  166=  170   181*  200=  204   206   207   238=  244   248   257*  267=  271   309*  316=
+                                317   331   396*  475=  476   580*  595=  596   596   597   597   598   598   599   601   603   604 
+                                698*  706=  708   709=  709   791=  792   795=  796   799=  800 
+ i1                             721*  724=  729   731   732   733   734   737   737 
+ i2                             721*  725=  730   731   732   733   735   738   738 
+ Idents                          48*
+ IMPLEMENTATION                  34*
+ INC                            131   217   276   343   371   417   422   476   533   547   563   587   601   605   616   660   683 
+                                713   729   730   734   735   752 
+ Include                         45*  172   275 
+ Index                          133   156*  165   178*  196   234   271   588=  597=  597   603=  628*  633   638   743*  745 
+ index                          392*  470=  471   472   479   480=  480   573*  582   588   603 
+ Index1                         719*  724   726 
+ Index2                         719*  725   727 
+ Infinite                        99   671   672   690 
+ InitAutomaton                  109*  118 
+ InitHashListCount               64*  338 
+ InitItemCount                   61*  785 
+ InitListCount                   63*  585 
+ InitPrioReading                 41*  362 
+ InitProdCount                   60*  782 
+ InitRelationListCount           66*  668 
+ InitRulesReading                42*  401   431 
+ InitStackCount                  65*  754 
+ InitStateCount                  62*  788 
+ InsertOperators                116   350*  376 
+ InsertProductions              117   378*  482 
+ InsertRight                    440   484*  504   509   517   519   521   525   527   571 
+ IsBnf                          115=  502=  511=  523=  529   543   552 
+ IsElement                       46*  274 
+ IsEmpty                         46*
+ ItemArrayPtr                   143=  144=  170   204   206   207   220=  221=  244   248=  289   662   663   665   732   732   733 
+                                733   737   738   745   786 
+ ItemElmtCount                   94*  661   662   785=  786 
+ ItemIndex                      143   144   220   221   289   323   660   661   665   689   809=
+ Items                          166   166   200   200   238   238   689=  724   725   745 
+
+-J-
+ j                              698*  707=  708 
+
+-K-
+ Kind                           691=
+ kn                             357*  363   364   366 
+
+-L-
+ l1                             722*  726=  728   729   731   737 
+ l2                             722*  727=  728   730   731   738 
+ Last                           484*  504   509   517   521   554 
+ Left                            80*  364   426=  442=  462=  583 
+ left                           365   383*  402   418   432   442 
+ Len                             79*  211   281   413=  417   418   422   423   438=  461=  475   533   534   547   548   563   564 
+                                637   651 
+ Length                         703=
+ lfp                            384*  402   432 
+ Lists                           40*
+ LONGINT                         92    94    95   100   101   309   646 
+ lson                           493*  515   517   519   524   525 
+
+-M-
+ MakeArray                       37*  339   586   755   783   786   789 
+ MakeFirstState                 120*  154 
+ MakeIdent                       48*  714 
+ MakeList                        40*  409   434 
+ MakeNonTerm                    425   559   695*  717 
+ MakeSet                         45*  148 
+ MakeVoc                         54*  714 
+ MAX                            746   791   795   799 
+ max                            698*  704=  715 
+ MaxAlign                        50*  622   622   622   635   635   635   649   649   649 
+ maxIndex                       393*  469=  471 
+ MAXNonTerm                      52*  171   214   223   284   297   704   715 
+ MAXTerm                         52*
+ MIN                            746   746   791   795   799 
+ MINNonTerm                      52*  223   297 
+
+-N-
+ new                            122*  153   178*  230   306*  330=  345=
+ NewNumber                      690=
+ Next                           248=  672=
+ NextItem                       139   218   288   658*  675 
+ NextProdIndex                  480   621   628*  639 
+ NextProduction                 427   450   464   610*  626 
+ NextState                      130   190   677*  693 
+ NIL                            663 
+ NoExpression                    44*  516 
+ nonassoc                       369 
+ none                           411   436   460   535   801 
+ NonTerminal                     53*   80   255   383   695   791   791 
+ NonTermLeaf                    542 
+ NonTermNo                      106*  706   713 
+ NoOperation                    569 
+ NoPosition                      51*  410   435   712   778 
+ NoRep                          670 
+ Number                         673=
+
+-O-
+ o                              355*  361=  365=  367=  369=  371   373 
+ Oper                            41*
+ OperArray                      373=  443   446   447   535   537   538   800 
+ Operation                       42*  494 
+ OperKind                        41*  357 
+ Optional                       510 
+ ORD                            708 
+
+-P-
+ p                              162*  180*  208=  211   212   224   262*  272=  274   275   280 
+ pi                             123*  133=  134   143 
+ Plus                           501 
+ pnp                            384*  402   432 
+ po                             161*  183*  207=  211   212   221   224   260*
+ PopAction                      455   764*  772 
+ Pos                            144=  207   221=  291=  733   733   737   738   746 
+ pos                            492*  503   505   507   508   512   513   515   524   526   531   545   553   556   561   566   699*
+                                712=  714 
+ Positions                       51*
+ PosType                         53*   76    87   358   384   390   492   699   750   764 
+ pr                             160*  182*  206=  208   220   259*  271=  272   290 
+ Pri                             78*  361=  371   412=  437=  443   446=  446   459=  538=  538   802=
+ Prio                            53*   78 
+ prio                           104*  443=
+ Prod                           143=  206   220=  290=  732   732   746 
+ prod                           124*  134=  135   185*  395*  472=  474   579*  582=  583   631*  633=  637 
+ ProdArrayPtr                   134   208   272   472   582   623   625   633   653   654   783   808 
+ ProdCount                      148   616   618   806=
+ ProdElmtCount                   92*  622   623   652   653   782=  783 
+ ProdIndex                      469   621=  621   622   625   652   654   807=  808 
+ ProdList                       133   265   583   792=
+ ProdNo                          73*  274   275   618=
+ ProdSet                        107*  148   194   274   275 
+ Production                      93*  408   416   421   426=  433   441   456   532   546   555=  556=  562   617   625=  651   654=
+                                808=
+ prp                            384*  402   432 
+ prs                            388*  402   432   443   446   447 
+ prsp                           384*  402   432 
+ ps                             358*  363   372 
+ PushAction                     566   750*  762 
+ PutInProdList                  479   573*  608 
+
+-R-
+ Read                           170   204   244   669=
+ read                           125*  135=  139   152   186*  212=  214=  218   223   223   258*  282=  284=  288   297   297   298 
+ ReadSym                        658*  669 
+ Reduce                          74*  619=
+ Relation                       667=  668=
+ ReleaseSet                      45*
+ Rep                            670=
+ RepNo                          671=
+ Right                          135   212   224   282   366   418=  423=  476   534=  548=  564=
+ right                          367   385*  402   432   440 
+ rson                           493*  515   516   521   524   527 
+ Rules                           42*
+
+-S-
+ s                              184*  230=  248   252   697*  702=  703=  708=  711=  714   775*  777   778 
+ secpos                         492*  507   512 
+ Separator                      522 
+ Sequence                       514 
+ Set                            156*  164   172 
+ Sets                            45*
+ SHORTCARD                       83   394   396   573 
+ Size                           131   166   200   217   238   276   323   688=  726   727 
+ sNone                          691 
+ son                            493*  503   504   507   509   512 
+ StackArrayPtr                   98*  755   757   759=  760=  761=  767   768   769 
+ StackElmtCount                 100*  753   754=  755   756   757   811=
+ StackIndex                     101*  752   756   759   760   761   766   767   768   769   770   812=
+ Star                           501 
+ StartSymbol                    133   425=  426 
+ StateArrayPtr                  131   165   196   217   234   264   323   685   687   724   725   726   727   745   789 
+ StateElmtCount                  95*  684   685   788=  789 
+ StateHashList                   96*  312   796=
+ StateIndex                     131   217   264   311   317   323   326   344   346   683   684   687   810=
+ Strings                         47*
+ sym                            497*  560=  561 
+ Symbol                         178*  204   244   255*  265 
+ SYSTEM                          49*
+
+-T-
+ t                              356*  372   373 
+ tAss                            77 
+ tDummyProduction                71*  622   635   649 
+ tDummyRight4                    83*  637   651 
+ Terminal                        53*  388   799   799 
+ TermLeaf                       528 
+ tIdent                          48*  497 
+ tIndex                          73    79   161   183   257   260   339   341   580 
+ tIndexList                      74    97 
+ tItem                          662   786 
+ tItemIndex                     159   181   721   722 
+ tList                           40*   75    86   359   386   389   496   750   764 
+ TokenError                      53*  498 
+ TokenTab                        52*
+ TokenToSymbol                   54*  560 
+ tOper                          355 
+ tProdIndex                     123   160   182   259   392   393   573   628   628 
+ tProdListElmt                  586   592 
+ tProduction                     93   124   162   180   185   262   395   579   631 
+ TRUE                           115   345   440   666   739   771 
+ tSet                            46*  107   156 
+ TSIZE                           49*  339   341   586   592   622   623   635   637   638   649   651   652   653   662   685   755 
+                                757   783   786   789 
+ tStackElmt                      85*   99   755   757 
+ tState                         685   789 
+ tStateIndex                    120   156   178   178   184   306   719   743 
+ tString                         47*  697   775 
+
+-U-
+ u                              257*  266=  267 
+ UniqueState                    153   230   306*  348 
+ Used                           266   316   337   340   343   344   584   587   588   589   591   595   605   619=  667=  792=  796=
+
+-V-
+ v                              158*  170=  171   172 
+ Value                           36*  476   589=  596   598=  598   604=
+ value                          394*  473=  476   479   573*  589   596   604 
+ ValueNonterms                   36*  467 
+ Voc                             88*  761=  769 
+ voc                            391*  455   462   495*  531   534   535   537   538   545   548   559=  560   564   566   700*  714=
+                                716   750*  761   764*  769=
+ Vocabulary                      53*   88   125   158   178   186   258   356   391   495   658   700   750   764 
+
+-W-
+ WORD                            49*  623   638   652   653   783 
+
+end cross reference, 1298 occurrences of 260 identifiers.

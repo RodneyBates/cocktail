@@ -1,0 +1,1643 @@
+IMPLEMENTATION MODULE Tree;
+
+
+
+
+
+IMPORT SYSTEM, System, General, Memory, DynArray, IO, Layout, StringMem, Strings, Idents, Texts, Sets, Positions;
+(* line 19 "Tree.ast" *)
+
+FROM Idents	IMPORT	tIdent;
+FROM Positions	IMPORT	tPosition;
+FROM IO		IMPORT	tFile, WriteI, WriteS, WriteNl;
+FROM StringMem	IMPORT	tStringRef, WriteString;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CONST yyBlockSize = 20480;
+
+TYPE
+ yytBlockPtr	= POINTER TO yytBlock;
+ yytBlock	= RECORD
+		     yyBlock	: ARRAY [1..yyBlockSize] OF CHAR;
+		     yySuccessor: yytBlockPtr;
+		  END;
+
+VAR yyBlockList	: yytBlockPtr;
+VAR yyMaxSize, yyi	: SHORTCARD;
+VAR yyTypeRange	: ARRAY [0..52] OF SHORTCARD;
+
+PROCEDURE yyAlloc (): tTree;
+ VAR yyBlockPtr	: yytBlockPtr;
+ BEGIN
+  yyBlockPtr	:= yyBlockList;
+  yyBlockList	:= Memory.Alloc (SYSTEM.TSIZE (yytBlock));
+  yyBlockList^.yySuccessor := yyBlockPtr;
+  yyPoolFreePtr	:= SYSTEM.ADR (yyBlockList^.yyBlock);
+  yyPoolMaxPtr	:= yyPoolFreePtr + yyBlockSize - yyMaxSize + 1;
+  INC (HeapUsed, yyBlockSize);
+  RETURN yyPoolFreePtr;
+ END yyAlloc;
+
+PROCEDURE MakeTree (yyKind: SHORTCARD): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [yyKind]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := yyKind;
+  RETURN yyt;
+ END MakeTree;
+
+PROCEDURE IsType (yyTree: tTree; yyKind: SHORTCARD): BOOLEAN;
+ BEGIN
+  RETURN (yyTree # NoTree) AND (yyKind <= yyTree^.Kind) AND (yyTree^.Kind <= yyTypeRange [yyKind]);
+ END IsType;
+
+
+PROCEDURE mspec (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [spec]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := spec;
+  RETURN yyt;
+ END mspec;
+
+PROCEDURE mSpec (pname: tIdent; ppos: tPosition; pgrna: tIdent; pgrpos: tPosition; pexport: tTree; pglobal: tTree; pbegin: tTree; pclose: tTree; pclasses: tTree; pfunctions: tTree): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [Spec]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Spec;
+  WITH yyt^.Spec DO
+   name := pname;
+   pos := ppos;
+   grna := pgrna;
+   grpos := pgrpos;
+   export := pexport;
+   global := pglobal;
+   begin := pbegin;
+   close := pclose;
+   classes := pclasses;
+   functions := pfunctions;
+  END;
+  RETURN yyt;
+ END mSpec;
+
+PROCEDURE mclasses (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [classes]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := classes;
+  RETURN yyt;
+ END mclasses;
+
+PROCEDURE mClass0 (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [Class0]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Class0;
+  RETURN yyt;
+ END mClass0;
+
+PROCEDURE mClass (psuid: tIdent; psupos: tPosition; pclid: tIdent; pclpos: tPosition; pnodes: tTree; pclasses: tTree; pcorrect: BOOLEAN): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [Class]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Class;
+  WITH yyt^.Class DO
+   suid := psuid;
+   supos := psupos;
+   clid := pclid;
+   clpos := pclpos;
+   nodes := pnodes;
+   classes := pclasses;
+   correct := pcorrect;
+  END;
+  RETURN yyt;
+ END mClass;
+
+PROCEDURE mnodes (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [nodes]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := nodes;
+  RETURN yyt;
+ END mnodes;
+
+PROCEDURE mNode0 (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [Node0]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Node0;
+  RETURN yyt;
+ END mNode0;
+
+PROCEDURE mNode (pname: tIdent; pnapos: tPosition; pident: tIdent; pidpos: tPosition; psons: tTree; pnodes: tTree; pcorrect: BOOLEAN): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [Node]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Node;
+  WITH yyt^.Node DO
+   name := pname;
+   napos := pnapos;
+   ident := pident;
+   idpos := pidpos;
+   sons := psons;
+   nodes := pnodes;
+   correct := pcorrect;
+  END;
+  RETURN yyt;
+ END mNode;
+
+PROCEDURE msons (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [sons]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := sons;
+  RETURN yyt;
+ END msons;
+
+PROCEDURE mSon0 (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [Son0]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Son0;
+  RETURN yyt;
+ END mSon0;
+
+PROCEDURE mSon (pname: tIdent; pnapos: tPosition; pident: tIdent; pidpos: tPosition; psons: tTree; pcorrect: BOOLEAN): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [Son]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Son;
+  WITH yyt^.Son DO
+   name := pname;
+   napos := pnapos;
+   ident := pident;
+   idpos := pidpos;
+   sons := psons;
+   correct := pcorrect;
+  END;
+  RETURN yyt;
+ END mSon;
+
+PROCEDURE mattributes (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [attributes]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := attributes;
+  RETURN yyt;
+ END mattributes;
+
+PROCEDURE mAttribute0 (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [Attribute0]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Attribute0;
+  RETURN yyt;
+ END mAttribute0;
+
+PROCEDURE mAttribute (pident: tIdent; pidpos: tPosition; pmod: tIdent; pmopos: tPosition; ptype: tIdent; ptypos: tPosition; pattributes: tTree): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [Attribute]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Attribute;
+  WITH yyt^.Attribute DO
+   ident := pident;
+   idpos := pidpos;
+   mod := pmod;
+   mopos := pmopos;
+   type := ptype;
+   typos := ptypos;
+   attributes := pattributes;
+  END;
+  RETURN yyt;
+ END mAttribute;
+
+PROCEDURE mfunctions (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [functions]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := functions;
+  RETURN yyt;
+ END mfunctions;
+
+PROCEDURE mFunction0 (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [Function0]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Function0;
+  RETURN yyt;
+ END mFunction0;
+
+PROCEDURE mFunction (pname: tIdent; pnapos: tPosition; pin: tTree; pout: tTree; presult: tTree; pdomain: tTree; pdirectives: tTree; pfunctions: tTree): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [Function]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Function;
+  WITH yyt^.Function DO
+   name := pname;
+   napos := pnapos;
+   in := pin;
+   out := pout;
+   result := presult;
+   domain := pdomain;
+   directives := pdirectives;
+   functions := pfunctions;
+   
+   		
+  END;
+  RETURN yyt;
+ END mFunction;
+
+PROCEDURE mresult (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [result]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := result;
+  RETURN yyt;
+ END mresult;
+
+PROCEDURE mNoResult (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [NoResult]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := NoResult;
+  RETURN yyt;
+ END mNoResult;
+
+PROCEDURE mType (pmod: tIdent; pmopos: tPosition; ptype: tIdent; ptypos: tPosition): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [Type]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Type;
+  WITH yyt^.Type DO
+   mod := pmod;
+   mopos := pmopos;
+   type := ptype;
+   typos := ptypos;
+  END;
+  RETURN yyt;
+ END mType;
+
+PROCEDURE mdomain (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [domain]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := domain;
+  RETURN yyt;
+ END mdomain;
+
+PROCEDURE mIdent0 (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [Ident0]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Ident0;
+  RETURN yyt;
+ END mIdent0;
+
+PROCEDURE mIdent (pident: tIdent; pidpos: tPosition; pdomain: tTree): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [Ident]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Ident;
+  WITH yyt^.Ident DO
+   ident := pident;
+   idpos := pidpos;
+   domain := pdomain;
+  END;
+  RETURN yyt;
+ END mIdent;
+
+PROCEDURE mdirectives (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [directives]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := directives;
+  RETURN yyt;
+ END mdirectives;
+
+PROCEDURE mDirective0 (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [Directive0]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Directive0;
+  RETURN yyt;
+ END mDirective0;
+
+PROCEDURE mDirective (ppattern: tTree; pcondition: tTree; pcosts: tTree; pdecl: tTree; pinstr: tTree; pdirectives: tTree; pcorrect: BOOLEAN): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [Directive]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Directive;
+  WITH yyt^.Directive DO
+   pattern := ppattern;
+   condition := pcondition;
+   costs := pcosts;
+   decl := pdecl;
+   instr := pinstr;
+   directives := pdirectives;
+   correct := pcorrect;
+   	
+   
+   	
+  END;
+  RETURN yyt;
+ END mDirective;
+
+PROCEDURE mpattern (ppos: tPosition): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [pattern]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := pattern;
+  WITH yyt^.pattern DO
+   pos := ppos;
+  END;
+  RETURN yyt;
+ END mpattern;
+
+PROCEDURE mPattern1 (ppos: tPosition; psel: tIdent; psepos: tPosition; pident: tIdent; pidpos: tPosition; pcorrect: BOOLEAN): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [Pattern1]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Pattern1;
+  WITH yyt^.Pattern1 DO
+   pos := ppos;
+   sel := psel;
+   sepos := psepos;
+   ident := pident;
+   idpos := pidpos;
+   correct := pcorrect;
+  END;
+  RETURN yyt;
+ END mPattern1;
+
+PROCEDURE mPattern (ppos: tPosition; psel: tIdent; psepos: tPosition; pident: tIdent; pidpos: tPosition; ppatterns: tTree; pcorrect: BOOLEAN): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [Pattern]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Pattern;
+  WITH yyt^.Pattern DO
+   pos := ppos;
+   sel := psel;
+   sepos := psepos;
+   ident := pident;
+   idpos := pidpos;
+   patterns := ppatterns;
+   correct := pcorrect;
+  END;
+  RETURN yyt;
+ END mPattern;
+
+PROCEDURE mpatterns (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [patterns]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := patterns;
+  RETURN yyt;
+ END mpatterns;
+
+PROCEDURE mPatterns0 (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [Patterns0]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Patterns0;
+  RETURN yyt;
+ END mPatterns0;
+
+PROCEDURE mPatterns (ppattern: tTree; ppatterns: tTree): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [Patterns]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Patterns;
+  WITH yyt^.Patterns DO
+   pattern := ppattern;
+   patterns := ppatterns;
+  END;
+  RETURN yyt;
+ END mPatterns;
+
+PROCEDURE mcondition (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [condition]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := condition;
+  RETURN yyt;
+ END mcondition;
+
+PROCEDURE mCondD (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [CondD]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := CondD;
+  RETURN yyt;
+ END mCondD;
+
+PROCEDURE mCondF (pcode: tTree): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [CondF]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := CondF;
+  WITH yyt^.CondF DO
+   code := pcode;
+  END;
+  RETURN yyt;
+ END mCondF;
+
+PROCEDURE mcosts (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [costs]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := costs;
+  RETURN yyt;
+ END mcosts;
+
+PROCEDURE mCostD (): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [CostD]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := CostD;
+  RETURN yyt;
+ END mCostD;
+
+PROCEDURE mCostN (pvalue: INTEGER; pvapos: tPosition): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [CostN]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := CostN;
+  WITH yyt^.CostN DO
+   value := pvalue;
+   vapos := pvapos;
+  END;
+  RETURN yyt;
+ END mCostN;
+
+PROCEDURE mCostF (pcode: tTree): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [CostF]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := CostF;
+  WITH yyt^.CostF DO
+   code := pcode;
+  END;
+  RETURN yyt;
+ END mCostF;
+
+PROCEDURE mcode (ppos: tPosition): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [code]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := code;
+  WITH yyt^.code DO
+   pos := ppos;
+  END;
+  RETURN yyt;
+ END mcode;
+
+PROCEDURE mCdStr (ppos: tPosition; pident: tIdent; pcode: tTree): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [CdStr]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := CdStr;
+  WITH yyt^.CdStr DO
+   pos := ppos;
+   ident := pident;
+   code := pcode;
+   
+  END;
+  RETURN yyt;
+ END mCdStr;
+
+PROCEDURE mCdId (ppos: tPosition; pident: tIdent; pcode: tTree): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [CdId]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := CdId;
+  WITH yyt^.CdId DO
+   pos := ppos;
+   ident := pident;
+   code := pcode;
+   
+  END;
+  RETURN yyt;
+ END mCdId;
+
+PROCEDURE mCdDot (ppos: tPosition; pcode: tTree): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [CdDot]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := CdDot;
+  WITH yyt^.CdDot DO
+   pos := ppos;
+   code := pcode;
+  END;
+  RETURN yyt;
+ END mCdDot;
+
+PROCEDURE mCdComma (ppos: tPosition; pcode: tTree): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [CdComma]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := CdComma;
+  WITH yyt^.CdComma DO
+   pos := ppos;
+   code := pcode;
+  END;
+  RETURN yyt;
+ END mCdComma;
+
+PROCEDURE mCdLPar (ppos: tPosition; pcode: tTree): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [CdLPar]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := CdLPar;
+  WITH yyt^.CdLPar DO
+   pos := ppos;
+   code := pcode;
+  END;
+  RETURN yyt;
+ END mCdLPar;
+
+PROCEDURE mCdRPar (ppos: tPosition; pcode: tTree): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [CdRPar]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := CdRPar;
+  WITH yyt^.CdRPar DO
+   pos := ppos;
+   code := pcode;
+  END;
+  RETURN yyt;
+ END mCdRPar;
+
+PROCEDURE mCdLBra (ppos: tPosition; pcode: tTree): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [CdLBra]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := CdLBra;
+  WITH yyt^.CdLBra DO
+   pos := ppos;
+   code := pcode;
+  END;
+  RETURN yyt;
+ END mCdLBra;
+
+PROCEDURE mCdRBra (ppos: tPosition; pcode: tTree): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [CdRBra]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := CdRBra;
+  WITH yyt^.CdRBra DO
+   pos := ppos;
+   code := pcode;
+  END;
+  RETURN yyt;
+ END mCdRBra;
+
+PROCEDURE mCdSpa (ppos: tPosition; pref: tStringRef; pcode: tTree): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [CdSpa]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := CdSpa;
+  WITH yyt^.CdSpa DO
+   pos := ppos;
+   ref := pref;
+   code := pcode;
+  END;
+  RETURN yyt;
+ END mCdSpa;
+
+PROCEDURE mCdCom (ppos: tPosition; pref: tStringRef; pcode: tTree): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [CdCom]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := CdCom;
+  WITH yyt^.CdCom DO
+   pos := ppos;
+   ref := pref;
+   code := pcode;
+  END;
+  RETURN yyt;
+ END mCdCom;
+
+PROCEDURE mCdRst (ppos: tPosition; pref: tStringRef; pcode: tTree): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [CdRst]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := CdRst;
+  WITH yyt^.CdRst DO
+   pos := ppos;
+   ref := pref;
+   code := pcode;
+  END;
+  RETURN yyt;
+ END mCdRst;
+
+PROCEDURE mCdEnd (ppos: tPosition): tTree;
+ VAR yyByteCount	: LONGINT;
+ VAR yyt	: tTree;
+ BEGIN
+  	yyt := yyPoolFreePtr;   IF SYSTEM.ADDRESS (yyt) >= yyPoolMaxPtr THEN yyt := yyAlloc (); END;   INC (yyPoolFreePtr,  yyNodeSize [CdEnd]);
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := CdEnd;
+  WITH yyt^.CdEnd DO
+   pos := ppos;
+  END;
+  RETURN yyt;
+ END mCdEnd;
+
+TYPE yyPtrtTree	= POINTER TO tTree;
+
+VAR yyf	: IO.tFile;
+VAR yyLabel	: SHORTCARD;
+VAR yyKind	: SHORTCARD;
+VAR yyc	: CHAR;
+VAR yys	: Strings.tString;
+
+PROCEDURE yyMark (yyt: tTree);
+ BEGIN
+  LOOP
+   IF yyt = NoTree THEN RETURN; END;
+   INC (yyt^.yyHead.yyMark);
+   IF yyt^.yyHead.yyMark > 1 THEN RETURN; END;
+
+   CASE yyt^.Kind OF
+| Spec:
+yyMark (yyt^.Spec.export);
+yyMark (yyt^.Spec.global);
+yyMark (yyt^.Spec.begin);
+yyMark (yyt^.Spec.close);
+yyMark (yyt^.Spec.classes);
+yyt := yyt^.Spec.functions;
+| Class:
+yyMark (yyt^.Class.nodes);
+yyt := yyt^.Class.classes;
+| Node:
+yyMark (yyt^.Node.sons);
+yyt := yyt^.Node.nodes;
+| Son:
+yyt := yyt^.Son.sons;
+| Attribute:
+yyt := yyt^.Attribute.attributes;
+| Function:
+yyMark (yyt^.Function.in);
+yyMark (yyt^.Function.out);
+yyMark (yyt^.Function.result);
+yyMark (yyt^.Function.domain);
+yyMark (yyt^.Function.directives);
+yyt := yyt^.Function.functions;
+| Ident:
+yyt := yyt^.Ident.domain;
+| Directive:
+yyMark (yyt^.Directive.pattern);
+yyMark (yyt^.Directive.condition);
+yyMark (yyt^.Directive.costs);
+yyMark (yyt^.Directive.decl);
+yyMark (yyt^.Directive.instr);
+yyt := yyt^.Directive.directives;
+| Pattern:
+yyt := yyt^.Pattern.patterns;
+| Patterns:
+yyMark (yyt^.Patterns.pattern);
+yyt := yyt^.Patterns.patterns;
+| CondF:
+yyt := yyt^.CondF.code;
+| CostF:
+yyt := yyt^.CostF.code;
+| CdStr:
+yyt := yyt^.CdStr.code;
+| CdId:
+yyt := yyt^.CdId.code;
+| CdDot:
+yyt := yyt^.CdDot.code;
+| CdComma:
+yyt := yyt^.CdComma.code;
+| CdLPar:
+yyt := yyt^.CdLPar.code;
+| CdRPar:
+yyt := yyt^.CdRPar.code;
+| CdLBra:
+yyt := yyt^.CdLBra.code;
+| CdRBra:
+yyt := yyt^.CdRBra.code;
+| CdSpa:
+yyt := yyt^.CdSpa.code;
+| CdCom:
+yyt := yyt^.CdCom.code;
+| CdRst:
+yyt := yyt^.CdRst.code;
+   ELSE RETURN;
+   END;
+  END;
+ END yyMark;
+
+CONST yyInitTreeStoreSize	= 32;
+
+VAR yyTreeStoreSize	: LONGINT;
+VAR yyTreeStorePtr	: POINTER TO ARRAY [0..50000] OF tTree;
+VAR yyLabelCount	: INTEGER;
+VAR yyRecursionLevel	: SHORTINT;
+
+PROCEDURE yyMapToLabel (yyTree: tTree): SHORTCARD;
+ VAR yyi	: INTEGER;
+ BEGIN
+  FOR yyi := 1 TO yyLabelCount DO
+   IF yyTreeStorePtr^[yyi] = yyTree THEN RETURN yyi; END;
+  END;
+  INC (yyLabelCount);
+  IF yyLabelCount = yyTreeStoreSize THEN
+   DynArray.ExtendArray (yyTreeStorePtr, yyTreeStoreSize, SYSTEM.TSIZE (tTree));
+  END;
+  yyTreeStorePtr^[yyLabelCount] := yyTree;
+  RETURN yyLabelCount;
+ END yyMapToLabel;
+
+PROCEDURE yyMapToTree (yyLabel: SHORTCARD): tTree;
+ BEGIN RETURN yyTreeStorePtr^[yyLabel]; END yyMapToTree;
+
+PROCEDURE yyWriteNl; BEGIN IO.WriteNl (yyf); END yyWriteNl;
+
+PROCEDURE yyWriteSelector (yys: ARRAY OF CHAR);
+ BEGIN IO.WriteS (yyf, yys); Layout.WriteSpaces (yyf, 15 - INTEGER (HIGH (yys))); IO.WriteS (yyf, ' = '); END yyWriteSelector;
+
+PROCEDURE yyWriteHex (VAR yyx: ARRAY OF SYSTEM.BYTE);
+ VAR yyi	: INTEGER;
+ BEGIN
+  FOR yyi := 0 TO INTEGER (HIGH (yyx)) DO
+   IO.WriteN (yyf, ORD (CHAR (yyx [yyi])), 2, 16);
+   IO.WriteC (yyf, ' ');
+  END;
+ END yyWriteHex;
+
+VAR yyIndentLevel	: SHORTINT;
+
+PROCEDURE WriteTree (yyyf: IO.tFile; yyt: tTree);
+ VAR yySaveLevel	: SHORTINT;
+ BEGIN
+  yyf := yyyf;
+  IF yyRecursionLevel = 0 THEN yyLabelCount := 0; END;
+  INC (yyRecursionLevel);
+  yyMark (yyt);
+  yySaveLevel := yyIndentLevel;
+  yyIndentLevel := 0;
+  yyWriteTree (yyt);
+  yyIndentLevel := yySaveLevel;
+  DEC (yyRecursionLevel);
+ END WriteTree;
+
+PROCEDURE yyIndentSelector (yys: ARRAY OF CHAR);
+ BEGIN Layout.WriteSpaces (yyf, yyIndentLevel); yyWriteSelector (yys); END yyIndentSelector;
+
+PROCEDURE yyIndentSelectorTree (yys: ARRAY OF CHAR; yyt: tTree);
+ BEGIN yyIndentSelector (yys); 	yyWriteTree (yyt); END yyIndentSelectorTree;
+
+PROCEDURE yWriteSpec (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'Spec'); yyWriteNl;
+  yyIndentSelector ('name'); 		Idents.WriteIdent (yyf, yyt^.Spec.name); yyWriteNl;
+  yyIndentSelector ('pos'); 	Positions.WritePosition (yyf, yyt^.Spec.pos); yyWriteNl;
+  yyIndentSelector ('grna'); 		Idents.WriteIdent (yyf, yyt^.Spec.grna); yyWriteNl;
+  yyIndentSelector ('grpos'); 	Positions.WritePosition (yyf, yyt^.Spec.grpos); yyWriteNl;
+  yyIndentSelectorTree ('export', yyt^.Spec.export);
+  yyIndentSelectorTree ('global', yyt^.Spec.global);
+  yyIndentSelectorTree ('begin', yyt^.Spec.begin);
+  yyIndentSelectorTree ('close', yyt^.Spec.close);
+  yyIndentSelectorTree ('classes', yyt^.Spec.classes);
+ END yWriteSpec;
+
+PROCEDURE yWriteClass (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'Class'); yyWriteNl;
+  yyIndentSelector ('suid'); 		Idents.WriteIdent (yyf, yyt^.Class.suid); yyWriteNl;
+  yyIndentSelector ('supos'); 	Positions.WritePosition (yyf, yyt^.Class.supos); yyWriteNl;
+  yyIndentSelector ('clid'); 		Idents.WriteIdent (yyf, yyt^.Class.clid); yyWriteNl;
+  yyIndentSelector ('clpos'); 	Positions.WritePosition (yyf, yyt^.Class.clpos); yyWriteNl;
+  yyIndentSelectorTree ('nodes', yyt^.Class.nodes);
+  yyIndentSelector ('correct'); 	IO.WriteB (yyf, yyt^.Class.correct); yyWriteNl;
+ END yWriteClass;
+
+PROCEDURE yWriteNode (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'Node'); yyWriteNl;
+  yyIndentSelector ('name'); 		Idents.WriteIdent (yyf, yyt^.Node.name); yyWriteNl;
+  yyIndentSelector ('napos'); 	Positions.WritePosition (yyf, yyt^.Node.napos); yyWriteNl;
+  yyIndentSelector ('ident'); 		Idents.WriteIdent (yyf, yyt^.Node.ident); yyWriteNl;
+  yyIndentSelector ('idpos'); 	Positions.WritePosition (yyf, yyt^.Node.idpos); yyWriteNl;
+  yyIndentSelectorTree ('sons', yyt^.Node.sons);
+  yyIndentSelector ('correct'); 	IO.WriteB (yyf, yyt^.Node.correct); yyWriteNl;
+ END yWriteNode;
+
+PROCEDURE yWriteSon (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'Son'); yyWriteNl;
+  yyIndentSelector ('name'); 		Idents.WriteIdent (yyf, yyt^.Son.name); yyWriteNl;
+  yyIndentSelector ('napos'); 	Positions.WritePosition (yyf, yyt^.Son.napos); yyWriteNl;
+  yyIndentSelector ('ident'); 		Idents.WriteIdent (yyf, yyt^.Son.ident); yyWriteNl;
+  yyIndentSelector ('idpos'); 	Positions.WritePosition (yyf, yyt^.Son.idpos); yyWriteNl;
+  yyIndentSelector ('correct'); 	IO.WriteB (yyf, yyt^.Son.correct); yyWriteNl;
+ END yWriteSon;
+
+PROCEDURE yWriteAttribute (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'Attribute'); yyWriteNl;
+  yyIndentSelector ('ident'); 		Idents.WriteIdent (yyf, yyt^.Attribute.ident); yyWriteNl;
+  yyIndentSelector ('idpos'); 	Positions.WritePosition (yyf, yyt^.Attribute.idpos); yyWriteNl;
+  yyIndentSelector ('mod'); 		Idents.WriteIdent (yyf, yyt^.Attribute.mod); yyWriteNl;
+  yyIndentSelector ('mopos'); 	Positions.WritePosition (yyf, yyt^.Attribute.mopos); yyWriteNl;
+  yyIndentSelector ('type'); 		Idents.WriteIdent (yyf, yyt^.Attribute.type); yyWriteNl;
+  yyIndentSelector ('typos'); 	Positions.WritePosition (yyf, yyt^.Attribute.typos); yyWriteNl;
+ END yWriteAttribute;
+
+PROCEDURE yWriteFunction (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'Function'); yyWriteNl;
+  yyIndentSelector ('name'); 		Idents.WriteIdent (yyf, yyt^.Function.name); yyWriteNl;
+  yyIndentSelector ('napos'); 	Positions.WritePosition (yyf, yyt^.Function.napos); yyWriteNl;
+  yyIndentSelectorTree ('in', yyt^.Function.in);
+  yyIndentSelectorTree ('out', yyt^.Function.out);
+  yyIndentSelectorTree ('result', yyt^.Function.result);
+  yyIndentSelectorTree ('domain', yyt^.Function.domain);
+  yyIndentSelectorTree ('directives', yyt^.Function.directives);
+  yyIndentSelector ('funct'); 	yyWriteHex (yyt^.Function.funct); yyWriteNl;
+  yyIndentSelector ('domainset'); 		Sets.WriteSet (yyf, yyt^.Function.domainset); yyWriteNl;
+ END yWriteFunction;
+
+PROCEDURE yWriteType (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'Type'); yyWriteNl;
+  yyIndentSelector ('mod'); 		Idents.WriteIdent (yyf, yyt^.Type.mod); yyWriteNl;
+  yyIndentSelector ('mopos'); 	Positions.WritePosition (yyf, yyt^.Type.mopos); yyWriteNl;
+  yyIndentSelector ('type'); 		Idents.WriteIdent (yyf, yyt^.Type.type); yyWriteNl;
+  yyIndentSelector ('typos'); 	Positions.WritePosition (yyf, yyt^.Type.typos); yyWriteNl;
+ END yWriteType;
+
+PROCEDURE yWriteIdent (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'Ident'); yyWriteNl;
+  yyIndentSelector ('ident'); 		Idents.WriteIdent (yyf, yyt^.Ident.ident); yyWriteNl;
+  yyIndentSelector ('idpos'); 	Positions.WritePosition (yyf, yyt^.Ident.idpos); yyWriteNl;
+ END yWriteIdent;
+
+PROCEDURE yWriteDirective (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'Directive'); yyWriteNl;
+  yyIndentSelectorTree ('pattern', yyt^.Directive.pattern);
+  yyIndentSelectorTree ('condition', yyt^.Directive.condition);
+  yyIndentSelectorTree ('costs', yyt^.Directive.costs);
+  yyIndentSelectorTree ('decl', yyt^.Directive.decl);
+  yyIndentSelectorTree ('instr', yyt^.Directive.instr);
+  yyIndentSelector ('correct'); 	IO.WriteB (yyf, yyt^.Directive.correct); yyWriteNl;
+  yyIndentSelector ('number'); 	IO.WriteI (yyf, yyt^.Directive.number, 0); yyWriteNl;
+  yyIndentSelector ('pat'); 	yyWriteHex (yyt^.Directive.pat); yyWriteNl;
+  yyIndentSelector ('iter'); 	IO.WriteB (yyf, yyt^.Directive.iter); yyWriteNl;
+ END yWriteDirective;
+
+PROCEDURE yWritepattern (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'pattern'); yyWriteNl;
+  yyIndentSelector ('pos'); 	Positions.WritePosition (yyf, yyt^.pattern.pos); yyWriteNl;
+ END yWritepattern;
+
+PROCEDURE yWritePattern1 (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'Pattern1'); yyWriteNl;
+  yyIndentSelector ('pos'); 	Positions.WritePosition (yyf, yyt^.Pattern1.pos); yyWriteNl;
+  yyIndentSelector ('sel'); 		Idents.WriteIdent (yyf, yyt^.Pattern1.sel); yyWriteNl;
+  yyIndentSelector ('sepos'); 	Positions.WritePosition (yyf, yyt^.Pattern1.sepos); yyWriteNl;
+  yyIndentSelector ('ident'); 		Idents.WriteIdent (yyf, yyt^.Pattern1.ident); yyWriteNl;
+  yyIndentSelector ('idpos'); 	Positions.WritePosition (yyf, yyt^.Pattern1.idpos); yyWriteNl;
+  yyIndentSelector ('correct'); 	IO.WriteB (yyf, yyt^.Pattern1.correct); yyWriteNl;
+ END yWritePattern1;
+
+PROCEDURE yWritePattern (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'Pattern'); yyWriteNl;
+  yyIndentSelector ('pos'); 	Positions.WritePosition (yyf, yyt^.Pattern.pos); yyWriteNl;
+  yyIndentSelector ('sel'); 		Idents.WriteIdent (yyf, yyt^.Pattern.sel); yyWriteNl;
+  yyIndentSelector ('sepos'); 	Positions.WritePosition (yyf, yyt^.Pattern.sepos); yyWriteNl;
+  yyIndentSelector ('ident'); 		Idents.WriteIdent (yyf, yyt^.Pattern.ident); yyWriteNl;
+  yyIndentSelector ('idpos'); 	Positions.WritePosition (yyf, yyt^.Pattern.idpos); yyWriteNl;
+  yyIndentSelector ('correct'); 	IO.WriteB (yyf, yyt^.Pattern.correct); yyWriteNl;
+ END yWritePattern;
+
+PROCEDURE yWritePatterns (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'Patterns'); yyWriteNl;
+  yyIndentSelectorTree ('pattern', yyt^.Patterns.pattern);
+ END yWritePatterns;
+
+PROCEDURE yWriteCondF (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'CondF'); yyWriteNl;
+ END yWriteCondF;
+
+PROCEDURE yWriteCostN (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'CostN'); yyWriteNl;
+  yyIndentSelector ('value'); 	IO.WriteI (yyf, yyt^.CostN.value, 0); yyWriteNl;
+  yyIndentSelector ('vapos'); 	Positions.WritePosition (yyf, yyt^.CostN.vapos); yyWriteNl;
+ END yWriteCostN;
+
+PROCEDURE yWriteCostF (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'CostF'); yyWriteNl;
+ END yWriteCostF;
+
+PROCEDURE yWritecode (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'code'); yyWriteNl;
+  yyIndentSelector ('pos'); 	Positions.WritePosition (yyf, yyt^.code.pos); yyWriteNl;
+ END yWritecode;
+
+PROCEDURE yWriteCdStr (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'CdStr'); yyWriteNl;
+  yyIndentSelector ('pos'); 	Positions.WritePosition (yyf, yyt^.CdStr.pos); yyWriteNl;
+  yyIndentSelector ('ident'); 		Idents.WriteIdent (yyf, yyt^.CdStr.ident); yyWriteNl;
+  yyIndentSelector ('mode'); 	yyWriteHex (yyt^.CdStr.mode); yyWriteNl;
+ END yWriteCdStr;
+
+PROCEDURE yWriteCdId (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'CdId'); yyWriteNl;
+  yyIndentSelector ('pos'); 	Positions.WritePosition (yyf, yyt^.CdId.pos); yyWriteNl;
+  yyIndentSelector ('ident'); 		Idents.WriteIdent (yyf, yyt^.CdId.ident); yyWriteNl;
+  yyIndentSelector ('mode'); 	yyWriteHex (yyt^.CdId.mode); yyWriteNl;
+ END yWriteCdId;
+
+PROCEDURE yWriteCdDot (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'CdDot'); yyWriteNl;
+  yyIndentSelector ('pos'); 	Positions.WritePosition (yyf, yyt^.CdDot.pos); yyWriteNl;
+ END yWriteCdDot;
+
+PROCEDURE yWriteCdComma (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'CdComma'); yyWriteNl;
+  yyIndentSelector ('pos'); 	Positions.WritePosition (yyf, yyt^.CdComma.pos); yyWriteNl;
+ END yWriteCdComma;
+
+PROCEDURE yWriteCdLPar (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'CdLPar'); yyWriteNl;
+  yyIndentSelector ('pos'); 	Positions.WritePosition (yyf, yyt^.CdLPar.pos); yyWriteNl;
+ END yWriteCdLPar;
+
+PROCEDURE yWriteCdRPar (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'CdRPar'); yyWriteNl;
+  yyIndentSelector ('pos'); 	Positions.WritePosition (yyf, yyt^.CdRPar.pos); yyWriteNl;
+ END yWriteCdRPar;
+
+PROCEDURE yWriteCdLBra (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'CdLBra'); yyWriteNl;
+  yyIndentSelector ('pos'); 	Positions.WritePosition (yyf, yyt^.CdLBra.pos); yyWriteNl;
+ END yWriteCdLBra;
+
+PROCEDURE yWriteCdRBra (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'CdRBra'); yyWriteNl;
+  yyIndentSelector ('pos'); 	Positions.WritePosition (yyf, yyt^.CdRBra.pos); yyWriteNl;
+ END yWriteCdRBra;
+
+PROCEDURE yWriteCdSpa (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'CdSpa'); yyWriteNl;
+  yyIndentSelector ('pos'); 	Positions.WritePosition (yyf, yyt^.CdSpa.pos); yyWriteNl;
+  yyIndentSelector ('ref'); 	StringMem.WriteString (yyf, yyt^.CdSpa.ref); yyWriteNl;
+ END yWriteCdSpa;
+
+PROCEDURE yWriteCdCom (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'CdCom'); yyWriteNl;
+  yyIndentSelector ('pos'); 	Positions.WritePosition (yyf, yyt^.CdCom.pos); yyWriteNl;
+  yyIndentSelector ('ref'); 	StringMem.WriteString (yyf, yyt^.CdCom.ref); yyWriteNl;
+ END yWriteCdCom;
+
+PROCEDURE yWriteCdRst (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'CdRst'); yyWriteNl;
+  yyIndentSelector ('pos'); 	Positions.WritePosition (yyf, yyt^.CdRst.pos); yyWriteNl;
+  yyIndentSelector ('ref'); 	StringMem.WriteString (yyf, yyt^.CdRst.ref); yyWriteNl;
+ END yWriteCdRst;
+
+PROCEDURE yWriteCdEnd (yyt: tTree);
+ BEGIN
+  IO.WriteS (yyf, 'CdEnd'); yyWriteNl;
+  yyIndentSelector ('pos'); 	Positions.WritePosition (yyf, yyt^.CdEnd.pos); yyWriteNl;
+ END yWriteCdEnd;
+
+PROCEDURE yyWriteTree (yyt: tTree);
+ VAR yyLevel	: SHORTCARD;
+ BEGIN
+  yyLevel := yyIndentLevel;
+  LOOP
+   IF yyt = NoTree THEN
+    IO.WriteS (yyf, ' NoTree'); yyWriteNl; EXIT;
+   ELSIF yyt^.yyHead.yyMark = 0 THEN
+    IO.WriteC (yyf, '^'); IO.WriteI (yyf, yyMapToLabel (yyt), 0); yyWriteNl; EXIT;
+   ELSIF yyt^.yyHead.yyMark > 1 THEN
+    yyWriteNl; IO.WriteN (yyf, yyMapToLabel (yyt), 6, 10); IO.WriteC (yyf, ':');
+    Layout.WriteSpaces (yyf, yyIndentLevel - 7);
+   ELSE
+    IO.WriteC (yyf, ' ');
+   END;
+   yyt^.yyHead.yyMark := 0;
+   INC (yyIndentLevel, 2);
+
+   CASE yyt^.Kind OF
+| spec: IO.WriteS (yyf, 'spec'); yyWriteNl; EXIT;
+| Spec: yWriteSpec (yyt); yyIndentSelector ('functions'); yyt := yyt^.Spec.functions;
+| classes: IO.WriteS (yyf, 'classes'); yyWriteNl; EXIT;
+| Class0: IO.WriteS (yyf, 'Class0'); yyWriteNl; EXIT;
+| Class: yWriteClass (yyt); yyIndentSelector ('classes'); yyt := yyt^.Class.classes;
+| nodes: IO.WriteS (yyf, 'nodes'); yyWriteNl; EXIT;
+| Node0: IO.WriteS (yyf, 'Node0'); yyWriteNl; EXIT;
+| Node: yWriteNode (yyt); yyIndentSelector ('nodes'); yyt := yyt^.Node.nodes;
+| sons: IO.WriteS (yyf, 'sons'); yyWriteNl; EXIT;
+| Son0: IO.WriteS (yyf, 'Son0'); yyWriteNl; EXIT;
+| Son: yWriteSon (yyt); yyIndentSelector ('sons'); yyt := yyt^.Son.sons;
+| attributes: IO.WriteS (yyf, 'attributes'); yyWriteNl; EXIT;
+| Attribute0: IO.WriteS (yyf, 'Attribute0'); yyWriteNl; EXIT;
+| Attribute: yWriteAttribute (yyt); yyIndentSelector ('attributes'); yyt := yyt^.Attribute.attributes;
+| functions: IO.WriteS (yyf, 'functions'); yyWriteNl; EXIT;
+| Function0: IO.WriteS (yyf, 'Function0'); yyWriteNl; EXIT;
+| Function: yWriteFunction (yyt); yyIndentSelector ('functions'); yyt := yyt^.Function.functions;
+| result: IO.WriteS (yyf, 'result'); yyWriteNl; EXIT;
+| NoResult: IO.WriteS (yyf, 'NoResult'); yyWriteNl; EXIT;
+| Type: yWriteType (yyt); EXIT;
+| domain: IO.WriteS (yyf, 'domain'); yyWriteNl; EXIT;
+| Ident0: IO.WriteS (yyf, 'Ident0'); yyWriteNl; EXIT;
+| Ident: yWriteIdent (yyt); yyIndentSelector ('domain'); yyt := yyt^.Ident.domain;
+| directives: IO.WriteS (yyf, 'directives'); yyWriteNl; EXIT;
+| Directive0: IO.WriteS (yyf, 'Directive0'); yyWriteNl; EXIT;
+| Directive: yWriteDirective (yyt); yyIndentSelector ('directives'); yyt := yyt^.Directive.directives;
+| pattern: yWritepattern (yyt); EXIT;
+| Pattern1: yWritePattern1 (yyt); EXIT;
+| Pattern: yWritePattern (yyt); yyIndentSelector ('patterns'); yyt := yyt^.Pattern.patterns;
+| patterns: IO.WriteS (yyf, 'patterns'); yyWriteNl; EXIT;
+| Patterns0: IO.WriteS (yyf, 'Patterns0'); yyWriteNl; EXIT;
+| Patterns: yWritePatterns (yyt); yyIndentSelector ('patterns'); yyt := yyt^.Patterns.patterns;
+| condition: IO.WriteS (yyf, 'condition'); yyWriteNl; EXIT;
+| CondD: IO.WriteS (yyf, 'CondD'); yyWriteNl; EXIT;
+| CondF: yWriteCondF (yyt); yyIndentSelector ('code'); yyt := yyt^.CondF.code;
+| costs: IO.WriteS (yyf, 'costs'); yyWriteNl; EXIT;
+| CostD: IO.WriteS (yyf, 'CostD'); yyWriteNl; EXIT;
+| CostN: yWriteCostN (yyt); EXIT;
+| CostF: yWriteCostF (yyt); yyIndentSelector ('code'); yyt := yyt^.CostF.code;
+| code: yWritecode (yyt); EXIT;
+| CdStr: yWriteCdStr (yyt); yyIndentSelector ('code'); yyt := yyt^.CdStr.code;
+| CdId: yWriteCdId (yyt); yyIndentSelector ('code'); yyt := yyt^.CdId.code;
+| CdDot: yWriteCdDot (yyt); yyIndentSelector ('code'); yyt := yyt^.CdDot.code;
+| CdComma: yWriteCdComma (yyt); yyIndentSelector ('code'); yyt := yyt^.CdComma.code;
+| CdLPar: yWriteCdLPar (yyt); yyIndentSelector ('code'); yyt := yyt^.CdLPar.code;
+| CdRPar: yWriteCdRPar (yyt); yyIndentSelector ('code'); yyt := yyt^.CdRPar.code;
+| CdLBra: yWriteCdLBra (yyt); yyIndentSelector ('code'); yyt := yyt^.CdLBra.code;
+| CdRBra: yWriteCdRBra (yyt); yyIndentSelector ('code'); yyt := yyt^.CdRBra.code;
+| CdSpa: yWriteCdSpa (yyt); yyIndentSelector ('code'); yyt := yyt^.CdSpa.code;
+| CdCom: yWriteCdCom (yyt); yyIndentSelector ('code'); yyt := yyt^.CdCom.code;
+| CdRst: yWriteCdRst (yyt); yyIndentSelector ('code'); yyt := yyt^.CdRst.code;
+| CdEnd: yWriteCdEnd (yyt); EXIT;
+   ELSE EXIT;
+   END;
+  END;
+  yyIndentLevel := yyLevel;
+ END yyWriteTree;
+
+CONST yyNil	= 374C;
+CONST yyNoLabel	= 375C;
+CONST yyLabelDef	= 376C;
+CONST yyLabelUse	= 377C;
+
+PROCEDURE ReverseTree (yyOld: tTree): tTree;
+ VAR yyNew, yyNext, yyTail	: tTree;
+ BEGIN
+  yyNew	:= yyOld;
+  yyTail	:= yyOld;
+  LOOP
+   CASE yyOld^.Kind OF
+| Class: yyNext := yyOld^.Class.classes; yyOld^.Class.classes := yyNew;
+| Node: yyNext := yyOld^.Node.nodes; yyOld^.Node.nodes := yyNew;
+| Son: yyNext := yyOld^.Son.sons; yyOld^.Son.sons := yyNew;
+| Attribute: yyNext := yyOld^.Attribute.attributes; yyOld^.Attribute.attributes := yyNew;
+| Function: yyNext := yyOld^.Function.functions; yyOld^.Function.functions := yyNew;
+| Ident: yyNext := yyOld^.Ident.domain; yyOld^.Ident.domain := yyNew;
+| Directive: yyNext := yyOld^.Directive.directives; yyOld^.Directive.directives := yyNew;
+| Patterns: yyNext := yyOld^.Patterns.patterns; yyOld^.Patterns.patterns := yyNew;
+| CdStr: yyNext := yyOld^.CdStr.code; yyOld^.CdStr.code := yyNew;
+| CdId: yyNext := yyOld^.CdId.code; yyOld^.CdId.code := yyNew;
+| CdDot: yyNext := yyOld^.CdDot.code; yyOld^.CdDot.code := yyNew;
+| CdComma: yyNext := yyOld^.CdComma.code; yyOld^.CdComma.code := yyNew;
+| CdLPar: yyNext := yyOld^.CdLPar.code; yyOld^.CdLPar.code := yyNew;
+| CdRPar: yyNext := yyOld^.CdRPar.code; yyOld^.CdRPar.code := yyNew;
+| CdLBra: yyNext := yyOld^.CdLBra.code; yyOld^.CdLBra.code := yyNew;
+| CdRBra: yyNext := yyOld^.CdRBra.code; yyOld^.CdRBra.code := yyNew;
+| CdSpa: yyNext := yyOld^.CdSpa.code; yyOld^.CdSpa.code := yyNew;
+| CdCom: yyNext := yyOld^.CdCom.code; yyOld^.CdCom.code := yyNew;
+| CdRst: yyNext := yyOld^.CdRst.code; yyOld^.CdRst.code := yyNew;
+   ELSE EXIT;
+   END;
+   yyNew	:= yyOld;
+   yyOld	:= yyNext;
+  END;
+  CASE yyTail^.Kind OF
+| Class: yyTail^.Class.classes := yyOld;
+| Node: yyTail^.Node.nodes := yyOld;
+| Son: yyTail^.Son.sons := yyOld;
+| Attribute: yyTail^.Attribute.attributes := yyOld;
+| Function: yyTail^.Function.functions := yyOld;
+| Ident: yyTail^.Ident.domain := yyOld;
+| Directive: yyTail^.Directive.directives := yyOld;
+| Patterns: yyTail^.Patterns.patterns := yyOld;
+| CdStr: yyTail^.CdStr.code := yyOld;
+| CdId: yyTail^.CdId.code := yyOld;
+| CdDot: yyTail^.CdDot.code := yyOld;
+| CdComma: yyTail^.CdComma.code := yyOld;
+| CdLPar: yyTail^.CdLPar.code := yyOld;
+| CdRPar: yyTail^.CdRPar.code := yyOld;
+| CdLBra: yyTail^.CdLBra.code := yyOld;
+| CdRBra: yyTail^.CdRBra.code := yyOld;
+| CdSpa: yyTail^.CdSpa.code := yyOld;
+| CdCom: yyTail^.CdCom.code := yyOld;
+| CdRst: yyTail^.CdRst.code := yyOld;
+  ELSE
+  END;
+  RETURN yyNew;
+ END ReverseTree;
+
+PROCEDURE BeginTree;
+ BEGIN
+ END BeginTree;
+
+PROCEDURE CloseTree;
+ BEGIN
+ END CloseTree;
+
+PROCEDURE xxExit;
+ BEGIN
+  IO.CloseIO; System.Exit (1);
+ END xxExit;
+
+BEGIN
+ yyBlockList	:= NIL;
+ yyPoolFreePtr	:= NIL;
+ yyPoolMaxPtr	:= NIL;
+ HeapUsed	:= 0;
+ yyExit	:= xxExit;
+ yyNodeSize [spec] := SYSTEM.TSIZE (yspec);
+ yyNodeSize [Spec] := SYSTEM.TSIZE (ySpec);
+ yyNodeSize [classes] := SYSTEM.TSIZE (yclasses);
+ yyNodeSize [Class0] := SYSTEM.TSIZE (yClass0);
+ yyNodeSize [Class] := SYSTEM.TSIZE (yClass);
+ yyNodeSize [nodes] := SYSTEM.TSIZE (ynodes);
+ yyNodeSize [Node0] := SYSTEM.TSIZE (yNode0);
+ yyNodeSize [Node] := SYSTEM.TSIZE (yNode);
+ yyNodeSize [sons] := SYSTEM.TSIZE (ysons);
+ yyNodeSize [Son0] := SYSTEM.TSIZE (ySon0);
+ yyNodeSize [Son] := SYSTEM.TSIZE (ySon);
+ yyNodeSize [attributes] := SYSTEM.TSIZE (yattributes);
+ yyNodeSize [Attribute0] := SYSTEM.TSIZE (yAttribute0);
+ yyNodeSize [Attribute] := SYSTEM.TSIZE (yAttribute);
+ yyNodeSize [functions] := SYSTEM.TSIZE (yfunctions);
+ yyNodeSize [Function0] := SYSTEM.TSIZE (yFunction0);
+ yyNodeSize [Function] := SYSTEM.TSIZE (yFunction);
+ yyNodeSize [result] := SYSTEM.TSIZE (yresult);
+ yyNodeSize [NoResult] := SYSTEM.TSIZE (yNoResult);
+ yyNodeSize [Type] := SYSTEM.TSIZE (yType);
+ yyNodeSize [domain] := SYSTEM.TSIZE (ydomain);
+ yyNodeSize [Ident0] := SYSTEM.TSIZE (yIdent0);
+ yyNodeSize [Ident] := SYSTEM.TSIZE (yIdent);
+ yyNodeSize [directives] := SYSTEM.TSIZE (ydirectives);
+ yyNodeSize [Directive0] := SYSTEM.TSIZE (yDirective0);
+ yyNodeSize [Directive] := SYSTEM.TSIZE (yDirective);
+ yyNodeSize [pattern] := SYSTEM.TSIZE (ypattern);
+ yyNodeSize [Pattern1] := SYSTEM.TSIZE (yPattern1);
+ yyNodeSize [Pattern] := SYSTEM.TSIZE (yPattern);
+ yyNodeSize [patterns] := SYSTEM.TSIZE (ypatterns);
+ yyNodeSize [Patterns0] := SYSTEM.TSIZE (yPatterns0);
+ yyNodeSize [Patterns] := SYSTEM.TSIZE (yPatterns);
+ yyNodeSize [condition] := SYSTEM.TSIZE (ycondition);
+ yyNodeSize [CondD] := SYSTEM.TSIZE (yCondD);
+ yyNodeSize [CondF] := SYSTEM.TSIZE (yCondF);
+ yyNodeSize [costs] := SYSTEM.TSIZE (ycosts);
+ yyNodeSize [CostD] := SYSTEM.TSIZE (yCostD);
+ yyNodeSize [CostN] := SYSTEM.TSIZE (yCostN);
+ yyNodeSize [CostF] := SYSTEM.TSIZE (yCostF);
+ yyNodeSize [code] := SYSTEM.TSIZE (ycode);
+ yyNodeSize [CdStr] := SYSTEM.TSIZE (yCdStr);
+ yyNodeSize [CdId] := SYSTEM.TSIZE (yCdId);
+ yyNodeSize [CdDot] := SYSTEM.TSIZE (yCdDot);
+ yyNodeSize [CdComma] := SYSTEM.TSIZE (yCdComma);
+ yyNodeSize [CdLPar] := SYSTEM.TSIZE (yCdLPar);
+ yyNodeSize [CdRPar] := SYSTEM.TSIZE (yCdRPar);
+ yyNodeSize [CdLBra] := SYSTEM.TSIZE (yCdLBra);
+ yyNodeSize [CdRBra] := SYSTEM.TSIZE (yCdRBra);
+ yyNodeSize [CdSpa] := SYSTEM.TSIZE (yCdSpa);
+ yyNodeSize [CdCom] := SYSTEM.TSIZE (yCdCom);
+ yyNodeSize [CdRst] := SYSTEM.TSIZE (yCdRst);
+ yyNodeSize [CdEnd] := SYSTEM.TSIZE (yCdEnd);
+ yyMaxSize	:= 0;
+ FOR yyi := 1 TO 52 DO
+  yyNodeSize [yyi] := LONGINT (BITSET (yyNodeSize [yyi] + CARDINAL (General.MaxAlign) - 1) * General.AlignMasks [General.MaxAlign]);
+  yyMaxSize := General.Max (yyNodeSize [yyi], yyMaxSize);
+ END;
+ yyTypeRange [spec] := Spec;
+ yyTypeRange [Spec] := Spec;
+ yyTypeRange [classes] := Class;
+ yyTypeRange [Class0] := Class0;
+ yyTypeRange [Class] := Class;
+ yyTypeRange [nodes] := Node;
+ yyTypeRange [Node0] := Node0;
+ yyTypeRange [Node] := Node;
+ yyTypeRange [sons] := Son;
+ yyTypeRange [Son0] := Son0;
+ yyTypeRange [Son] := Son;
+ yyTypeRange [attributes] := Attribute;
+ yyTypeRange [Attribute0] := Attribute0;
+ yyTypeRange [Attribute] := Attribute;
+ yyTypeRange [functions] := Function;
+ yyTypeRange [Function0] := Function0;
+ yyTypeRange [Function] := Function;
+ yyTypeRange [result] := Type;
+ yyTypeRange [NoResult] := NoResult;
+ yyTypeRange [Type] := Type;
+ yyTypeRange [domain] := Ident;
+ yyTypeRange [Ident0] := Ident0;
+ yyTypeRange [Ident] := Ident;
+ yyTypeRange [directives] := Directive;
+ yyTypeRange [Directive0] := Directive0;
+ yyTypeRange [Directive] := Directive;
+ yyTypeRange [pattern] := Pattern;
+ yyTypeRange [Pattern1] := Pattern1;
+ yyTypeRange [Pattern] := Pattern;
+ yyTypeRange [patterns] := Patterns;
+ yyTypeRange [Patterns0] := Patterns0;
+ yyTypeRange [Patterns] := Patterns;
+ yyTypeRange [condition] := CondF;
+ yyTypeRange [CondD] := CondD;
+ yyTypeRange [CondF] := CondF;
+ yyTypeRange [costs] := CostF;
+ yyTypeRange [CostD] := CostD;
+ yyTypeRange [CostN] := CostN;
+ yyTypeRange [CostF] := CostF;
+ yyTypeRange [code] := CdEnd;
+ yyTypeRange [CdStr] := CdStr;
+ yyTypeRange [CdId] := CdId;
+ yyTypeRange [CdDot] := CdDot;
+ yyTypeRange [CdComma] := CdComma;
+ yyTypeRange [CdLPar] := CdLPar;
+ yyTypeRange [CdRPar] := CdRPar;
+ yyTypeRange [CdLBra] := CdLBra;
+ yyTypeRange [CdRBra] := CdRBra;
+ yyTypeRange [CdSpa] := CdSpa;
+ yyTypeRange [CdCom] := CdCom;
+ yyTypeRange [CdRst] := CdRst;
+ yyTypeRange [CdEnd] := CdEnd;
+ yyRecursionLevel := 0;
+ yyTreeStoreSize := yyInitTreeStoreSize;
+ DynArray.MakeArray (yyTreeStorePtr, yyTreeStoreSize, SYSTEM.TSIZE (tTree));
+ BeginTree;
+END Tree.

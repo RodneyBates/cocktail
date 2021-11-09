@@ -1,0 +1,138 @@
+     1 (* handle token section *)
+     2 
+     3 (* $Id: Tokens.md,v 1.2 1991/11/21 14:47:50 grosch rel $ *)
+     4 
+     5 (* $Log: Tokens.md,v $
+c    6  * Revision 1.2  1991/11/21  14:47:50  grosch
+c    7  * new version of RCS on SPARC
+c    8  *
+c    9  * Revision 1.1  90/06/11  18:45:47  grosch
+c   10  * layout improvements
+c   11  * 
+c   12  * Revision 1.0  88/10/04  14:27:25  vielsack
+c   13  * Initial revision
+c   14  * 
+c   15  *)
+    16 
+    17 DEFINITION MODULE Tokens;                                                     *
+    18  
+    19 FROM Lists      IMPORT tList;                                                 *     *
+    20 FROM TokenTab   IMPORT Vocabulary,PosType,Terminal;                           *     *     *     *
+    21 FROM Idents     IMPORT tIdent;                                                *     *
+    22 
+    23   PROCEDURE MakeGlobalHeader                                                  *
+    24     (GlobalComment : tList;                                                   *    19
+    25      GlobalCommPos : PosType);                                                *    20
+    26 
+    27   (* Speichert den globalen Kommentar *)
+    28 
+    29   PROCEDURE  MakeTokensHeader                                                 *
+    30     (TOKENPos      : PosType;                                                 *    20
+    31      TOKENComment  : tList;                                                   *    19
+    32      TOKENCommPos  : PosType);                                                *    20
+    33   
+    34   (* Speichert globale Informationen ueber den zu TOKEN gehoerigen
+c   35      Abschnitt *)
+    36 
+    37   PROCEDURE MakeDeclaration                                                   *
+    38     (Token      : tIdent;                                                     *    21
+    39      TokenPos   : PosType;                                                    *    20
+    40      HasCoding  : BOOLEAN;                                                    *     *
+    41      EQUALPos   : PosType;                                                    *    20
+    42      Number     : Terminal;                                                   *    20
+    43      NumberPos  : PosType;                                                    *    20
+    44      Comment    : tList;                                                      *    19
+    45      CommPos    : PosType);                                                   *    20
+    46   
+    47   (* Fuege neue Deklaration ein. *)
+    48 
+    49   PROCEDURE  CompleteDeclarations;                                            *
+    50    
+    51   (* Vervollstaendigt die Eintraege in der Tokentable. Muss n a c h
+c   52      dem letzten MakeDeclaration und v o r dem ersten GetDeclaration
+c   53      aufgerufen werden. *)
+    54 
+    55   PROCEDURE  GetGlobalHeader                                                  *
+    56     (VAR GlobalComment : tList;                                              24    19
+    57      VAR GlobalCommPos : PosType);                                           25    20
+    58 
+    59   (* liest die mit MakeGlobalHeader abgelegte Information *)
+    60 
+    61   PROCEDURE  GetTokensHeader                                                  *
+    62     (VAR TOKENPos      : PosType;                                            30    20
+    63      VAR TOKENComment  : tList;                                              31    19
+    64      VAR TOKENCommPos  : PosType);                                           32    20
+    65 
+    66   (* liest die mit MakeTokensHeader abgelegte Information *)
+    67 
+    68   PROCEDURE GetDeclaration                                                    *
+    69     (VAR Token      : tIdent;                                                38    21
+    70      VAR TokenPos   : PosType;                                               39    20
+    71      VAR HasCoding  : BOOLEAN;                                               40     *
+    72      VAR EQUALPos   : PosType;                                               41    20
+    73      VAR NumberPos  : PosType;                                               43    20
+    74      VAR Comment    : tList;                                                 44    19
+    75      VAR CommPos    : PosType) : BOOLEAN;                                    45    20     *
+    76   
+    77   (* liefert die naechste Deklaration, falls vorhanden. Ansonsten wird
+c   78      FALSE zurueckgegeben. *)
+    79 
+    80 
+    81 END Tokens.                                                                  17
+Cross reference: * is declaration, = is assignment
+
+-B-
+ BOOLEAN                         40    71    75 
+
+-C-
+ Comment                         44*   74*
+ CommPos                         45*   75*
+ CompleteDeclarations            49*
+
+-E-
+ EQUALPos                        41*   72*
+
+-G-
+ GetDeclaration                  68*
+ GetGlobalHeader                 55*
+ GetTokensHeader                 61*
+ GlobalComment                   24*   56*
+ GlobalCommPos                   25*   57*
+
+-H-
+ HasCoding                       40*   71*
+
+-I-
+ Idents                          21*
+
+-L-
+ Lists                           19*
+
+-M-
+ MakeDeclaration                 37*
+ MakeGlobalHeader                23*
+ MakeTokensHeader                29*
+
+-N-
+ Number                          42*
+ NumberPos                       43*   73*
+
+-P-
+ PosType                         20*   25    30    32    39    41    43    45    57    62    64    70    72    73    75 
+
+-T-
+ Terminal                        20*   42 
+ tIdent                          21*   38    69 
+ tList                           19*   24    31    44    56    63    74 
+ Token                           38*   69*
+ TOKENComment                    31*   63*
+ TOKENCommPos                    32*   64*
+ TOKENPos                        30*   62*
+ TokenPos                        39*   70*
+ Tokens                          17*   81*
+ TokenTab                        20*
+
+-V-
+ Vocabulary                      20*
+
+end cross reference, 68 occurrences of 30 identifiers.

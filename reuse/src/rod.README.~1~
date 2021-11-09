@@ -1,0 +1,3 @@
+2-26-94:
+  the tables are in big-endian, for sun.
+  the .o's and executable in ../m2c are for sun.

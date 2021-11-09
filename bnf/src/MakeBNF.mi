@@ -1,0 +1,654 @@
+(* converte EBNF into BNF *)
+
+(* $Id: MakeBNF.mi,v 1.8 1992/08/07 15:34:15 grosch rel $ *)
+
+(* $Log: MakeBNF.mi,v $
+ * Revision 1.8  1992/08/07  15:34:15  grosch
+ * allow several scanner and parsers; extend module Errors
+ *
+ * Revision 1.7  1991/12/04  16:24:36  grosch
+ * unified escape conventions for all tools
+ *
+ * Revision 1.6  1991/11/21  14:50:01  grosch
+ * new version of RCS on SPARC
+ *
+ * Revision 1.5  90/06/12  15:50:31  grosch
+ * renamed main program to bnf, layout improvements
+ * 
+ * Revision 1.4	 89/09/11  18:12:43  grosch
+ * fixed bug in procedure Push at ExtendArray
+ * 
+ * Revision 1.3	 89/05/02  14:23:48  vielsack
+ * line informations are written in the actions
+ * the format depends on the target language (C or MODULA2)
+ * 
+ * Revision 1.2	 88/12/20  13:42:09  vielsack
+ * fixed bug in WriteTokenFix
+ * 
+ * Revision 1.1	 88/12/16  15:14:50  vielsack
+ * insert a backslash before identifiers which are also a keyword
+ * 
+ * Revision 1.0	 88/10/04  14:47:24  vielsack
+ * Initial revision
+ * 
+ *)
+
+IMPLEMENTATION MODULE MakeBNF;
+
+FROM Actions	IMPORT tActionMode, GetComment, GetAction, ScannerName, ParserName;
+FROM ArgCheck	IMPORT NoActionFlag, SourceFileName, Line;
+FROM DynArray	IMPORT MakeArray, ExtendArray;
+FROM IO		IMPORT WriteI, WriteC, WriteS, WriteNl, tFile;
+FROM Oper	IMPORT OperKind, GetOperHeader, InitPrioReading, GetPriority, GetOperator;
+FROM StringMem	IMPORT tStringRef, WriteString;
+FROM Strings	IMPORT tString, Assign, Append, Concatenate, ArrayToString, Char, Length;
+FROM Lists	IMPORT tList, Head, IsEmpty, Tail;
+FROM Idents	IMPORT tIdent, MakeIdent, GetString, NoIdent, WriteIdent;
+FROM SYSTEM	IMPORT TSIZE;
+FROM Tokens	IMPORT GetGlobalHeader, GetTokensHeader, GetDeclaration;
+FROM WriteTok	IMPORT Language, tLanguage;
+
+FROM Rules	IMPORT Operation, Expression, GetRulesHeader, InitRulesReading,
+  			GetRule, GetPrioAlternativeNode, MakeLeafNode, MakeBinaryNode,
+  			GetNodeOperation, GetLeafNode, GetActionNode, GetUnaryNode,
+  			GetBinaryNode, GetBracketNode, NoExpression;
+
+FROM TokenTab	IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Terminal,
+  			NonTerminal, TokenError, PosType, Term, NonTerm, SymbolToToken,
+  			TokenToSymbol, GetTokenType, MakeVoc;
+
+IMPORT	Strings,	(* WriteS *)
+	StringMem;	(* GetString *)
+
+CONST
+  InitStackSize = 10;
+  Infinite = 65535;
+
+TYPE
+  tStackElmt = 
+    RECORD
+      Left	: NonTerminal;
+      Right	: Expression;
+    END;
+  
+  tStackIndex = [0..Infinite];
+		
+VAR
+  RuleStack	: POINTER TO ARRAY tStackIndex OF tStackElmt;
+  RuleStackPtr	: tStackIndex;
+  RuleStackSize : LONGINT;
+
+  NontermNumber : SHORTCARD;
+  NontermString : tString;
+
+  SymbolLength	: SHORTCARD;
+  DmPo	: PosType;  (* Dummy Position *)
+
+  Sym01, Sym02, Sym03, Sym04, Sym05, Sym06, Sym07, Sym08,
+  Sym09, Sym10, Sym11, Sym12: tIdent;
+
+PROCEDURE MakeBnf (out: tFile); (* gibt die eingelesene Grammatik in BNF-Notation aus *)
+  BEGIN
+    ReserveSymbols;
+    WriteHeader (out);
+    IF ScannerName # NoIdent THEN
+      WriteS (out, "SCANNER ");
+      WriteIdent (out, ScannerName);
+      WriteNl (out);
+    END;
+    IF ParserName # NoIdent THEN
+      WriteS (out, "PARSER ");
+      WriteIdent (out, ParserName);
+      WriteNl (out);
+    END;
+    WritePart (out, Export);
+    WritePart (out, Global);
+    WritePart (out, Local);
+    WritePart (out, Begin);
+    WritePart (out, Close);
+    FindSymbolLength;
+    WriteTokens (out);
+    WriteOper (out);
+    WriteRules (out);
+  END MakeBnf;
+
+PROCEDURE WriteHeader (out: tFile); (* Ausgabe des Gesamtkommentars *)
+  VAR
+    Comment	: tList;
+    Position	: PosType;
+  BEGIN
+    GetGlobalHeader (Comment, Position);
+    IF NOT IsEmpty (Comment) THEN
+      WriteStringList (out,Comment, 0);
+      WriteNl (out);
+      WriteNl (out);
+    END;
+  END WriteHeader;
+
+PROCEDURE WritePart (out: tFile; part: tActionMode);
+(* Ausgabe eines der Abschnitte EXPORT, GLOBAL, LOCAL, BEGIN, CLOSE  *)
+  VAR
+    Comment	: tList;
+    Action	: tList;
+    pos1,pos2	: PosType;
+  BEGIN
+    GetComment (part, pos1, Comment, pos2);
+    IF (pos1.Line = 0) AND (pos1.Column = 0) THEN RETURN END;
+    CASE part OF
+    | Export	: WriteS (out,'EXPORT');
+    | Global	: WriteS (out,'GLOBAL');
+    | Local	: WriteS (out,'LOCAL');
+    | Begin	: WriteS (out,'BEGIN');
+    | Close	: WriteS (out,'CLOSE');
+    END;
+    WriteComment (out, Comment, pos1, pos2);
+    WriteNl (out);
+    IF NoActionFlag THEN RETURN END;
+    GetAction (part, Action, pos1, Comment, pos2);
+    IF NOT IsEmpty (Action) THEN
+      WriteStringList (out, Action, pos1.Line);
+      WriteComment (out, Comment, pos1, pos2);
+      WriteNl (out);
+    END;
+    WriteNl (out);
+  END WritePart;
+    
+PROCEDURE WriteOper (out: tFile); (* Ausgabe des Abschnittes OPER *)
+  VAR
+    pos1, pos2, pos3, pos4	: PosType;
+    Comment	: tList;
+    Kind	: OperKind;
+    Token	: Vocabulary;
+  BEGIN
+    IF GetOperHeader (pos1, Comment, pos2) THEN
+      WriteS (out, 'OPER');
+      WriteComment (out, Comment, pos1, pos2);
+      WriteNl (out);
+      InitPrioReading;
+      WHILE GetPriority (Kind, pos1, Comment, pos2) DO
+	IF Kind = Right THEN
+	  WriteS (out, '  RIGHT');
+	ELSIF Kind = Left THEN
+	  WriteS (out, '  LEFT');
+	ELSE
+	  WriteS (out, '  NONE');
+	END;
+	pos4 := pos1;
+	WHILE GetOperator (Token, pos3) DO
+	  IF pos4.Line # pos3.Line THEN
+	    WriteNl (out); WriteS (out, '    ');
+	  ELSE
+	    Space (out);
+	  END;
+	  WriteToken (out, Token);
+	  pos4 := pos3;
+	END;
+	WriteComment (out, Comment, pos2, pos4);
+	WriteNl (out);
+      END;
+      WriteNl (out);
+    END;
+  END WriteOper;
+
+PROCEDURE WriteTokens (out: tFile); (* Ausgabe des Abschnittes TOKENS *)
+  VAR
+    Symbol	: tIdent;
+    Comment	: tList;
+    pos1, pos2, pos3, pos4	: PosType;
+    Error	: TokenError;
+    HasCoding	: BOOLEAN;
+    Code	: Vocabulary;
+  BEGIN
+    WriteS (out,'TOKEN'); 
+    GetTokensHeader (pos1, Comment, pos2);
+    WriteComment (out, Comment, pos1, pos2);
+    WriteNl (out);
+    WHILE GetDeclaration (Symbol, pos1, HasCoding, pos2, pos3, Comment, pos4) DO
+      IF HasCoding THEN
+	Code := SymbolToToken (Symbol, Error);
+	WriteSymbolFix (out, Symbol);
+	WriteS (out,'= ');
+	WriteI (out,Code,3);
+      ELSE
+	WriteSymbol (out, Symbol);
+      END;
+      WriteComment (out, Comment, pos1, pos4);
+      WriteNl (out);
+    END;
+    WriteNl (out);
+  END WriteTokens;
+  
+PROCEDURE WriteRules (out: tFile); (* Ausgabe des Abschnittes RULE *)
+  VAR
+    pos1, pos2, pos3, pos4, pos5, pos6	: PosType;
+    Comment	: tList;
+    HasPrio	: BOOLEAN;
+    PrioTerm	: Terminal;
+    PrioSym	: tIdent;
+    Left	: NonTerminal;
+    Right	: Expression;
+    Error	: TokenError;
+  BEGIN
+    GetRulesHeader (pos1, Comment, pos2);
+    WriteS (out, 'RULE');
+    WriteComment (out, Comment, pos1, pos2);
+    WriteNl (out);
+    InitRulesReading;
+    CreateStack;
+    WHILE GetRule (Left, pos1, pos2, Right, Comment, pos3, pos4,
+		   HasPrio, pos5, PrioTerm, pos6) DO
+
+      NontermNumber := 0;
+      GetString (TokenToSymbol (Left, Error), NontermString);
+
+      IF HasPrio THEN
+	PrioSym := TokenToSymbol (PrioTerm, Error);
+      ELSE
+	PrioSym := 0;
+      END;
+      WriteNl (out);
+      WriteRule (out, Left, Right, HasPrio, PrioSym);
+      WHILE NOT Empty () DO
+	Pop (Left, Right);
+	WriteNl (out);
+	WriteRule (out, Left, Right, FALSE, 0);
+      END;
+      WriteComment (out, Comment, pos1, pos6);
+      WriteNl (out);
+    END;
+  END WriteRules;
+
+PROCEDURE WriteRule (* Ausgabe einer einzelnen Regel (Rule) *)
+  (out: tFile; Left: NonTerminal; Right: Expression; HasPrio: BOOLEAN; PrioSym: tIdent);
+  VAR
+    LSon, RSon	: Expression;
+    LHasPrio	: BOOLEAN;
+    LPrioSym	: tIdent;
+    pos1, pos2, pos3	: PosType;
+  BEGIN
+
+    (* Alternativen auf oberster Ebene werden unmittelbar abgearbeitet *)
+
+    WHILE GetNodeOperation (Right) = Alternative DO
+      GetPrioAlternativeNode (Right, pos1, LSon, RSon, LHasPrio,
+			      pos2, LPrioSym, pos3);
+      WriteRule (out, Left, LSon, LHasPrio, LPrioSym);
+      WriteNl (out);
+      Right := RSon;
+    END;
+
+    WriteTokenFix (out, Left);
+    WriteS (out, ': ');
+    WriteExpression (out, Right, TRUE);
+    IF HasPrio THEN
+      WriteS (out, '  PREC ');
+      WriteSymbol (out, PrioSym);
+    END;
+    WriteS (out,'.');
+  END WriteRule;
+
+PROCEDURE WriteExpression (out: tFile; Right: Expression; Last: BOOLEAN);
+(* Ausgabe eines Ausdrucks (Expression) d.h. einer rechten Seite *)
+  VAR
+    pos1, pos2	: PosType;
+    Token	: Vocabulary;
+    Act : tList;
+    N1,N2	: NonTerminal;
+    S1,S2	: tIdent;
+    Son, LSon, RSon	: Expression;
+    list	: tList;
+  BEGIN
+    CASE GetNodeOperation (Right) OF
+    | Plus:	  (* ...x+... -> ...H1...; H1:H1 H2; H1:H2; H2:x *)
+	GetUnaryNode (Right, pos1, Son);
+	MakeNonterm (N1, S1);
+	MakeNonterm (N2, S2);
+	WriteSymbol (out, S1);
+	Space (out);
+	Push (N2, Son);				      (* H2 : x. *)
+	Push (N1,				  (* H1 : H1 H2 .*)
+	      MakeBinaryNode (Sequence,
+			      DmPo,
+			      MakeLeafNode (S1, DmPo),
+			      MakeLeafNode (S2, DmPo)));
+	
+	Push (N1, MakeLeafNode (S2, DmPo));	     (* H1 : H2. *)
+
+    | Star:		   (* ...x*... -> ...H1...; H1:H1 x; H1: *)
+	GetUnaryNode (Right, pos1, Son);
+	MakeNonterm (N1, S1);
+	WriteSymbol (out, S1);
+	Space (out);
+	(* H1 : H1 x. *)
+	Push (N1,
+	      MakeBinaryNode (Sequence,
+			      DmPo,
+			      MakeLeafNode (S1, DmPo),
+			      Son));
+	(* H1 : . *)
+	Push (N1, NoExpression);
+
+    | Optional:		(* ...[x]...  -> ...H1...; H1 : ; H1 : x *)
+	GetBracketNode (Right, pos1, pos2, Son);
+	MakeNonterm (N1, S1);
+	WriteSymbol (out, S1);
+	Space (out);
+	Push (N1, Son);				      (* H1 : x .*)
+	Push (N1, NoExpression);		      (* H1 : . *)
+
+    | Bracket:		       (* ...(x)...  -> ...H1...; H1 : x *)
+	GetBracketNode (Right, pos1, pos2, Son);
+	MakeNonterm (N1,S1);
+	WriteSymbol (out, S1);
+	Space (out);
+	(* H1 : x .*)
+	Push (N1, Son);
+
+    | Sequence:
+	GetBinaryNode (Right, pos1, LSon, RSon);
+	WriteExpression (out, LSon, FALSE);
+	WriteExpression (out, RSon, Last);
+
+    | Separator: (* ..L||R.. -> ..H1 H2..; H1:L; H2:H2 R H1; H2: *)
+	GetBinaryNode (Right, pos1, LSon, RSon);
+	MakeNonterm (N1, S1);
+	MakeNonterm (N2, S2);
+	WriteSymbol (out, S1);				   (* H1 *)
+	Space (out);
+	WriteSymbol (out, S2);				   (* H2 *)
+	Space (out);
+	Push (N2,			       (* H2 : H2 <R H1> *)
+	      MakeBinaryNode (Sequence,
+			      DmPo,
+			      MakeLeafNode (S2, DmPo),	   (* H2 *)
+			      MakeBinaryNode (Sequence,
+					      DmPo,
+					      RSon,		 (* R *)
+					      MakeLeafNode (S1,	 (* H1 *)
+							    DmPo))));
+	Push (N1, LSon);			       (* H1 : L *)
+	Push (N2, NoExpression);				(* H2 :	  *)
+
+    | Alternative,
+      ArtAlternative:
+
+    | Action:
+	IF Last THEN
+	  GetActionNode (Right, Act, pos1);
+	  IF NOT IsEmpty (Act) AND NOT NoActionFlag THEN
+	    list := Act;
+	    Tail (list);
+	    IF NOT IsEmpty (list) THEN
+	      WriteNl (out);
+	      WriteStringList (out,Act,pos1.Line);
+	      WriteNl (out);
+	      WriteTab (out);
+	    ELSE
+	      WriteStringList (out,Act,pos1.Line);
+	      Space (out);
+	    END;
+	    (* keine Action *)
+	  END;
+	ELSE   (* Action steht nicht am Ende *)
+	  MakeNonterm (N1,S1);
+	  WriteSymbol (out, S1);
+	  Space (out);
+	  (* H1 : x .*)
+	  Push (N1, Right);
+	END;
+
+    | TermLeaf,
+      NonTermLeaf:
+	GetLeafNode (Right, Token, pos1);
+	WriteToken (out, Token);
+	Space (out);
+
+    | NoOperation: 
+    END;
+  END WriteExpression;
+
+PROCEDURE CreateStack;
+  BEGIN
+    RuleStackSize := InitStackSize;
+    MakeArray (RuleStack, RuleStackSize, TSIZE(tStackElmt));
+    RuleStackPtr := 0;
+  END CreateStack;
+
+PROCEDURE Empty (): BOOLEAN; (* Test ob der Keller leer *)
+  BEGIN
+    RETURN RuleStackPtr = 0;
+  END Empty;
+
+PROCEDURE Push (* Lege Element in Keller *)
+  (Left: NonTerminal; Right: Expression);
+  VAR size	: tStackIndex;
+  BEGIN
+    INC (RuleStackPtr);
+    size := RuleStackSize;
+    IF RuleStackPtr >= size THEN
+      ExtendArray (RuleStack, RuleStackSize, TSIZE(tStackElmt));
+    END;
+    RuleStack^[RuleStackPtr].Left := Left;
+    RuleStack^[RuleStackPtr].Right := Right;
+  END Push;
+
+PROCEDURE Pop (* Liefere oberstes Kellerelement - Empty muss FALSE sein *)
+  (VAR Left: NonTerminal; VAR Right: Expression);
+  BEGIN
+    Left := RuleStack^[RuleStackPtr].Left;
+    Right := RuleStack^[RuleStackPtr].Right;
+    DEC (RuleStackPtr);
+  END Pop;
+
+PROCEDURE MakeNonterm (VAR Nonterm: NonTerminal; VAR Symbol: tIdent);
+(* Erzeuge ein neuse Nichterminal *)
+  VAR
+    String	: tString;
+    max,i,j	: CARDINAL;
+    voc		: Vocabulary;
+    c		: CHAR;
+  BEGIN
+    max := MAXNonTerm;
+    REPEAT 
+      INC (NontermNumber);
+      Assign (String, NontermString);
+      Append (String,'_');
+      j:=1;
+      WHILE j <= NontermNumber DO
+	j := j*10;
+      END;
+      i := NontermNumber;
+      WHILE j > 1 DO
+	j := j DIV 10;
+	c := CHR (ORD ('0') + i DIV j);
+	i := i MOD j;
+	Append (String, c );
+      END;
+      Symbol := MakeIdent (String);
+      voc := MakeVoc (Symbol,DmPo);
+    UNTIL max < MAXNonTerm;
+    Nonterm := voc;
+  END MakeNonterm;
+
+PROCEDURE WriteTokenFix (out: tFile; Token: Vocabulary);
+(* gibt Token mit fester Laenge (mit Leerzeichen aufgefuellt) aus *)
+  VAR
+    Symbol	: tIdent;
+    Error	: TokenError;
+  BEGIN
+    Symbol := TokenToSymbol (Token, Error);
+    WriteSymbolFix (out, Symbol);
+  END WriteTokenFix;
+
+PROCEDURE WriteToken (out: tFile; Token: Vocabulary);
+(* gib Token mit tatsaechlicher Laenge aus *)
+  VAR
+    Symbol	: tIdent;
+    Error	: TokenError;
+  BEGIN
+    Symbol := TokenToSymbol (Token, Error);
+    WriteSymbol (out, Symbol);
+  END WriteToken;
+
+PROCEDURE WriteTab (out: tFile);
+(* gib Blanks fuer Fortsetzungszeile einer Regel aus *)
+  VAR i : SHORTCARD;
+  BEGIN
+    FOR i := 1 TO SymbolLength DO Space (out); END;
+  END WriteTab;
+
+PROCEDURE WriteSymbolFix (out: tFile; Symbol: tIdent);
+(* gibt Symbol mit fester Laenge (mit Leerzeichen aufgefuellt) aus *)
+  VAR
+    String	: tString;
+    i,j		: SHORTCARD;
+  BEGIN
+    GetString (Symbol, String);
+    j := Length (String);
+    IF IsReserved (Symbol) THEN
+      WriteS (out, '\');
+      j := j + 1;
+    END;
+    Strings.WriteS (out, String);
+    FOR i := j TO SymbolLength DO Space (out); END;
+  END WriteSymbolFix;
+
+PROCEDURE WriteSymbol (out: tFile; Symbol: tIdent);
+(* gib Symbol mit tatsaechlicher Laenge aus *)
+  VAR String	: tString;
+  BEGIN
+    IF IsReserved (Symbol) THEN
+      WriteS (out, '\');
+    END;
+    GetString (Symbol, String);
+    Strings.WriteS (out, String);
+  END WriteSymbol;
+
+PROCEDURE WriteComment (out: tFile; Comment: tList; pos1, pos2: PosType);
+BEGIN
+  IF NOT IsEmpty (Comment) THEN
+    IF pos2.Line # pos1.Line THEN
+      WriteNl (out);
+    ELSE 
+      Space (out);
+      Space (out);
+    END;
+    WriteStringList (out, Comment, 0);
+  END;
+END WriteComment;
+
+PROCEDURE WriteStringList(out: tFile; slist: tList; line: INTEGER);
+  VAR s: tString; pos: CARDINAL; c: CHAR;
+  BEGIN
+    IF NOT IsEmpty (slist) THEN
+      StringMem.GetString (tStringRef (Head (slist)), s);
+      Tail (slist);
+      c := Char (s, 1);
+      WriteC (out, c);
+      IF (line # 0) & (c = '{') THEN
+	IF Language = Modula2 THEN
+	  WriteS (out, '(* line ');
+	  WriteI (out, line, 1);
+	  WriteS (out, ' ');
+	  WriteS (out, SourceFileName);
+	  WriteS (out, ' *)');
+	  WriteNl (out);
+	ELSE (* Language = C *)
+	  IF Line THEN
+	     WriteS (out, '# line ');
+	     WriteI (out, line, 1);
+	     WriteS (out, ' "');
+	     WriteS (out, SourceFileName);
+	     WriteS (out, '"');
+	     WriteNl (out);
+	  ELSE
+	     WriteS (out, '/* line ');
+	     WriteI (out, line, 1);
+	     WriteS (out, ' "');
+	     WriteS (out, SourceFileName);
+	     WriteS (out, '" */');
+	     WriteNl (out);
+	  END;
+	END;
+      END;
+      FOR pos := 2 TO Length (s) DO
+	WriteC (out, Char (s, pos));
+      END;
+      WHILE NOT IsEmpty (slist) DO
+	WriteString(out,tStringRef (Head (slist)));
+	Tail (slist);
+      END;
+    END;
+  END WriteStringList;
+
+PROCEDURE Space (out: tFile); (* Ausgabe eine Leerzeichens *)
+BEGIN WriteC (out,' '); END Space;
+
+PROCEDURE FindSymbolLength; (* Legt Laenge fuer spaetere Ausgabe fest *)
+  VAR
+    Symbol	: tIdent;
+    String	: tString;
+    Token	: Vocabulary;
+    Error	: TokenError;
+  BEGIN
+    SymbolLength := 0;
+    FOR Token := 1 TO MAXTerm DO
+      IF GetTokenType (Token) = Term THEN
+	Symbol := TokenToSymbol (Token, Error);
+	GetString (Symbol, String);
+	IF Length(String) > SymbolLength THEN
+	  SymbolLength := Length(String);
+	END;
+      END;
+    END;
+    FOR Token := MINNonTerm TO MAXNonTerm DO
+      IF GetTokenType (Token) = NonTerm THEN
+	Symbol := TokenToSymbol (Token, Error);
+	GetString (Symbol, String);
+	IF Length(String) > SymbolLength THEN
+	  SymbolLength := Length(String);
+	END;
+      END;
+    END;
+    INC (SymbolLength, 3);	(* generierte Symbole sind laenger *)
+  END FindSymbolLength;
+    
+PROCEDURE ReserveSymbols;
+  VAR s: tString;
+  BEGIN
+    ArrayToString ('EXPORT', s);	Sym01 := MakeIdent (s);
+    ArrayToString ('GLOBAL', s);	Sym02 := MakeIdent (s);
+    ArrayToString ('LOCAL', s);		Sym03 := MakeIdent (s);
+    ArrayToString ('BEGIN', s);		Sym04 := MakeIdent (s);
+    ArrayToString ('CLOSE', s);		Sym05 := MakeIdent (s);
+    ArrayToString ('TOKEN', s);		Sym06 := MakeIdent (s);
+    ArrayToString ('OPER', s);		Sym07 := MakeIdent (s);
+    ArrayToString ('NONE', s);		Sym08 := MakeIdent (s);
+    ArrayToString ('LEFT', s);		Sym09 := MakeIdent (s);
+    ArrayToString ('RIGHT', s);		Sym10 := MakeIdent (s);
+    ArrayToString ('RULE', s);		Sym11 := MakeIdent (s);
+    ArrayToString ('PREC', s);		Sym12 := MakeIdent (s);
+  END ReserveSymbols;
+
+PROCEDURE IsReserved (Symbol: tIdent): BOOLEAN;
+  BEGIN
+    RETURN   (Symbol = Sym01)
+	  OR (Symbol = Sym02)
+	  OR (Symbol = Sym03)
+	  OR (Symbol = Sym04)
+	  OR (Symbol = Sym05)
+	  OR (Symbol = Sym06)
+	  OR (Symbol = Sym07)
+	  OR (Symbol = Sym08)
+	  OR (Symbol = Sym09)
+	  OR (Symbol = Sym10)
+	  OR (Symbol = Sym11)
+	  OR (Symbol = Sym12);
+  END IsReserved;
+
+BEGIN
+  DmPo.Line := 0;
+  DmPo.Column := 0;
+  NontermNumber := 0;
+  Language := Modula2;
+END MakeBNF.

@@ -1,0 +1,44 @@
+BIN	= $(INSTALLGMD)/bin
+LIB	= $(INSTALLGMD)/lib
+
+MAKEINCLUDE = .
+MC      = mtc
+MOCKAFLAGS = 
+MOCKALIBS = -d ../../../reuse/src
+
+MODULAGENS    = Scanner.md Scanner.mi 
+OTHERGENS     = Scanner.Tab 
+GENS          = $(MODULAGENS) $(OTHERGENS)
+
+MODULASOURCES = rpp.mi
+
+OTHERSOURCES = rpp.rex 
+
+SOURCES = $(MODULASOURCES) $(OTHERSOURCES)
+
+EXE     = rpp
+
+include $(MAKEINCLUDE)/make.include
+
+# Generated sources:
+
+Scanner.md Scanner.mi Scanner.Tab:	../src/rpp.rex
+	rex -d ../src/rpp.rex;
+
+#install_modula:	rpp rpp.sh Scanner.Tab $(LIB)/rpp
+#	if test $(LIB) = $(BIN); then echo error: BIN = LIB; false; else true; fi
+#	sed 's;LIB;$(LIB);g' < rpp.sh > $(BIN)/rpp
+#	chmod a+rx $(BIN)/rpp
+#	install -c -s -m 755 rpp $(LIB)/rpp
+#	install -c -m 644 Scanner.Tab $(LIB)/rpp
+
+# installation directories
+
+#$(LIB)/rpp:	$(LIB)
+#	sh -c "if test ! -d $(LIB)/rpp; then mkdir $(LIB)/rpp; else true; fi"
+
+clean:
+	rm -f *.[dimor] rpp *.bak
+
+CLEAN:	clean
+	rm -f S*.m? Scanner.Tab

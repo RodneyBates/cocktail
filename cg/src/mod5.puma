@@ -1,0 +1,679 @@
+(* Ich, Doktor Josef Grosch, Informatiker, 4.3.1992 *)
+
+(* Modified, Rodney M. Bates: 
+
+   10-1998: Added colons to labels. 
+   July 99 Add VAR to rule local decls. 
+
+*)
+
+TRAFO EvalMod3
+TREE Tree
+PUBLIC EvalImplMod ToBit0
+
+GLOBAL {
+
+FROM SYSTEM	IMPORT ADR, TSIZE;
+FROM General	IMPORT Max;
+FROM DynArray	IMPORT MakeArray;
+FROM IO		IMPORT WriteS, WriteNl, WriteI, WriteB, StdOutput;
+FROM Texts	IMPORT WriteText;
+FROM Sets	IMPORT tSet, MakeSet, ReleaseSet, Include, Exclude, Minimum,
+			Maximum, IsElement, WriteSet, IsEmpty, Extract;
+FROM Relations	IMPORT IsRelated;
+FROM TreeMod1	IMPORT BSS;
+FROM TreeMod2	IMPORT GetIterator, Iterator, WriteLine;
+FROM EvalMod	IMPORT Class;
+FROM Errors	IMPORT Error, Short, MessageI;
+FROM Positions	IMPORT NoPosition;
+IMPORT EvalMod;
+
+FROM Tree	IMPORT
+   NoTree	, tTree		, Referenced	, NoCodeClass	,
+   Computed	, Reverse	, Write		, Read		,
+   Inherited	, Synthesized	, Input		, Output	,
+   Virtual	, Test		, Left		, Right		,
+   HasOutput	, NonBaseComp	, Dummy		, Trace		,
+   Demand	, Funct		, NoClass	, Options	,
+   TreeRoot	, iModule	, iMain		, itTree	,
+   ForallClasses, ForallAttributes, f		, WI	, WN	,
+   ClassCount	, IdentifyClass	, IdentifyAttribute, 
+   tBitIndex	, tBitInfo	, iNoTree	, QueryTree	;
+
+VAR
+   i, i2, j, k, n, MaxBit, MaxInstCount, Check: SHORTCARD;
+   Node, Attr, ChildsClass	: tTree;
+   Success, IsStable		: BOOLEAN;
+   BitIndexSize			: LONGINT;
+   gBitIndex			: tBitIndex;
+   InhIndices			: tSet;
+   InhIndexSize			: LONGINT;
+   InhIndexCount		: POINTER TO ARRAY [1..1000000] OF SHORTCARD;
+
+PROCEDURE GenCall (t: tTree; j: SHORTCARD);
+   BEGIN
+      WITH t^.Class.Instance^ [j] DO
+	 IF ({Synthesized, Left} <= Properties) THEN
+	    k := ToBit0 (t, j);
+	    !IFNOTIN (! WN (k MOD BSS); !, yyt^.yyHead.yyIsComp! WN (k DIV BSS); !) ! 
+	    !yyS! WN (k); ! (yyt); (* ! WI (Attribute^.Child.Name); ! *) END;!
+	 ELSIF ({Inherited, Left} <= Properties) THEN
+	    k := ToBit0 (t, j);
+	    !IFNOTIN (! WN (k MOD BSS); !, yyt^.yyHead.yyIsComp! WN (k DIV BSS); !) ! 
+   IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+	    !yyVisitParent (yyt); ! 
+	    !yyI [yyt^.yyHead.yyOffset + ! WN (k); !](yyt^.yyHead.yyParent); (* ! 
+	    WI (Attribute^.Child.Name); ! *) ! 
+	    @yyWriteVisit (yyt^.yyHead.yyParent, "?"); END;@
+   ELSE
+	    !yyI [yyt^.yyHead.yyOffset + ! WN (k); !](yyt^.yyHead.yyParent); (* ! 
+	    WI (Attribute^.Child.Name); ! *) END;!
+   END;
+	 ELSIF ({Inherited, Right} <= Properties) THEN
+	    k := ToBit1 (Selector, j - t^.Class.AttrCount - Selector^.Child.InstOffset);
+	    !IFNOTIN (! WN (k MOD BSS); !, yyt^.! WI (Class^.Class.Name);
+	    !.! WI (Selector^.Child.Name); !^.yyHead.yyIsComp! WN (k DIV BSS); !) ! 
+	    k := ToBit2 (t, Selector, j);
+	    !yyI! WN (k); ! (yyt); (* ! WI (Selector^.Child.Name);
+	    !:! WI (Attribute^.Child.Name); ! *) END;!
+	 ELSIF ({Synthesized, Right} <= Properties) THEN
+	    k := ToBit1 (Selector, j - t^.Class.AttrCount - Selector^.Child.InstOffset);
+	    !IFNOTIN (! WN (k MOD BSS); !, yyt^.! WI (Class^.Class.Name);
+	    !.! WI (Selector^.Child.Name); !^.yyHead.yyIsComp! WN (k DIV BSS); !) ! 
+   IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+	    @yyWriteVisit (yyt, "@ WI (Selector^.Child.Name); @"); @ 
+	    !yyS! WN (k);
+	    ! (yyt^.! WI (Class^.Class.Name); !.! WI (Selector^.Child.Name);
+	    !); (* ! WI (Selector^.Child.Name); !:! WI (Attribute^.Child.Name); ! *) ! 
+	    !yyVisitParent (yyt^.! WI (Class^.Class.Name); !.! WI (Selector^.Child.Name); !); END;!
+   ELSE
+	    !yyS! WN (k);
+	    ! (yyt^.! WI (Class^.Class.Name); !.! WI (Selector^.Child.Name);
+	    !); (* ! WI (Selector^.Child.Name); !:! WI (Attribute^.Child.Name); ! *) END;!
+   END;
+	 END;
+      END;
+   END GenCall;
+
+PROCEDURE GenEvalAttr (t: tTree; i: INTEGER);
+   BEGIN
+      Class := t;
+      WITH t^.Class.Instance^ [i] DO
+   IF IsElement (ORD ('X'), Options) AND (Trace IN t^.Class.Properties) THEN
+	 @yyWriteEval (yyt, "@ WI (Attribute^.Child.Name); @");@
+	 IF (Action # ADR (Action)) AND NOT (Virtual IN Properties) THEN
+	    GenEvaluator (Action);
+	    EvalMod.GenEvaluator (Action); !!
+	    IF Test IN Properties THEN
+	       !writeBOOLEAN (yyb) yyWriteNl;!
+	    ELSIF (Attribute^.Kind = Tree.Child) OR (Attribute^.Attribute.Type = itTree) THEN
+	       !write! WI (itTree);
+	       ! (yyt^.! WI (t^.Class.Name); !.! WI (Attribute^.Child.Name); !)!
+	    ELSE
+	       !write! WI (Attribute^.Child.Type);
+	       ! (yyt^.! WI (t^.Class.Name); !.! WI (Attribute^.Child.Name); !) yyWriteNl;!
+	    END;
+	 ELSE
+	    !yyWriteNl;!
+	 END;
+   ELSIF IsElement (ORD ('Y'), Options) AND (Trace IN t^.Class.Properties) THEN
+	 @yyWriteEval (yyt, "@ WI (Attribute^.Child.Name); @");@
+	 IF (Action # ADR (Action)) AND NOT (Virtual IN Properties) THEN
+	    GenEvaluator (Action);
+	    EvalMod.GenEvaluator (Action);
+	 END;
+   ELSE
+	 IF (Action # ADR (Action)) AND NOT (Virtual IN Properties) THEN
+	    GenEvaluator (Action);
+	    EvalMod.GenEvaluator (Action);
+	 END;
+   END;
+      END;
+   END GenEvalAttr;
+}
+
+PROCEDURE EvalImplMod (t: Tree)
+	
+Ag (..) :- {
+	MaxBit := 0;
+	MaxInstCount := 0;
+	ForallClasses (Classes, CompBitInfo);
+	MakeSet (InhIndices, MaxInstCount);
+	InhIndexSize := MaxInstCount;
+	MakeArray (InhIndexCount, InhIndexSize, TSIZE (SHORTCARD));
+	FOR i := 1 TO MaxInstCount DO InhIndexCount^ [i] := 0; END;
+	ForallClasses (Classes, CompInhIndices);
+	!# define IFNOTIN(b, s) IF NOT (b IN s) THEN!
+	!# define REMOTE_SYN(i, b, c, n, t, a) n^.t.a!
+	!# define REMOTE_INH(i, b, k, n, t, a) n^.t.a!
+	EvalMod.EvalImplHead (t);
+	!!
+	!VAR yyI: ARRAY [0..! WN (Maximum (InhIndices)); !] OF ! WI (iMain); !.tProcTree;!
+	!!
+	!PROCEDURE yyAbort (yyt: ! WI (iMain); !.! WI (itTree); !);!
+	! BEGIN!
+	!  IO.WriteS (IO.StdError, 'Error: module ! WI (EvalName); !, cyclic dependencies');!
+	!  IO.WriteNl (IO.StdError);!
+	!  IO.CloseIO;!
+	!  ! WI (iMain); !.yyExit;!
+	! END yyAbort;!
+	!!
+      IF NOT IsElement (ORD ('9'), Options) THEN
+	!!
+	!PROCEDURE Eval (yyt: ! WI (iMain); !.! WI (itTree); !);!
+	! BEGIN ! WI (iMain); !.Init! WI (iModule); ! (yyt); yyE (yyt); END Eval;!
+      ELSE
+	!!
+	!VAR xxStack: CARDINAL;!
+	!!
+	!PROCEDURE Eval (yyt: ! WI (iMain); !.! WI (itTree); !);!
+	! VAR xxHigh: BOOLEAN;!
+	! BEGIN!
+	!  xxStack := MAX (INTEGER);!
+	!  ! WI (iMain); !.Init! WI (iModule); ! (yyt); yyE (yyt);!
+	!  IO.WriteS (IO.StdOutput, 'Stacksize ');!
+	!  IO.WriteI (IO.StdOutput, CARDINAL (SYSTEM.ADR (xxHigh)) - xxStack, 0);!
+	!  IO.WriteNl (IO.StdOutput);!
+	! END Eval;!
+      END;
+	!!
+	REPEAT IsStable := TRUE; ForallClasses (Classes, CompOutput); UNTIL IsStable;
+	!PROCEDURE yyE (yyt: ! WI (iMain); !.! WI (itTree); !);!
+	WriteLine (TreeRoot^.Ag.EvalCodes^.Codes.LocalLine);
+	WriteText (f, TreeRoot^.Ag.EvalCodes^.Codes.Local);
+	Node := TreeRoot^.Ag.Modules;
+	WHILE Node^.Kind = Tree.Module DO
+	   WriteLine (Node^.Module.EvalCodes^.Codes.LocalLine);
+	   WriteText (f, Node^.Module.EvalCodes^.Codes.Local);
+	   Node := Node^.Module.Next;
+	END;
+      IF IsElement (ORD ('9'), Options) THEN
+	! VAR xxLow: BOOLEAN;!
+	! BEGIN!
+	!  xxStack := General.Min (xxStack, CARDINAL (SYSTEM.ADR (xxLow)));!
+      ELSE
+	! BEGIN!
+      END;
+	!  LOOP!
+	!   IF (yyt = ! WI (iMain); !.! WI (iNoTree); !) OR (0 IN yyt^.yyHead.yyIsComp0) THEN RETURN; END;!
+	!   INCL (yyt^.yyHead.yyIsComp0, 0);!
+	!   CASE yyt^.Kind OF!
+	ForallClasses (Classes, GenE);
+	!   ELSE RETURN;!
+	!   END;!
+	!  END;!
+	! END yyE;!
+	!!
+	FOR i := 2 TO MaxBit DO
+	   n := 0;			(* are there any SYN attributes ? *)
+	   ForallClasses (Classes, CountSynAttr);
+	   IF n > 0 THEN
+	      !PROCEDURE yyS! WN (i - 1); ! (yyt: ! WI (iMain); !.! WI (itTree); !);!
+	      WriteLine (TreeRoot^.Ag.EvalCodes^.Codes.LocalLine);
+	      WriteText (f, TreeRoot^.Ag.EvalCodes^.Codes.Local);
+	      Node := TreeRoot^.Ag.Modules;
+	      WHILE Node^.Kind = Tree.Module DO
+		 WriteLine (Node^.Module.EvalCodes^.Codes.LocalLine);
+		 WriteText (f, Node^.Module.EvalCodes^.Codes.Local);
+		 Node := Node^.Module.Next;
+	      END;
+      IF IsElement (ORD ('9'), Options) THEN
+	      ! VAR xxLow: BOOLEAN;!
+	      ! BEGIN!
+	      !  xxStack := General.Min (xxStack, CARDINAL (SYSTEM.ADR (xxLow)));!
+      ELSE
+	      ! BEGIN!
+      END;
+      IF IsElement (ORD ('5'), Options) THEN
+	      ! IFNOTIN (! WN ((i - 1) MOD BSS); !, yyt^.yyHead.yyIsDone! WN ((i - 1) DIV BSS);
+	      !) INCL (yyt^.yyHead.yyIsDone! WN ((i - 1) DIV BSS); !, ! WN ((i - 1) MOD BSS); !); ELSE yyAbort (yyt); END;!
+      END;
+	      IF n > 1 THEN
+		 !  CASE yyt^.Kind OF!
+		 ForallClasses (Classes, GenS);
+		 !  END;!
+	      ELSE
+		 ForallClasses (Classes, GenS);
+	      END;
+	      !  INCL (yyt^.yyHead.yyIsComp! WN ((i - 1) DIV BSS); !, ! WN ((i - 1) MOD BSS); !);!
+	      ! END yyS! WN (i - 1); !;!
+	      !!
+	   END;
+	END;
+	FOR i := Minimum (InhIndices) TO Maximum (InhIndices) DO
+	   IF IsElement (i, InhIndices) THEN
+	      !PROCEDURE yyI! WN (i); ! (yyt: ! WI (iMain); !.! WI (itTree); !);!
+	      WriteLine (TreeRoot^.Ag.EvalCodes^.Codes.LocalLine);
+	      WriteText (f, TreeRoot^.Ag.EvalCodes^.Codes.Local);
+	      Node := TreeRoot^.Ag.Modules;
+	      WHILE Node^.Kind = Tree.Module DO
+		 WriteLine (Node^.Module.EvalCodes^.Codes.LocalLine);
+		 WriteText (f, Node^.Module.EvalCodes^.Codes.Local);
+		 Node := Node^.Module.Next;
+	      END;
+      IF IsElement (ORD ('9'), Options) THEN
+	      ! VAR xxLow: BOOLEAN;!
+	      ! BEGIN!
+	      !  xxStack := General.Min (xxStack, CARDINAL (SYSTEM.ADR (xxLow)));!
+      ELSE
+	      ! BEGIN!
+      END;
+	      Check := 0;
+	      IF InhIndexCount^ [i] > 1 THEN
+		 !  CASE yyt^.Kind OF!
+		 ForallClasses (Classes, EvalImplMod);
+		 !  END;!
+	      ELSE
+		 ForallClasses (Classes, EvalImplMod);
+	      END;
+	      IF Check # InhIndexCount^ [i] THEN
+	         MessageI ("internal error in yyI", Error, NoPosition, Short, ADR (i));
+	      END;
+	      ! END yyI! WN (i); !;!
+	      !!
+	   END;
+	END;
+	!PROCEDURE Begin! WI (EvalName); !;!
+	! BEGIN!
+	WriteLine (EvalCodes^.Codes.BeginLine);
+	WriteText (f, EvalCodes^.Codes.Begin);
+	Node := Modules;
+	WHILE Node^.Kind = Tree.Module DO
+	   WriteLine (Node^.Module.EvalCodes^.Codes.BeginLine);
+	   WriteText (f, Node^.Module.EvalCodes^.Codes.Begin);
+	   Node := Node^.Module.Next;
+	END;
+	! END Begin! WI (EvalName); !;!
+	!!
+	!PROCEDURE Close! WI (EvalName); !;!
+	! BEGIN!
+	WriteLine (EvalCodes^.Codes.CloseLine);
+	WriteText (f, EvalCodes^.Codes.Close);
+	Node := Modules;
+	WHILE Node^.Kind = Tree.Module DO
+	   WriteLine (Node^.Module.EvalCodes^.Codes.CloseLine);
+	   WriteText (f, Node^.Module.EvalCodes^.Codes.Close);
+	   Node := Node^.Module.Next;
+	END;
+	! END Close! WI (EvalName); !;!
+	!!
+	!BEGIN!
+      IF IsElement (ORD ('X'), Options) THEN
+	! yyf := IO.StdOutput;!
+      END;
+	FOR i := Minimum (InhIndices) TO Maximum (InhIndices) DO
+	   IF IsElement (i, InhIndices) THEN
+	      ! yyI [! WN (i); !] := yyI! WN (i); !;!
+	   END;
+	END;
+	!END ! WI (EvalName); !.!
+}; .
+Class (..) :-
+	NoCodeClass * Properties = {{}};
+	i <= InstCount;
+	VAR a : SHORTCARD ;
+{	a := ToAttr (t, i);
+	IF a = 0 THEN RETURN; END;
+	WITH Instance^ [a] DO
+	   IF {Inherited, Right} <= Properties THEN
+	      Class := t;
+	      IF InhIndexCount^ [i] > 1 THEN
+		 !   | ! WI (iMain); !.! WI (Name); !:!
+	      END;
+	      INC (Check);
+	      k := ToBit1 (Selector, a - AttrCount - Selector^.Child.InstOffset);
+      IF IsElement (ORD ('5'), Options) THEN
+	      ! IFNOTIN (! WN (k MOD BSS); !, yyt^.! WI (Class^.Class.Name);
+	      !.! WI (Selector^.Child.Name); !^.yyHead.yyIsDone! WN (k DIV BSS);
+	      !) INCL (yyt^.! WI (Class^.Class.Name); !.! WI (Selector^.Child.Name);
+	      !^.yyHead.yyIsDone! WN (k DIV BSS); !, ! WN (k MOD BSS); !); ELSE yyAbort (yyt); END;!
+      END;
+	      FOR j := 1 TO InstCount DO
+		 IF IsRelated (a, j, DP) THEN
+		    GenCall (t, j);
+		 END;
+	      END;
+      IF IsElement (ORD ('X'), Options) AND (Trace IN t^.Class.Properties) THEN
+	      @yyWriteEval (yyt, "@ WI (Selector^.Child.Name); !:! WI (Attribute^.Child.Name); @");@
+	      IF (Action # ADR (Action)) AND NOT (Virtual IN Properties) THEN
+		 GenEvaluator (Action);
+		 EvalMod.GenEvaluator (Action); !!
+		 IF (Attribute^.Kind = Tree.Child) OR (Attribute^.Attribute.Type = itTree) THEN
+		    !write! WI (itTree);
+		    ! (yyt^.! WI (Name); !.! WI (Selector^.Child.Name);
+		    !^.! WI (Selector^.Child.Type); !.! WI (Attribute^.Child.Name); !)!
+		 ELSE
+		    !write! WI (Attribute^.Child.Type);
+		    ! (yyt^.! WI (Name); !.! WI (Selector^.Child.Name);
+		    !^.! WI (Selector^.Child.Type); !.! WI (Attribute^.Child.Name); !) yyWriteNl;!
+		 END;
+	      ELSE
+		 !yyWriteNl;!
+	      END;
+      ELSIF IsElement (ORD ('Y'), Options) AND (Trace IN t^.Class.Properties) THEN
+	      @yyWriteEval (yyt, "@ WI (Selector^.Child.Name); !:! WI (Attribute^.Child.Name); @");@
+	      IF (Action # ADR (Action)) AND NOT (Virtual IN Properties) THEN
+		 GenEvaluator (Action);
+		 EvalMod.GenEvaluator (Action);
+	      END;
+      ELSE
+	      IF (Action # ADR (Action)) AND NOT (Virtual IN Properties) THEN
+		 GenEvaluator (Action);
+		 EvalMod.GenEvaluator (Action);
+	      END;
+      END;
+	      IF NOT (Input IN Properties) AND (Attribute^.Kind = Tree.Child) THEN
+		 !WITH yyt^.! WI (Name); !.! WI (Selector^.Child.Name);
+		 !^.! WI (Selector^.Child.Type); !.! WI (Attribute^.Child.Name);
+		 !^.yyHead DO IF yyParent = ! WI (iMain); !.! WI (iNoTree); ! THEN yyOffset := ! 
+		 WN (Selector^.Child.Class^.Class.BitCount + Attribute^.Child.BitOffset);
+		 !; yyParent := yyt^.! WI (Name); !.! WI (Selector^.Child.Name); !; !
+		 WI (iMain); !.Init! WI (iModule); ! (yyt^.! WI (Name); !.! WI (Selector^.Child.Name); 
+		 !^.! WI (Selector^.Child.Type); !.! WI (Attribute^.Child.Name); !); END; END;!
+	      END;
+	      FOR i2 := 1 TO InstCount DO	(* add group members *)
+		 IF Instance^[i2].Action = Action THEN
+		    WITH Instance^[i2] DO
+		       IF Synthesized IN Properties THEN
+			  k := ToBit0 (Class, i2);
+			  !   INCL (yyt^.yyHead.yyIsComp! WN (k DIV BSS); !, ! WN (k MOD BSS); !);!
+		       ELSIF Inherited IN Properties THEN
+			  k := ToBit1 (Selector, i2 - AttrCount - Selector^.Child.InstOffset);
+			  !   INCL (yyt^.! WI (Class^.Class.Name); !.! WI (Selector^.Child.Name);
+			  !^.yyHead.yyIsComp! WN (k DIV BSS); !, ! WN (k MOD BSS); !);!
+		       END;
+		    END;
+		 END;
+	      END;
+	   END;
+	END;
+}; .
+
+PROCEDURE CompBitInfo (t: Tree)
+
+Class (..) :-
+	BitIndexSize := AttrCount;
+	MakeArray (BitIndex, BitIndexSize, TSIZE (tBitInfo));
+	i := 1;
+	gBitIndex := BitIndex;
+	ForallAttributes (t, CompBitInfo);
+	MaxBit := Max (i, MaxBit);
+	MaxInstCount := Max (InstCount, MaxInstCount);
+	.
+Child (..) ;
+Attribute (..) :-
+	({{Input, Test, Dummy}} * Properties = {{}});
+	INC (i);
+	gBitIndex^ [AttrIndex].ToBit := i;
+	gBitIndex^ [i].ToAttr := AttrIndex;
+	.
+
+PROCEDURE CompInhIndices (t: Tree)
+
+Class (..) :-
+	VAR b : INTEGER ;
+{	FOR j := AttrCount + 1 TO InstCount DO
+	   WITH Instance^ [j] DO
+	      IF Inherited IN Properties THEN
+		 b := ToBit2 (t, Selector, j);
+		 Include (InhIndices, b);
+		 INC (InhIndexCount^ [b]);
+	      END;
+	   END;
+	END;
+};	.
+
+PROCEDURE CountSynAttr (t: Tree)
+
+Class (..) :-
+	NoCodeClass * Properties = {{}};
+	i <= BitCount;
+{	WITH Instance^ [BitIndex^ [i].ToAttr] DO
+	   IF ({Synthesized, Left} <= Properties) AND NOT (Test IN Properties) THEN
+	      INC (n);
+	   END;
+	END;
+};	.
+
+PROCEDURE WriteType (t: Tree)
+
+Class (..) :-
+	NoCodeClass * Properties = {{}};
+	Trace IN Properties;
+	!| ! WI (TreeRoot^.Ag.TreeName); !.! WI (Name); !: yyWriteS ('! WI (Name); !');!
+	.
+
+PROCEDURE GenS (t: Tree)
+
+Class (..) :-
+	NoCodeClass * Properties = {{}};
+	i <= BitCount;
+{	WITH Instance^ [BitIndex^ [i].ToAttr] DO
+	   IF ({Synthesized, Left} <= Properties) AND NOT (Test IN Properties) THEN
+	      Class := t;
+	      IF n > 1 THEN
+		 !   | ! WI (iMain); !.! WI (Name); !:!
+	      END;
+	      FOR j := 1 TO InstCount DO
+		 IF IsRelated (BitIndex^ [i].ToAttr, j, DP) THEN
+		    GenCall (t, j);
+		 END;
+	      END;
+	      GenEvalAttr (t, BitIndex^ [i].ToAttr);
+	      IF NOT (Input IN Properties) AND (Attribute^.Kind = Tree.Child) THEN
+		 !WITH yyt^.! WI (Name); !.! WI (Attribute^.Child.Name);
+		 !^.yyHead DO IF yyParent = ! WI (iMain); !.! WI (iNoTree); ! THEN yyOffset := ! 
+		 WN (BitCount + Attribute^.Child.BitOffset); !; yyParent := yyt; ! 
+		 WI (iMain); !.Init! WI (iModule); ! (yyt^.! WI (Name); !.! WI (Attribute^.Child.Name); !); END; END;!
+	      END;
+	      FOR i2 := 1 TO InstCount DO	(* add group members *)
+		 IF Instance^[i2].Action = Action THEN
+		    WITH Instance^[i2] DO
+		       IF Synthesized IN Properties THEN
+			  k := ToBit0 (Class, i2);
+			  IF k # i - 1 THEN
+			     !   INCL (yyt^.yyHead.yyIsComp! WN (k DIV BSS); !, ! WN (k MOD BSS); !);!
+			  END;
+		       ELSIF Inherited IN Properties THEN
+			  k := ToBit1 (Selector, i2 - AttrCount - Selector^.Child.InstOffset);
+			  !   INCL (yyt^.! WI (Class^.Class.Name); !.! WI (Selector^.Child.Name);
+			  !^.yyHead.yyIsComp! WN (k DIV BSS); !, ! WN (k MOD BSS); !);!
+		       END;
+		    END;
+		 END;
+	      END;
+	   END;
+	END;
+}; .
+
+PROCEDURE GenE (t: Tree)
+
+Class (..) :-
+	VAR ToCompute : tSet ;
+{	GetIterator (t);
+	n := 0;
+	j := 2;
+	LOOP
+	   IF j > InstCount THEN EXIT; END;
+	   WITH Instance^ [j] DO
+	      IF {Dummy, Output, Test} * Properties # {} THEN
+	         IF (Test IN Properties) OR
+		    ({Synthesized, Left} <= Properties) OR
+		    ({Inherited,  Right} <= Properties) OR
+		    ({Inherited,   Left} <= Properties) AND
+		    NOT (Input IN Properties) AND (Attribute^.Kind = Tree.Child) OR
+		    ({Synthesized, Right, Dummy} <= Properties) AND (Selector # Iterator) AND
+		    (HasOutput IN Selector^.Child.Class^.Class.Properties) THEN
+		    INC (n); EXIT;
+		 END;
+	      END;
+	   END;
+	   INC (j);
+	END;
+	IF (n = 0) AND ((Iterator = NoTree) OR NOT (HasOutput IN Iterator^.Child.Class^.Class.Properties)) THEN RETURN; END;
+
+	Class := t;
+	!   | ! WI (iMain); !.! WI (Name); !:!
+	FOR j := 2 TO InstCount DO
+	   WITH Instance^ [j] DO
+	      IF {Dummy, Output} * Properties # {} THEN
+		 IF ({Synthesized, Left} <= Properties) OR
+		    ({Inherited,  Right} <= Properties) OR
+		    ({Inherited,   Left} <= Properties) AND
+		    NOT (Input IN Properties) AND (Attribute^.Kind = Tree.Child) THEN
+		    GenCall (t, j);
+		 ELSIF ({Synthesized, Right, Dummy} <= Properties) AND (Selector # Iterator) AND
+		    (HasOutput IN Selector^.Child.Class^.Class.Properties) THEN
+      IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+		    !yyWriteVisit (yyt, '! WI (Selector^.Child.Name); !'); ! 
+      END;
+		    !yyE (yyt^.! WI (Name); !.! WI (Selector^.Child.Name); !);!
+      IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+		    !yyVisitParent (yyt^.! WI (Name); !.! WI (Selector^.Child.Name); !);!
+      END;
+		 END;
+	      END;
+	   END;
+	END;
+
+	MakeSet (ToCompute, InstCount);
+	FOR i := 2 TO AttrCount DO
+	   WITH Instance^ [i] DO
+	      IF Test IN Properties THEN
+		 FOR j := 2 TO InstCount DO
+		    IF IsRelated (i, j, DP) THEN
+		       IF {Synthesized, Inherited} * Instance^ [j].Properties # {} THEN
+			  Include (ToCompute, j);
+		       END;
+		    END;
+		 END;
+	      END;
+	   END;
+	END;
+	FOR i := 2 TO InstCount DO
+	   WITH Instance^ [i] DO
+	      IF ({Synthesized, Left, Output} <= Properties) OR
+		 ({Inherited,  Right, Output} <= Properties) THEN
+		 Exclude (ToCompute, i);
+	      END;
+	   END;
+	END;
+	WHILE NOT IsEmpty (ToCompute) DO
+	   GenCall (t, Extract (ToCompute));
+	END;
+	ReleaseSet (ToCompute);
+	FOR i := 2 TO AttrCount DO
+	   IF Test IN Instance^ [i].Properties THEN
+	      GenEvalAttr (t, i);
+	   END;
+	END;
+
+	IF (Iterator = NoTree) OR NOT (HasOutput IN Iterator^.Child.Class^.Class.Properties) THEN
+	   !RETURN;!
+	ELSE
+   IF IsElement (ORD ('Z'), Options) AND (Trace IN t^.Class.Properties) THEN
+	   !yyWriteVisit (yyt, '! WI (Iterator^.Child.Name); !'); ! 
+   END;
+	   !yyt := yyt^.! WI (Name); !.! WI (Iterator^.Child.Name); !;!
+	END;
+}; .
+
+PROCEDURE CompOutput (t: Tree)
+
+Class (..) :-
+   NOT (HasOutput IN Properties);
+   Success := FALSE;
+   ForallAttributes (t, CompOutput);
+   ForallClasses (Extensions, CompOutput2);
+   Success;
+   INCL (Properties, HasOutput);
+   IsStable := FALSE;
+   .
+Child (..) :-
+   (Output IN Properties) OR (HasOutput IN Class^.Class.Properties);
+   Success := TRUE;
+   .
+Attribute (..) :-
+   ({{Test, Output}} * Properties # {{}});
+   Success := TRUE;
+   .
+
+PROCEDURE CompOutput2 (t: Tree)
+
+Class (..) :-
+   HasOutput IN Properties;
+   Success := TRUE;
+   .
+
+FUNCTION ToBit0 (Class, INTEGER) INTEGER
+   class:_, i:_ ? RETURN class^.Class.BitIndex^ [i].ToBit - 1; .
+
+FUNCTION ToBit1 (Child, INTEGER) INTEGER
+   Selector:_, i:_ ? RETURN Selector^.Child.Class^.Class.BitIndex^ [i].ToBit - 1; .
+
+FUNCTION ToBit2 (Class, Child, SHORTCARD) INTEGER
+   class:_, Selector:_, i:_ RETURN _ ?
+{  WITH Selector^.Child DO
+      RETURN class^.Class.BitCount + BitOffset +
+	 Class^.Class.BitIndex^ [i - class^.Class.AttrCount - InstOffset].ToBit - 1;
+   END;
+}; .
+
+FUNCTION ToAttr (Class, INTEGER) INTEGER
+   LOCAL { VAR a: SHORTCARD; }
+   class:_, i:_ RETURN _ ?
+{  WITH class^.Class DO
+      FOR a := AttrCount + 1 TO InstCount DO
+	 WITH Instance^ [a] DO
+	    IF ({Input, Test, Dummy} * Properties = {}) AND
+	       (ToBit2 (class, Selector, a) = i) THEN RETURN a; END;
+	 END;
+      END;
+   END;
+   RETURN 0;
+}; .
+
+PROCEDURE GenEvaluator (t: Tree)
+
+Assign (..) ;
+Copy (..) :-
+   GenEvaluator (Arguments);
+   .
+TargetCode (..) :-
+   GenEvaluator (Code);
+   .
+Check (..) :-
+   GenEvaluator (Condition);
+   GenEvaluator (Statement);
+   GenEvaluator (Actions);
+   .
+Designator (..) ;
+Ident (..) ;
+Any (..) ;
+Anys (..) :-
+   GenEvaluator (Next);
+   .
+Remote (..) :-
+   VAR TheClass : Class ; 
+   VAR k : INTEGER ;
+   TheClass := IdentifyClass (TreeRoot^.Ag.Classes, Type);
+{  IF TheClass # NoTree THEN
+      Attr := IdentifyAttribute (TheClass, Attribute);
+      IF Attr # NoTree THEN
+	 WITH Attr^.Attribute DO
+	    k := ToBit0 (TheClass, AttrIndex);
+	    IF Synthesized IN Properties THEN
+	       !IFNOTIN (! WN (k MOD BSS); !,! EvalMod.GenEvaluator (Designators);
+	       !^.yyHead.yyIsComp! WN (k DIV BSS); !) yyS! WN (k); ! (! 
+	       EvalMod.GenEvaluator (Designators); !); END;!
+	    ELSIF Inherited IN Properties THEN
+	       !IFNOTIN (! WN (k MOD BSS); !,! EvalMod.GenEvaluator (Designators);
+	       !^.yyHead.yyIsComp! WN (k DIV BSS); !) yyI [! 
+	       EvalMod.GenEvaluator (Designators); !^.yyHead.yyOffset + ! WN (k);
+	       !](! EvalMod.GenEvaluator (Designators); !^.yyHead.yyParent); END;!
+	    END;
+	 END;
+      END;
+   END;
+   GenEvaluator (Next);
+}; .

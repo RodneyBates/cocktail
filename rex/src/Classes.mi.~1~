@@ -1,0 +1,158 @@
+(* $Id: Classes.mi,v 3.2 1991/11/21 14:41:19 grosch rel $ *)
+
+(* $Log: Classes.mi,v $
+Revision 3.2  1991/11/21  14:41:19  grosch
+fixed bug: interference of right context between constant and non-constant RE
+new version of RCS on SPARC
+
+Revision 3.1  91/04/08  15:50:12  grosch
+release memory after use in Classes and Tree0
+
+Revision 3.0  91/04/04  18:26:37  grosch
+Initial revision
+
+ *)
+
+(* Ich, Doktor Josef Grosch, Informatiker, March 1991 *)
+
+IMPLEMENTATION MODULE Classes;
+
+FROM SYSTEM	IMPORT TSIZE;
+FROM DynArray	IMPORT MakeArray, ExtendArray, ReleaseArray;
+FROM Strings	IMPORT tString, Char, Length;
+FROM StringMem	IMPORT GetString;
+FROM IO		IMPORT StdOutput, WriteC, WriteI, WriteS, WriteNl;
+FROM Layout	IMPORT WriteChar;
+FROM Sets	IMPORT tSet, MakeSet, Assign, Include, IsEqual, ForallDo, WriteSet,
+			Intersection, Union, Difference, Complement, ReleaseSet, IsEmpty,
+			IsSubset;
+FROM Tree0	IMPORT tTree0, Tree0Root, TraverseTree0TD, Ch, Set, String;
+FROM Dfa	IMPORT FirstCh, LastCh, OldLastCh, EobCh;
+
+PROCEDURE IsInSetMem (Set: tSet): INTEGER;
+   VAR i : INTEGER;
+   BEGIN
+      FOR i := 1 TO SetCount DO
+	 IF IsEqual (Set, SetMemPtr^[i].Set) THEN RETURN i; END;
+      END;
+      RETURN 0;
+   END IsInSetMem;
+
+PROCEDURE CollectSets (t: tTree0);
+   VAR i	: CARDINAL;
+   VAR string	: tString;
+   BEGIN
+      CASE t^.Kind OF
+      | Ch	: Include (CharSet, ORD (t^.Ch.Ch));
+
+      | Set	: IF IsInSetMem (t^.Set.Set) = 0 THEN
+		     INC (SetCount);
+		     IF SetCount = SetMemSize THEN
+			ExtendArray (SetMemPtr, SetMemSize, TSIZE (ClassInfo));
+		     END;
+		     MakeSet (SetMemPtr^[SetCount].Set, ORD (LastCh));
+		     Assign (SetMemPtr^[SetCount].Set, t^.Set.Set);
+		     Union (Unused, t^.Set.Set);
+		  END;
+
+      | String	: GetString (t^.String.String, string);
+		  FOR i := Length (string) TO 1 BY -1 DO
+		     Include (CharSet, ORD (Char (string, i)));
+		  END;
+      ELSE
+      END;
+   END CollectSets;
+
+VAR Class: CHAR;
+
+PROCEDURE CharToClass0 (Ch: CARDINAL);
+   BEGIN
+      ToClass [CHR (Ch)] := Class;
+   END CharToClass0;
+
+PROCEDURE CharToClass (Ch: CARDINAL);
+   BEGIN
+      INC (LastCh);
+      ToClass [CHR (Ch)] := LastCh;
+      ToChar [LastCh] := CHR (Ch);
+   END CharToClass;
+
+PROCEDURE ComputeClasses (Blocking: BOOLEAN);
+   VAR i	: INTEGER;
+   VAR j	: CHAR;
+   VAR Set	: tSet;
+   BEGIN
+      OldLastCh := LastCh;
+      MakeSet (CharSet, ORD (LastCh));
+      MakeSet (Unused, ORD (LastCh));
+
+      IF Blocking THEN
+	 TraverseTree0TD (Tree0Root, CollectSets);
+	 Include (CharSet, ORD (EobCh));
+	 Union (Unused, CharSet);
+	 Complement (Unused);
+      ELSE
+	 Include (CharSet, ORD (FirstCh));
+	 Complement (CharSet);
+      END;
+
+      ClassCount := 0C;
+      MakeSet (ClassMemPtr^[0C], ORD (LastCh));
+      Assign (ClassMemPtr^[0C], CharSet);
+      Union (ClassMemPtr^[0C], Unused);
+      Complement (ClassMemPtr^[0C]);
+
+      MakeSet (Set, ORD (LastCh));
+      FOR i := 1 TO SetCount DO
+	 FOR j := 0C TO ClassCount DO
+	    Assign (Set, SetMemPtr^[i].Set);
+	    Difference (Set, CharSet);
+	    Intersection (Set, ClassMemPtr^[j]);
+	    IF NOT IsEmpty (Set) AND NOT IsEqual (Set, ClassMemPtr^[j]) THEN
+	       INC (ClassCount);
+	       IF ORD (ClassCount) = CARDINAL (ClassMemSize) THEN
+		  ExtendArray (ClassMemPtr, ClassMemSize, TSIZE (tSet));
+	       END;
+	       MakeSet (ClassMemPtr^[ClassCount], ORD (LastCh));
+	       Assign (ClassMemPtr^[ClassCount], Set);
+	       Difference (ClassMemPtr^[j], Set);
+	    END;
+	 END;
+      END;
+      ReleaseSet (Set);
+
+      FOR i := 1 TO SetCount DO
+	 MakeSet (SetMemPtr^[i].Classes, ORD (ClassCount));
+	 FOR j := 0C TO ClassCount DO
+	    IF IsSubset (ClassMemPtr^[j], SetMemPtr^[i].Set) THEN
+	       Include (SetMemPtr^[i].Classes, ORD (j));
+	    END;
+	 END;
+      END;
+
+      FOR j := 0C TO ClassCount DO
+	 Class := j;
+	 ForallDo (ClassMemPtr^[j], CharToClass0);
+      END;
+
+      LastCh := ClassCount;
+      ForallDo (CharSet, CharToClass);
+   END ComputeClasses;
+
+PROCEDURE ReleaseSetMem;
+   VAR i : INTEGER;
+   BEGIN
+      FOR i := 1 TO SetCount DO
+	 ReleaseSet (SetMemPtr^[i].Set);
+	 ReleaseSet (SetMemPtr^[i].Classes);
+      END;
+      ReleaseArray (SetMemPtr, SetMemSize, TSIZE (ClassInfo));
+   END ReleaseSetMem;
+
+BEGIN
+   SetMemSize := 16;
+   MakeArray (SetMemPtr, SetMemSize, TSIZE (ClassInfo));
+   SetCount := 0;
+   ClassMemSize := 16;
+   MakeArray (ClassMemPtr, ClassMemSize, TSIZE (tSet));
+END Classes.

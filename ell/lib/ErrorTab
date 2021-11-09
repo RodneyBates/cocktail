@@ -1,0 +1,147 @@
+%
+%	ell2 - a redesign of ell
+%
+%	$RCSfile: ErrorTab,v $
+%	
+%	purpose:	error table
+%
+%	$Author: grosch $
+%	$Date: 1992/08/07 15:32:36 $
+%
+%
+%%%	Error Class Text
+%
+1	Fatal       				eFatal
+2	Restriction 				eRestriction
+3	Error       				eError
+4	Warning     				eWarning
+5	Repair      				eRepair
+6	Note        				eNote
+7	Information 				eInformation
+%
+$
+%%%	Error Code Text -------------------------------------------------
+%
+%%%	Parser
+%
+1	syntax error				eSyntaxError
+2	expected tokens: $			eExpectedSymbols
+3	restart	point				eRestartPoint
+4	token inserted : $			eSymbolInserted
+5	error reading parse table		eWrongSetTable
+%
+%
+%%%	interne Fehler
+%	--------------
+%
+11	internal error				eInternal
+%
+%
+%%%	Errors
+%
+12	wrong error class 			eWrongClass
+13	wrong error code			eWrongCode
+%
+%
+%%%	ArgCheck
+%	--------
+%
+14	unknown option $			eNoOption
+15	too many arguments $			eTooManyArgs
+%
+20	string not closed			eStringExceedsInput
+21	comment not closed			eCommentNotClosed
+22	action not closed			eActionNotClosed
+23	string exceeds line			eStringExceedsLine
+24	character ignored			eBackSlashInAct
+25	character ignored			eIllegalChar
+%
+%%%	Parser
+%	------
+30	oper part ignored (only lalr)		eOperIgnored
+31	prec part ignored (only lalr)		ePrecIgnored
+%
+%%%	Semantics
+%	---------
+40	$ is already declared			eAlreadyDeclared
+41	$ is not declared			eNotDeclared
+42	code $ exist already			eCodeExist
+43	rules missing				eNoRules
+44	$ is not reachable			eNotReachable
+45	$ does not produce any sentences	eNotDerivable
+46	never entered				eEnter
+47	never entered with $			eEnter + 1
+48	never skipped				eByPass
+49	never skipped with $			eByPass + 1
+50	never left				eLeft
+51	never left with $			eLeft + 1
+52	$ is left recursive			eLeftRec
+%
+%%	System Errors
+%	-------------
+%
+101	not super-user 
+102	no such file or directory 
+103	no such process 
+104	interrupted system call 
+105	I/O error 
+106	no such device or address 
+107	arg list too long 
+108	exec format error 
+109	bad file number 
+110	no children 
+111	no more processes 
+112	not enough core 
+113	permission denied 
+114	bad address 
+115	block device required 
+116	mount device busy 
+117	file exists 
+118	cross-device link 
+119	no such device 
+120	not a directory 
+121	is a directory 
+122	invalid argument 
+123	file table overflow 
+124	too many open files 
+125	not a typewriter 
+126	text file busy 
+127	file too large 
+128	no space left on device 
+129	illegal seek 
+130	read only file system 
+131	too many links 
+132	broken pipe 
+133	math arg out of domain of func 
+134	math result not representable 
+135	no message of desired type 
+136	identifier removed 
+137	channel number out of range 
+138	level 2 not synchronized 
+139	level 3 halted 
+140	level 3 reset 
+141	link number out of range 
+142	protocol driver not attached 
+143	no CSI structure available 
+144	level 2 halted 
+145	out of swap space 
+146	path continues onto another machine 
+147	unison request for a retry 
+148	record locking deadlock 
+149	could not resolve IP addr, host down 
+150	no available gateway in route table 
+151	symbolic links form endless loop 
+%
+$
+%%%	Error Count Text ------------------------------------------------
+%
+1	fatal error(s)
+2	restriction(s)
+3	error(s)
+4	warning(s)
+5	repair(s)
+6	note(s)
+7	information(s)
+%
+$
+%%%	-----------------------------------------------------------------

@@ -1,0 +1,116 @@
+# Makefile for mpp/m2c RMB 10/93.
+
+LIB	= $(INSTALLGMD)/lib
+BIN	= $(INSTALLGMD)/bin
+
+REUSE   = ../../reuse
+COMMON  = ../../common
+
+REUSEM2C = $(REUSE)/m2c
+COMMONM2C = $(COMMON)/m2c
+
+REUSESRC = $(REUSE)/src
+COMMONSRC = $(COMMON)/src
+
+EXE     = mpp
+
+CC	= cc
+ 
+OPT     = -O0 -g
+
+                # C libraries
+CLIBS	= $(REUSEM2C)/libreuse.a $(COMMONM2C)/libcommon.a
+
+                # options for cc
+CFLAGS	= -w -I$(REUSEM2C) -I$(COMMONM2C) $(OPT)
+
+                # options for mtc
+M2FLAGS	= -c -d$(REUSESRC) -d$(COMMONSRC)
+
+SYSTEM_	= SYSTEM_.o
+
+SYSTEM  = $(CLIBS)
+
+cleanm2c:
+	cd ../src; make cleanm2c
+
+cleancompile: cleanm2c
+	rm -f *.o $(EXE)
+
+compile: $(EXE)
+
+m2c:   sources
+
+install:	mpp ../src/mpp.sh ../src/Parser.Tab $(LIB)/mpp
+	sed 's;LIB;$(LIB);' < ../src/mpp.sh > $(BIN)/mpp
+	chmod a+rx $(BIN)/mpp
+	install -c -s -m 755 mpp $(LIB)/mpp
+	install -c -m 644 ../src/Parser.Tab $(LIB)/mpp
+
+# installation directories
+
+$(LIB)/mpp:	$(LIB)
+	sh -c "if test ! -d $(LIB)/mpp; then mkdir $(LIB)/mpp; else true; fi"
+
+$(LIB):	
+	sh -c "if test ! -d $(LIB); then mkdir $(LIB); else true; fi"
+
+$(BIN):	
+	sh -c "if test ! -d $(BIN); then mkdir $(BIN); else true; fi"
+
+all	:
+
+# HEAD
+
+sources	: Parser.h
+
+sources	: Parser.c
+Parser.o	: Parser.c Parser.h
+Parser.o	: Scanner.h
+Parser.o	: Scanner.h
+Parser.o	: Table.h
+
+sources	: Scanner.h
+
+sources	: Scanner.c
+Scanner.o	: Scanner.c Scanner.h
+
+sources	: Table.h
+
+sources	: Table.c
+Table.o	: Table.c Table.h
+
+sources	: mpp.c
+all	: mpp
+mpp.o	: mpp.c
+mpp.o	: Parser.h
+
+#SYSTEM_.o	: SYSTEM_.c SYSTEM_.h
+
+mpp	: $(SYSTEM)	\
+	mpp.o	\
+	Parser.o	\
+	Table.o	\
+	Scanner.o	\
+;	$(CC) $(CFLAGS) -o mpp $(SYSTEM)	\
+	mpp.o	\
+	Parser.o	\
+	Table.o	\
+	Scanner.o	\
+	$(CLIBS)
+
+# TAIL
+
+clean	:
+	rm -f core *.o
+
+.SUFFIXES: .md .mi .h .c .o
+
+.mi.c:
+	mtc $(M2FLAGS) $*.mi;
+
+.md.h:
+	mtc $(M2FLAGS) $*.md;
+
+.c.o:
+	$(CC) $(CFLAGS) -c $*.c

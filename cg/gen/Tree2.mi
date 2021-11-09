@@ -1,0 +1,288 @@
+IMPLEMENTATION MODULE Tree2;
+
+
+
+IMPORT SYSTEM, System, General, Memory, DynArray, IO, Layout, StringMem, Strings, Idents, Texts, Sets, Positions;
+FROM Tree IMPORT tTree, NoTree, tProcTree, MakeTree, IsType, yyExit,
+Classes, 
+NoClass, 
+Class, 
+Attributes, 
+NoAttribute, 
+AttrOrAction, 
+Child, 
+Attribute, 
+ActionPart, 
+yyAlloc, yyPoolFreePtr, yyPoolMaxPtr, yyNodeSize;
+
+(* line 194 "" *)
+(* line 501 "" *)
+(* line 912 "" *)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+TYPE yyPtrtTree        = POINTER TO tTree;
+
+VAR yyf        : IO.tFile;
+VAR yyLabel    : SHORTCARD;
+VAR yyKind     : SHORTCARD;
+VAR yyc        : CHAR;
+VAR yys        : Strings.tString;
+
+PROCEDURE yyMark (yyt: tTree);
+ BEGIN
+  LOOP
+   IF yyt = NoTree THEN RETURN; END;
+   INC (yyt^.yyHead.yyMark);
+   IF yyt^.yyHead.yyMark > 1 THEN RETURN; END;
+
+   CASE yyt^.Kind OF
+| Class:
+yyMark (yyt^.Class.Attributes);
+yyMark (yyt^.Class.Extensions);
+yyMark (yyt^.Class.BaseClass);
+yyt := yyt^.Class.Next;
+| AttrOrAction:
+yyt := yyt^.AttrOrAction.Next;
+| Child:
+yyt := yyt^.Child.Next;
+| Attribute:
+yyt := yyt^.Attribute.Next;
+| ActionPart:
+yyt := yyt^.ActionPart.Next;
+   ELSE RETURN;
+   END;
+  END;
+ END yyMark;
+
+CONST yyInitTreeStoreSize      = 32;
+
+VAR yyTreeStoreSize    : LONGINT;
+VAR yyTreeStorePtr     : POINTER TO ARRAY [0..50000] OF tTree;
+VAR yyLabelCount       : INTEGER;
+VAR yyRecursionLevel   : SHORTINT;
+
+PROCEDURE yyMapToLabel (yyTree: tTree): SHORTCARD;
+ VAR yyi       : INTEGER;
+ BEGIN
+  FOR yyi := 1 TO yyLabelCount DO
+   IF yyTreeStorePtr^[yyi] = yyTree THEN RETURN yyi; END;
+  END;
+  INC (yyLabelCount);
+  IF yyLabelCount = yyTreeStoreSize THEN
+   DynArray.ExtendArray (yyTreeStorePtr, yyTreeStoreSize, SYSTEM.TSIZE (tTree));
+  END;
+  yyTreeStorePtr^[yyLabelCount] := yyTree;
+  RETURN yyLabelCount;
+ END yyMapToLabel;
+
+PROCEDURE yyMapToTree (yyLabel: SHORTCARD): tTree;
+ BEGIN RETURN yyTreeStorePtr^[yyLabel]; END yyMapToTree;
+
+CONST yyNil    = 374C;
+CONST yyNoLabel        = 375C;
+CONST yyLabelDef       = 376C;
+CONST yyLabelUse       = 377C;
+
+PROCEDURE PutTree2 (yyyf: IO.tFile; yyt: tTree);
+ BEGIN
+  yyf := yyyf;
+  IF yyRecursionLevel = 0 THEN yyLabelCount := 0; END;
+  INC (yyRecursionLevel);
+  yyMark (yyt);
+  yyPutTree2 (yyt);
+  DEC (yyRecursionLevel);
+ END PutTree2;
+
+PROCEDURE yyPutTree2 (yyt: tTree);
+ BEGIN
+  LOOP
+   IF yyt = NoTree THEN
+    IO.WriteC (yyf, yyNil); RETURN;
+   ELSIF yyt^.yyHead.yyMark = 0 THEN
+    IO.WriteC (yyf, yyLabelUse); yyLabel := yyMapToLabel (yyt); yyPut (yyLabel);
+    RETURN;
+   ELSIF yyt^.yyHead.yyMark > 1 THEN
+    IO.WriteC (yyf, yyLabelDef); yyLabel := yyMapToLabel (yyt); yyPut (yyLabel);
+    IO.WriteC (yyf, CHR (yyt^.Kind));
+   ELSE
+    IO.WriteC (yyf, CHR (yyt^.Kind));
+   END;
+   yyt^.yyHead.yyMark := 0;
+
+   CASE yyt^.Kind OF
+| Class:
+yyPutIdent ( yyt^.Class.Name ); 
+yyPut ( yyt^.Class.Properties ); 
+yyPutTree2 ( yyt^.Class.Attributes ); 
+yyPutTree2 ( yyt^.Class.Extensions ); 
+yyPutTree2 ( yyt^.Class.BaseClass ); 
+yyt := yyt^.Class.Next;
+| AttrOrAction:
+yyt := yyt^.AttrOrAction.Next;
+| Child:
+yyPutIdent ( yyt^.Child.Name ); 
+yyPutIdent ( yyt^.Child.Type ); 
+yyPut ( yyt^.Child.Properties ); 
+yyt := yyt^.Child.Next;
+| Attribute:
+yyPutIdent ( yyt^.Attribute.Name ); 
+yyPutIdent ( yyt^.Attribute.Type ); 
+yyPut ( yyt^.Attribute.Properties ); 
+yyt := yyt^.Attribute.Next;
+| ActionPart:
+yyt := yyt^.ActionPart.Next;
+   ELSE RETURN;
+   END;
+  END;
+ END yyPutTree2;
+
+PROCEDURE yyPut (VAR yyx: ARRAY OF SYSTEM.BYTE);
+ VAR yyi       : INTEGER;
+ BEGIN
+  yyi := IO.Write (yyf, SYSTEM.ADR (yyx), INTEGER (HIGH (yyx)) + 1);
+ END yyPut;
+
+PROCEDURE yyPutIdent (yyi: Idents.tIdent);
+ VAR yys       : Strings.tString;
+ BEGIN
+  Idents.GetString (yyi, yys);
+  Strings.WriteL (yyf, yys);
+ END yyPutIdent;
+
+PROCEDURE BeginTree2;
+ BEGIN
+(* line 376 "" *)
+(* line 839 "" *)
+ END BeginTree2;
+
+PROCEDURE CloseTree2;
+ BEGIN
+ END CloseTree2;
+
+BEGIN
+ yyRecursionLevel := 0;
+ yyTreeStoreSize := yyInitTreeStoreSize;
+ DynArray.MakeArray (yyTreeStorePtr, yyTreeStoreSize, SYSTEM.TSIZE (tTree));
+ BeginTree2;
+END Tree2.

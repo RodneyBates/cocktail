@@ -1,0 +1,927 @@
+(* Ich, Doktor Josef Grosch, Informatiker, 8.1.1988 *)
+(* Modified Rodney M. Bates
+   RMB: Aug 1996 add -e to options summary. 
+               (generate parsing actions respecting attribute dependencies)
+        Nov 1997 alphabetize options (within groups) in usage messages.
+        Nov 1997 Add calls for Modula-3 generation. 
+        Nov 1997 accept -l dir, in addition to -ldir 
+        Dec 1997 Changes to support '-~' option: GnatConvert procedure 
+        Dec 1997 Fixed bugs in macro file generation
+        Dec 1997 Added <*LINE...*> pragma output with -# option to help options 
+        Jan 1999 Added html tree dumper generation with '-^' option 
+        Nov 1999 Changed to use the -l-supplied prefix to find to scripts
+                 gmdcpp, gmdupd, gmdrm.
+
+*)
+
+MODULE cg;
+
+FROM System	IMPORT GetArgCount, GetArgument, System, Exit;
+FROM Memory	IMPORT MemoryUsed;
+FROM IO		IMPORT StdOutput, StdError, WriteOpen, WriteClose, CloseIO,
+			WriteI, WriteS, WriteNl,
+			tFile, ReadOpen, ReadClose, EndOfFile, ReadNl;
+FROM Strings	IMPORT tString, AssignEmpty, Assign, Append, Concatenate,
+			ReadL, WriteL, ArrayToString, StringToArray;
+FROM Idents	IMPORT tIdent, NoIdent, MakeIdent, GetString, WriteIdent;
+FROM Sets	IMPORT tSet, MakeSet, ReleaseSet, Include, Exclude, IsEmpty,
+			Extract, Complement, Union, IsElement;
+FROM Errors	IMPORT StoreMessages, WriteMessages;
+FROM Scanner	IMPORT ScanTabName, BeginFile, Attribute, CurArg, ArgCount;
+FROM Parser	IMPORT Parser, ParsTabName;
+FROM Tree	IMPORT NoTree, tTree, Trace, Options, TreeRoot, QueryTree, ErrorCount,
+			HeapUsed, ModuleName, f, BeginTree2, ForallClasses, SourceFile,
+			WI, TypeNames, itTree, iNoTree, iModule, iInteger, IdentifyClass,
+			ViewName;
+FROM Tree2	IMPORT PutTree2;
+FROM Semantics	IMPORT Semantics, TypeCount;
+FROM Order	IMPORT Order;
+FROM Dialog	IMPORT Dialog;
+
+IMPORT GramMod,         TreeMod1, EvalMod, EvalMod2, EvalMod3;
+IMPORT                  TreeMThree1, EvalMThree, EvalMThree2, EvalMThree3;
+IMPORT GramC, GramYacc, TreeC1, EvalC, EvalC2, EvalC3;
+
+CONST
+   DefExtMc	= ".md"	;	(* file extensions for Modula-2 (mocka, mtc)	*)
+   ImpExtMc	= ".mi"	;
+   LisExtMc	= ".imp";
+
+   IntExtM3	= ".i3"	;	(* file extensions for Modula-3	*)
+   ModExtM3	= ".m3"	;
+   LisExtM3	= ".imp";
+
+   DefExtC	= ".h"	;	(* file extensions for C		*)
+   ImpExtC	= ".c"	;
+
+VAR
+   CgLib	,
+   DefFile	,
+   TreeFile	,
+   EvalFile	,
+   String	,
+   PathS	: tString;
+   Argument	,
+   PathA	: ARRAY [0..255] OF CHAR;
+   j		: SHORTCARD;
+   ch		: CHAR;
+   AllOptions	: tSet;
+   HasArgs	: BOOLEAN;
+
+PROCEDURE GenerateMacros;
+   VAR TypeTabFile	: tFile;
+   VAR s		: tString;
+   VAR i		: tIdent;
+   VAR j		: INTEGER;
+   BEGIN
+   IF IsElement (ORD ('c'), Options) THEN
+      ArrayToString	("TypeTab.c", String);	(* name of type table for C *)
+   ELSIF IsElement (ORD ('K'), Options) THEN
+      ArrayToString	("TypeTab.m3", String);	(* name of type table for Modula-3 *)
+   ELSE
+      ArrayToString	("TypeTab.m", String);	(* name of type table for Modula-2 *)
+   END;
+      Assign		(PathS, CgLib);
+      Concatenate 	(PathS, String);
+      Append		(PathS, 0C);
+      StringToArray	(PathS, PathA);
+      TypeTabFile := ReadOpen (PathA);
+
+      ArrayToString	("yy" , PathS);		(* name of macro file *)
+      GetString		(iModule, ModuleName);
+      Concatenate	(PathS, ModuleName);
+      ArrayToString	(".w", String);
+      Concatenate	(PathS, String);
+      Append		(PathS, 0C);
+      StringToArray	(PathS, PathA);
+      f := WriteOpen (PathA);
+
+      WHILE NOT EndOfFile (TypeTabFile) DO
+	 ReadL (TypeTabFile, s);
+	 i := MakeIdent (s);
+	 IF (i <= TypeCount) AND IsElement (i, TypeNames) THEN
+	    Exclude (TypeNames, i);
+	    WriteS (f, "# ifndef begin"); WI (i); WriteNl (f);
+	    ReadL (TypeTabFile, s);
+	    WriteL (f, s);
+	    WriteS (f, "# endif"); WriteNl (f);
+	    WriteS (f, "# ifndef close"); WI (i); WriteNl (f);
+	    ReadL (TypeTabFile, s);
+	    WriteL (f, s);
+	    WriteS (f, "# endif"); WriteNl (f);
+	    WriteS (f, "# ifndef read"); WI (i); WriteNl (f);
+	    ReadL (TypeTabFile, s);
+	    WriteL (f, s);
+	    WriteS (f, "# endif"); WriteNl (f);
+	    WriteS (f, "# ifndef write"); WI (i); WriteNl (f);
+	    ReadL (TypeTabFile, s);
+	    WriteL (f, s);
+	    WriteS (f, "# endif"); WriteNl (f);
+	    WriteS (f, "# ifndef get"); WI (i); WriteNl (f);
+	    ReadL (TypeTabFile, s);
+	    WriteL (f, s);
+	    WriteS (f, "# endif"); WriteNl (f);
+	    WriteS (f, "# ifndef put"); WI (i); WriteNl (f);
+	    ReadL (TypeTabFile, s);
+	    WriteL (f, s);
+	    WriteS (f, "# endif"); WriteNl (f);
+	    WriteS (f, "# ifndef copy"); WI (i); WriteNl (f);
+	    ReadL (TypeTabFile, s);
+	    WriteL (f, s);
+	    WriteS (f, "# endif"); WriteNl (f);
+	    WriteS (f, "# ifndef equal"); WI (i); WriteNl (f);
+	    ReadL (TypeTabFile, s);
+	    WriteL (f, s);
+	    WriteS (f, "# endif"); WriteNl (f);
+	 ELSE
+	    FOR j := 1 TO 8 DO
+	       ReadNl (TypeTabFile);
+	    END;
+	 END;
+      END;
+      ReadClose (TypeTabFile);
+
+      IF itTree <= TypeCount THEN Exclude (TypeNames, itTree); END;
+      WHILE NOT IsEmpty (TypeNames) DO
+	 i := Extract (TypeNames);
+   IF IsElement (ORD ('c'), Options) THEN (* C code *) 
+	 WriteS (f, "# ifndef begin"); WI (i); WriteNl (f);
+	 WriteS (f, "# define begin"); WI (i); WriteS (f, "(a)"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef close"); WI (i); WriteNl (f);
+	 WriteS (f, "# define close"); WI (i); WriteS (f, "(a)"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef read"); WI (i); WriteNl (f);
+	 WriteS (f, "# define read"); WI (i); WriteS (f, "(a)	yyReadHex ((unsigned char *) & a, sizeof (a));"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef write"); WI (i); WriteNl (f);
+	 WriteS (f, "# define write"); WI (i); WriteS (f, "(a)	yyWriteHex ((unsigned char *) & a, sizeof (a));"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef get"); WI (i); WriteNl (f);
+	 WriteS (f, "# define get"); WI (i); WriteS (f, "(a)	yyGet ((char *) & a, sizeof (a));"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef put"); WI (i); WriteNl (f);
+	 WriteS (f, "# define put"); WI (i); WriteS (f, "(a)	yyPut ((char *) & a, sizeof (a));"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef copy"); WI (i); WriteNl (f);
+	 WriteS (f, "# define copy"); WI (i); WriteS (f, "(a, b)"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef equal"); WI (i); WriteNl (f);
+	 WriteS (f, "# define equal"); WI (i); WriteS (f, "(a, b)	memcmp ((char *) & a, (char *) & b, sizeof (a)) == 0"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+   ELSIF IsElement (ORD ('K'), Options) THEN (* Modula-3 *) 
+	 WriteS (f, "# ifndef begin"); WI (i); WriteNl (f);
+	 WriteS (f, "# define begin"); WI (i); WriteS (f, "(a)"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef close"); WI (i); WriteNl (f);
+	 WriteS (f, "# define close"); WI (i); WriteS (f, "(a)"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef read"); WI (i); WriteNl (f);
+	 WriteS (f, "# define read"); WI (i); WriteS (f, "(a)	yyReadHex ( LOOPHOLE ( a , ARRAY [ 0..BYTESIZE( a ) - 1 ] OF CHAR ) );"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef write"); WI (i); WriteNl (f);
+	 WriteS (f, "# define write"); WI (i); WriteS (f, "(a)	yyWriteHex ( LOOPHOLE ( a , ARRAY [ 0..BYTESIZE ( a ) - 1 ] OF CHAR ) );"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef get"); WI (i); WriteNl (f);
+	 WriteS (f, "# define get"); WI (i); WriteS (f, "(a)    yyGet(a);"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef put"); WI (i); WriteNl (f);
+	 WriteS (f, "# define put"); WI (i); WriteS (f, "(a)    yyPut(a);"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef copy"); WI (i); WriteNl (f);
+	 WriteS (f, "# define copy"); WI (i); WriteS (f, "(a, b) a := b"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef equal"); WI (i); WriteNl (f);
+	 WriteS (f, "# define equal"); WI (i); WriteS (f, "(a, b) a = b"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+   ELSE (* Modula-2 *) 
+	 WriteS (f, "# ifndef begin"); WI (i); WriteNl (f);
+	 WriteS (f, "# define begin"); WI (i); WriteS (f, "(a)"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef close"); WI (i); WriteNl (f);
+	 WriteS (f, "# define close"); WI (i); WriteS (f, "(a)"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef read"); WI (i); WriteNl (f);
+	 WriteS (f, "# define read"); WI (i); WriteS (f, "(a)	yyReadHex (a);"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef write"); WI (i); WriteNl (f);
+	 WriteS (f, "# define write"); WI (i); WriteS (f, "(a)	yyWriteHex (a);"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef get"); WI (i); WriteNl (f);
+	 WriteS (f, "# define get"); WI (i); WriteS (f, "(a)	yyGet (a);"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef put"); WI (i); WriteNl (f);
+	 WriteS (f, "# define put"); WI (i); WriteS (f, "(a)	yyPut (a);"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef copy"); WI (i); WriteNl (f);
+	 WriteS (f, "# define copy"); WI (i); WriteS (f, "(a, b)"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+	 WriteS (f, "# ifndef equal"); WI (i); WriteNl (f);
+	 WriteS (f, "# define equal"); WI (i); WriteS (f, "(a, b)	yyIsEqual (a, b)"); WriteNl (f);
+	 WriteS (f, "# endif"); WriteNl (f);
+   END;
+      END;
+
+   IF IsElement (ORD ('c'), Options) THEN
+      WriteS (f, "# ifndef begin"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define begin"); WI (itTree); WriteS (f, "(a)	a = "); WI (iNoTree); WriteS (f, ";"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef close"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define close"); WI (itTree); WriteS (f, "(a)	yyChild = a; a = "); WI (iNoTree); WriteS (f, "; yyRelease"); WI (iModule); WriteS (f, " (yyChild);"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef read"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define read"); WI (itTree); WriteS (f, "(a)	yyRead"); WI (iModule); WriteS (f, " (a);"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef write"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define write"); WI (itTree); WriteS (f, "(a)	yyWrite"); WI (iModule); WriteS (f, " (a);"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef get"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define get"); WI (itTree); WriteS (f, "(a)	yyGet"); WI (iModule); WriteS (f, " (a);"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef put"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define put"); WI (itTree); WriteS (f, "(a)	yyPut"); WI (iModule); WriteS (f, " (a);"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef copy"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define copy"); WI (itTree); WriteS (f, "(a, b)	yyCopy"); WI (iModule); WriteS (f, " (b, & a);"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef equal"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define equal"); WI (itTree); WriteS (f, "(a, b)	IsEqual"); WI (iModule); WriteS (f, " (a, b)"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+   ELSIF IsElement (ORD ('K'), Options) THEN
+      WriteS (f, "# ifndef begin"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define begin"); WI (itTree); WriteS (f, "(a)	a := "); WI (iNoTree); WriteS (f, ";"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef close"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define close"); WI (itTree); WriteS (f, "(a)	a := "); WI (iNoTree); WriteS (f, " ;"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef read"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define read"); WI (itTree); WriteS (f, "(a)	yyRead"); WI (iModule); WriteS (f, " (a);"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef write"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define write"); WI (itTree); WriteS (f, "(a)	yyWrite"); WI (iModule); WriteS (f, " (a);"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef get"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define get"); WI (itTree); WriteS (f, "(a)	yyGet"); WI (iModule); WriteS (f, " (a);"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef put"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define put"); WI (itTree); WriteS (f, "(a)	yyPut"); WI (iModule); WriteS (f, " (a);"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef copy"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define copy"); WI (itTree); WriteS (f, "(a, b) Copy"); WI (iModule); WriteS (f, " ( a , b );"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef equal"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define equal"); WI (itTree); WriteS (f, "(a, b)	IsEqual"); WI (iModule); WriteS (f, " (a, b)"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+   ELSE
+      WriteS (f, "# ifndef begin"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define begin"); WI (itTree); WriteS (f, "(a)	a := "); WI (iNoTree); WriteS (f, ";"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef close"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define close"); WI (itTree); WriteS (f, "(a)	yyChild := a; a := "); WI (iNoTree); WriteS (f, "; yyRelease"); WI (iModule); WriteS (f, " (yyChild);"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef read"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define read"); WI (itTree); WriteS (f, "(a)	yyRead"); WI (iModule); WriteS (f, " (a);"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef write"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define write"); WI (itTree); WriteS (f, "(a)	yyWrite"); WI (iModule); WriteS (f, " (a);"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef get"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define get"); WI (itTree); WriteS (f, "(a)	yyGet"); WI (iModule); WriteS (f, " (a);"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef put"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define put"); WI (itTree); WriteS (f, "(a)	yyPut"); WI (iModule); WriteS (f, " (a);"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef copy"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define copy"); WI (itTree); WriteS (f, "(a, b)	yyCopy"); WI (iModule); WriteS (f, " (b, SYSTEM.ADR (a));"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+      WriteS (f, "# ifndef equal"); WI (itTree); WriteNl (f);
+      WriteS (f, "# define equal"); WI (itTree); WriteS (f, "(a, b)	IsEqual"); WI (iModule); WriteS (f, " (a, b)"); WriteNl (f);
+      WriteS (f, "# endif"); WriteNl (f);
+   END;
+      WriteClose (f);
+   END GenerateMacros;
+
+PROCEDURE ReadTraceTab;
+   VAR TraceTabFile	: tFile;
+   VAR s		: tString;
+   VAR t		: tTree;
+   BEGIN
+      TraceTabFile := ReadOpen ("TraceTab");	(* name of trace table *)
+      IF TraceTabFile >= 0 THEN
+	 WHILE NOT EndOfFile (TraceTabFile) DO
+	    ReadL (TraceTabFile, s);
+	    t := IdentifyClass (TreeRoot^.Ag.Classes, MakeIdent (s));
+	    IF t # NoTree THEN
+	       SetTrace (t);
+	       ForallClasses (t^.Class.Extensions, SetTrace);
+	    END;
+	 END;
+	 ReadClose (TraceTabFile);
+      END;
+   END ReadTraceTab;
+
+PROCEDURE SetTrace (t: tTree);
+   BEGIN INCL (t^.Class.Properties, Trace); END SetTrace;
+
+PROCEDURE SmartOpen (FileName: tString): tFile;
+   VAR PathS: tString;
+   BEGIN
+      IF IsElement (ORD ('7'), Options) THEN
+	 ArrayToString	("yy", PathS);
+	 Concatenate	(PathS, FileName);
+	 Append		(PathS, 0C);
+	 StringToArray	(PathS, PathA);
+      ELSE
+	 Append		(FileName, 0C);
+	 StringToArray	(FileName, PathA);
+      END;
+      RETURN WriteOpen	(PathA);
+   END SmartOpen;
+
+PROCEDURE SmartClose (FileName: tString; f: tFile);
+   VAR PathS: tString;
+   BEGIN
+      WriteClose	(f);
+      IF IsElement (ORD ('7'), Options) THEN
+         Assign	 ( PathS , CgLib ) ;
+	 ArrayToString ( "gmdupd " , String ) ;
+         Concatenate ( PathS , String ) ;
+	 Concatenate	(PathS, FileName);
+	 ArrayToString	(" yy", String);
+	 Concatenate	(PathS, String);
+	 Concatenate	(PathS, FileName);
+	 Append		(PathS, 0C);
+	 StringToArray	(PathS, PathA);
+	 j := System (PathA);
+      END;
+   END SmartClose;
+
+BEGIN
+   AssignEmpty (CgLib);
+   SourceFile [0] := 0C;
+   ArgCount := GetArgCount () - 1;
+   HasArgs := FALSE;
+
+   CurArg := 0;
+   LOOP
+      INC (CurArg);
+      IF CurArg > ArgCount THEN EXIT; END;
+      GetArgument (CurArg, Argument);
+      IF Argument [0] = '-' THEN 
+	 IF Argument [1] = 'l' THEN 
+	    AssignEmpty (CgLib);
+            IF Argument [ 2 ] = 0C 
+            THEN (* lib path is separate argument *) 
+              INC ( CurArg ) 
+            ; IF CurArg > ArgCount THEN Append ( CgLib , '/' ) ; EXIT END ;
+            ; GetArgument ( CurArg , Argument ) 
+            ; j := 0 
+            ELSE 
+              j := 2;
+            END (* IF *) ; 
+	    LOOP
+	       ch := Argument [j];
+	       IF ch = 0C THEN EXIT; END;
+	       Append (CgLib, ch);
+	       INC (j);
+	    END;
+	    Append (CgLib, '/');
+	 ELSE
+	    j := 0;
+	    LOOP
+	       INC (j);
+	       ch := Argument [j];
+	       IF ch = 0C THEN
+		  EXIT;
+	       ELSIF ch = '?' THEN
+		  Include (Options, ORD ('h'));
+		  Include (Options, ORD ('H'));
+	       ELSE
+		  Include (Options, ORD (ch));
+	       END;
+	    END;
+	    HasArgs := TRUE;
+	 END;
+      ELSIF Argument [0] = '?' THEN 
+	 Include (Options, ORD ('h'));
+	 Include (Options, ORD ('H'));
+	 HasArgs := TRUE;
+      ELSE
+	 j := 0;
+	 REPEAT
+            ch := Argument [j];
+	    SourceFile [j] := ch;
+	    INC (j);
+	 UNTIL ch = 0C;
+	 EXIT;
+      END;
+   END;
+
+   IF NOT HasArgs THEN				(* {} -> {a, A}		*)
+      Include (Options, ORD ('a'));
+      Include (Options, ORD ('A'));
+   END;
+
+   IF IsElement (ORD ('a'), Options) THEN	(* a -> {a-z, F, R, =} - {c, h, u, x, z} *)
+      MakeSet (AllOptions, 127);
+      FOR ch := 'a' TO 'z' DO
+	 Include (AllOptions, ORD (ch));
+      END;
+      Include (AllOptions, ORD ('F'));
+      Include (AllOptions, ORD ('R'));
+      Include (AllOptions, ORD ('='));
+      Exclude (AllOptions, ORD ('c'));
+      Exclude (AllOptions, ORD ('h'));
+      Exclude (AllOptions, ORD ('u'));
+      Exclude (AllOptions, ORD ('x'));
+      Exclude (AllOptions, ORD ('z'));
+      Union (Options, AllOptions);
+      ReleaseSet (AllOptions);
+   END;
+
+   IF IsElement (ORD ('k'), Options) OR		(* {k, q} -> o		*)
+      IsElement (ORD ('q'), Options) THEN
+      Include (Options, ORD ('o'));
+   END;
+
+   IF IsElement (ORD ('w'), Options) OR		(* {w, ^, p, f, k, t, b, y} -> , = Mark *)
+      IsElement (ORD ('^'), Options) OR
+      IsElement (ORD ('p'), Options) OR
+      IsElement (ORD ('f'), Options) OR
+      IsElement (ORD ('k'), Options) OR
+      IsElement (ORD ('t'), Options) OR
+      IsElement (ORD ('b'), Options) OR
+      IsElement (ORD ('y'), Options) THEN
+      Include (Options, ORD (','));
+   END;
+
+   IF IsElement (ORD ('w'), Options) OR		(* {w, ^, r, p, g} -> ; = TreeStore *)
+      IsElement (ORD ('^'), Options) OR
+      IsElement (ORD ('r'), Options) OR
+      IsElement (ORD ('p'), Options) OR
+      IsElement (ORD ('g'), Options) THEN
+      Include (Options, ORD (';'));
+   END;
+
+   IF IsElement (ORD ('A'), Options) THEN	(* A -> {D, I}		*)
+      Include (Options, ORD ('D'));
+      Include (Options, ORD ('I'));
+   END;
+
+   IF IsElement (ORD ('T'), Options) OR		(* {T, X, Y, Z} -> I	*)
+      IsElement (ORD ('X'), Options) OR
+      IsElement (ORD ('Y'), Options) OR
+      IsElement (ORD ('Z'), Options) THEN
+      Include (Options, ORD ('I'));
+   END;
+
+   IF IsElement (ORD ('I'), Options) OR		(* {I, V, M, P, S, N, O, G, E, C, J, x, z, u} -> . = Order *)
+      IsElement (ORD ('V'), Options) OR
+      IsElement (ORD ('M'), Options) OR
+      IsElement (ORD ('P'), Options) OR
+      IsElement (ORD ('S'), Options) OR
+      IsElement (ORD ('N'), Options) OR
+      IsElement (ORD ('O'), Options) OR
+      IsElement (ORD ('G'), Options) OR
+      IsElement (ORD ('E'), Options) OR
+      IsElement (ORD ('C'), Options) OR
+      IsElement (ORD ('J'), Options) OR
+      IsElement (ORD ('x'), Options) OR
+      IsElement (ORD ('z'), Options) OR
+      IsElement (ORD ('u'), Options) THEN
+      Include (Options, ORD ('.'));
+   END;
+
+   IF IsElement (ORD ('x'), Options) OR		(* {x, z, u} -> B	*)
+      IsElement (ORD ('z'), Options) OR
+      IsElement (ORD ('u'), Options) THEN
+      Include (Options, ORD ('B'));
+   END;
+
+   IF IsElement (ORD ('T'), Options) THEN	(* T -> {X, Z}		*)
+      Include (Options, ORD ('X'));
+      Include (Options, ORD ('Z'));
+   END;
+
+   IF IsElement (ORD ('X'), Options) THEN	(* X -> Y		*)
+      Include (Options, ORD ('Y'));
+   END;
+(*
+   IF IsElement ( ORD ( '~' ) , Options )       (* ~ AND K -> n         *) 
+      AND IsElement ( ORD ( 'K' ) , Options ) 
+   THEN 
+      Include ( Options , ORD ( 'n' ) ) 
+   END; 
+*)
+
+   IF IsElement (ORD ('h'), Options) 
+      OR IsElement (ORD ('H'), Options) THEN
+      f := StdOutput;
+      WriteNl (f);
+      WriteS (f, "usage: cg [-options] [-ldir|-l dir] [files]"); WriteNl (f);
+   END; 
+   IF IsElement (ORD ('h'), Options) THEN
+      Exclude (Options, ORD ('h'));
+      WriteNl (f);
+      WriteS (f, "options for tree/graph module"); WriteNl (f);
+      WriteNl (f);
+      WriteS (f, " a generate all except -ch (default)"); WriteNl (f);
+      WriteS (f, " b generate bottom up traversal  procedure TraverseTREEBU"); WriteNl (f);
+      WriteS (f, " c generate C code (default is Modula-2)"); WriteNl (f);
+      WriteS (f, " d generate definition module"); WriteNl (f);
+      WriteS (f, " F generate general destroyer    procedure ReleaseTREEModule (FREE)"); WriteNl (f);
+      WriteS (f, " f generate node/graph destroyer procedure ReleaseTREE (free)"); WriteNl (f);
+      WriteS (f, " g generate binary graph reader  procedure GetTREE"); WriteNl (f);
+      WriteS (f, " H print help information for evaluator  module"); WriteNl (f);
+      WriteS (f, " h print help information for tree/graph module"); WriteNl (f);
+      WriteS (f, " i generate implementation module"); WriteNl (f);
+      WriteS (f, " K generate Modula-3 code (default is Modula-2)"); WriteNl (f);
+      WriteS (f, " k generate graph checker        procedure CheckTREE"); WriteNl (f);
+      WriteS (f, " -ldir or -l dir specify the directory dir where cg finds its tables"); WriteNl (f);
+      WriteS (f, " m generate node constructors    procedures m<node> (make)"); WriteNl (f);
+      WriteS (f, " n generate node constructors    procedures n<node> (node)"); WriteNl (f);
+      WriteS (f, " o generate ascii  node  writer  procedure WriteTREENode (output)"); WriteNl (f);
+      WriteS (f, " p generate binary graph writer  procedure PutTREE"); WriteNl (f);
+      WriteS (f, " q generate graph browser        procedure QueryTREE"); WriteNl (f);
+      WriteS (f, " r generate ascii  graph reader  procedure ReadTREE"); WriteNl (f);
+      WriteS (f, " R generate list reverser        procedure ReverseTREE"); WriteNl (f);
+      WriteS (f, " s generate import statements"); WriteNl (f);
+      WriteS (f, " t generate top down  traversal  procedure TraverseTREETD"); WriteNl (f);
+      WriteS (f, " w generate ascii  graph writer  procedure WriteTREE"); WriteNl (f);
+      WriteS (f, " y generate graph copy           procedure CopyTREE"); WriteNl (f);
+      WriteS (f, " = generate tree equality test   procedure IsEqualTREE"); WriteNl (f);
+      WriteS (f, " ~ generate Gnat tree conversion procedure GnatConvertTREE (Modula-3 only)"); WriteNl (f);
+      WriteS (f, " % use internal package name qualifiers for Gnat tree conversion"); WriteNl (f);
+      WriteS (f, " # generate <*LINE...*> pragmas  (Modula 3 only)"); WriteNl (f);
+      WriteS (f, " ^ generate html tree writer     procedure WriteTREEHtml (Modula-3 only"); WriteNl (f);
+      WriteS (f, " 4 generate tree/graph description in file TREE.TS"); WriteNl (f);
+      WriteS (f, " 6 generate # line directives"); WriteNl (f);
+      WriteS (f, " 7 touch output files only if necessary"); WriteNl (f);
+      WriteS (f, " 8 report storage consumption"); WriteNl (f);
+      WriteNl (f);
+      WriteS (f, "options for scanner and parser interface"); WriteNl (f);
+      WriteNl (f);
+      WriteS (f, " c generate C code (default is Modula-2)"); WriteNl (f);
+      WriteS (f, " e generate parsing actions respecting attribute dependencies"); WriteNl (f);
+      WriteS (f, " j allow undefined node types; define implicitly as terminals"); WriteNl (f);
+      WriteS (f, " K generate Modula-3 code (default is Modula-2)"); WriteNl (f);
+      WriteS (f, " u generate parser  specification for yacc"); WriteNl (f);
+      WriteS (f, " v omit actions in the generated parser specifications"); WriteNl (f);
+      WriteS (f, " x generate scanner specification"); WriteNl (f);
+      WriteS (f, " z generate parser  specification for lalr"); WriteNl (f);
+   END;
+
+   IF IsElement (ORD ('H'), Options) THEN
+      Exclude (Options, ORD ('H'));
+      WriteNl (f);
+      WriteS (f, "options for evaluator module"); WriteNl (f);
+      WriteNl (f);
+      WriteS (f, " A generate all, same as -DI (default)"); WriteNl (f);
+      WriteS (f, " B allow missing attribute computations in extended node types"); WriteNl (f);
+      WriteS (f, " C print dependencies introduced for total order"); WriteNl (f);
+      WriteS (f, " c generate C code (default is Modula-2)"); WriteNl (f);
+      WriteS (f, " D generate definition     module"); WriteNl (f);
+      WriteS (f, " E print attribute instances sorted by evaluation order"); WriteNl (f);
+      WriteS (f, " G print attribute instances sorted by declaration order"); WriteNl (f);
+      WriteS (f, " H print help information for evaluator  module"); WriteNl (f);
+      WriteS (f, " h print help information for tree/graph module"); WriteNl (f);
+      WriteS (f, " I generate implementation module"); WriteNl (f);
+      WriteS (f, " J start dialog system"); WriteNl (f);
+      WriteS (f, " K generate Modula-3 code (default is Modula-2)"); WriteNl (f);
+      WriteS (f, " L generate a (lazy) evaluator for WAG (default OAG)"); WriteNl (f);
+      WriteS (f, " -ldir or -l dir specify the directory dir where cg finds its tables"); WriteNl (f);
+      WriteS (f, " M print summary of all node types (rules) from source"); WriteNl (f);
+      WriteS (f, " N print dependency relations DNC"); WriteNl (f);
+      WriteS (f, " O print dependency relations OAG"); WriteNl (f);
+      WriteS (f, " P print dependency relations DP"); WriteNl (f);
+      WriteS (f, " Q browse internal data structure"); WriteNl (f);
+      WriteS (f, " S print dependency relations SNC"); WriteNl (f);
+      WriteS (f, " T generate evaluator with trace output (all actions, T = XZ)"); WriteNl (f);
+      WriteS (f, " U trace only node types specified in file TraceTab"); WriteNl (f);
+      WriteS (f, " V print visit sequences"); WriteNl (f);
+      WriteS (f, " W suppress warnings"); WriteNl (f);
+      WriteS (f, " X trace attribute evaluation actions with    values"); WriteNl (f);
+      WriteS (f, " Y trace attribute evaluation actions without values"); WriteNl (f);
+      WriteS (f, " Z trace visit actions/gnat node counts"); WriteNl (f);
+      WriteS (f, " 0 optimize attribute storage"); WriteNl (f);
+      WriteS (f, " 1 print inserted copy rules"); WriteNl (f);
+      WriteS (f, " 2 print inherited attribute computation rules"); WriteNl (f);
+      WriteS (f, " 3 print attribute storage assignment"); WriteNl (f);
+      WriteS (f, " 5 generate code to check for cyclic dependencies"); WriteNl (f);
+      WriteS (f, " 6 generate # line directives"); WriteNl (f);
+      WriteS (f, " 7 touch output files only if necessary"); WriteNl (f);
+      WriteS (f, " 8 report storage consumption"); WriteNl (f);
+      WriteS (f, " 9 generate code to measure stack size"); WriteNl (f);
+      WriteS (f, " # generate <*LINE...*> pragmas  (Modula 3 only)"); WriteNl (f);
+   (* WriteS (f, " . run order"); *)
+   (* WriteS (f, " , generate procedure yyMark"); *)
+   (* WriteS (f, " ; generate "TreeStore""); *)
+   (* WriteS (f, " / follow as early as possible strategy instead of as late as possible"); *)
+   END; 
+   IF IsElement (ORD ('h'), Options) 
+      OR IsElement (ORD ('H'), Options) THEN
+      WriteNl (f);
+      WriteS (f, "implications"); WriteNl (f);
+      WriteNl (f);
+      WriteS (f, " {}              -> {a, A}"); WriteNl (f);
+      WriteS (f, " a               -> {a-z, F, R} - {c, e, h, u, x, z}"); WriteNl (f);
+      WriteS (f, " A               -> {D, I}"); WriteNl (f);
+      WriteS (f, " {L, T, X, Y, Z} -> I"); WriteNl (f);
+      WriteS (f, " T               -> {X, Z}"); WriteNl (f);
+   END;
+
+   IF NOT IsEmpty (Options) THEN
+      ArrayToString	(ScanTabName, String);	(* name of scanner table *)
+      Assign		(PathS, CgLib);
+      Concatenate	(PathS, String);
+      Append		(PathS, 0C);
+      StringToArray	(PathS, ScanTabName);
+
+      ArrayToString	(ParsTabName, String);	(* name of parser table *)
+      Assign		(PathS, CgLib);
+      Concatenate	(PathS, String);
+      Append		(PathS, 0C);
+      StringToArray	(PathS, ParsTabName);
+
+   IF IsElement (ORD ('c'), Options) THEN
+      ArrayToString	("int", String);
+   ELSE (* Modula-2 or Modula-3 *) 
+      ArrayToString	("INTEGER", String);
+   END;
+      iInteger := MakeIdent (String);
+
+      IF SourceFile [0] # 0C THEN
+	 BeginFile (SourceFile);
+	 ArrayToString (SourceFile, String);
+	 Attribute.Position.File := MakeIdent (String);
+      END;
+      StoreMessages	(TRUE);
+      ErrorCount := Parser ();
+      BeginTree2;
+      Semantics		(TreeRoot);
+      IF ErrorCount > 0 THEN WriteMessages (StdError); CloseIO; Exit (1); END;
+   END;
+
+   IF IsElement (ORD ('.'), Options) THEN
+      Order		(TreeRoot);
+   END;
+
+   IF IsElement (ORD ('x'), Options) THEN
+      IF TreeRoot^.Ag.ScannerName = NoIdent THEN
+	 ArrayToString	("Scanner", PathS);
+      ELSE
+	 GetString (TreeRoot^.Ag.ScannerName, PathS);
+      END;
+      ArrayToString	(".rpp", String);
+      Concatenate	(PathS, String);
+      f := SmartOpen	(PathS);
+   IF IsElement (ORD ('c'), Options) THEN
+      GramC.ScanSpec	(TreeRoot);
+   ELSE (* This works for Modula-3 too: *) 
+      GramMod.ScanSpec	(TreeRoot);
+   END;
+      SmartClose	(PathS, f);
+   END;
+
+   IF IsElement (ORD ('z'), Options) THEN
+      GetString		(TreeRoot^.Ag.ParserName, ModuleName);
+      Assign		(PathS, ModuleName);
+      ArrayToString	(".lalr", String);
+      Concatenate	(PathS, String);
+      f := SmartOpen	(PathS);
+   IF IsElement (ORD ('c'), Options) THEN
+      GramC.ParsSpec	(TreeRoot);
+   ELSE (* This works for Modula-3 too: *) 
+      GramMod.ParsSpec	(TreeRoot);
+   END;
+      SmartClose	(PathS, f);
+   ELSIF IsElement (ORD ('u'), Options) THEN
+      GetString		(TreeRoot^.Ag.ParserName, ModuleName);
+      Assign		(PathS, ModuleName);
+      ArrayToString	(".y", String);
+      Concatenate	(PathS, String);
+      f := SmartOpen	(PathS);
+      GramYacc.ParsSpec	(TreeRoot);
+      SmartClose	(PathS, f);
+   END;
+
+      WriteMessages	(StdError);
+      StoreMessages	(TRUE);
+
+   IF IsElement (ORD ('Q'), Options) THEN
+      QueryTree		(TreeRoot);
+   END;
+
+   IF IsElement (ORD ('J'), Options) THEN
+      Dialog		(TreeRoot);
+   END;
+
+      IF ErrorCount > 0 THEN CloseIO; Exit (1); END;
+
+   IF IsElement (ORD ('i'), Options) OR
+      IsElement (ORD ('X'), Options) THEN
+      GenerateMacros;
+   END;
+
+   IF IsElement (ORD ('d'), Options) THEN
+      GetString		(iModule, ModuleName);
+      Assign		(PathS, ModuleName);
+   IF IsElement (ORD ('c'), Options) THEN
+      ArrayToString	(DefExtC , String);
+   ELSIF IsElement (ORD ('K'), Options) THEN
+      ArrayToString	(IntExtM3 , String);
+   ELSE
+      ArrayToString	(DefExtMc, String);
+   END;
+      Concatenate	(PathS, String);
+      Assign		(DefFile, PathS);
+      f := SmartOpen	(PathS);
+   IF IsElement (ORD ('c'), Options) THEN
+      TreeC1.TreeDefC	(TreeRoot);
+   ELSIF IsElement (ORD ('K'), Options) THEN
+      TreeMThree1.TreeInterface	(TreeRoot);
+   ELSE
+      TreeMod1.TreeDefMod (TreeRoot);
+   END;
+      SmartClose	(PathS, f);
+
+   IF NOT IsElement (ORD ('c'), Options)
+   THEN (* Modula-2 or Modula-3, call cpp *)
+      Assign ( PathS , CgLib ) ;
+      ArrayToString ( "gmdcpp " , String ) ;
+      Concatenate ( PathS , String ) ;
+      Concatenate	(PathS, DefFile);
+      Append		(PathS, 0C);
+      StringToArray	(PathS, PathA);
+      j := System (PathA);
+   END;
+   END;
+
+   IF IsElement (ORD ('4'), Options) THEN
+      GetString		(ViewName, PathS);
+      ArrayToString	(".TS", String);
+      Concatenate	(PathS, String);
+      f := SmartOpen	(PathS);
+      WriteIdent	(f, iModule); WriteNl (f);
+      PutTree2		(f, TreeRoot^.Ag.Classes);
+      SmartClose	(PathS, f);
+   END;
+
+   IF IsElement (ORD ('i'), Options) THEN
+      GetString		(iModule, ModuleName);
+      Assign		(PathS, ModuleName);
+   IF IsElement (ORD ('c'), Options) THEN
+      ArrayToString	(ImpExtC , String);
+   ELSIF IsElement (ORD ('K'), Options) THEN
+      ArrayToString	(ModExtM3 , String);
+   ELSE
+      ArrayToString	(ImpExtMc, String);
+   END;
+      Concatenate	(PathS, String);
+      Assign		(TreeFile, PathS);
+      f := SmartOpen	(PathS);
+   IF IsElement (ORD ('c'), Options) THEN
+      TreeC1.TreeImplC	(TreeRoot);
+   ELSIF IsElement (ORD ('K'), Options) THEN
+      TreeMThree1.TreeModule	(TreeRoot);
+   ELSE
+      TreeMod1.TreeImplMod (TreeRoot);
+   END;
+      SmartClose	(PathS, f);
+
+   IF NOT IsElement (ORD ('c'), Options) 
+   THEN (* Modula-2 or Modula-3, call cpp *)
+      Assign ( PathS , CgLib ) ;
+      ArrayToString ( "gmdcpp " , String ) ; 
+      Concatenate ( PathS , String ) ;
+      Concatenate	(PathS, TreeFile);
+      Append		(PathS, 0C);
+      StringToArray	(PathS, PathA);
+      j := System (PathA);
+   END;
+   END;
+
+   IF IsElement (ORD ('s'), Options) AND NOT IsElement (ORD ('c'), Options) THEN
+      GetString		(iModule, ModuleName);
+      Assign		(PathS, ModuleName);
+    IF IsElement (ORD ('K'), Options) THEN
+      ArrayToString	(LisExtM3, String);
+    ELSE
+      ArrayToString	(LisExtMc, String);
+    END; 
+      Concatenate	(PathS, String);
+      f := SmartOpen	(PathS);
+    IF IsElement (ORD ('K'), Options) THEN
+      TreeMThree1.ImportList (TreeRoot);
+    ELSE
+      TreeMod1.ImportList (TreeRoot);
+    END; 
+      SmartClose	(PathS, f);
+   END;
+
+   IF IsElement (ORD ('U'), Options) THEN
+      ReadTraceTab;
+   ELSIF NOT IsEmpty (Options) THEN
+      ForallClasses	(TreeRoot^.Ag.Classes, SetTrace);
+   END;
+
+   IF IsElement (ORD ('D'), Options) THEN
+      GetString		(TreeRoot^.Ag.EvalName, ModuleName);
+      Assign		(PathS, ModuleName);
+   IF IsElement (ORD ('c'), Options) THEN
+      ArrayToString	(DefExtC , String);
+   ELSIF IsElement (ORD ('K'), Options) THEN
+      ArrayToString	(IntExtM3 , String);
+   ELSE
+      ArrayToString	(DefExtMc, String);
+   END;
+      Concatenate	(PathS, String);
+      f := SmartOpen	(PathS);
+   IF IsElement (ORD ('c'), Options) THEN
+      EvalC.EvalDefC	(TreeRoot);
+   ELSIF IsElement (ORD ('K'), Options) THEN
+      EvalMThree.EvalInterface	(TreeRoot);
+   ELSE
+      EvalMod.EvalDefMod (TreeRoot);
+   END;
+      SmartClose	(PathS, f);
+   END;
+
+   IF IsElement (ORD ('I'), Options) THEN
+      GetString		(TreeRoot^.Ag.EvalName, ModuleName);
+      Assign		(PathS, ModuleName);
+   IF IsElement (ORD ('c'), Options) THEN
+      ArrayToString	(ImpExtC , String);
+   ELSIF IsElement (ORD ('K'), Options) THEN
+      ArrayToString	(ModExtM3 , String);
+   ELSE
+      ArrayToString	(ImpExtMc, String);
+   END;
+      Concatenate	(PathS, String);
+      Assign		(EvalFile, PathS);
+      f := SmartOpen	(PathS);
+   IF IsElement (ORD ('c'), Options) THEN
+      IF IsElement (ORD ('L'), Options) THEN
+	 EvalC3.EvalImplC (TreeRoot);
+      ELSIF IsElement (ORD ('0'), Options) THEN
+	 EvalC2.EvalImplC (TreeRoot);
+      ELSE
+	 EvalC.EvalImplC (TreeRoot);
+      END;
+   ELSIF IsElement (ORD ('K'), Options) THEN (* Modula-3 *) 
+      IF IsElement (ORD ('L'), Options) THEN
+	 EvalMThree3.EvalModule (TreeRoot);
+      ELSIF IsElement (ORD ('0'), Options) THEN
+	 EvalMThree2.EvalModule (TreeRoot);
+      ELSE
+	 EvalMThree.EvalModule (TreeRoot);
+      END;
+   ELSE (* Modula-2 *) 
+      IF IsElement (ORD ('L'), Options) THEN
+	 EvalMod3.EvalImplMod (TreeRoot);
+      ELSIF IsElement (ORD ('0'), Options) THEN
+	 EvalMod2.EvalImplMod (TreeRoot);
+      ELSE
+	 EvalMod.EvalImplMod (TreeRoot);
+      END;
+   END;
+      SmartClose	(PathS, f);
+
+   IF NOT IsElement (ORD ('c'), Options) 
+   THEN (* Modula-2 or Modula-3, call cpp *)
+      Assign ( PathS , CgLib ) ;
+      ArrayToString ( "gmdcpp " , String ) ;
+      Concatenate ( PathS , String ) ; 
+      Concatenate	(PathS, EvalFile);
+      Append		(PathS, 0C);
+      StringToArray	(PathS, PathA);
+      j := System (PathA);
+   END;
+   END;
+
+   IF NOT IsElement (ORD ('c'), Options) THEN (* Modula-2 or Modula-3 *) 
+      IF IsElement (ORD ('i'), Options) OR
+	 IsElement (ORD ('X'), Options) 
+   THEN
+         Assign ( PathS , CgLib ) ;
+	 ArrayToString	("gmdrm yy" , String ) ; (* name of macro file *)
+         Concatenate ( PathS , String ) ;
+	 GetString	(iModule, ModuleName);
+	 Concatenate	(PathS, ModuleName);
+	 ArrayToString	(".w", String);
+	 Concatenate	(PathS, String);
+	 Append		(PathS, 0C);
+	 StringToArray	(PathS, PathA);
+	 j := System (PathA);
+      END;
+   END;
+
+   IF IsElement (ORD ('8'), Options) THEN
+      WriteNl (StdError);
+      WriteS  (StdError, "Memory"); WriteI (StdError, MemoryUsed, 8);
+      WriteS  (StdError, "  Heap"); WriteI (StdError, HeapUsed  , 8);
+      WriteNl (StdError);
+   END;
+   WriteMessages (StdError);
+   CloseIO; Exit (0);
+END cg.

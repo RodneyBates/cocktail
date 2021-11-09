@@ -1,0 +1,84 @@
+# $Id: Makefile,v 2.8 1992/09/09 12:26:36 grosch rel $
+LIB	= $(INSTALLGMD)/lib
+BIN	= $(INSTALLGMD)/bin
+MLIB	= ../../reuse/src
+MC	= m2c
+MOCKAFLAGS	= -noindex -norange
+MOCKALIBS = -d $(MLIB)
+
+DEFSMC	= Actions.md Character.md Checks.md Errors.md \
+	  Limits.md Listing.md Oper.md Path.md Rules.md \
+	  SysError.md TokenTab.md Tokens.md WriteTok.md
+
+MODSMC	= Actions.mi Character.mi Checks.mi Errors.mi \
+	  Limits.mi Listing.mi Oper.mi Pars.mi Path.mi Rules.mi \
+	  SysError.mi TokenTab.mi Tokens.mi WriteTok.mi
+
+GENDEFS = Scanner.md Parser.md
+
+GENMODS = Scanner.mi Parser.mi
+
+GENTABS = Scanner.Tab Parser.Tab
+
+MODULAGENS    = $(GENDEFS) $(GENMODS) 
+GENS    = $(MODULAGENS) $(GENTABS)
+
+EXE     = Pars
+
+include ../../makefilesrc.include
+
+Scanner.md Scanner.mi Scanner.Tab:	input.rex
+	rex -d input.rex;
+
+Parser.md Parser.mi Parser.Tab:	input.lalr
+	lalr -b -d input.lalr;
+
+install_modula:	Scanner.Tab Parser.Tab ErrorTab $(LIB)/lalr
+	install -c -m 644 Scanner.Tab $(LIB)/lalr
+	install -c -m 644 Parser.Tab $(LIB)/lalr
+	install -c -m 644 ErrorTab $(LIB)/lalr
+
+# installation directories
+
+$(LIB)/lalr:	$(LIB)
+	sh -c "if test ! -d $(LIB)/lalr; then mkdir $(LIB)/lalr; else true; fi"
+
+# swap all byte pairs of the files Scanner.Tab and Parser.Tab
+
+bin.conv:
+	dd conv=swab < Scanner.Tab > .Scanner.Tab; mv .Scanner.Tab Scanner.Tab
+	dd conv=swab < Parser.Tab > .Parser.Tab; mv .Parser.Tab Parser.Tab
+
+# support for mkid
+
+lalrId:	input.rex
+	echo SCANNER lalrId | cat - input.rex | \
+	sed 's/\(RETURN.*Ident\)/yyEcho; IO.WriteNl (IO.StdOutput); \1/' | \
+	$(BIN).sparc.t/rex -sd;
+	sed 's/@/lalrId/' < ../../front/src/Id.mi > lalrIdDrv.mi
+	echo p lalrIdDrv | mc -d $(MLIB)
+	mv lalrIdDrv lalrId
+
+installId:	lalrId $(LIB)/Id
+	echo exec $(LIB)/Id/lalrId -l$(LIB)/Id "2> /dev/null" > $(BIN)/lalrId
+	chmod a+rx $(BIN)/lalrId
+	install -c -m 644 lalrId.Tab $(LIB)/Id
+	install -c -s -m 755 lalrId $(LIB)/Id
+
+$(LIB)/Id:	$(LIB)
+	sh -c "if test ! -d $(LIB)/Id; then mkdir $(LIB)/Id; else true; fi"
+
+cleanId:
+	rm -f lalrId*
+
+clean:	cleanId
+	rm -f core *.[dimor] *.def *.mod *.sym ERRORS LISTING _Debug Pars *.bak
+
+.SUFFIXES:	.def .mod .md .mi
+
+.md.def:
+	ln $*.md $*.def
+
+.mi.mod:
+	ln $*.mi $*.mod
+

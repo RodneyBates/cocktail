@@ -1,0 +1,110 @@
+# Makefile for reuse/src
+# RMB 93/10/19 and earlier. 
+#     Modified for installation on local system
+#     Modified to support WRL compilation.
+TARGET	= SUN
+MC	= WRL
+OPT	= -O
+UNIX	= UNIX
+CFLAGS	= $(OPT) -D$(UNIX)
+CC	= cc
+
+GENS    = 
+EXE     = Main
+
+all:	build
+
+symlinks:
+	for file in `ls *.md`; do ln -f -s $$file `basename $$file .md`.def; done
+	for file in `ls *.mi`; do ln -f -s $$file `basename $$file .mi`.mod; done
+
+cleansymlinks:
+	for file in `ls *.md`; do rm -f `basename $$file .md`.def; done
+	for file in `ls *.mi`; do rm -f `basename $$file .mi`.mod; done
+
+linksm2c:
+	for file in `ls *.md`; do ln -f -s $$file ../m2c/$$file; done
+	for file in `ls *.mi`; do ln -f -s $$file ../m2c/$$file; done
+
+cleanlinksm2c:
+	for file in `ls *.md`; do rm -f ../m2c/$$file; done
+	for file in `ls *.mi`; do lrm -f ../m2c/$$file; done
+
+build:	generate compile
+
+forcebuild:	forcegenerate forcecompile
+
+generate: 
+
+cleangenerate: 
+
+forcegenerate: cleangenerate generate
+
+compile : compile_$(MC)
+
+compile_mocka:	System.o
+	rm -f $(EXE)
+	echo p $(EXE) | mc #-noindex -norange
+
+cleanm2c:
+	cd ../m2c; rm -f Checks.[hc] DynArrDrv.c DynArray.[hc] General.[hc] \
+	   Heap.[hc] IO.[hc] IODrv.c Idents.[hc] Layout.[hc] Lists.[hc] \
+	   Main.c Memory.[hc] MemoryDrv.c RelDrv.c Relations.[hc] Sets.[hc] \
+	   SetsC.[hc] SetsDrv.c StdIO.[hc] StringMem.[hc] Strings.[hc] \
+	   SysIODrv.c System.[hc] Texts.[hc] Times.[hc] Positions.[hc] \
+	   Errors.[hc] Source.[hc] Sort.[hc]
+	rm -f ../m2c/System.c ../m2c/Arguments.c 
+
+compile_WRL:	System.o
+	rm -f $(EXE)
+	make compile -f MakefileWRL
+
+compile_M2C:	System.o 
+	rm -f $(EXE)
+	make $(EXE) -f MakefileM2C
+
+cleancompile :
+	rm -f *.o $(EXE)
+
+forcecompile : cleancompile compile
+
+forcem2c: cleanm2c m2c
+
+c:
+	cd ../m2c; make $(EXE)
+
+m2cc:   m2c c
+
+forcem2cc: forcem2c c
+
+# targets
+
+m2c:    
+	cp -p System.c ../m2c
+	cp -p Arguments.c ../m2c
+	cd ../m2c; make sources
+
+test:	System.o
+	echo p DynArrDrv| mc
+	echo p IODrv	| mc
+	echo p MemoryDrv| mc
+	echo p RelDrv	| mc
+	echo p SetsDrv	| mc
+	echo p SysIODrv	| mc
+
+lint:
+	lint -u *.c
+
+CLEAN:	clean
+	rm -f *.[dimor] *.sym *.def *.mod
+
+clean:
+	rm -f *Drv.[dimor] *Drv.sym *Drv Main.[dimor] Main t *.bak
+
+.c.o:
+	$(CC) $(CFLAGS) -c $*.c;
+
+
+
+
+

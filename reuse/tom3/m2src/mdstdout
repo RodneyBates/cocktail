@@ -1,0 +1,191 @@
+
+reading work file Arguments.md...
+	scanning Arguments.md
+	parsing Arguments.md
+generating import closure...
+
+reading work file Checks.md...
+	scanning Checks.md
+	parsing Checks.md
+generating import closure...
+
+reading work file DynArray.md...
+	scanning DynArray.md
+	parsing DynArray.md
+generating import closure...
+	scanning SYSTEM.md
+	parsing SYSTEM.md
+
+reading work file Errors.md...
+	scanning Errors.md
+	parsing Errors.md
+generating import closure...
+	scanning Positions.md
+	parsing Positions.md
+	scanning IO.md
+	parsing IO.md
+	scanning System.md
+	parsing System.md
+	scanning Strings.md
+	parsing Strings.md
+
+reading work file General.md...
+	scanning General.md
+	parsing General.md
+generating import closure...
+
+reading work file Heap.md...
+	scanning Heap.md
+	parsing Heap.md
+generating import closure...
+
+reading work file Idents.md...
+	scanning Idents.md
+	parsing Idents.md
+generating import closure...
+	scanning StringMem.md
+	parsing StringMem.md
+
+reading work file IO.md...
+
+reading work file Layout.md...
+	scanning Layout.md
+	parsing Layout.md
+generating import closure...
+
+reading work file Lists.md...
+	scanning Lists.md
+	parsing Lists.md
+generating import closure...
+
+reading work file Memory.md...
+	scanning Memory.md
+	parsing Memory.md
+generating import closure...
+
+reading work file Positions.md...
+
+reading work file Relations.md...
+	scanning Relations.md
+	parsing Relations.md
+generating import closure...
+	scanning Sets.md
+	parsing Sets.md
+
+reading work file SetsC.md...
+	scanning SetsC.md
+	parsing SetsC.md
+generating import closure...
+
+reading work file Sets.md...
+
+reading work file Sort.md...
+	scanning Sort.md
+	parsing Sort.md
+generating import closure...
+
+reading work file Source.md...
+	scanning Source.md
+	parsing Source.md
+generating import closure...
+
+reading work file StdIO.md...
+	scanning StdIO.md
+	parsing StdIO.md
+generating import closure...
+
+reading work file StringMem.md...
+
+reading work file Strings.md...
+
+reading work file System.md...
+
+reading work file Texts.md...
+	scanning Texts.md
+	parsing Texts.md
+generating import closure...
+
+reading work file Times.md...
+	scanning Times.md
+	parsing Times.md
+generating import closure...
+
+linking identifiers...
+	linking identifiers of file Arguments.md
+	linking identifiers of file Checks.md
+	linking identifiers of file SYSTEM.md
+m2tom3 warning: unable to resolve qualification 'Word' in line 38
+	linking identifiers of file DynArray.md
+	linking identifiers of file System.md
+	linking identifiers of file IO.md
+	linking identifiers of file Positions.md
+	linking identifiers of file Strings.md
+	linking identifiers of file Errors.md
+	linking identifiers of file General.md
+	linking identifiers of file Heap.md
+	linking identifiers of file StringMem.md
+	linking identifiers of file Idents.md
+	linking identifiers of file Layout.md
+	linking identifiers of file Lists.md
+	linking identifiers of file Memory.md
+	linking identifiers of file Sets.md
+	linking identifiers of file Relations.md
+	linking identifiers of file SetsC.md
+	linking identifiers of file Sort.md
+	linking identifiers of file Source.md
+	linking identifiers of file StdIO.md
+	linking identifiers of file Texts.md
+	linking identifiers of file Times.md
+
+linking parameters...
+
+generating Modula-3 source...
+	transforming file Arguments.md
+	transforming file Checks.md
+	transforming file DynArray.md
+	transforming file SYSTEM.md
+	transforming file Errors.md
+	transforming file Positions.md
+	transforming file IO.md
+	transforming file System.md
+	transforming file Strings.md
+	transforming file General.md
+	transforming file Heap.md
+	transforming file Idents.md
+	transforming file StringMem.md
+	transforming file Layout.md
+	transforming file Lists.md
+	transforming file Memory.md
+	transforming file Relations.md
+	transforming file Sets.md
+	transforming file SetsC.md
+	transforming file Sort.md
+	transforming file Source.md
+	transforming file StdIO.md
+	transforming file Texts.md
+	transforming file Times.md
+
+saving generated source...
+	writing Modula-3 file ../tom3src/Arguments.i3
+	writing Modula-3 file ../tom3src/Checks.i3
+	writing Modula-3 file ../tom3src/DynArray.i3
+	writing Modula-3 file ../tom3src/Errors.i3
+	writing Modula-3 file ../tom3src/Positions.i3
+	writing Modula-3 file ../tom3src/IO.i3
+	writing Modula-3 file ../tom3src/System.i3
+	writing Modula-3 file ../tom3src/Strings.i3
+	writing Modula-3 file ../tom3src/General.i3
+	writing Modula-3 file ../tom3src/Heap.i3
+	writing Modula-3 file ../tom3src/Idents.i3
+	writing Modula-3 file ../tom3src/StringMem.i3
+	writing Modula-3 file ../tom3src/Layout.i3
+	writing Modula-3 file ../tom3src/Lists.i3
+	writing Modula-3 file ../tom3src/Memory.i3
+	writing Modula-3 file ../tom3src/Relations.i3
+	writing Modula-3 file ../tom3src/Sets.i3
+	writing Modula-3 file ../tom3src/SetsC.i3
+	writing Modula-3 file ../tom3src/Sort.i3
+	writing Modula-3 file ../tom3src/Source.i3
+	writing Modula-3 file ../tom3src/StdIO.i3
+	writing Modula-3 file ../tom3src/Texts.i3
+	writing Modula-3 file ../tom3src/Times.i3

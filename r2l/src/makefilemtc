@@ -1,0 +1,118 @@
+INSTALLBIN	= $(INSTALLGMD)/bin
+INSTALLLIB	= $(INSTALLGMD)/lib
+OPT	= -O
+CC	= cc
+
+BIN = ../../bintobuildwith
+MTC = $(BIN)/mtc
+
+                # C library (reuse)
+REUSE	= ../../reuse/mtc
+
+                # C libraries
+CLIBS	= $(REUSE)/libreuse.a
+
+                # options for C compiler
+CFLAGS	= -w -I$(REUSE) $(OPT)
+
+M2FLAGS	= -c -d$(REUSE)
+
+EXE     = r2l
+
+all:	r2l
+
+cleanmtc:
+	cd ../src; make cleanmtc
+
+cleancompile: cleanmtc
+	rm -f *.o $(EXE)
+
+compile: $(EXE)
+
+mtc_only : sources
+
+install: r2l ../lib/r2l.sh $(INSTALLLIB)/r2l ../gen/Scanner.Tab ../gen/Parser.Tab
+	if test $(INSTALLLIB) = $(INSTALLBIN); then echo error: INSTALLBIN = INSTALLLIB; false; else true; fi
+	sed 's;LIB;$(INSTALLLIB);g' < ../lib/r2l.sh > $(INSTALLBIN)/r2l
+	chmod a+rx $(INSTALLBIN)/r2l
+	install -c -s -m 755 r2l $(INSTALLLIB)/r2l
+	install -c -m 644 ../gen/Scanner.Tab $(INSTALLLIB)/r2l
+	install -c -m 644 ../gen/Parser.Tab $(INSTALLLIB)/r2l
+
+# installation directories
+
+$(INSTALLLIB)/r2l:	$(INSTALLLIB)
+	sh -c "if test ! -d $(INSTALLLIB)/r2l; then mkdir $(INSTALLLIB)/r2l; else true; fi"
+
+# swap all byte pairs of the files Scanner.Tab and Parser.Tab
+
+bin.conv:
+	dd conv=swab < Scanner.Tab > .Scanner.Tab; mv .Scanner.Tab Scanner.Tab
+	dd conv=swab < Parser.Tab > .Parser.Tab; mv .Parser.Tab Parser.Tab
+
+# SYSTEM_	= SYSTEM_.o
+
+# HEAD
+
+sources	: DefTable.h
+
+sources	: DefTable.c
+DefTable.o	: DefTable.c DefTable.h
+
+sources	: Errors.h
+
+sources	: Errors.c
+Errors.o	: Errors.c Errors.h
+
+sources	: Parser.h
+
+sources	: Parser.c
+Parser.o	: Parser.c Parser.h
+Parser.o	: Scanner.h
+Parser.o	: Errors.h
+Parser.o	: Errors.h
+Parser.o	: DefTable.h
+
+sources	: Scanner.h
+
+sources	: Scanner.c
+Scanner.o	: Scanner.c Scanner.h
+Scanner.o	: Errors.h
+
+sources	: r2l.c
+all	: r2l
+r2l.o	: r2l.c
+r2l.o	: Scanner.h
+r2l.o	: Parser.h
+
+SYSTEM_.o	: SYSTEM_.c SYSTEM_.h
+
+r2l	: $(CLIBS)	\
+	r2l.o	\
+	Parser.o	\
+	DefTable.o	\
+	Errors.o	\
+	Scanner.o	\
+;	$(CC) $(CFLAGS) -o r2l 	\
+	r2l.o	\
+	Parser.o	\
+	DefTable.o	\
+	Errors.o	\
+	Scanner.o	\
+	$(CLIBS)
+
+# TAIL
+
+clean	:
+	rm -f core *.o
+
+.SUFFIXES: .md .mi .h .c .o
+
+.mi.c:
+	$(MTC) $(M2FLAGS) $*.mi;
+
+.md.h:
+	$(MTC) $(M2FLAGS) $*.md;
+
+.c.o:
+	$(CC) $(CFLAGS) -c $*.c

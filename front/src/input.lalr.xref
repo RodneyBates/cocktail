@@ -1,0 +1,616 @@
+     1 /* $Id: input.lalr,v 2.2 1992/08/07 15:15:11 grosch rel $ */
+     2 
+     3 /* $Log: input.lalr,v $
+c    4  * Revision 2.2  1992/08/07  15:15:11  grosch
+c    5  * allow several scanner and parsers; extend module Errors
+c    6  *
+c    7  * Revision 2.1  1991/11/21  14:47:50  grosch
+c    8  * new version of RCS on SPARC
+c    9  *
+c   10  * Revision 2.0  91/03/08  18:26:47  grosch
+c   11  * turned tables into initialized arrays (in C)
+c   12  * moved mapping tokens -> strings from Errors to Parser
+c   13  * changed interface for source position
+c   14  * 
+c   15  * Revision 1.2  89/10/18  19:49:12  grosch
+c   16  * renamed ScanTab and ParsTab to Scan.Tab and Pars.Tab because of PCTE
+c   17  * 
+c   18  * Revision 1.1  88/10/20  08:51:20  vielsack
+c   19  * use tScanAttribute and tParsAttribute instead of tAttribute
+c   20  * 
+c   21  * Revision 1.0  88/10/04  14:27:31  vielsack
+c   22  * Initial revision
+c   23  * 
+c   24  */
+    25 
+    26 GLOBAL {                                                                      *
+    27 FROM Actions    IMPORT PutAction, PutComment, tActionMode, ScannerName, ParserName;       *     *     *     *     *     *
+                                                                                     *     *
+    28 FROM Errors     IMPORT eError, eInteger, ErrorMessageI;                      27     *    27     *     *     *
+    29 FROM Lists      IMPORT Append, IsEmpty, Head, Tail, MakeList, tList;         28     *    28     *     *     *     *     *
+                                                                                     *
+    30 FROM Oper       IMPORT OperKind, MakePriority, CompletePriority, MakeOperator, MakeO\    29     *    29     *     *     *
+                                                                                     *
+      \perHeader;                                                                    *
+    31 FROM Scanner    IMPORT GetToken, tScanAttribute, Attribute, ErrorAttribute;        30     *    30     *     *     *     *
+    32 FROM Positions  IMPORT NoPosition;                                           31     *    31     *
+    33 FROM Strings    IMPORT AssignEmpty, tString, ArrayToString;                  32     *    32     *     *     *
+    34 FROM StringMem  IMPORT PutString, tStringRef;                                33     *    33     *     *
+    35 FROM Idents     IMPORT NoIdent, MakeIdent;                                   34     *    34     *     *
+    36 FROM SYSTEM     IMPORT ADR, ADDRESS;                                         35     *    35     *     *
+    37 FROM TokenTab   IMPORT Terminal;                                             36     *    36     *
+    38 FROM Tokens     IMPORT MakeGlobalHeader, MakeTokensHeader, MakeDeclaration, Complete\    37     *    37     *     *     *
+      \Declarations;                                                                 *
+    39 FROM Rules      IMPORT MakeRulesHeader, MakeLeafNode, MakeActionNode, MakeUnaryNode,     38     *    38     *     *     *
+                                                                                     *
+    40                         MakeBracketNode, MakeBinaryNode, MakePrioAlternativeNode,         *     *     *
+    41                         MakeRule, Operation, NoExpression;                    *     *     *
+    42 
+    43 CONST                                                                         *
+    44   cEol = 12C;   (* eol character *)                                           *
+    45   eNumToBig = 9;                                                              *
+    46 
+    47 TYPE tParsAttribute = RECORD Scan: tScanAttribute; END;                       *     *     *     *    31     *
+    48 
+    49 VAR                                                                           *
+    50   String                ,                                                     *
+    51   EndOfLineString       : tString;                                            *    33
+    52   EndOfLine             : ADDRESS;                                            *    36
+    53 }
+    54 
+    55 BEGIN {                                                                       *
+    56   AssignEmpty (EndOfLineString);                                             33    51
+    57   Strings.Append (EndOfLineString, cEol);                                    33    29    56    44
+    58   EndOfLine := ADDRESS (PutString (EndOfLineString));                        52    52    34    57
+    59 }
+    60 
+    61 LOCAL { VAR ActionMode : tActionMode; }                                       *    49     *    27
+    62 
+    63 TOKEN                                                                         *
+    64   '='           =  1
+    65   ':'           =  2
+    66   '.'           =  3
+    67   '|'           =  4
+    68   '*'           =  5
+    69   '+'           =  6
+    70   '||'          =  7
+    71   '('           =  8
+    72   ')'           =  9
+    73   '['           = 10
+    74   ']'           = 11
+    75   'EXPORT'      = 12
+    76   'GLOBAL'      = 13
+    77   'LOCAL'       = 14
+    78   'BEGIN'       = 15
+    79   'CLOSE'       = 16
+    80   'TOKEN'       = 17
+    81   'OPER'        = 18
+    82   'NONE'        = 19
+    83   'LEFT'        = 20
+    84   'RIGHT'       = 21
+    85   'RULE'        = 22
+    86   'PREC'        = 23
+    87   Comment       = 24 (* Schreibweise wie in MODULA-2                 *)       *
+    88   Number        = 25 (* vorzeichenlose ganze Zahl                    *)       *
+    89   Action        = 26 (* in '{' und '}' eingeschlossene Zeichenkette  *)       *
+    90   Identifier    = 27 (* letter (digit|letter)*                       *)       *
+    91   String        = 28 (* durch ' oder " begrenzte Zeichenkette        *)      50
+    92   'SCANNER'     = 29
+    93   'PARSER'      = 30
+    94 
+    95 RULE                                                                          *
+    96 
+    97   Grammar       : CommentPart ScannerName ParserName Decl Tokens Oper Rules         *     *    27    27     *    38    30
+                                                                                    39
+    98 {
+    99 MakeGlobalHeader ($1.Scan.Comm, $1.Scan.Position);                           38    47     *     *     *
+   100 }.
+   101 
+   102   ScannerName   :                                                            97
+   103 {
+   104 ScannerName := NoIdent;                                                     102    35
+   105 }
+   106                 | 'SCANNER'
+   107 {
+   108 ArrayToString ("Scanner", String); ScannerName := MakeIdent (String);        33    91   104    35     *
+   109 }
+   110                 | 'SCANNER' Identifier                                       90
+   111 {
+   112 ScannerName := $2.Scan.Sym;                                                 108    99     *
+   113 }.
+   114 
+   115   ParserName    :                                                            97
+   116 {
+   117 ParserName := NoIdent;                                                      115   104
+   118 }
+   119                 | 'PARSER'
+   120 {
+   121 ArrayToString ("Parser", String); ParserName  := MakeIdent (String);        108   108   117   108     *
+   122 }
+   123                 | 'PARSER' Identifier                                       110
+   124 {
+   125 ParserName := $2.Scan.Sym;                                                  121   112   112
+   126 }.
+   127 
+   128   Decl          : Decl 'EXPORT' {ActionMode := Export;} CommentPart Actions        97     *    61     *    97    27
+   129 {
+   130 PutComment(Export, $2.Scan.Position, $4.Scan.Comm, $4.Scan.Position);        27   128   125    99     *    99     *     *
+   131 }
+   132                 | Decl 'GLOBAL' {ActionMode := Global;} CommentPart Actions       128   128     *   128   128
+   133 {
+   134 PutComment(Global, $2.Scan.Position, $4.Scan.Comm, $4.Scan.Position);       130   132   130   130     *   130     *     *
+   135 }
+   136                 | Decl 'LOCAL' {ActionMode := Local;} CommentPart Actions   132   132     *   132   132
+   137 {
+   138 PutComment(Local, $2.Scan.Position, $4.Scan.Comm, $4.Scan.Position);        134   136   134   134     *   134     *     *
+   139 }
+   140                 | Decl 'BEGIN' {ActionMode := Begin;} CommentPart Actions   136   136     *   136   136
+   141 {
+   142 PutComment(Begin, $2.Scan.Position, $4.Scan.Comm, $4.Scan.Position);        138   140   138   138     *   138     *     *
+   143 }
+   144                 | Decl 'CLOSE' {ActionMode := Close;} CommentPart Actions   140   140     *   140   140
+   145 {
+   146 PutComment(Close, $2.Scan.Position, $4.Scan.Comm, $4.Scan.Position);        142   144   142   142     *   142     *     *
+   147 }
+   148                 | .
+   149 
+   150   Actions       : Action CommentPart                                        144    89   144
+   151 {
+   152 PutAction (ActionMode, $1.Scan.Act, $1.Scan.Position, $2.Scan.Comm, $2.Scan.Position\    27   144   146     *     *   146
+                                                                                     *   146     *     *
+      \);
+   153 }
+   154                 | .
+   155 
+   156   Tokens        : 'TOKEN' CommentPart Declarations                           97   150     *
+   157 {
+   158 CompleteDeclarations;                                                        38
+   159 MakeTokensHeader( $1.Scan.Position, $2.Scan.Comm, $2.Scan.Position);         38   152   152     *   152     *     *
+   160 }.
+   161 
+   162   Declarations  : Declarations Declaration                                  156     *     *
+   163                 | Declaration .                                             162
+   164 
+   165   Declaration   : Terminal Coding CommentPart                               163    37     *   156
+   166 {
+   167 MakeDeclaration( $1.Scan.Sym, $1.Scan.Position, $2.Scan.HasCoding, $2.Scan.Position,     38   159   125     *   159     *
+                                                                                     *     *     *
+   168                  $2.Scan.CodValue, $2.Scan.CodNumbPos, $3.Scan.Comm, $3.Scan.Positio\   167     *     *     *     *   159
+                                                                                     *
+      \n);                                                                         167
+   169 }.
+   170 
+   171   Coding        : '=' Number                                                165    88
+   172 {
+   173 $$.Scan.Mode := Scanner.Coding;                                             168     *    31   171
+   174 IF ($2.Scan.Value > MAX(Terminal)) THEN                                       *   173     *     *   165     *
+   175   ErrorMessageI (eNumToBig, eError, $2.Scan.Position, eInteger, ADR ($2.Scan.Value))\    28    45    28   174   168    28
+                                                                                    36     *   174
+      \;
+   176   $$.Scan.HasCoding     := FALSE;                                           175   167     *
+   177   $$.Scan.CodValue      := 0; (* Dummywert *)                               176   168
+   178   $$.Scan.CodNumbPos    := NoPosition;                                      177   168    32
+   179 ELSE                                                                          *
+   180   $$.Scan.HasCoding     := TRUE;                                            178   176     *
+   181   $$.Scan.CodValue      := $2.Scan.Value;                                   180   177     *   175
+   182   $$.Scan.CodNumbPos    := $2.Scan.Position;                                181   178     *   175
+   183 END;                                                                         47
+   184 }
+   185                 | 
+   186 {
+   187 $$.Scan.Mode            := Scanner.Coding;                                  182   173   173   173
+   188 $$.Scan.HasCoding       := FALSE;                                           187   180   176
+   189 $$.Scan.CodValue        := 0; (* Dummywert *)                               188   181
+   190 $$.Scan.CodNumbPos      := NoPosition;                                      189   182   178
+   191 }.
+   192 
+   193   Oper          : 'OPER' CommentPart Priorities                              97   165     *
+   194 {
+   195 MakeOperHeader($1.Scan.Position, $2.Scan.Comm, $2.Scan.Position);            30   190   182     *   168     *     *
+   196 }
+   197                 | .
+   198 
+   199   Priorities    : Priority Priorities                                       193     *     *
+   200                 | .
+   201 
+   202   Priority      : Associativity Operators CommentPart                       199     *     *   193
+   203 {
+   204 CompletePriority($3.Scan.Comm, $3.Scan.Position);                            30   195   195     *   195
+   205 }.
+   206 
+   207   Associativity : 'LEFT'  {MakePriority(Left, $1.Scan.Position);}           202    30     *   204   204
+   208                 | 'RIGHT' {MakePriority(Right, $1.Scan.Position);}          207     *   207   207
+   209                 | 'NONE'  {MakePriority(None, $1.Scan.Position);}.          208     *   208   208
+   210 
+   211   Operators     : Operator Operators                                        202     *     *
+   212                 | Operator .                                                211
+   213 
+   214   Operator      : Terminal                                                  212   174
+   215 {
+   216 MakeOperator($1.Scan.Sym, $1.Scan.Position);                                 30   209   167     *   209
+   217 }.
+   218 
+   219   Terminal      : Identifier                                                214   123
+   220 {
+   221 $$.Scan.Mode            := Scanner.Symbol;                                  216   187   187     *
+   222 $$.Scan.Sym             := $1.Scan.Sym;                                     221   216     *     *
+   223 $$.Scan.Position        := $1.Scan.Position;                                222   216     *     *
+   224 }
+   225                 | String                                                    121
+   226 {
+   227 $$.Scan.Mode            := Scanner.Symbol;                                  223   221   221   221
+   228 $$.Scan.Sym             := $1.Scan.Sym;                                     227   222     *     *
+   229 $$.Scan.Position        := $1.Scan.Position;                                228   223     *     *
+   230 }.
+   231 
+   232   Rules         : 'RULE' CommentPart Rule *                                  97   202     *
+   233 {
+   234 MakeRulesHeader($1.Scan.Position, $2.Scan.Comm, $2.Scan.Position);           39   229   229     *   204     *     *
+   235 }.
+   236 
+   237   Rule          : Identifier ':' RightSide '.' CommentPart                  232   219     *   232
+   238 {
+   239 MakeRule($1.Scan.Sym,                                                        41   234   228
+   240          $1.Scan.Position,                                                  239   234
+   241          $2.Scan.Position,                                                  240   240
+   242          $3.Scan.Expr,                                                      241     *
+   243          $5.Scan.Comm,                                                      242   234
+   244          $5.Scan.Position,                                                  243   241
+   245          $4.Scan.Position,                                                  244   244
+   246          $3.Scan.HasPrio,   (* Prioritaet der letzten Alternative *)        245     *
+   247          $3.Scan.Position,                                                  246   245
+   248          $3.Scan.PriSym,                                                    247     *
+   249          $3.Scan.PriSymPos);                                                248     *
+   250 }.
+   251 
+   252   PrioPart      : 'PREC' Terminal                                             *   219
+   253 {
+   254 $$.Scan.Mode            := Scanner.PrioPart;                                249   227   227   252
+   255 $$.Scan.HasPrio         := TRUE;                                            254   246   180
+   256 $$.Scan.Position        := $1.Scan.Position;                                255   247     *     *
+   257 $$.Scan.PriSym          := $2.Scan.Sym;                                     256   248     *   239
+   258 $$.Scan.PriSymPos       := $2.Scan.Position;                                257   249     *   256
+   259 }
+   260                 | 
+   261 {
+   262 $$.Scan.Mode            := Scanner.PrioPart;                                258   254   254   254
+   263 $$.Scan.HasPrio         := FALSE;                                           262   255   188
+   264 $$.Scan.PriSymPos       := NoPosition;                                      263   258   190
+   265 $$.Scan.PriSym          := 0;                                               264   257
+   266 }.
+   267 
+   268   RightSide     : Expressions PrioPart '|' RightSide                        237     *   262     *
+   269 {
+   270 $$.Scan         := $4.Scan;  (* PrioPart an Rule zurueckgeben *)            265     *
+   271 $$.Scan.Mode    := Scanner.RightSide;                                       270   262   262   268
+   272 $$.Scan.Expr    :=                                                          271   242
+   273 MakePrioAlternativeNode ($3.Scan.Position,                                   40   272   258
+   274                          $1.Scan.Expr,                                      273   272
+   275                          $4.Scan.Expr,                                      274   274
+   276                          $2.Scan.HasPrio,                                   275   263
+   277                          $2.Scan.Position,                                  276   273
+   278                          $2.Scan.PriSym,                                    277   265
+   279                          $2.Scan.PriSymPos);                                278   264
+   280 }
+   281                 | Expressions PrioPart                                      268   268
+   282 {
+   283 $$.Scan         := $2.Scan;  (* Priopart an Rule zurueckgeben *)            279     *
+   284 $$.Scan.Mode    := Scanner.RightSide;                                       283   271   271   271
+   285 IF $1.Scan.Mode = Scanner.Empty THEN                                        174   284   284   284     *   174
+   286   $$.Scan.Expr  := NoExpression;                                            285   275    41
+   287 ELSE                                                                        179
+   288   $$.Scan.Expr  := $1.Scan.Expr;                                            286   286     *     *
+   289 END;                                                                        183
+   290 }.
+   291 
+   292   Expressions   : Expression Expressions                                    281     *     *
+   293 {
+   294 IF $2.Scan.Mode # Scanner.Empty                                             285   288   285   285   285
+   295 THEN (* Binary *)                                                           285
+   296   $$.Scan.Mode  := Scanner.RightSide;                                       294   294   294   284
+   297   $$.Scan.Expr  := MakeBinaryNode(Sequence, NoPosition, $1.Scan.Expr, $2.Scan.Expr);    296   288    40     *   264     *
+                                                                                     *     *     *
+   298 ELSE (* Expressions ist leer - Expression ist weiterzureichen *)            287
+   299   $$.Scan       := $1.Scan;                                                 297     *
+   300 END;                                                                        289
+   301 }
+   302                 | 
+   303 {
+   304 $$.Scan.Mode    := Scanner.Empty;  (* noetig damit kein 'leeres Bein' entsteht *)       299   296   296   294
+   305 $$.Scan.Expr    := NoExpression;   (* noetig falls Expr weiterverwendet wird *)   304   297   286
+   306 }.
+   307 
+   308   Expression    : Unit                                                      292     *
+   309 {
+   310 $$.Scan.Mode    := Scanner.RightSide;                                       305   304   304   296
+   311 $$.Scan.Expr    := $1.Scan.Expr;                                            310   305     *     *
+   312 }
+   313                 | Unit '*'                                                  308
+   314 {
+   315 $$.Scan.Mode    := Scanner.RightSide;                                       311   310   310   310
+   316 $$.Scan.Expr    := MakeUnaryNode(Star, $2.Scan.Position, $1.Scan.Expr);     315   311    39     *     *   277     *     *
+   317 }
+   318                 | Unit '+'                                                  313
+   319 {
+   320 $$.Scan.Mode    := Scanner.RightSide;                                       316   315   315   315
+   321 $$.Scan.Expr    := MakeUnaryNode(Plus, $2.Scan.Position, $1.Scan.Expr);     320   316   316     *     *   316     *     *
+   322 }
+   323                 | Unit '||' Unit                                            318     *
+   324 {
+   325 $$.Scan.Mode    := Scanner.RightSide;                                       321   320   320   320
+   326 $$.Scan.Expr    := MakeBinaryNode(Separator, $2.Scan.Position , $1.Scan.Expr, $3.Sca\   325   321   297     *     *   321
+                                                                                     *     *
+      \n.Expr);                                                                      *     *
+   327 }.
+   328 
+   329   Unit          : '[' Alternative ']'                                       323     *
+   330 {
+   331 $$.Scan.Mode    := Scanner.RightSide;                                       326   325   325   325
+   332 $$.Scan.Expr    := MakeBracketNode(Optional, $1.Scan.Position, $3.Scan.Position, $2.\   331   326    40     *     *   326
+                                                                                     *     *
+      \Scan.Expr);                                                                   *     *
+   333 }
+   334                 | '(' Alternative ')'                                       329
+   335 {
+   336 $$.Scan.Mode    := Scanner.RightSide;                                       332   331   331   331
+   337 $$.Scan.Expr    := MakeBracketNode(Bracket, $1.Scan.Position, $3.Scan.Position, $2.S\   336   332   332     *     *   332
+                                                                                     *     *
+      \can.Expr);                                                                    *     *
+   338 }
+   339                 | Identifier                                                237
+   340 {
+   341 $$.Scan.Mode    := Scanner.RightSide;                                       337   336   336   336
+   342 $$.Scan.Expr    := MakeLeafNode($1.Scan.Sym, $1.Scan.Position);             341   337    39     *   257     *   337
+   343 }
+   344                 | String                                                    225
+   345 {
+   346 $$.Scan.Mode    := Scanner.RightSide;                                       342   341   341   341
+   347 $$.Scan.Expr    := MakeLeafNode($1.Scan.Sym, $1.Scan.Position);             346   342   342     *   342     *   342
+   348 }
+   349                 | Action                                                    150
+   350 {
+   351 $$.Scan.Mode    := Scanner.RightSide;                                       347   346   346   346
+   352 $$.Scan.Expr    := MakeActionNode ($1.Scan.Act, $1.Scan.Position);          351   347    39     *   152     *   347
+   353 }.
+   354 
+   355   Alternative   : Expressions '|' Alternative                               334   292     *
+   356 {
+   357 $$.Scan.Mode    := Scanner.RightSide;                                       352   351   351   351
+   358 $$.Scan.Expr    := MakeBinaryNode (Alternative, $2.Scan.Position, $1.Scan.Expr, $3.S\   357   352   326   355     *   352
+                                                                                     *     *
+      \can.Expr);                                                                    *     *
+   359 }
+   360                 | Expressions                                               355
+   361 {
+   362 $$.Scan.Mode    := Scanner.RightSide;                                       358   357   357   357
+   363 IF $1.Scan.Mode = Scanner.Empty THEN                                        294   362   362   362   304   295
+   364   $$.Scan.Expr  := NoExpression;                                            363   358   305
+   365 ELSE                                                                        298
+   366   $$.Scan.Expr  := $1.Scan.Expr;                                            364   364     *     *
+   367 END;                                                                        300
+   368 }.
+   369 
+   370   CommentPart   : CommentPart Comment                                       237     *    87
+   371 {
+   372 $$.Scan.Mode    := Scanner.Comment;                                         366   363   363   370
+   373 IF IsEmpty ($1.Scan.Comm) THEN                                              363    29   372   243   363
+   374   $$.Scan.Position      := $2.Scan.Position;                                373   358     *     *
+   375   $$.Scan.Comm          := $2.Scan.Comm;                                    374   373     *     *
+   376 ELSE                                                                        365
+   377   Append ($1.Scan.Comm, EndOfLine);                                          57   375   375    58
+   378   WHILE NOT IsEmpty ($2.Scan.Comm) DO                                         *     *   373   377   377     *
+   379     Append ($1.Scan.Comm, Head($2.Scan.Comm));                              377   378   378    29     *     *
+   380     Tail ($2.Scan.Comm);                                                     29   379   379
+   381   END;                                                                      367
+   382   $$.Scan.Position      := $1.Scan.Position;                                380   374     *     *
+   383   $$.Scan.Comm          := $1.Scan.Comm;                                    382   380     *     *
+   384 END;                                                                        381
+   385 }
+   386                 | 
+   387 {
+   388 $$.Scan.Mode            := Scanner.Comment;                                 383   372   372   372
+   389 $$.Scan.Position        := NoPosition;                                      388   382   297
+   390 MakeList ($$.Scan.Comm);                                                     29   389   383
+   391 }.
+Cross reference: 
+
+-A-
+ Act                            152   352 
+ Action                          89   150   349 
+ ActionMode                      61   128   132   136   140   144   152 
+ Actions                         27   128   132   136   140   144   150 
+ ADDRESS                         36    52    58 
+ ADR                             36   175 
+ Alternative                    329   334   355   355   358 
+ Append                          29    57   377   379 
+ ArrayToString                   33   108   121 
+ AssignEmpty                     33    56 
+ Associativity                  202   207 
+ Attribute                       31 
+
+-B-
+ BEGIN                           55 
+ Begin                          140   142 
+ Bracket                        337 
+
+-C-
+ cEol                            44    57 
+ Close                          144   146 
+ Coding                         165   171   173   187 
+ CodNumbPos                     168   178   182   190 
+ CodValue                       168   177   181   189 
+ Comm                            99   130   134   138   142   146   152   159   168   195   204   234   243   373   375   375   377 
+                                378   379   379   380   383   383   390 
+ Comment                         87   370   372   388 
+ CommentPart                     97   128   132   136   140   144   150   156   165   193   202   232   237   370   370 
+ CompleteDeclarations            38   158 
+ CompletePriority                30   204 
+ CONST                           43 
+
+-D-
+ Decl                            97   128   128   132   136   140   144 
+ Declaration                    162   163   165 
+ Declarations                   156   162   162 
+ DO                             378 
+
+-E-
+ eError                          28   175 
+ eInteger                        28   175 
+ ELSE                           179   287   298   365   376 
+ Empty                          285   294   304   363 
+ END                             47   183   289   300   367   381   384 
+ EndOfLine                       52    58   377 
+ EndOfLineString                 51    56    57    58 
+ eNumToBig                       45   175 
+ ErrorAttribute                  31 
+ ErrorMessageI                   28   175 
+ Errors                          28 
+ Export                         128   130 
+ Expr                           242   272   274   275   286   288   288   297   297   297   305   311   311   316   316   321   321 
+                                326   326   326   332   332   337   337   342   347   352   358   358   358   364   366   366 
+ Expression                     292   308 
+ Expressions                    268   281   292   292   355   360 
+
+-F-
+ FALSE                          176   188   263 
+ FROM                            27    28    29    30    31    32    33    34    35    36    37    38    39 
+
+-G-
+ GetToken                        31 
+ GLOBAL                          26 
+ Global                         132   134 
+ Grammar                         97 
+
+-H-
+ HasCoding                      167   176   180   188 
+ HasPrio                        246   255   263   276 
+ Head                            29   379 
+
+-I-
+ Identifier                      90   110   123   219   237   339 
+ Idents                          35 
+ IF                             174   285   294   363   373 
+ IMPORT                          27    28    29    30    31    32    33    34    35    36    37    38    39 
+ IsEmpty                         29   373   378 
+
+-L-
+ Left                           207 
+ Lists                           29 
+ LOCAL                           61 
+ Local                          136   138 
+
+-M-
+ MakeActionNode                  39   352 
+ MakeBinaryNode                  40   297   326   358 
+ MakeBracketNode                 40   332   337 
+ MakeDeclaration                 38   167 
+ MakeGlobalHeader                38    99 
+ MakeIdent                       35   108   121 
+ MakeLeafNode                    39   342   347 
+ MakeList                        29   390 
+ MakeOperator                    30   216 
+ MakeOperHeader                  30   195 
+ MakePrioAlternativeNode         40   273 
+ MakePriority                    30   207   208   209 
+ MakeRule                        41   239 
+ MakeRulesHeader                 39   234 
+ MakeTokensHeader                38   159 
+ MakeUnaryNode                   39   316   321 
+ MAX                            174 
+ Mode                           173   187   221   227   254   262   271   284   285   294   296   304   310   315   320   325   331 
+                                336   341   346   351   357   362   363   372   388 
+
+-N-
+ NoExpression                    41   286   305   364 
+ NoIdent                         35   104   117 
+ None                           209 
+ NoPosition                      32   178   190   264   297   389 
+ NOT                            378 
+ Number                          88   171 
+
+-O-
+ Oper                            30    97   193 
+ Operation                       41 
+ Operator                       211   212   214 
+ Operators                      202   211   211 
+ OperKind                        30 
+ Optional                       332 
+
+-P-
+ ParserName                      27    97   115   117   121   125 
+ Plus                           321 
+ Position                        99   130   130   134   134   138   138   142   142   146   146   152   152   159   159   167   167 
+                                168   175   182   195   195   204   207   208   209   216   223   223   229   229   234   234   240 
+                                241   244   245   247   256   256   258   273   277   316   321   326   332   332   337   337   342 
+                                347   352   358   374   374   382   382   389 
+ Positions                       32 
+ PrioPart                       252   254   262   268   281 
+ Priorities                     193   199   199 
+ Priority                       199   202 
+ PriSym                         248   257   265   278 
+ PriSymPos                      249   258   264   279 
+ PutAction                       27   152 
+ PutComment                      27   130   134   138   142   146 
+ PutString                       34    58 
+
+-R-
+ RECORD                          47 
+ Right                          208 
+ RightSide                      237   268   268   271   284   296   310   315   320   325   331   336   341   346   351   357   362 
+ RULE                            95 
+ Rule                           232   237 
+ Rules                           39    97   232 
+
+-S-
+ Scan                            47    99    99   112   125   130   130   130   134   134   134   138   138   138   142   142   142 
+                                146   146   146   152   152   152   152   159   159   159   167   167   167   167   168   168   168 
+                                168   173   174   175   175   176   177   178   180   181   181   182   182   187   188   189   190 
+                                195   195   195   204   204   207   208   209   216   216   221   222   222   223   223   227   228 
+                                228   229   229   234   234   234   239   240   241   242   243   244   245   246   247   248   249 
+                                254   255   256   256   257   257   258   258   262   263   264   265   270   270   271   272   273 
+                                274   275   276   277   278   279   283   283   284   285   286   288   288   294   296   297   297 
+                                297   299   299   304   305   310   311   311   315   316   316   316   320   321   321   321   325 
+                                326   326   326   326   331   332   332   332   332   336   337   337   337   337   341   342   342 
+                                342   346   347   347   347   351   352   352   352   357   358   358   358   358   362   363   364 
+                                366   366   372   373   374   374   375   375   377   378   379   379   380   382   382   383   383 
+                                388   389   390 
+ Scanner                         31   173   187   221   227   254   262   271   284   285   294   296   304   310   315   320   325 
+                                331   336   341   346   351   357   362   363   372   388 
+ ScannerName                     27    97   102   104   108   112 
+ Separator                      326 
+ Sequence                       297 
+ Star                           316 
+ String                          50    91   108   108   121   121   225   344 
+ StringMem                       34 
+ Strings                         33    57 
+ Sym                            112   125   167   216   222   222   228   228   239   257   342   347 
+ Symbol                         221   227 
+ SYSTEM                          36 
+
+-T-
+ tActionMode                     27    61 
+ Tail                            29   380 
+ Terminal                        37   165   174   214   219   252 
+ THEN                           174   285   295   363   373 
+ tList                           29 
+ TOKEN                           63 
+ Tokens                          38    97   156 
+ TokenTab                        37 
+ tParsAttribute                  47 
+ TRUE                           180   255 
+ tScanAttribute                  31    47 
+ tString                         33    51 
+ tStringRef                      34 
+ TYPE                            47 
+
+-U-
+ Unit                           308   313   318   323   323   329 
+
+-V-
+ Value                          174   175   181 
+ VAR                             49    61 
+
+-W-
+ WHILE                          378 
+
+end cross reference, 773 occurrences of 141 identifiers.

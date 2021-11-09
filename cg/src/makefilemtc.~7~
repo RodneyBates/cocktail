@@ -1,0 +1,503 @@
+INSTALLBIN	= $(INSTALLGMD)/bin
+INSTALLLIB	= $(INSTALLGMD)/lib
+OPT	= -O0 -g
+CC	= cc
+
+BIN = ../../bintobuildwith
+MTC = $(BIN)/mtc
+
+                # C library (reuse)
+REUSE	= ../../reuse/mtc
+
+                # C libraries
+CLIBS	= $(REUSE)/libreuse.a
+
+                # options for C compiler
+CFLAGS	= -w -I$(REUSE) $(OPT)
+
+M2FLAGS	= -c -d$(REUSE)
+
+EXE     = cg
+
+all	: cg
+
+cleanmtc:
+	cd ../src; make cleanmtc
+
+cleancompile: cleanmtc
+	rm -f *.o $(EXE)
+
+compile: $(EXE)
+
+mtc_only : sources
+
+install:	cg $(INSTALLLIB)/cg
+install : ../gen/Scanner.Tab 
+install : ../gen/Parser.Tab 
+install : ../lib/TypeTab.a 
+install : ../lib/TypeTab.c 
+install : ../lib/TypeTab.m 
+install : ../lib/TypeTab.m3 
+install : ../lib/gmdcp
+install : ../lib/gmdcpp
+install : ../lib/gmdupd
+install : ../lib/gmdrm
+	if test $(INSTALLLIB) = $(INSTALLBIN); then echo error: INSTALLBIN = INSTALLLIB; false; else true; fi
+	sed "s;LIB;$(INSTALLLIB);g" < ../lib/cg.sh > $(INSTALLBIN)/cg
+	cp $(INSTALLBIN)/cg $(INSTALLBIN)/ag
+	cp $(INSTALLBIN)/cg $(INSTALLBIN)/ast
+	chmod a+rx $(INSTALLBIN)/cg $(INSTALLBIN)/ast $(INSTALLBIN)/ag
+#	cp ../lib/gmdcpp .
+#	cp ../lib/gmdupd .
+#	cp ../lib/gmdrm .
+	install -c -m 755 ../lib/gmdcp $(INSTALLLIB)
+	install -c -m 755 ../lib/gmdcpp $(INSTALLLIB)
+	install -c -m 755 ../lib/gmdupd $(INSTALLLIB)
+	install -c -m 755 ../lib/gmdrm $(INSTALLLIB)
+#	rm -f gmdcpp gmdupd gmdrm 
+	install -c -m 755 cg $(INSTALLLIB)/cg
+	install -c -m 644 ../gen/Scanner.Tab $(INSTALLLIB)/cg
+	install -c -m 644 ../gen/Parser.Tab $(INSTALLLIB)/cg
+	install -c -m 644 ../lib/TypeTab.a $(INSTALLLIB)/cg
+	install -c -m 644 ../lib/TypeTab.c $(INSTALLLIB)/cg
+	install -c -m 644 ../lib/TypeTab.m $(INSTALLLIB)/cg
+	install -c -m 644 ../lib/TypeTab.m3 $(INSTALLLIB)/cg
+
+saveStablexx : stablexx 
+	cp -p cg stablexx
+	cp -p ../lib/cg.sh stablexx 
+	cp -p ../gen/Scanner.Tab stablexx 
+	cp -p ../gen/Parser.Tab stablexx 
+	cp -p ../lib/gmdcpp stablexx 
+	cp -p ../lib/gmdupd stablexx 
+	cp -p ../lib/gmdrm stablexx 
+	cp -p ../lib/TypeTab.a stablexx 
+	cp -p ../lib/TypeTab.c stablexx 
+	cp -p ../lib/TypeTab.m stablexx 
+	cp -p ../lib/TypeTab.a stablexx 
+
+# installation directories
+
+stablexx:	
+	sh -c "if test ! -d stablexx; then mkdir stablexx; else true; fi"
+
+$(INSTALLLIB)/cg:	$(INSTALLLIB)
+	sh -c "if test ! -d $(INSTALLLIB)/cg; then mkdir $(INSTALLLIB)/cg; else true; fi"
+
+# swap all byte pairs of the files Scanner.Tab and Parser.Tab
+
+bin.conv:
+	dd conv=swab < Scanner.Tab > .Scanner.Tab; mv .Scanner.Tab Scanner.Tab
+	dd conv=swab < Parser.Tab > .Parser.Tab; mv .Parser.Tab Parser.Tab
+
+# SYSTEM_	= SYSTEM_.o
+
+lint:
+	lint $(CFLAGS) *.c
+
+
+# HEAD
+
+sources : IOUtils.h
+
+sources : IOUtils.c
+IOUtils.o       : IOUtils.h IOUtils.c 
+
+sources	: Dialog.h
+Dialog.h	: Tree.h
+
+sources	: Dialog.c
+Dialog.o	: Dialog.c Dialog.h
+Dialog.o	: Tree.h
+Dialog.o	: Order.h
+Dialog.o	: Tree.h
+
+sources	: Errors.h
+Errors.h	: Positions.h
+
+sources	: Errors.c
+Errors.o	: Errors.c Errors.h
+Errors.o	: Positions.h
+
+sources	: EvalC.h
+EvalC.h	: Tree.h
+
+sources	: EvalC.c
+EvalC.o	: EvalC.c EvalC.h
+EvalC.o	: Tree.h
+EvalC.o	: TreeC1.h
+EvalC.o	: TreeC2.h
+EvalC.o	: EvalC3.h
+EvalC.o	: Tree.h
+
+sources	: EvalC2.h
+EvalC2.h	: Tree.h
+
+sources	: EvalC2.c
+EvalC2.o	: EvalC2.c EvalC2.h
+EvalC2.o	: Tree.h
+EvalC2.o	: TreeC2.h
+EvalC2.o	: EvalC.h
+EvalC2.o	: Tree.h
+
+sources	: EvalC3.h
+EvalC3.h	: Tree.h
+
+sources	: EvalC3.c
+EvalC3.o	: EvalC3.c EvalC3.h
+EvalC3.o	: Tree.h
+EvalC3.o	: TreeC1.h
+EvalC3.o	: TreeC2.h
+EvalC3.o	: EvalC.h
+EvalC3.o	: EvalC.h
+EvalC3.o	: Tree.h
+
+sources	: EvalMod.h
+EvalMod.h	: Tree.h
+
+sources	: EvalMod.c
+EvalMod.o	: EvalMod.c EvalMod.h
+EvalMod.o	: Tree.h
+EvalMod.o	: TreeMod1.h
+EvalMod.o	: TreeMod2.h
+EvalMod.o	: EvalMod3.h
+EvalMod.o	: Tree.h
+
+sources	: EvalMod2.h
+EvalMod2.h	: Tree.h
+
+sources	: EvalMod2.c
+EvalMod2.o	: EvalMod2.c EvalMod2.h
+EvalMod2.o	: Tree.h
+EvalMod2.o	: TreeMod2.h
+EvalMod2.o	: EvalMod.h
+EvalMod2.o	: Tree.h
+
+sources	: EvalMod3.h
+EvalMod3.h	: Tree.h
+
+sources	: EvalMod3.c
+EvalMod3.o	: EvalMod3.c EvalMod3.h
+EvalMod3.o	: Tree.h
+EvalMod3.o	: TreeMod1.h
+EvalMod3.o	: TreeMod2.h
+EvalMod3.o	: EvalMod.h
+EvalMod3.o	: EvalMod.h
+EvalMod3.o	: Tree.h
+
+sources	: EvalMThree.h
+EvalMThree.h	: Tree.h
+
+sources	: EvalMThree.c
+EvalMThree.o	: EvalMThree.c EvalMThree.h
+EvalMThree.o	: Tree.h
+EvalMThree.o	: TreeMThree2.h
+EvalMThree.o	: EvalMThree3.h
+
+sources	: EvalMThree2.h
+EvalMThree2.h	: Tree.h
+
+sources	: EvalMThree2.c
+EvalMThree2.o	: EvalMThree2.c EvalMThree2.h
+EvalMThree2.o	: Tree.h
+EvalMThree2.o	: TreeMThree2.h
+EvalMThree2.o	: EvalMThree.h
+
+sources	: EvalMThree3.h
+EvalMThree3.h	: Tree.h
+
+sources	: EvalMThree3.c
+EvalMThree3.o	: EvalMThree3.c EvalMThree3.h
+EvalMThree3.o	: Tree.h
+EvalMThree3.o	: TreeMThree2.h
+EvalMThree3.o	: EvalMThree.h
+
+sources	: GramC.h
+GramC.h	: Tree.h
+
+sources	: GramC.c
+GramC.o	: GramC.c GramC.h
+GramC.o	: Tree.h
+GramC.o	: TreeC2.h
+GramC.o	: Tree.h
+GramC.o : IOUtils.h 
+
+sources	: GramMod.h
+GramMod.h	: Tree.h
+
+sources	: GramMod.c
+GramMod.o	: GramMod.c GramMod.h
+GramMod.o	: Tree.h
+GramMod.o	: TreeMod2.h
+GramMod.o : IOUtils.h 
+
+sources	: GramYacc.h
+GramYacc.h	: Tree.h
+
+sources	: GramYacc.c
+GramYacc.o	: GramYacc.c GramYacc.h
+GramYacc.o	: Tree.h
+GramYacc.o	: TreeC2.h
+GramYacc.o	: Tree.h
+
+sources	: Optimize.h
+Optimize.h	: Tree.h
+
+sources	: Optimize.c
+Optimize.o	: Optimize.c Optimize.h
+Optimize.o	: Tree.h
+Optimize.o	: Tree.h
+Optimize.o	: Order.h
+
+sources	: Order.h
+Order.h	: Tree.h
+
+sources	: Order.c
+Order.o	: Order.c Order.h
+Order.o	: Tree.h
+Order.o	: Queue.h
+Order.o	: Optimize.h
+Order.o	: Queue.h
+Order.o	: Errors.h
+
+sources	: Parser.h
+
+sources	: Parser.c
+Parser.o	: Parser.c Parser.h
+Parser.o	: Scanner.h
+Parser.o	: Positions.h
+Parser.o	: Errors.h
+Parser.o	: Tree.h
+
+sources	: Positions.h
+
+sources	: Positions.c
+Positions.o	: Positions.c Positions.h
+
+sources	: Queue.h
+
+sources	: Queue.c
+Queue.o	: Queue.c Queue.h
+
+sources	: Scanner.h
+Scanner.h	: Positions.h
+
+sources	: Scanner.c
+Scanner.o	: Scanner.c Scanner.h
+Scanner.o	: Tree.h
+Scanner.o	: Positions.h
+Scanner.o	: Errors.h
+
+sources	: Semantics.h
+Semantics.h	: Tree.h
+
+sources	: Semantics.c
+Semantics.o	: Semantics.c Semantics.h
+Semantics.o	: Tree.h
+Semantics.o	: Positions.h
+Semantics.o	: Errors.h
+
+sources	: Tree.h
+Tree.h	: Positions.h
+
+sources	: Tree.c
+Tree.o	: Tree.c Tree.h
+Tree.o	: Positions.h
+Tree.o	: Errors.h
+
+sources	: Tree2.h
+Tree2.h	: Tree.h
+
+sources	: Tree2.c
+Tree2.o	: Tree2.c Tree2.h
+Tree2.o	: Positions.h
+Tree2.o	: Tree.h
+
+sources	: TreeC1.h
+TreeC1.h	: Tree.h
+
+sources	: TreeC1.c
+TreeC1.o	: TreeC1.c TreeC1.h
+TreeC1.o	: Tree.h
+TreeC1.o	: TreeC2.h
+TreeC1.o        : IOUtils.h 
+
+sources	: TreeC2.h
+TreeC2.h	: Tree.h
+
+sources	: TreeC2.c
+TreeC2.o	: TreeC2.c TreeC2.h
+TreeC2.o	: Tree.h
+
+sources	: TreeMod1.h
+TreeMod1.h	: Tree.h
+
+sources	: TreeMod1.c
+TreeMod1.o	: TreeMod1.c TreeMod1.h
+TreeMod1.o	: Tree.h
+TreeMod1.o	: TreeMod2.h
+TreeMod1.o      : IOUtils.h 
+
+sources	: TreeMod2.h
+TreeMod2.h	: Tree.h
+
+sources	: TreeMod2.c
+TreeMod2.o	: TreeMod2.c TreeMod2.h
+TreeMod2.o	: Tree.h
+
+sources	: TreeMThree1.h
+TreeMThree1.h	: Tree.h
+
+sources	: TreeMThree1.c
+TreeMThree1.o	: TreeMThree1.c TreeMThree1.h
+TreeMThree1.o	: Tree.h
+TreeMThree1.o	: TreeMThree2.h
+TreeMThree1.o   : IOUtils.h 
+TreeMThree1.o   : GenGnat.h
+
+sources : GenGnat.h
+GenGnat.h       : Tree.h
+
+sources : GenGnat.c
+GenGnat.o       : GenGnat.c GenGnat.h
+GenGnat.o       : Tree.h
+
+sources	: TreeMThree2.h
+TreeMThree2.h	: Tree.h
+
+sources	: TreeMThree2.c
+TreeMThree2.o	: TreeMThree2.c TreeMThree2.h
+TreeMThree2.o	: Tree.h
+
+sources	: TreeAda1.h
+TreeAda1.h	: Tree.h
+
+sources	: TreeAda1.c
+TreeAda1.o	: TreeAda1.c TreeAda1.h
+TreeAda1.o	: Tree.h
+TreeAda1.o	: TreeAda2.h
+
+sources	: TreeAda2.h
+TreeAda2.h	: Tree.h
+
+sources	: TreeAda2.c
+TreeAda2.o	: TreeAda2.c TreeAda2.h
+TreeAda2.o	: Tree.h
+
+sources	: cg.c
+all	: cg
+cg.o	: cg.c
+cg.o	: Errors.h
+cg.o	: Scanner.h
+cg.o	: Parser.h
+cg.o	: Tree.h
+cg.o	: Tree2.h
+cg.o	: Semantics.h
+cg.o	: Order.h
+cg.o	: Dialog.h
+cg.o	: GramMod.h
+cg.o	: TreeMod1.h
+cg.o	: EvalMod.h
+cg.o	: EvalMod2.h
+cg.o	: EvalMod3.h
+cg.o	: TreeMThree1.h
+cg.o	: EvalMThree.h
+cg.o	: EvalMThree2.h
+cg.o	: EvalMThree3.h
+cg.o	: TreeAda1.h
+cg.o	: GramC.h
+cg.o	: GramYacc.h
+cg.o	: TreeC1.h
+cg.o	: EvalC.h
+cg.o	: EvalC2.h
+cg.o	: EvalC3.h
+
+SYSTEM_.o	: SYSTEM_.c SYSTEM_.h
+
+cg	: $(CLIBS)	\
+	cg.o	\
+	EvalC3.o	\
+	Tree.o	\
+	Errors.o	\
+	Positions.o	\
+	EvalC.o	\
+	TreeC2.o	\
+	TreeC1.o	\
+	EvalC2.o	\
+	GramYacc.o	\
+	GramC.o	\
+	EvalMod.o	\
+	EvalMod2.o	\
+	EvalMod3.o	\
+	TreeMod2.o	\
+	TreeMod1.o	\
+	EvalMThree.o	\
+	EvalMThree2.o	\
+	EvalMThree3.o	\
+	TreeMThree2.o	\
+	TreeMThree1.o	\
+	TreeAda1.o	\
+	TreeAda2.o	\
+	GenGnat.o	\
+	GramMod.o	\
+	Dialog.o	\
+	Order.o	\
+	Queue.o	\
+	Optimize.o	\
+	Semantics.o	\
+	Tree2.o	\
+	Parser.o	\
+	Scanner.o	\
+	IOUtils.o	\
+;	$(CC) $(CFLAGS) -o cg 	\
+	cg.o	\
+	EvalC3.o	\
+	Tree.o	\
+	Errors.o	\
+	Positions.o	\
+	EvalC.o	\
+	TreeC2.o	\
+	TreeC1.o	\
+	EvalC2.o	\
+	GramYacc.o	\
+	GramC.o	\
+	EvalMod.o	\
+	EvalMod2.o	\
+	EvalMod3.o	\
+	TreeMod1.o	\
+	TreeMod2.o	\
+	EvalMThree.o	\
+	EvalMThree2.o	\
+	EvalMThree3.o	\
+	TreeMThree1.o	\
+	TreeMThree2.o	\
+	TreeAda1.o	\
+	TreeAda2.o	\
+	GenGnat.o	\
+	GramMod.o	\
+	Dialog.o	\
+	Order.o	\
+	Queue.o	\
+	Optimize.o	\
+	Semantics.o	\
+	Tree2.o	\
+	Parser.o	\
+	Scanner.o	\
+	IOUtils.o	\
+	$(CLIBS)
+
+# TAIL
+
+clean	:
+	rm -f core *.o
+
+.SUFFIXES: .md .mi .h .c .o
+
+.mi.c:
+	$(MTC) $(M2FLAGS) $*.mi;
+
+.md.h:
+	$(MTC) $(M2FLAGS) $*.md;
+
+.c.o:
+	$(CC) $(CFLAGS) -c $*.c

@@ -1,0 +1,1039 @@
+
+/* Ich, Doktor Josef Grosch, Informatiker, 29.4.1991 */
+/* Rodney M. Bates Jan '96 */ 
+/* File Ada.puma: generate Ada code. Modified from Mod.puma */ 
+
+TRAFO Ada
+TREE Tree
+PUBLIC PackSpec PackBody MacroAda
+
+GLOBAL {
+
+FROM Positions	IMPORT tPosition;
+FROM IO		IMPORT StdOutput, WriteS, WriteNl;
+FROM StringMem	IMPORT WriteString;
+FROM Strings	IMPORT tString, IntToString, ArrayToString, Concatenate;
+FROM Idents	IMPORT tIdent, NoIdent, MakeIdent;
+FROM Texts	IMPORT WriteText;
+FROM Sets	IMPORT IsElement, IsNotEqual, Minimum, Maximum, IsEmpty;
+FROM Semantics	IMPORT IdentifyVar, LookupClass;
+FROM Optimize	IMPORT NeedsTempo, NeedsMatch, NeedsNoFinale, GetRule;
+FROM Tree	IMPORT NoTree, tTree, Options, f, SourceFile, WI, WN;
+
+VAR
+   RoutineKind	: (kProcedure, kFunction, kPredicate);
+   i, j		: CARDINAL;
+   ListCount	, 
+   WithCount    : INTEGER;
+   rule		,
+   TheClass	,
+   InFormals	,
+   OutFormals	,
+   ReturnFormals,
+   Decls	: tTree;
+   TheName	: tIdent;
+   TemposDone	: BOOLEAN;
+
+PROCEDURE WriteLine (Line: tPosition);
+   BEGIN
+      IF Line.Line # 0 THEN
+	 !-- line ! WN (Line.Line); @, file "@ WriteS (f, SourceFile); @" @
+      END;
+   END WriteLine;
+
+PROCEDURE Match (t, Formals: tTree);
+   VAR TreeName	: tIdent;
+   VAR Pattern	: tTree;
+   BEGIN
+      IF (t^.Kind = Tree.NoPattern) OR (Formals^.Kind # Tree.Formal) THEN RETURN; END;
+      Pattern := t^.OnePattern.Pattern;
+      CASE Pattern^.Kind OF
+      | Tree.Decompose: WITH Pattern^.Decompose DO
+	    TreeName := Object^.Class.TypeDesc^.NodeTypes.TreeName^.TreeName.Name;
+	    IF (Formals^.Formal.TypeDesc^.Kind = Tree.UserType) OR
+	       IsNotEqual 
+                 ( Object^.Class.TypeDesc^.NodeTypes.Types
+                 , Formals^.Formal.TypeDesc^.NodeTypes.Types
+                 ) 
+            THEN
+	       IF Object^.Class.Extensions^.Kind = Tree.NoClass THEN	(* Low ? *)
+		  !      IF (! PackBody (Path); !.ALL.Kind /= ! 
+	       ELSE
+		  !      IF NOT ! WI (TreeName); !.IsType (! PackBody (Path); !, ! 
+	       END;
+	       WI (TreeName); !.! WI (Object^.Class.Name); !) THEN EXIT; END IF;!
+	    END;
+	    Match (Patterns, Object^.Class.Formals);
+	 END;
+
+      | Tree.VarDef: WITH Pattern^.VarDef DO
+	    IF Object # NoTree THEN
+	       WITH Object^.Formal DO
+		  !      IF NOT (equal! PackBody (TypeDesc); ! (! PackBody (Path);
+		  !, ! PackBody (Pattern^.VarDef.Path); !)) THEN EXIT; END IF;!
+	       END;
+	    END;
+	 END;
+
+      | Tree.NilTest:
+	 !      IF ! PackBody (Pattern^.NilTest.Path); ! /= NULL THEN EXIT; END IF;!
+
+      | Tree.DontCare1:
+      | Tree.DontCare: RETURN;
+
+      | Tree.Value: WITH Pattern^.Value DO
+	    AssignTempo (Expr);
+	    !      IF NOT (equal! PackBody (Formals^.Formal.TypeDesc);
+	    ! (! PackBody (Path); !, ! Expression (Expr); !)) THEN EXIT; END IF;!
+	    MatchExpr (Expr);
+	 END;
+      END;
+      Match (t^.OnePattern.Next, Formals^.Formal.Next);
+   END Match;
+
+PROCEDURE MatchExprs (t: tTree);
+   BEGIN
+      IF t^.Kind = Tree.NoExpr THEN RETURN; END;
+      IF t^.OneExpr.Expr^.Kind = Tree.DontCare THEN RETURN; END;
+      MatchExpr (t^.OneExpr.Expr);
+      MatchExprs (t^.OneExpr.Next);
+   END MatchExprs;
+
+PROCEDURE MatchExpr (t: tTree);
+   BEGIN
+      CASE t^.Kind OF
+      | Tree.Compose:
+	 MatchExprs (t^.Compose.Exprs);
+
+      | Tree.VarUse	:
+      | Tree.Nil	:
+      | Tree.DontCare1	:
+      | Tree.TargetExpr	:
+      | Tree.StringExpr	:
+      | Tree.AttrDesc	:
+
+      | Tree.Call	: WITH t^.Call DO
+	    MatchExpr (Expr);
+	    MatchExprs (Exprs);
+	    IF Object # NoTree THEN
+	       Match (Patterns, Object^.Routine.OutForm);
+	    END;
+	 END;
+
+      | Tree.Binary	: WITH t^.Binary DO
+	    MatchExpr (Lop);
+	    MatchExpr (Rop);
+	 END;
+
+      | Tree.PreOperator, Tree.PostOperator	:
+	 MatchExpr (t^.PreOperator.Expr);
+
+      | Tree.Index	:
+	 MatchExpr (t^.Index.Expr);
+	 MatchExprs (t^.Index.Exprs);
+
+      | Tree.Parents	:
+	 MatchExpr (t^.Parents.Expr);
+      END;
+   END MatchExpr;
+
+PROCEDURE AssignTempos (t: tTree);
+   BEGIN
+      IF t^.Kind = Tree.NoExpr THEN RETURN; END;
+      IF t^.OneExpr.Expr^.Kind = Tree.DontCare THEN RETURN; END;
+      AssignTempo (t^.OneExpr.Expr);
+      AssignTempos (t^.OneExpr.Next);
+   END AssignTempos;
+
+PROCEDURE AssignTempo (t: tTree);
+   VAR TreeName	: tIdent;
+   BEGIN
+      CASE t^.Kind OF
+      | Tree.Compose: WITH t^.Compose DO
+	    TreeName := Object^.Class.TypeDesc^.NodeTypes.TreeName^.TreeName.Name;
+            !      ! WI ( Tempo ) ; ! := NEW ! WI ( TreeName ) ; 
+              ! . yyNode ( ! WI ( Object ^ . Class . Name ) ; ! ) ; !
+            AssignSubFormals 
+              (Exprs, Object^.Class.Formals , Tempo , Object^.Class.Name );
+	 END;
+
+      | Tree.VarUse	:
+      | Tree.Nil	:
+      | Tree.DontCare1	:
+      | Tree.TargetExpr	:
+      | Tree.StringExpr	:
+      | Tree.AttrDesc	:
+
+      | Tree.Call	: WITH t^.Call DO
+	    AssignTempo (Expr);
+	    AssignTempos (Exprs);
+	 END;
+
+      | Tree.Binary	: WITH t^.Binary DO
+	    AssignTempo (Lop);
+	    AssignTempo (Rop);
+	 END;
+
+      | Tree.PreOperator, Tree.PostOperator	:
+	 AssignTempo (t^.PreOperator.Expr);
+
+      | Tree.Index	:
+	 AssignTempo (t^.Index.Expr);
+	 AssignTempos (t^.Index.Exprs);
+
+      | Tree.Parents	:
+	 AssignTempo (t^.Parents.Expr);
+      END;
+   END AssignTempo;
+
+/* Generate assignments to a formals list */ 
+
+PROCEDURE MakeWith (): tIdent;
+   VAR String1, String2	: tString;
+   BEGIN
+      INC (WithCount);
+      ArrayToString ("yyW", String1);
+      IntToString (WithCount, String2);
+      Concatenate (String1, String2);
+      RETURN MakeIdent (String1);
+   END MakeWith;
+
+PROCEDURE AssignFormals (t, Formals: tTree );
+   BEGIN
+      IF (t^.Kind = Tree.NoExpr) OR (Formals^.Kind # Tree.Formal) THEN RETURN; END;
+      IF t^.OneExpr.Expr^.Kind = Tree.DontCare THEN
+	 BeginFormals (Formals );
+	 RETURN;
+      END;
+      AssignFormal (t^.OneExpr.Expr, Formals );
+/* c.puma has a call on MatchExpr here */ 
+      AssignFormals (t^.OneExpr.Next, Formals^.Formal.Next );
+   END AssignFormals;
+
+PROCEDURE AssignFormal (t, Formals: tTree );
+   VAR TreeName	, With : tIdent;
+   BEGIN
+      IF t^.Kind = Tree.Compose THEN
+	 WITH t^.Compose DO
+	    TreeName := Object^.Class.TypeDesc^.NodeTypes.TreeName^.TreeName.Name;
+            With := MakeWith ( ) ; 
+            !      DECLARE !
+            !        ! WI ( With ) ; ! : ! WI ( TreeName ) ; ! . t! WI ( TreeName ) ; 
+            !            := NEW ! WI ( TreeName ) ; 
+                         ! . yyNode ( ! WI ( Object ^ . Class . Name ) ; ! ) ; !
+            !      BEGIN ! 
+            !        ! WI ( Formals^.Formal.Name ) ; ! := ! WI ( With ) ; ! ; !
+
+	    AssignSubFormals (Exprs, Object^.Class.Formals, With , Object^.Class.Name);
+            !      END ; -- DECLARE ! 
+	 END;
+      ELSE
+	 AssignTempo (t);
+      END;
+      CASE t^.Kind OF
+      | Tree.VarUse, Tree.Nil, Tree.Call, Tree.Binary, Tree.PreOperator,
+        Tree.PostOperator, Tree.Index, Tree.Parents, Tree.TargetExpr, Tree.StringExpr,
+        Tree.AttrDesc:
+         !      ! WI (Formals^.Formal.Name); ! := ! Expression (t); !;!
+      | Tree.DontCare1:
+         !begin! PackBody (Formals^.Formal.TypeDesc); 
+           ! ( ! WI (Formals^.Formal.Name); ! ) ; !
+      ELSE
+      END;
+
+   END AssignFormal;
+
+PROCEDURE BeginFormals (Formals: tTree );
+   BEGIN
+      IF Formals^.Kind = Tree.Formal THEN
+	 WITH Formals^.Formal DO
+            !begin! PackBody (TypeDesc); ! ( ! WI (Name); ! ) ; ! 
+	    BeginFormals ( Next );
+	 END;
+      END;
+   END BeginFormals;
+
+PROCEDURE AssignSubFormals (t, Formals: tTree ; PrevWith , Composer : tIdent );
+   BEGIN
+      IF (t^.Kind = Tree.NoExpr) OR (Formals^.Kind # Tree.Formal) THEN RETURN; END;
+      IF t^.OneExpr.Expr^.Kind = Tree.DontCare THEN
+	 BeginSubFormals (Formals , PrevWith , Composer );
+	 RETURN;
+      END;
+      AssignSubFormal (t^.OneExpr.Expr, Formals , PrevWith , Composer );
+      AssignSubFormals (t^.OneExpr.Next, Formals^.Formal.Next , PrevWith , Composer );
+   END AssignSubFormals;
+
+PROCEDURE AssignSubFormal (t, Formals: tTree ; PrevWith , Composer : tIdent );
+   VAR TreeName	, With : tIdent;
+   BEGIN
+      IF t^.Kind = Tree.Compose THEN
+	 WITH t^.Compose DO
+	    TreeName := Object^.Class.TypeDesc^.NodeTypes.TreeName^.TreeName.Name;
+            With := MakeWith ( ) ; 
+            !      DECLARE !
+            !        ! WI ( With ) ; ! : ! WI ( TreeName ) ; ! . t! WI ( TreeName ) ; 
+            !            := NEW ! WI ( TreeName ) ; 
+                         ! . yyNode ( ! WI ( Object ^ . Class . Name ) ; ! ) ; !
+            !      BEGIN ! 
+            !        ! WI ( PrevWith ) ; ! . ALL . ! WI ( Composer ) ; 
+               ! . ! WI ( Formals ^ . Formal . Name ) ; ! := ! WI ( With ) ; ! ; !
+
+	    AssignSubFormals (Exprs, Object^.Class.Formals, With , Object^.Class.Name);
+            !      END ; -- DECLARE ! 
+	 END;
+      ELSE
+	 AssignTempo (t);
+      END;
+      CASE t^.Kind OF
+      | Tree.VarUse, Tree.Nil, Tree.Call, Tree.Binary, Tree.PreOperator,
+        Tree.PostOperator, Tree.Index, Tree.Parents, Tree.TargetExpr, Tree.StringExpr,
+        Tree.AttrDesc:
+         !        ! WI ( PrevWith ) ; ! . ALL . ! WI ( Composer ) ; 
+             ! . ! WI ( Formals ^ . Formal . Name ) ; ! := ! Expression (t); ! ; !
+      | Tree.DontCare1:
+         !begin! PackBody (Formals^.Formal.TypeDesc); 
+            ! ( ! WI ( PrevWith ) ; ! . ALL . ! WI ( Composer ) ; 
+             ! . ! WI ( Formals ^ . Formal . Name ) ; ! ) ; !
+      ELSE
+      END;
+
+   END AssignSubFormal;
+
+PROCEDURE BeginSubFormals (Formals: tTree ; PrevWith , Composer : tIdent );
+   BEGIN
+      IF Formals^.Kind = Tree.Formal THEN
+	 WITH Formals^.Formal DO
+           !begin! PackBody (TypeDesc); 
+             ! ( ! WI ( PrevWith ) ; ! . ALL . ! WI ( Composer ) ; 
+             ! . ! WI ( Name ) ; ! ) ; !
+	   BeginSubFormals(Next , PrevWith , Composer );
+	 END;
+      END;
+   END BeginSubFormals;
+
+PROCEDURE ConsPatterns (t: tTree; ListCount: INTEGER): INTEGER;
+   BEGIN
+      IF t^.Kind = Tree.NoPattern THEN RETURN ListCount; END;
+      WITH t^.OnePattern DO
+	 IF Pattern^.Kind = Tree.DontCare THEN
+	    RETURN ConsTempos (Pattern^.DontCare.Tempos, ListCount);
+	 ELSE
+	    IF ListCount > 0 THEN !, ! END;
+	    WI (Pattern^.Pattern.Tempo);
+	    RETURN ConsPatterns (Next, ListCount + 1);
+	 END;
+      END;
+   END ConsPatterns;
+
+PROCEDURE ConsTempos (t: tTree; ListCount: INTEGER): INTEGER;
+   BEGIN
+      IF t^.Kind = Tree.Formal THEN
+	 IF ListCount > 0 THEN !, ! END;
+	 WI (t^.Formal.Name);
+	 RETURN ConsTempos (t^.Formal.Next, ListCount + 1);
+      ELSE
+	 RETURN ListCount;
+      END;
+   END ConsTempos;
+
+PROCEDURE Expressions (t: tTree; ListCount: INTEGER): INTEGER;
+   BEGIN
+      IF t^.Kind = Tree.NoExpr THEN RETURN ListCount; END;
+      WITH t^.OneExpr DO
+	 IF Expr^.Kind = Tree.DontCare THEN
+	    RETURN ConsTempos (Expr^.DontCare.Tempos, ListCount);
+	 ELSE
+	    IF ListCount > 0 THEN !, ! END;
+	    Expression (Expr);
+	    RETURN Expressions (Next, ListCount + 1);
+	 END;
+      END;
+   END Expressions;
+
+PROCEDURE Expression (t: tTree);
+   BEGIN
+      CASE t^.Kind OF
+      | Tree.Compose	: WI (t^.Compose.Tempo);
+
+      | Tree.Nil	: !NULL ! 
+
+      | Tree.VarUse	: WITH t^.VarUse DO
+	    IF Object # NoTree THEN
+	       PackBody (Object^.Formal.Path);
+	    ELSE
+	       WI (Name);
+	    END;
+	 END;
+
+      | Tree.DontCare1	: WI (t^.DontCare1.Tempo);
+
+      | Tree.Call	: WITH t^.Call DO
+	    Expression (Expr); ! (! 
+	    ListCount := Expressions (Exprs, 0);
+	    IF Object # NoTree THEN
+	       ListCount := ConsPatterns (Patterns, ListCount);
+	    ELSE
+	       ListCount := Expressions (Patterns, ListCount);
+	    END;
+	    !)! 
+	 END;
+
+      | Tree.Binary	: WITH t^.Binary DO
+	    Expression (Lop); ! ! WI (Operator); ! ! Expression (Rop);
+	 END;
+
+      | Tree.PreOperator	:
+	 WI (t^.PreOperator.Operator); ! ! Expression (t^.PreOperator.Expr);
+
+      | Tree.PostOperator	:
+	 Expression (t^.PostOperator.Expr); ! ! WI (t^.PostOperator.Operator);
+
+      | Tree.Index	:
+	 Expression (t^.Index.Expr); ! (! ListCount := Expressions (t^.Index.Exprs, 0); !)! 
+
+      | Tree.Parents	: !(! Expression (t^.Parents.Expr); !)! 
+
+      | Tree.TargetExpr	: PackBody (t^.TargetExpr.Expr);
+
+      | Tree.StringExpr	: WriteString (f, t^.StringExpr.String);
+
+      | Tree.AttrDesc	: WITH t^.AttrDesc DO
+	    PackBody (Object^.Formal.Path); ! . ALL . ! WI (Type); ! . ! WI (Attribute);
+	 END;
+      END;
+   END Expression;
+
+PROCEDURE Tg2 (t, Formals: tTree); 
+   VAR Object : tTree ; 
+   PROCEDURE Tg2Attrs ( AttrFormals : tTree ) 
+   ; BEGIN
+       IF AttrFormals ^ . Kind = Tree . Formal 
+       THEN 
+         !        ! WI ( AttrFormals ^ . Formal . Name ) ; 
+           ! : ! PackSpec ( AttrFormals ^ . Formal . TypeDesc ) ; 
+           ! RENAMES ! WI ( Formals ^ . Formal . Name ) ; 
+           ! . ALL . ! WI ( Object ^ . Class . Name ) ; 
+           ! . ! WI ( AttrFormals ^ . Formal . Name ) ; ! ; !
+         Tg2Attrs ( AttrFormals ^ . Formal . Next ) ; 
+       END (* IF *) ; 
+     END Tg2Attrs ;
+   BEGIN
+      IF (t^.Kind = Tree.NoPattern) OR (Formals^.Kind = Tree.NoFormal) THEN RETURN; END;
+      CASE t^.OnePattern.Pattern^.Kind OF
+      | Tree.Decompose:
+         !     DECLARE !
+         Object := t^.OnePattern.Pattern^.Decompose.Object ; 
+         Tg2Attrs ( Object ^ . Class . Formals ) ; 
+      | Tree.VarDef, Tree.NilTest, Tree.Value, Tree.DontCare1:
+      ELSE RETURN;
+      END;
+      Tg2 (t^.OnePattern.Next, Formals^.Formal.Next);
+   END Tg2;
+}
+
+PROCEDURE MacroAda (t: Tree)
+
+Spec (..) :- {
+	MacroAda (TreeNames);
+}; .
+TreeName (..) :- {
+	!# define begint! WI (Name); !(a) ( a ) := NULL ; !
+	!# define equalt! WI (Name); !(a, b)	! WI (Name); !.IsEqual! WI (Name); ! (a, b)!
+	MacroAda (Next);
+}; .
+
+
+PROCEDURE PackSpec (t: Tree)
+
+Spec (..) :- {
+	!WITH Text_Io !
+        PackSpec (TreeNames); !;!
+	WriteLine (Codes^.Codes.SpecWithLine);
+	WriteText (f, Codes^.Codes.SpecWith);
+	!PACKAGE ! WI (TrafoName); !! 
+        ! IS !
+	!!
+	WriteLine (Codes^.Codes.ImportLine);
+	WriteText (f, Codes^.Codes.Import);
+	WriteLine (Codes^.Codes.ExportLine);
+	WriteText (f, Codes^.Codes.Export);
+	!!
+	!yyf	: Text_Io . File_Type ;!
+	!!
+	PackSpec (Public);
+	!!
+	!PROCEDURE Begin! WI (TrafoName); !;!
+	!PROCEDURE Close! WI (TrafoName); !;!
+	!!
+	!END ! WI (TrafoName); !.!
+}; .
+TreeName (..) :- {
+	!, ! WI (Name);
+	PackSpec (Next);
+}; .
+Name (..) :- {
+	IF Object # NoTree THEN
+	   ListCount := 0;
+	   !PROCEDURE ! WI (Name); ! (! 
+	   PackSpec (Object^.Routine.InForm);
+	   PackSpec (Object^.Routine.OutForm);
+	   !)! 
+	   IF Object^.Kind = Tree.Predicate THEN
+	      !RETURN BOOLEAN! 
+	   ELSIF Object^.Kind = Tree.Function THEN
+	      !RETURN ! PackSpec (Object^.Function.ReturnForm^.Formal.TypeDesc);
+	   END;
+	   !;!
+	END;
+	PackSpec (Next);
+}; .
+Formal (..) :- {
+	IF ListCount > 0 THEN !; ! END;
+	IF Path^.Var.IsOutput THEN !IN OUT ! END;
+	WI (Name); !: ! 
+	PackSpec (TypeDesc);
+	INC (ListCount);
+	PackSpec (Next);
+}; .
+NodeTypes (..) :- {
+	WI (TreeName^.TreeName.Name); !.t! WI (TreeName^.TreeName.Name);
+}; .
+UserType (..) :- {
+	WI (Type);
+}; .
+
+
+PROCEDURE PackBody (t: Tree)
+
+Spec (..) :- {
+        !WITH PumaSys , Text_Io !
+        PackSpec (TreeNames); !;!
+	WriteLine (Codes^.Codes.BodyWithLine);
+	WriteText (f, Codes^.Codes.BodyWith);
+	!PACKAGE BODY ! WI (TrafoName); !!
+        !IS !
+	!!
+	!# define yyWrite(s) Text_Io . Put (yyf, s)!
+	!# define yyWriteNl Text_Io . New_Line (yyf)!
+	!!
+	WriteLine (Codes^.Codes.GlobalLine);
+	WriteText (f, Codes^.Codes.Global);
+	@# include "yy@ WI (TrafoName); @.w"@
+	!!
+	!PROCEDURE yyAbort (yyFunction: STRING ) !
+	!IS BEGIN !
+	!  Text_Io . Put !
+        @    (Text_Io . Standard_Output , "Error: module @ WI (TrafoName); 
+        @, routine " ); @
+	!  Text_Io . Put ( Text_Io . Standard_Output, yyFunction); !
+	@  Text_Io . Put ( Text_Io . Standard_Output, " failed"); @
+	!  Text_Io . Put_Line ( Text_Io . Standard_Output); !
+	!  RAISE PumaSys . AbortPuma ; !
+	!END yyAbort ; !
+	!!
+	PackBody (Routines);
+	!PROCEDURE Begin! WI (TrafoName); !!
+	!IS BEGIN !
+	WriteLine (Codes^.Codes.BeginLine);
+	WriteText (f, Codes^.Codes.Begin);
+	!END Begin! WI (TrafoName); !;!
+	!!
+	!PROCEDURE Close! WI (TrafoName); !!
+	!IS BEGIN !
+	WriteLine (Codes^.Codes.CloseLine);
+	WriteText (f, Codes^.Codes.Close);
+	!END Close! WI (TrafoName); !;!
+	!!
+	!BEGIN!
+	! yyf	:= Text_Io . Standard_Output ; !
+	! Begin! WI (TrafoName); !;!
+	!END ! WI (TrafoName); !;!
+        !!
+}; .
+Procedure (..) :- {
+	ListCount := 0;
+	!PROCEDURE ! WI (Name); ! (! 
+	PackSpec (InForm);
+	PackSpec (OutForm);
+	!) !
+        !IS !
+	WriteLine (LocalLine);
+	WriteText (f, Local);
+        RoutineKind := kProcedure;
+        InFormals := InForm;
+        OutFormals := OutForm; 
+	!BEGIN -- ! WI ( Name ) ; !!
+      IF IsElement (ORD ('n'), Options) THEN
+	Tg1 (InForm);
+      END;
+      IF IsElement (ORD ('b'), Options) THEN
+	PackBody (Rules);
+        IF IsElement (ORD ('f'), Options) THEN
+	   !  yyAbort ('! WI (Name); !');!
+        END;
+      ELSE
+	TemposDone := FALSE;
+	CommonTestElim (Decisions);
+        IF IsElement (ORD ('f'), Options) AND NOT NeedsNoFinale (Decisions) THEN
+	   !  yyAbort ('! WI (Name); !');!
+	END;
+      END;
+	! END ! WI (Name); !;!
+	!!
+	PackBody (Next);
+}; .
+Function (..) :- {
+	ListCount := 0;
+	!FUNCTION ! WI (Name); ! (! 
+	PackSpec (InForm);
+	PackSpec (OutForm);
+	!) RETURN ! PackSpec (ReturnForm^.Formal.TypeDesc); !!
+        !IS ! 
+	WriteLine (LocalLine);
+	WriteText (f, Local);
+	RoutineKind := kFunction;
+	InFormals := InForm;
+	OutFormals := OutForm;
+	ReturnFormals := ReturnForm;
+	!BEGIN -- ! WI ( Name ) ; !!
+      IF IsElement (ORD ('b'), Options) THEN
+	PackBody (Rules);
+	!  yyAbort ('! WI (Name); !');!
+      ELSE
+	TemposDone := FALSE;
+	CommonTestElim (Decisions);
+	IF NOT NeedsNoFinale (Decisions) THEN
+	   !  yyAbort ('! WI (Name); !');!
+	END;
+      END;
+	! END ! WI (Name); !;!
+	!!
+	PackBody (Next);
+}; .
+Predicate (..) :- {
+	ListCount := 0;
+	!FUNCTION ! WI (Name); ! (! 
+	PackSpec (InForm);
+	PackSpec (OutForm);
+	!) RETURN BOOLEAN !
+        !IS ! 
+	WriteLine (LocalLine);
+	WriteText (f, Local);
+	RoutineKind := kPredicate;
+	InFormals := InForm;
+	OutFormals := OutForm;
+	!BEGIN!
+      IF IsElement (ORD ('n'), Options) THEN
+	Tg1 (InForm);
+      END;
+      IF IsElement (ORD ('b'), Options) THEN
+	PackBody (Rules);
+	!  RETURN FALSE;!
+      ELSE
+	TemposDone := FALSE;
+	CommonTestElim (Decisions);
+	IF NOT NeedsNoFinale (Decisions) THEN
+	   !  RETURN FALSE;!
+	END;
+      END;
+	! END ! WI (Name); !;!
+	!!
+	PackBody (Next);
+}; .
+Rule (..) :- {
+        WithCount := 0; 
+	WriteLine (Line);
+	IF HasTempos 
+        THEN 
+        !  DECLARE ! 
+        Declare ( t ) ; 
+        !  BEGIN ! 
+        END;
+	!   LOOP!
+	Decls := VarDecls;
+	Match (Patterns, InFormals);
+      IF IsElement (ORD ('w'), Options) AND (Statements^.Kind # Tree.NoStatement) THEN
+	Tg2 (Patterns, InFormals);
+      END;
+	PackBody (Statements);
+	IF NOT HasRejectOrFail THEN
+	   AssignFormals (Exprs, OutFormals);
+	   MatchExprs (Exprs);
+	   CASE RoutineKind OF
+	   | kProcedure: !      RETURN;!
+
+	   | kFunction :
+	      AssignTempo (Expr);
+	      IF HasPatterns AND (Expr^.Kind # Tree.Compose) 
+                 AND (t^.Kind # Tree.DontCare1) 
+              THEN
+		 !      ! WI (Tempo); ! := ! Expression (Expr); !;!
+		 MatchExpr (Expr);
+		 !      RETURN ! WI (Tempo); !;!
+	      ELSE
+		 MatchExpr (Expr);
+		 !      RETURN ! Expression (Expr); !;!
+	      END;
+
+	   | kPredicate: !      RETURN TRUE;!
+	   END;
+	END;
+      IF IsElement (ORD ('w'), Options) AND (Statements^.Kind # Tree.NoStatement) THEN
+	Tg3 (Patterns);
+      END;
+	!   END LOOP ; !
+	IF HasTempos THEN !    END ; -- DECLARE block !
+	END;
+	!!
+	PackBody (Next);
+}; .
+ProcCall (..) :- {
+	WriteLine (Pos);
+	AssignTempo (Call);
+	!      ! Expression (Call); !;!
+	MatchExpr (Call);
+	PackBody (Next);
+}; .
+Condition (..) :- {
+	WriteLine (Pos);
+	AssignTempo (Expr);
+	!      IF NOT ( ! Expression (Expr); ! ) THEN EXIT ; END IF ;!
+	MatchExpr (Expr);
+	PackBody (Next);
+}; .
+Assignment (..) :- {
+	WriteLine (Pos);
+	AssignTempo (Adr);
+	AssignTempo (Expr);
+	IF Object # NoTree THEN
+	   !      ! PackBody (Object^.Formal.Path);
+	ELSE
+	   !      ! Expression (Adr);
+	END;
+	! := ! Expression (Expr); ! ; !
+	MatchExpr (Adr);
+	MatchExpr (Expr);
+	PackBody (Next);
+}; .
+Reject (..) :- {
+	WriteLine (Pos);
+	!      EXIT ; !
+}; .
+Fail (..) :- {
+	WriteLine (Pos);
+	!      RETURN ! IF RoutineKind = kPredicate THEN ! FALSE ! END; ! ; !
+}; .
+TargetStmt (..) :- {
+	WriteLine (Pos);
+	!      ! PackBody (Stmt); !;!
+	PackBody (Next);
+}; .
+Nl (..) :- {
+	WriteLine (Pos);
+	!      yyWriteNl;!
+	PackBody (Next);
+}; .
+WriteStr (..) :- {
+	WriteLine (Pos);
+	!      yyWrite (! WriteString (f, String); !);!
+	PackBody (Next);
+}; .
+Ident (..) :- Var: tTree; {
+	Var := IdentifyVar (Decls, Attribute);
+	IF Var # NoTree THEN PackBody (Var^.Formal.Path); ELSE WI (Attribute); END;
+	PackBody (Next);
+}; .
+Any (..) :- {
+	WriteString (f, Code);
+	PackBody (Next);
+}; .
+Anys (..) :- {
+	PackBody (Layouts);
+	PackBody (Next);
+}; .
+LayoutAny (..) :- {
+	WriteString (f, Code);
+	PackBody (Next);
+}; .
+Designator (..) :- {
+	PackBody (Object^.Formal.Path); !. ALL . ! WI (Type); ! . ! WI (Attribute);
+	PackBody (Next);
+}; .
+Field (..) :- {
+	PackBody (Next);
+	! . ! WI (Name);
+}; .
+ConsType (..) :- {
+	PackBody (Next);
+	!. ALL . ! WI (Name);
+}; .
+Var (..) :- {
+	WI (Name);
+}; .
+NodeTypes (..) :- {
+	!t! WI (TreeName^.TreeName.Name);
+}; .
+UserType (..) :- {
+	WI (Type);
+}; .
+
+
+PROCEDURE Declare (t: Tree)
+
+Formal (..) :- {
+	!    ! WI (Name); !: ! PackSpec (TypeDesc); !;!
+	Declare (Next);
+}; .
+Param (..) :- Var: tTree; {
+	Var := IdentifyVar (Decls, Name);
+	!    ! WI (Name); !: ! PackSpec (Var^.Formal.TypeDesc); !;!
+	Declare (Next);
+}; .
+Rule (..) :- {
+	IF HasTempos THEN
+	   Decls := VarDecls;
+	   Declare (Patterns);
+	   Declare (Exprs);
+	   IF RoutineKind = kFunction THEN
+	      Declare (Expr);
+	      IF HasPatterns AND (Expr^.Kind # Tree.Compose) AND (t^.Kind # Tree.DontCare1) THEN
+		 !  ! WI (Tempo); !: ! PackSpec (ReturnFormals^.Formal.TypeDesc); !;!
+	      END;
+	   END;
+	   Declare (Statements);
+	END;
+}; .
+ProcCall (..) :- {
+	Declare (Call);
+	Declare (Next);
+}; .
+Condition (..) :- {
+	Declare (Expr);
+	Declare (Next);
+}; .
+Assignment (..) :- {
+	Declare (Adr);
+	Declare (Expr);
+	Declare (Next);
+}; .
+TargetStmt (..) :- {
+	Declare (Parameters);
+	Declare (Next);
+}; .
+Statement (..) :- {
+	Declare (Next);
+}; .
+OnePattern (..) :- {
+	IF (Pattern^.Pattern.Tempo # NoIdent) AND (Pattern^.Kind # Tree.DontCare1) THEN
+	   !  ! WI (Pattern^.Pattern.Tempo); !: ! PackSpec (Pattern^.Pattern.TypeDesc); !;!
+	END;
+	Declare (Pattern);
+	Declare (Next);
+}; .
+OneExpr (..) :- {
+	Declare (Expr);
+	Declare (Next);
+}; .
+Decompose (..) :- {
+	Declare (Patterns);
+}; .
+DontCare (..) :- {
+	Declare (Tempos);
+}; .
+DontCare1 (..) :- {
+	IF Tempo # NoIdent THEN
+	   !  ! WI (Tempo); !: ! PackSpec (TypeDesc); !;!
+	END;
+}; .
+Value (..) :- {
+	Declare (Expr);
+}; .
+Compose (..) :- {
+	IF Tempo # NoIdent THEN
+	   !  ! WI (Tempo); !: ! PackSpec (TypeDesc); !;!
+	END;
+	Declare (Exprs);
+}; .
+Call (..) :- {
+	Declare (Expr);
+	Declare (Exprs);
+	Declare (Patterns);
+}; .
+Binary (..) :- {
+	Declare (Lop);
+	Declare (Rop);
+}; .
+PreOperator (..) ;
+PostOperator (..) ;
+Parents (..) :- {
+	Declare (Expr); 
+}; .
+Index (..) :- {
+	Declare (Expr);
+	Declare (Exprs);
+}; .
+
+
+PROCEDURE Tg1 (t: Tree)
+
+Formal (..) :- {
+	TheName := Name;
+	Tg1 (TypeDesc);
+	Tg1 (Next);
+}; .
+NodeTypes (..) :- {
+	!  IF ! WI (TheName); ! = ! WI (TreeName^.TreeName.Name); ! . No! 
+	WI (TreeName^.TreeName.Name); ! THEN RETURN ! IF RoutineKind = kPredicate THEN ! FALSE ! END; !; END IF ; !
+}; .
+
+
+PROCEDURE Tg3 (t: Tree)
+
+OnePattern (..) :- {
+	Tg3 (Pattern);
+	Tg3 (Next);
+}; .
+Decompose (..) :- {
+	!     END ; -- DECLARE block !
+}; .
+
+PROCEDURE CommonTestElim2 (OneTest: OneTest, Decisions)
+
+TestValue (..), Then :-
+   (NeedsMatch (Expr));
+   CommonTestElim (OneTest);
+   !    LOOP !
+   MatchExpr (OneTest^.TestValue.Expr);
+   CommonTestElim (Then);
+   !    EXIT ; !
+   !    END LOOP ;!
+   .
+_, Then :-
+   CommonTestElim (OneTest);
+   CommonTestElim (Then);
+   .
+
+PROCEDURE CommonTestElim (t: Tree)
+
+Decision (..) :- {
+	IF Cases = 0 THEN
+	   IF NOT TemposDone AND (OneTest^.Kind = Tree.TestValue) AND NeedsTempo (Then, rule) THEN
+	      TemposDone := TRUE;
+	      CommonTestElim2 (OneTest, Then);
+	      !  END IF ; ! /* is this really end IF? */ 
+	   ELSE
+	      GetRule (Then, rule);
+	      Decls := rule^.Rule.VarDecls;
+	      CommonTestElim2 (OneTest, Then);
+	      !  END IF ; ! /* is this really end IF? */  
+	   END;
+	   TemposDone := FALSE;
+	   CommonTestElim (Else);
+	ELSE
+	   i := Cases; Case (t);
+	END;
+}; .
+Decided (..) :- {
+	CommonTestElim (Rule);
+	IF Rule^.Rule.HasExit THEN
+	   TemposDone := FALSE;
+	   CommonTestElim (Else);
+	END;
+}; .
+TestKind (..) :- {
+	!  IF (! PackBody (Path); !. ALL . Kind = ! 
+	WI (TypeDesc^.NodeTypes.TreeName^.TreeName.Name); ! . ! WI (Name); !) THEN!
+}; .
+TestIsType (..) :- {
+	!  IF ! WI (TypeDesc^.NodeTypes.TreeName^.TreeName.Name); ! . IsType ( ! PackBody (Path); !, ! 
+	WI (TypeDesc^.NodeTypes.TreeName^.TreeName.Name); ! . ! WI (Name); ! ) THEN!
+}; .
+TestNil (..) :- {
+	!  IF ! PackBody (Path); ! = NULL THEN !
+}; .
+TestNonlin (..) :- {
+	!  IF ( equal! PackBody (TypeDesc); ! ( ! PackBody (Path);
+	! , ! PackBody (Path2); ! ) ) THEN !
+}; .
+TestValue (..) :- {
+	AssignTempo (Expr);
+	!  IF ( equal! PackBody (TypeDesc); ! ( ! PackBody (Path);
+	! , ! Expression (Expr); ! ) ) THEN !
+}; .
+Rule (..) :- {
+        WithCount := 0; 
+	WriteLine (Line);
+	IF HasExit THEN !   LOOP!
+	END;
+	Decls := VarDecls;
+      IF IsElement (ORD ('w'), Options) AND (Statements^.Kind # Tree.NoStatement) THEN
+	Tg2 (Patterns, InFormals);
+      END;
+	PackBody (Statements);
+	IF NOT HasRejectOrFail THEN
+	   AssignFormals (Exprs, OutFormals);
+	   MatchExprs (Exprs);
+	   CASE RoutineKind OF
+	   | kProcedure: !      RETURN ; !
+
+	   | kFunction :
+	      AssignTempo (Expr);
+	      IF HasPatterns AND (Expr^.Kind # Tree.Compose) AND (t^.Kind # Tree.DontCare1) THEN
+		 !      ! WI (Tempo); ! := ! Expression (Expr); ! ; !
+		 MatchExpr (Expr);
+		 !      RETURN ! WI (Tempo); ! ; !
+	      ELSE
+		 MatchExpr (Expr);
+		 !      RETURN ! Expression (Expr); ! ; !
+	      END;
+
+	   | kPredicate: !      RETURN TRUE ; !
+	   END;
+	END;
+      IF IsElement (ORD ('w'), Options) AND (Statements^.Kind # Tree.NoStatement) THEN
+	Tg3 (Patterns);
+      END;
+	IF HasExit THEN !   END LOOP ; !
+	END;
+	!!
+}; .
+
+
+PROCEDURE Case (t: Tree)	/* reads GLOBAL i */
+
+Decision (..) :- n: CARDINAL; {
+	!!
+	!  CASE ! PackBody (OneTest^.OneTest.Path); ! . ALL . Kind IS !
+	n := i;
+	WHILE n > 0 DO
+	   IF NOT IsEmpty (t^.Decision.OneTest^.TestIsType.TypeDesc^.NodeTypes.Types) THEN
+	      Case (t^.Decision.OneTest);
+	      CommonTestElim (t^.Decision.Then);
+	   END;
+	   t := t^.Decision.Else;
+	   DEC (n);
+	END;
+	!  WHEN OTHERS => NULL ; !
+        !  END CASE ; !
+	!!
+	CommonTestElim (t);
+}; .
+TestKind (..) :- {
+	!  WHEN ! WI (TypeDesc^.NodeTypes.TreeName^.TreeName.Name); ! . ! WI (Name); ! => !
+}; .
+TestIsType (..) :- {
+	WITH TypeDesc^.NodeTypes DO
+	   TheClass := LookupClass (TreeName^.TreeName.Classes, Minimum (Types));
+	   !  WHEN ! WI (TreeName^.TreeName.Name); ! . ! WI (TheClass^.Class.Name);
+	   Case (TypeDesc); ! => !
+	END;
+}; .
+NodeTypes (..) :- {
+	FOR j := Minimum (Types) + 1 TO Maximum (Types) DO
+	   IF IsElement (j, Types) THEN
+	      TheClass := LookupClass (TreeName^.TreeName.Classes, j); !!
+	      !  | ! WI (TreeName^.TreeName.Name); ! . ! WI (TheClass^.Class.Name);
+	   END;
+	END;
+}; .

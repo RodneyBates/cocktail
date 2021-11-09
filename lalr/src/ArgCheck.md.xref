@@ -1,0 +1,124 @@
+     1 (* check arguments *)
+     2 
+     3 (* $Id: ArgCheck.md,v 1.2 1992/08/07 15:22:49 grosch rel $ *)
+     4 
+     5 (* Rodney M. Bates, modifications: 
+c    6 
+c    7     1-98 Change to not open /dev/null when -d (or -a) flag is not given. 
+c    8 
+c    9 *) 
+    10 
+    11 (* $Log: ArgCheck.md,v $
+c   12  * Revision 1.2  1992/08/07  15:22:49  grosch
+c   13  * allow several scanner and parsers; extend module Errors
+c   14  *
+c   15  * Revision 1.1  1991/11/21  14:53:14  grosch
+c   16  * new version of RCS on SPARC
+c   17  *
+c   18  * Revision 1.0  88/10/04  14:35:46  vielsack
+c   19  * Initial revision
+c   20  * 
+c   21  *)
+    22 
+    23 DEFINITION MODULE ArgCheck;                                                   *     *     *
+    24 
+    25 FROM    IO      IMPORT  tFile;                                                *     *     *     *
+    26 FROM    Strings IMPORT  tString;                                             25     *    25     *
+    27 FROM    Idents  IMPORT  tIdent;                                              26     *    26     *
+    28 
+    29 CONST                                                                         *
+    30   Scanner       = 'Scanner';                                                  *
+    31   Parser        = 'Parser';                                                   *
+    32 
+    33 VAR                                                                           *
+    34   LineFlag      ,                                                             *
+    35   Generate      : BOOLEAN;                                                    *     *
+    36   Pars, Def     : tFile;                                                      *     *    25
+    37   TEST          : BOOLEAN;                                                    *    35
+    38   ExtDef, ExtImp: ARRAY [0..5] OF CHAR;                                       *     *     *     *     *
+    39 VAR MakeDef : BOOLEAN;                                                       33     *    37
+    40 
+    41 PROCEDURE ArgCheck;                                                           *    23
+    42 PROCEDURE GenerateSupport;                                                   41     *
+    43 PROCEDURE MakeFileName (Name: tIdent; Default, Ext: ARRAY OF CHAR; VAR array: ARRAY \    42     *     *    27     *     *
+                                                                                    38    38    38    39     *     *
+      \OF CHAR);                                                                     *     *
+    44 PROCEDURE ExpandLine (Out: tFile; Line: tString);                            43     *     *    36     *    26
+    45 PROCEDURE CopyFile (In, Out: tFile);                                         44     *     *    44    44
+    46 
+    47 END ArgCheck.                                                                 *    41
+Cross reference: 
+
+-A-
+ ArgCheck                        23    41    47 
+ ARRAY                           38    43    43 
+ array                           43 
+
+-B-
+ BOOLEAN                         35    37    39 
+
+-C-
+ CHAR                            38    43    43 
+ CONST                           29 
+ CopyFile                        45 
+
+-D-
+ Def                             36 
+ Default                         43 
+ DEFINITION                      23 
+
+-E-
+ END                             47 
+ ExpandLine                      44 
+ Ext                             43 
+ ExtDef                          38 
+ ExtImp                          38 
+
+-F-
+ FROM                            25    26    27 
+
+-G-
+ Generate                        35 
+ GenerateSupport                 42 
+
+-I-
+ Idents                          27 
+ IMPORT                          25    26    27 
+ In                              45 
+ IO                              25 
+
+-L-
+ Line                            44 
+ LineFlag                        34 
+
+-M-
+ MakeDef                         39 
+ MakeFileName                    43 
+ MODULE                          23 
+
+-N-
+ Name                            43 
+
+-O-
+ OF                              38    43    43 
+ Out                             44    45 
+
+-P-
+ Pars                            36 
+ Parser                          31 
+ PROCEDURE                       41    42    43    44    45 
+
+-S-
+ Scanner                         30 
+ Strings                         26 
+
+-T-
+ TEST                            37 
+ tFile                           25    36    44    45 
+ tIdent                          27    43 
+ tString                         26    44 
+
+-V-
+ VAR                             33    39    43 
+
+end cross reference, 66 occurrences of 40 identifiers.

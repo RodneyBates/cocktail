@@ -1,0 +1,6 @@
+#!/bin/sh
+#script gmdsed
+#called by Cocktail tools
+sed -e s/__ADA_TICK__/\'/g -e s/__ADA_DQUOTE_IN_STRING__/""/g $1 > .$1 
+cp -p .$1 $1.gmdsedin
+mv .$1 $1

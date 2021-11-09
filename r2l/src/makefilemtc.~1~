@@ -1,0 +1,115 @@
+BIN	= $(INSTALLGMD)/bin
+LIB	= $(INSTALLGMD)/lib
+OPT	= -O
+CC	= cc
+
+                # C library (reuse)
+REUSE	= ../../reuse/m2c
+
+                # C libraries
+CLIBS	= $(REUSE)/libreuse.a
+
+                # options for C compiler
+CFLAGS	= -w -I$(REUSE) $(OPT)
+
+M2FLAGS	= -c -d../../reuse/src
+
+EXE     = r2l
+
+all:	r2l
+
+cleanm2c:
+	cd ../src; make cleanm2c
+
+cleancompile: cleanm2c
+	rm -f *.o $(EXE)
+
+compile: $(EXE)
+
+m2c:   sources
+
+install: r2l ../src/r2l.sh $(LIB)/r2l ../src/Scanner.Tab ../src/Parser.Tab
+	if test $(LIB) = $(BIN); then echo error: BIN = LIB; false; else true; fi
+	sed 's;LIB;$(LIB);g' < ../src/r2l.sh > $(BIN)/r2l
+	chmod a+rx $(BIN)/r2l
+	install -c -s -m 755 r2l $(LIB)/r2l
+	install -c -m 644 ../src/Scanner.Tab $(LIB)/r2l
+	install -c -m 644 ../src/Parser.Tab $(LIB)/r2l
+
+# installation directories
+
+$(LIB)/r2l:	$(LIB)
+	sh -c "if test ! -d $(LIB)/r2l; then mkdir $(LIB)/r2l; else true; fi"
+
+# swap all byte pairs of the files Scanner.Tab and Parser.Tab
+
+bin.conv:
+	dd conv=swab < Scanner.Tab > .Scanner.Tab; mv .Scanner.Tab Scanner.Tab
+	dd conv=swab < Parser.Tab > .Parser.Tab; mv .Parser.Tab Parser.Tab
+
+# SYSTEM_	= SYSTEM_.o
+
+# HEAD
+
+sources	: DefTable.h
+
+sources	: DefTable.c
+DefTable.o	: DefTable.c DefTable.h
+
+sources	: Errors.h
+
+sources	: Errors.c
+Errors.o	: Errors.c Errors.h
+
+sources	: Parser.h
+
+sources	: Parser.c
+Parser.o	: Parser.c Parser.h
+Parser.o	: Scanner.h
+Parser.o	: Errors.h
+Parser.o	: Errors.h
+Parser.o	: DefTable.h
+
+sources	: Scanner.h
+
+sources	: Scanner.c
+Scanner.o	: Scanner.c Scanner.h
+Scanner.o	: Errors.h
+
+sources	: r2l.c
+all	: r2l
+r2l.o	: r2l.c
+r2l.o	: Scanner.h
+r2l.o	: Parser.h
+
+SYSTEM_.o	: SYSTEM_.c SYSTEM_.h
+
+r2l	: $(CLIBS)	\
+	r2l.o	\
+	Parser.o	\
+	DefTable.o	\
+	Errors.o	\
+	Scanner.o	\
+;	$(CC) $(CFLAGS) -o r2l 	\
+	r2l.o	\
+	Parser.o	\
+	DefTable.o	\
+	Errors.o	\
+	Scanner.o	\
+	$(CLIBS)
+
+# TAIL
+
+clean	:
+	rm -f core *.o
+
+.SUFFIXES: .md .mi .h .c .o
+
+.mi.c:
+	mtc $(M2FLAGS) $*.mi;
+
+.md.h:
+	mtc $(M2FLAGS) $*.md;
+
+.c.o:
+	$(CC) $(CFLAGS) -c $*.c

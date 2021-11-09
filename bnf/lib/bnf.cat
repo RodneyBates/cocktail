@@ -1,0 +1,66 @@
+
+
+
+BNF(1)                   USER COMMANDS                     BNF(1)
+
+
+
+NAME
+     bnf - convert a grammar from EBNF to BNF
+
+SYNOPSIS
+     bnf [-c|-m] [-l][-g] <file>
+
+DESCRIPTION
+     Bnf translates  a  context-free  grammar  in  EBNF  into  an
+     equivalent grammar in BNF, which is written to standard out-
+     put.  The result can be used as input for the parser genera-
+     tor lalr.
+
+OPTIONS
+     c    the target language is C
+
+     m    the target language is Modula-2 (default)
+
+     l    produce a long error listing
+
+     g    generate # line directives
+
+SEE ALSO
+     J. Grosch, B. Vielsack:  "The  Parser  Generators  Lalr  and
+     Ell",  GMD  Forschungsstelle  an der Universitaet Karlsruhe,
+     Compiler Generation Report No. 8, 1991
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+GMD                       Last change:                          1
+
+
+

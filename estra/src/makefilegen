@@ -1,0 +1,94 @@
+#
+#	RMB revised makefile for estra
+#
+
+ifndef INSTALLGMD
+  INSTALLGMD=/usr/local
+endif
+export INSTALLGMD
+
+INSTALLBIN = $(INSTALLGMD)/bin
+INSTALLLIB = $(INSTALLGMD)/lib
+INCLUDE = .
+
+MC = mocka_mtc
+
+BIN = ../../bintobuildwith
+REX = $(BIN)/rex
+LALR = $(BIN)/lalr
+CG = $(BIN)/cg
+MPP = $(BIN)/mpp
+#DEFS	= ArgCheck.md Automaton.md CodeM2.md Complete.md	\
+	  Environs.md Grammar.md Info.md Match.md Patterns.md	\
+	  Reduced.md Semantics.md Test.md Types.md
+#IMPS	= ArgCheck.mi Automaton.mi CodeM2.mi Complete.mi	\
+	  Environs.mi Grammar.mi Info.mi Match.mi Patterns.mi	\
+	  Reduced.mi Semantics.mi Test.mi Types.mi
+
+GENDEFS	= Parser.md Scanner.md Tree.md 
+GENIMPS	= Parser.mi Scanner.mi Tree.mi CodeM2.mi 
+MODULAGENS    = $(GENDEFS) $(GENIMPS)
+OTHERGENS = Scanner.Tab Parser.Tab
+GENS    = $(MODULAGENS) $(OTHERGENS)
+EXE     = estra
+
+MODULASOURCES = \
+   ArgCheck.md ArgCheck.mi Automaton.md Automaton.mi \
+   CodeM2.md Complete.md Complete.mi \
+   Environs.md Environs.mi Grammar.md Grammar.mi \
+   Info.md Info.mi Match.md Match.mi \
+   Patterns.md Patterns.mi Reduced.md Reduced.mi Scan.mi \
+   Semantics.md Semantics.mi Test.md Test.mi \
+   Types.md Types.mi estra.mi
+
+OTHERSOURCES = Estral.rex Estral.lalr Tree.ast CodeM2.MI
+SOURCES = $(MODULASOURCES) $(OTHERSOURCES)
+
+MOCKAFLAGS = -noindex -norange 
+MOCKALIBS = -d ../../common/gen -d ../../reuse/gen
+
+include $(INCLUDE)/make.include
+
+Tree.md Tree.mi : ../src/Tree.ast
+	$(CG) -deiwmR ../src/Tree.ast;
+
+Parser.md Parser.mi Parser.Tab : ../src/Estral.lalr
+	$(LALR) -d ../src/Estral.lalr;
+
+Scanner.md Scanner.mi Scanner.Tab : ../src/Estral.rex
+	$(REX) -d ../src/Estral.rex;
+
+CodeM2.mi : ../src/CodeM2.MI
+	$(MPP) < ../src/CodeM2.MI > CodeM2.mi 
+
+install_mocka:
+
+install_modula:
+
+#install_modula : estra estra.sh $(INSTALLLIB)/estra Scanner.Tab Parser.Tab ErrorTab
+#	if test $(INSTALLLIB) = $(INSTALLBIN); then echo error: INSTALLBIN = INSTALLLIB; false; else true; fi
+#	sed 's;LIB;$(INSTALLLIB);' < ../lib/estra.sh > $(INSTALLBIN)/estra
+#	chmod a+rx $(INSTALLBIN)/estra
+#	install -c -s -m 755 estra $(INSTALLLIB)/estra
+#	install -c -m 644 ../gen/Scanner.Tab $(INSTALLLIB)/estra
+#	install -c -m 644 ../gen/Parser.Tab $(INSTALLLIB)/estra
+#	install -c -m 644 ../lib/ErrorTab $(INSTALLLIB)/estra
+
+# installation directories
+
+$(INSTALLLIB)/estra:	$(INSTALLLIB)
+	sh -c "if test ! -d $(INSTALLLIB)/estra; then mkdir $(INSTALLLIB)/estra; else true; fi"
+
+clean:
+	rm -f core *.[dimor] ERRORS LISTING _Debug $(GENS)
+
+CLEAN:	clean
+	rm -f CodeM2.mi Parser.m[di] Parser.Tab Scanner.m[di] Scanner.Tab Tree.m[di] estra
+
+.SUFFIXES: .MD .md .MI .mi
+
+.MD.mi:; $(MPP) < $*.MD > $*.md
+
+.MI.mi:; $(MPP) < $*.MI > $*.mi
+
+

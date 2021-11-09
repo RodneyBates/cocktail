@@ -1,0 +1,86 @@
+(* print some informations about the generation *)
+
+(* $Id: Infos.mi,v 1.3 1992/08/07 15:22:49 grosch rel $ *)
+
+(* $Log: Infos.mi,v $
+ * Revision 1.3  1992/08/07  15:22:49  grosch
+ * allow several scanner and parsers; extend module Errors
+ *
+ * Revision 1.2  1991/11/21  14:53:14  grosch
+ * new version of RCS on SPARC
+ *
+ * Revision 1.1  90/06/12  16:54:21  grosch
+ * renamed main program to lalr, added { } for actions, layout improvements
+ * 
+ * Revision 1.0	 88/10/04  14:36:26  vielsack
+ * Initial revision
+ * 
+ *)
+
+IMPLEMENTATION MODULE Infos;
+
+FROM Automaton	IMPORT ProdCount, ProdIndex, ItemIndex, StateIndex;
+FROM Compress	IMPORT Filling, TableSize, NFilling, NTableSize;
+FROM Gen	IMPORT FirstReadState, LastReadState, LastTerminal,
+			FirstReduceState, LastReduceState,
+			FirstReadNonTermState, LastReadNonTermState,
+			FirstReadTermState, LastReadTermState;
+FROM IO		IMPORT WriteS, WriteI, WriteNl, tFile;
+FROM Memory	IMPORT MemoryUsed;
+FROM SYSTEM	IMPORT TSIZE, WORD;
+FROM Times	IMPORT CpuTime;
+FROM TokenTab	IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm;
+
+  PROCEDURE WriteInfo (f: tFile);
+
+  (* Ausgabe von statistischen Informationen auf file 'f' *)
+
+  VAR NSize	: CARDINAL;
+  BEGIN
+    WriteS (f, 'Statistik');					WriteNl (f);
+    WriteS (f, '-------------------');				WriteNl (f);
+    WriteS (f, 'Terminals   : '); 
+       WriteI (f, MAXTerm-MINTerm+1, 5);			WriteNl (f);
+    WriteS (f, 'Nonterminals: '); 
+       WriteI (f, MAXNonTerm-MINNonTerm+1, 5);			WriteNl (f);
+    WriteS (f, 'Productions : '); WriteI (f, ProdCount, 5);	WriteNl (f);
+    WriteS (f, 'Prod (Bytes): '); WriteI (f, ProdIndex*TSIZE (WORD), 5); 
+								WriteNl (f);
+    WriteS (f, 'Items       :' ); WriteI (f, ItemIndex, 6);	WriteNl (f);
+    WriteS (f, 'LR(0)-States: '); WriteI (f, StateIndex, 5);	WriteNl (f);
+    WriteS (f, 'ReadStates  : '); 
+       WriteI (f, LastReadState-FirstReadState+1, 5);		WriteNl (f);
+
+    WriteNl (f);
+
+    WriteS (f, 'Base        : '); WriteI (f, (LastReadState+1)*2, 5); WriteNl (f);
+    WriteS (f, 'NBase       : '); WriteI (f, (LastReadState+1)*2, 5); WriteNl (f);
+    WriteS (f, 'Default     : '); WriteI (f, (LastReadState+1)*2, 5); WriteNl (f);
+
+    WriteS (f, 'Terminals   : '); WriteI (f, (TableSize+1)*4, 5); 
+      WriteI (f, (Filling*100+TableSize DIV 2) DIV TableSize, 4);
+      WriteS (f, '%'); WriteNl (f);
+
+    NSize := NTableSize - LastTerminal;
+    WriteS (f, 'Nonterminals: '); WriteI (f, NSize*2, 5);
+      WriteI (f, (NFilling*100+NSize DIV 2) DIV NSize, 4);
+      WriteS (f, '%'); WriteNl (f);
+
+    WriteS (f, 'Length      : '); 
+      WriteI (f, (LastReduceState-FirstReduceState+1)*2, 5); WriteNl (f);
+
+    WriteS (f, 'Left        : '); 
+      WriteI (f, (LastReduceState-FirstReduceState+1)*2, 5); WriteNl (f);
+
+    WriteS (f, 'Continuation: '); 
+      WriteI (f, (LastReadState+1)*2, 5); WriteNl (f);
+
+    WriteS (f, 'FinalToProd : '); 
+      WriteI (f, (LastReadNonTermState-FirstReadTermState+1)*2, 5); WriteNl (f);
+
+    WriteS (f, 'Cpu-Time [ms]' ); WriteI (f, CpuTime (), 6); WriteNl (f);
+
+    WriteS (f, 'Memory used  ' ); WriteI (f, MemoryUsed, 6); WriteNl (f);
+  END WriteInfo;
+
+END Infos.

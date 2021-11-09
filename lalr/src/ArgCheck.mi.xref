@@ -1,0 +1,656 @@
+     1 (* check arguments *)
+     2 
+     3 (* $Id: ArgCheck.mi,v 2.5 1992/09/24 13:12:31 grosch rel $ *)
+     4 
+     5 (* Rodney M. Bates, modifications: 
+c    6 
+c    7     1-98 Change to not open /dev/null (which was failing anyway)
+c    8          when -d (or -a) flag is not given. 
+c    9     1-98 Change (Now unused) DevNull so it has a trailing null when passed
+c   10 
+c   11 *) 
+    12 
+    13 (* $Log: ArgCheck.mi,v $
+c   14  * Revision 2.5  1992/09/24  13:12:31  grosch
+c   15  * added option -f
+c   16  *
+c   17  * Revision 2.4  1992/08/07  15:22:49  grosch
+c   18  * allow several scanner and parsers; extend module Errors
+c   19  *
+c   20  * Revision 2.3  1992/01/30  14:08:30  grosch
+c   21  * redesign of interface to operating system
+c   22  *
+c   23  * Revision 2.2  1991/11/21  14:53:14  grosch
+c   24  * new version of RCS on SPARC
+c   25  *
+c   26  * Revision 2.1  91/10/09  09:05:14  grosch
+c   27  * renamed NULL in DevNull for C compatibility
+c   28  * 
+c   29  * Revision 2.0  91/03/08  18:31:31  grosch
+c   30  * turned tables into initialized arrays (in C)
+c   31  * moved mapping tokens -> strings from Errors to Parser
+c   32  * changed interface for source position
+c   33  * 
+c   34  * Revision 1.5  90/06/12  16:53:33  grosch
+c   35  * renamed main program to lalr, added { } for actions, layout improvements
+c   36  * 
+c   37  * Revision 1.4  89/10/18  19:41:33  grosch
+c   38  * renamed ScanTab and ParsTab to Scan.Tab and Pars.Tab because of PCTE
+c   39  * 
+c   40  * Revision 1.3  89/05/02  14:33:06  vielsack
+c   41  * new option: -v
+c   42  * 
+c   43  * Revision 1.2  89/02/24  14:06:52  vielsack
+c   44  * call BeginFile
+c   45  * 
+c   46  * Revision 1.1  89/01/12  18:10:34  vielsack
+c   47  * supply source file name
+c   48  * 
+c   49  * Revision 1.0  88/10/04  14:35:47  vielsack
+c   50  * Initial revision
+c   51  * 
+c   52  *)
+    53 
+    54 IMPLEMENTATION MODULE ArgCheck;                                               *     *     *
+    55 
+    56 FROM Actions    IMPORT  ScannerName,    ParserName;                           *     *     *     *     *
+    57 FROM Character  IMPORT  IsEqual,        Assign;                              56     *    56     *     *
+    58 FROM Check      IMPORT  Verbose;                                             57     *    57     *
+    59 FROM Checks     IMPORT  CheckReadOpen,  CheckWriteOpen;                      58     *    58     *     *
+    60 FROM Debug      IMPORT  NoTrace, Fast;                                       59     *    59     *     *
+    61 FROM Default    IMPORT  NoDefault;                                           60     *    60     *
+    62 FROM Errors     IMPORT  eError,         eString,                             61     *    61     *     *
+    63                         ErrorMessageI,  tReportMode,    SetReportMode,        *     *     *
+    64                         CloseErrors;                                          *
+    65 FROM Gen        IMPORT  CaseFlag,       CaseLabels;                          62     *    62     *     *
+    66 FROM Idents     IMPORT  tIdent, NoIdent, WriteIdent, GetString;              65     *    65     *     *     *     *
+    67 FROM IO         IMPORT  tFile,          StdInput,       StdOutput,           66     *    66     *     *     *
+    68                         ReadOpen,       WriteOpen,      ReadClose,            *     *     *
+    69                         WriteClose,     EndOfFile,      CloseIO,              *     *     *
+    70                         WriteS,         WriteC,         WriteNl;              *     *     *
+    71 FROM Listing    IMPORT  SourceFile;                                          67     *    67     *
+    72 FROM Path       IMPORT  InsertPath;                                          71     *    71     *
+    73 FROM Parser     IMPORT  ParsTabName;                                         72     *    72     *
+    74 FROM Scanner    IMPORT  ScanTabName,    BeginFile;                           73     *    73     *     *
+    75 FROM Positions  IMPORT  NoPosition;                                          74     *    74     *
+    76 FROM Strings    IMPORT  tString,        tStringIndex,   ArrayToString,       75     *    75     *     *     *
+    77                         StringToArray,  SubString,      Char,                 *     *     *
+    78                         Concatenate,    Length,         ReadL,                *     *     *
+    79                         WriteL,         StringToInt,    Append;               *     *     *
+    80 FROM SysError   IMPORT  StatIsBad,      SysErrorMessageI;                    76     *    76     *     *
+    81 FROM System     IMPORT  GetArgument,    GetArgCount;                         80     *    80     *     *
+    82 FROM SYSTEM     IMPORT  ADR;                                                 81     *    81     *
+    83 FROM WriteTok   IMPORT  tLanguage,      Language,       SourceFileName;      82     *    82     *     *     *
+    84 
+    85 CONST                                                                         *
+    86   eToManyArgs   = 21;                                                         *
+    87   eNoOption     = 20;                                                         *
+    88 
+    89   Drv           = 'Drv';                                                      *
+    90   ExtDefM       = '.md';                                                      *
+    91   ExtImpM       = '.mi';                                                      *
+    92   ExtDefC       = '.h';                                                       *
+    93   ExtImpC       = '.c';                                                       *
+    94 
+    95   ScanDefM      = 'Scanner.md';                                               *
+    96   ScanImpM      = 'Scanner.mi';                                               *
+    97   ErrDefM       = 'Errors.md';                                                *
+    98   ErrImpM       = 'Errors.mi';                                                *
+    99   ParsDefM      = 'Parser.md';                                                *
+   100   ParsImpM      = 'Parser.mi';                                                *
+   101   ParsDrvM      = 'ParserDrv.mi';                                             *
+   102 
+   103   ScanDefC      = 'Scanner.h';                                                *
+   104   ScanImpC      = 'Scanner.c';                                                *
+   105   ErrDefC       = 'Errors.h';                                                 *
+   106   ErrImpC       = 'Errors.c';                                                 *
+   107   ParsDefC      = 'Parser.h';                                                 *
+   108   ParsImpC      = 'Parser.c';                                                 *
+   109   ParsDrvC      = 'ParserDrv.c';                                              *
+   110 
+   111   HelpFile      = 'lalr.cat';                                                 *
+   112   ShortHelpFile = 'lalr.syn';                                                 *
+   113 
+   114   cHelp         = '-h';                                                       *
+   115   cC            = '-c';                                                       *
+   116   cModula       = '-m';                                                       *
+   117   cDefinition   = '-d';                                                       *
+   118   cErrors       = '-e';                                                       *
+   119   cLong         = '-l';                                                       *
+   120   cImmediate    = '-i';                                                       *
+   121   cScan         = '-s';                                                       *
+   122   cParsDrv      = '-p';                                                       *
+   123   cAll          = '-a';                                                       *
+   124   cCase         = '-cs';                                                      *
+   125   cVerbose      = '-v';                                                       *
+   126   cFast         = '-f';                                                       *
+   127   cLine         = '-g';                                                       *
+   128   cNoTrace      = '-NoTrace';                                                 *
+   129   cNoDefault    = '-NoDefault';                                               *
+   130   cTest         = '-t';                                                       *
+   131 
+   132 VAR (* MakeDef, *) MakeErr, MakeScan, MakeParsDrv: BOOLEAN;                   *     *     *     *     *
+   133 VAR DevNull : ARRAY [ 0 .. 15 ] OF CHAR;                                    132     *     *     *     *
+   134 
+   135 PROCEDURE ArgCheck;                                                           *    54
+   136   VAR                                                                       133
+   137     ArgNo               : CARDINAL;                                           *     *
+   138     Argument            : ARRAY [0..255] OF CHAR;                             *   133   133   133
+   139     ArgString           : tString;                                            *    76
+   140     file                : tFile;                                              *    67
+   141     FileName            : ARRAY [0..255] OF CHAR;                             *   138   138   138
+   142     SourceFileIsOpen    : BOOLEAN;                                            *   132
+   143   BEGIN                                                                       *
+   144     SourceFileIsOpen := FALSE;                                              142     *
+   145     InsertPath (ScanTabName);                                                72    74
+   146     InsertPath (ParsTabName);                                               145    73
+   147 
+   148     MakeDef := FALSE;                                                         *   144
+   149     MakeErr := FALSE;                                                       132   148
+   150     MakeScan := FALSE;                                                      132   149
+   151     MakeParsDrv := FALSE;                                                   132   150
+   152 
+   153     FOR ArgNo := 1 TO GetArgCount () - 1 DO                                   *   137     *    81     *
+   154       GetArgument (ArgNo, Argument);                                         81   153   138
+   155       IF (Argument [0] >= '0') & (Argument [0] <= '9') THEN                   *   154     *     *
+   156         ArrayToString (Argument, ArgString);                                 76   155   139
+   157         CaseLabels := StringToInt (ArgString);                               65    79   156
+   158         CaseFlag := TRUE;                                                    65     *
+   159       ELSIF Argument [0] # '-' THEN                                           *   156   155
+   160         IF SourceFileIsOpen THEN                                            155   144   159
+   161           ArrayToString (Argument, ArgString);                              156   159   157
+   162           ErrorMessageI (eToManyArgs, eError, NoPosition, eString, ADR (ArgString));     63    86    62    75    62    82
+                                                                                   161
+   163         ELSE                                                                  *
+   164           Assign (SourceFileName, Argument);                                 57    83   161
+   165           SourceFile := ReadOpen (Argument);                                 71    68   164
+   166           IF StatIsBad (SourceFile) THEN                                    160    80   165   160
+   167             ArrayToString (Argument, ArgString);                            161   165   162
+   168             SysErrorMessageI (SourceFile, eError, eString, ADR(ArgString));        80   166   162   162   162   167
+   169             SourceFile := StdInput;                                         168    67
+   170           ELSE                                                              163
+   171             SourceFileIsOpen := TRUE;                                       160   158
+   172             BeginFile (Argument);                                            74   167
+   173           END;                                                                *
+   174         END;                                                                173
+   175           
+   176       ELSIF IsEqual (Argument, cC) THEN                                     159    57   172   115   166
+   177         Language := C;                                                       83     *
+   178       ELSIF IsEqual (Argument, cModula) THEN                                176   176   176   116   176
+   179         Language := Modula2;                                                177     *
+   180       ELSIF IsEqual (Argument, cDefinition) THEN                            178   178   178   117   178
+   181         MakeDef := TRUE;                                                    148   171
+   182       ELSIF IsEqual (Argument, cErrors) THEN                                180   180   180   118   180
+   183         MakeErr := TRUE;                                                    149   181
+   184       ELSIF IsEqual (Argument, cLong) THEN                                  182   182   182   119   182
+   185         SetReportMode (eListing);                                            63     *
+   186       ELSIF IsEqual (Argument, cImmediate) THEN                             184   184   184   120   184
+   187         SetReportMode (eImmediate);                                         185     *
+   188       ELSIF IsEqual (Argument, cScan) THEN                                  186   186   186   121   186
+   189         MakeScan := TRUE;                                                   150   183
+   190       ELSIF IsEqual (Argument, cParsDrv) THEN                               188   188   188   122   188
+   191         MakeParsDrv := TRUE;                                                151   189
+   192       ELSIF IsEqual (Argument, cAll) THEN                                   190   190   190   123   190
+   193         MakeErr := TRUE;                                                    183   191
+   194         MakeDef := TRUE;                                                    181   193
+   195         MakeParsDrv := TRUE;                                                191   194
+   196         MakeScan := TRUE;                                                   189   195
+   197       ELSIF IsEqual (Argument, cCase) THEN                                  192   192   192   124   192
+   198         CaseFlag := TRUE;                                                   158   196
+   199       ELSIF IsEqual (Argument, cTest) THEN                                  197   197   197   130   197
+   200         TEST := TRUE;                                                         *   198
+   201       ELSIF IsEqual (Argument, cVerbose) THEN                               199   199   199   125   199
+   202         Verbose := TRUE;                                                     58   200
+   203       ELSIF IsEqual (Argument, cFast) THEN                                  201   201   201   126   201
+   204         Verbose := TRUE;                                                    202   202
+   205         Fast := TRUE;                                                        60   204
+   206       ELSIF IsEqual (Argument, cLine) THEN                                  203   203   203   127   203
+   207         LineFlag := TRUE;                                                     *   205
+   208       ELSIF IsEqual (Argument, cNoTrace) THEN                               206   206   206   128   206
+   209         NoTrace := TRUE;                                                     60   207
+   210       ELSIF IsEqual (Argument, cNoDefault) THEN                             208   208   208   129   208
+   211         NoDefault := TRUE;                                                   61   209
+   212       ELSIF IsEqual (Argument, cHelp) THEN                                  210   210   210   114   210
+   213         FileName := HelpFile;                                               141   111
+   214         InsertPath (FileName);                                              146   213
+   215         file := ReadOpen (FileName);                                        140   165   214
+   216         IF StatIsBad (file) THEN                                            166   166   215   212
+   217           ArrayToString (FileName, ArgString);                              167   215   168
+   218           SysErrorMessageI (file, eError, eString, ADR (ArgString));        168   216   168   168   168   217
+   219         ELSE                                                                170
+   220           CopyFile (file, StdOutput);                                         *   218    67
+   221         END;                                                                174
+   222         Generate := FALSE;                                                    *   151
+   223         RETURN;                                                               *
+   224       ELSE                                                                  219
+   225         ArrayToString (Argument, ArgString);                                217   212   218
+   226         ErrorMessageI (eNoOption, eError, NoPosition, eString, ADR (ArgString));        162    87   218   162   218   218
+                                                                                   225
+   227       END;                                                                  221
+   228     END;                                                                    227
+   229 
+   230     IF SourceFile = StdInput THEN                                           216   169   169   216
+   231       FileName := ShortHelpFile;                                            217   112
+   232       InsertPath (FileName);                                                214   231
+   233       file := ReadOpen (FileName);                                          220   215   232
+   234       IF StatIsBad (file) THEN                                              230   216   233   230
+   235         ArrayToString (FileName, ArgString);                                225   233   226
+   236         SysErrorMessageI (file, eError, eString, ADR (ArgString));          218   234   226   226   226   235
+   237       ELSE                                                                  224
+   238         CopyFile (file, StdOutput);                                         220   236   220
+   239       END;                                                                  228
+   240       Generate := FALSE;                                                    222   222
+   241       RETURN;                                                               223
+   242     END;                                                                    239
+   243   END ArgCheck;                                                             242   135
+   244 
+   245 PROCEDURE GenerateSupport;                                                  135     *
+   246   VAR                                                                       136
+   247     FileName            : ARRAY [0..255] OF CHAR;                           235   141   141   141
+   248     ParsDrv,                                                                  *
+   249     ParsDef, ParsImp,                                                         *     *
+   250     ScanDef, ScanImp,                                                         *     *
+   251     ErrDef,  ErrImp     : ARRAY [0..255] OF CHAR;                             *     *   247   247   247
+   252     in, out             : tFile;                                              *     *   140
+   253     String1, String2    : tString;                                            *     *   139
+   254   BEGIN                                                                     143
+   255     IF Language = Modula2 THEN                                              234   179   179   234
+   256       ParsDrv   := ParsDrvM;                                                248   101
+   257       ParsDef   := ParsDefM;                                                249    99
+   258       ParsImp   := ParsImpM;                                                249   100
+   259       ScanDef   := ScanDefM;                                                250    95
+   260       ScanImp   := ScanImpM;                                                250    96
+   261       ErrDef    := ErrDefM;                                                 251    97
+   262       ErrImp    := ErrImpM;                                                 251    98
+   263       ExtDef    := ExtDefM;                                                   *    90
+   264       ExtImp    := ExtImpM;                                                   *    91
+   265     ELSE                                                                    237
+   266       ParsDrv   := ParsDrvC;                                                256   109
+   267       ParsDef   := ParsDefC;                                                257   107
+   268       ParsImp   := ParsImpC;                                                258   108
+   269       ScanDef   := ScanDefC;                                                259   103
+   270       ScanImp   := ScanImpC;                                                260   104
+   271       ErrDef    := ErrDefC;                                                 261   105
+   272       ErrImp    := ErrImpC;                                                 262   106
+   273       ExtDef    := ExtDefC;                                                 263    92
+   274       ExtImp    := ExtImpC;                                                 264    93
+   275     END;                                                                    243
+   276 
+   277     IF MakeScan THEN                                                        255   196   255
+   278       MakeFileName (ScannerName, Scanner, ExtDef, FileName);                  *    56    74   273   247
+   279       out := WriteOpen (FileName);      CheckWriteOpen (out, FileName);     252    68   278    59     *     *
+   280       InsertPath (ScanDef);                                                 232   269
+   281       in := ReadOpen (ScanDef);         CheckReadOpen (in, ScanDef);        252   233   280    59     *     *
+   282       CopyFile (in, out);                                                   238   281   279
+   283       WriteClose (out);                                                      69   282
+   284       ReadClose (in);                                                        68   282
+   285 
+   286       MakeFileName (ScannerName, Scanner, ExtImp, FileName);                278   278   278   274   279
+   287       out := WriteOpen (FileName);      CheckWriteOpen (out, FileName);     283   279   286   279     *     *
+   288       InsertPath (ScanImp);                                                 280   270
+   289       in := ReadOpen (ScanImp);         CheckReadOpen (in, ScanImp);        284   281   288   281     *     *
+   290       CopyFile (in, out);                                                   282   289   287
+   291       WriteClose (out);                                                     283   290
+   292       ReadClose (in);                                                       284   290
+   293     END;                                                                    275
+   294 
+   295     IF MakeErr THEN                                                         277   193   277
+   296       out := WriteOpen (ErrDef);        CheckWriteOpen (out, ErrDef);       291   287   271   287     *     *
+   297       InsertPath (ErrDef);                                                  288   296
+   298       in := ReadOpen (ErrDef);          CheckReadOpen (in, ErrDef);         292   289   297   289     *     *
+   299       CopyFile (in, out);                                                   290   298   296
+   300       WriteClose (out);                                                     291   299
+   301       ReadClose (in);                                                       292   299
+   302 
+   303       out := WriteOpen (ErrImp);        CheckWriteOpen (out, ErrImp);       300   296   272   296     *     *
+   304       InsertPath (ErrImp);                                                  297   303
+   305       in := ReadOpen (ErrImp);          CheckReadOpen (in, ErrImp);         301   298   304   298     *     *
+   306       CopyFile (in, out);                                                   299   305   303
+   307       WriteClose (out);                                                     300   306
+   308       ReadClose (in);                                                       301   306
+   309     END;                                                                    293
+   310 
+   311     IF MakeParsDrv THEN                                                     295   195   295
+   312       IF ParserName = NoIdent THEN                                          311    56    66   311
+   313          ArrayToString  (Parser, String1);                                  235    73   253
+   314       ELSE                                                                  265
+   315          GetString      (ParserName, String1);                               66   312   313
+   316       END;                                                                  309
+   317       ArrayToString     (Drv, String2);                                     313    89   253
+   318       Concatenate       (String1, String2);                                  78   315   317
+   319       ArrayToString     (ExtImp, String2);                                  317   286   318
+   320       Concatenate       (String1, String2);                                 318   318   319
+   321       Append            (String1, 0C);                                       79   320
+   322       StringToArray     (String1, FileName);                                 77   321   287
+   323       out := WriteOpen (FileName);      CheckWriteOpen (out, FileName);     307   303   322   303     *     *
+   324       InsertPath (ParsDrv);                                                 304   266
+   325       in := ReadOpen (ParsDrv);         CheckReadOpen (in, ParsDrv);        308   305   324   305     *     *
+   326       CopyFile (in, out);                                                   306   325   323
+   327       WriteClose (out);                                                     307   326
+   328       ReadClose (in);                                                       308   326
+   329     END;                                                                    316
+   330 
+   331     InsertPath (ParsImp);                                                   324   268
+   332     Pars := ReadOpen (ParsImp);         CheckReadOpen (Pars, ParsImp);        *   325   331   325     *     *
+   333 
+   334     IF MakeDef THEN                                                         312   194   312
+   335       InsertPath (ParsDef);                                                 331   267
+   336       Def := ReadOpen (ParsDef);        CheckReadOpen (Def, ParsDef);         *   332   335   332     *     *
+   337     ELSE                                                                    314
+   338       (* Def := ReadOpen (DevNull);     CheckReadOpen (Def, DevNull); *) 
+   339     END;                                                                    329
+   340   END GenerateSupport;                                                      339   245
+   341 
+   342 PROCEDURE MakeFileName (Name: tIdent; Default, Ext: ARRAY OF CHAR; VAR FileName: ARR\   245   286     *    66    61     *
+                                                                                   251   251   251   246   323
+      \AY OF CHAR);                                                                  *     *     *
+   343    VAR String1, String2 : tString;                                          342   322   320   253
+   344    BEGIN                                                                    254
+   345       IF Name = NoIdent THEN                                                334   342   312   334
+   346          ArrayToString  (Default, String1);                                 319   342   343
+   347       ELSE                                                                  337
+   348          GetString      (Name, String1);                                    315   345   346
+   349       END;                                                                  340
+   350       ArrayToString     (Ext, String2);                                     346   342   343
+   351       Concatenate       (String1, String2);                                 320   348   350
+   352       Append            (String1, 0C);                                      321   351
+   353       StringToArray     (String1, FileName);                                322   352   342
+   354    END MakeFileName;                                                        349   342
+   355 
+   356 PROCEDURE ExpandLine (Out: tFile; Line: tString);                           342     *     *   252     *   343
+   357    VAR                                                                      343
+   358       Ch        : CHAR;                                                       *   342
+   359       i         : CARDINAL;                                                   *   137
+   360    BEGIN                                                                    344
+   361       i := 3;                                                               359
+   362       LOOP                                                                    *
+   363          INC (i);                                                             *   361
+   364          IF i > Length (Line) THEN WriteNl (Out); EXIT; END;                345   363    78   356   345    70   356     *
+                                                                                   354
+   365          Ch := Char (Line, i);                                              358    77   364   364
+   366          CASE Ch OF                                                           *   365   342
+   367          | '@' : IF ParserName = NoIdent                                    364   315   345
+   368                  THEN WriteS (Out, Parser);                                 364    70   364   313
+   369                  ELSE WriteIdent (Out, ParserName); END;                    347    66   368   367   364
+   370          | '$' : IF ScannerName = NoIdent THEN                              367   286   367   368
+   371                     IF Char (Line, i + 1) = '_'                             370   365   365   365
+   372                     THEN INC (i);                                           370   363   371
+   373                     ELSE WriteS (Out, Scanner);                             369   368   369   286
+   374                     END;                                                    369
+   375                  ELSE WriteIdent (Out, ScannerName); END;                   373   369   373   370   374
+   376          ELSE    WriteC (Out, Ch);                                          375    70   375   366
+   377          END;                                                               375
+   378       END;                                                                  377
+   379    END ExpandLine;                                                          378   356
+   380 
+   381 PROCEDURE CopyFile (In, Out: tFile);                                        356   326     *   376   356
+   382   VAR Line      : tString;                                                  357   371   356
+   383   BEGIN                                                                     360
+   384     WHILE NOT EndOfFile (In) DO                                               *     *    69   381   153
+   385       ReadL (In, Line);                                                      78   384   382
+   386       IF (Length (Line) >= 2) AND (Char (Line, 1) = '$') AND (Char (Line, 2) = '@') \   371   364   385     *   371     *
+                                                                                     *     *     *
+      \THEN                                                                        372
+   387          ExpandLine (Out, Line);                                            379   381   386
+   388       ELSE                                                                  376
+   389          WriteL (Out, Line);                                                 79   387   387
+   390       END;                                                                  379
+   391     END;                                                                    390
+   392   END CopyFile;                                                             391   381
+   393 
+   394 BEGIN                                                                       383
+   395   LineFlag      := FALSE;                                                   207   240
+   396   TEST          := FALSE;                                                   200   395
+   397   Generate      := TRUE;                                                    240   211
+   398   DevNull       := '/dev/null';                                             133
+   399 END ArgCheck.                                                               392   243
+Cross reference: 
+
+-A-
+ Actions                         56 
+ ADR                             82   162   168   218   226   236 
+ AND                            386   386 
+ Append                          79   321   352 
+ ArgCheck                        54   135   243   399 
+ ArgNo                          137   153   154 
+ ArgString                      139   156   157   161   162   167   168   217   218   225   226   235   236 
+ Argument                       138   154   155   155   156   159   161   164   165   167   172   176   178   180   182   184   186 
+                                188   190   192   197   199   201   203   206   208   210   212   225 
+ ARRAY                          133   138   141   247   251   342   342 
+ ArrayToString                   76   156   161   167   217   225   235   313   317   319   346   350 
+ Assign                          57   164 
+
+-B-
+ BEGIN                          143   254   344   360   383   394 
+ BeginFile                       74   172 
+ BOOLEAN                        132   142 
+
+-C-
+ C                              177 
+ cAll                           123   192 
+ CARDINAL                       137   359 
+ CASE                           366 
+ CaseFlag                        65   158   198 
+ CaseLabels                      65   157 
+ cC                             115   176 
+ cCase                          124   197 
+ cDefinition                    117   180 
+ cErrors                        118   182 
+ cFast                          126   203 
+ Ch                             358   365   366   376 
+ CHAR                           133   138   141   247   251   342   342   358 
+ Char                            77   365   371   386   386 
+ Character                       57 
+ Check                           58 
+ CheckReadOpen                   59   281   289   298   305   325   332   336 
+ Checks                          59 
+ CheckWriteOpen                  59   279   287   296   303   323 
+ cHelp                          114   212 
+ cImmediate                     120   186 
+ cLine                          127   206 
+ cLong                          119   184 
+ CloseErrors                     64 
+ CloseIO                         69 
+ cModula                        116   178 
+ cNoDefault                     129   210 
+ cNoTrace                       128   208 
+ Concatenate                     78   318   320   351 
+ CONST                           85 
+ CopyFile                       220   238   282   290   299   306   326   381   392 
+ cParsDrv                       122   190 
+ cScan                          121   188 
+ cTest                          130   199 
+ cVerbose                       125   201 
+
+-D-
+ Debug                           60 
+ Def                            336   336 
+ Default                         61   342   346 
+ DevNull                        133   398 
+ DO                             153   384 
+ Drv                             89   317 
+
+-E-
+ eError                          62   162   168   218   226   236 
+ eImmediate                     187 
+ eListing                       185 
+ ELSE                           163   170   219   224   237   265   314   337   347   369   373   375   376   388 
+ ELSIF                          159   176   178   180   182   184   186   188   190   192   197   199   201   203   206   208   210 
+                                212 
+ END                            173   174   221   227   228   239   242   243   275   293   309   316   329   339   340   349   354 
+                                364   369   374   375   377   378   379   390   391   392   399 
+ EndOfFile                       69   384 
+ eNoOption                       87   226 
+ ErrDef                         251   261   271   296   296   297   298   298 
+ ErrDefC                        105   271 
+ ErrDefM                         97   261 
+ ErrImp                         251   262   272   303   303   304   305   305 
+ ErrImpC                        106   272 
+ ErrImpM                         98   262 
+ ErrorMessageI                   63   162   226 
+ Errors                          62 
+ eString                         62   162   168   218   226   236 
+ eToManyArgs                     86   162 
+ EXIT                           364 
+ ExpandLine                     356   379   387 
+ Ext                            342   350 
+ ExtDef                         263   273   278 
+ ExtDefC                         92   273 
+ ExtDefM                         90   263 
+ ExtImp                         264   274   286   319 
+ ExtImpC                         93   274 
+ ExtImpM                         91   264 
+
+-F-
+ FALSE                          144   148   149   150   151   222   240   395   396 
+ Fast                            60   205 
+ file                           140   215   216   218   220   233   234   236   238 
+ FileName                       141   213   214   215   217   231   232   233   235   247   278   279   279   286   287   287   322 
+                                323   323   342   353 
+ FOR                            153 
+ FROM                            56    57    58    59    60    61    62    65    66    67    71    72    73    74    75    76    80 
+                                 81    82    83 
+
+-G-
+ Gen                             65 
+ Generate                       222   240   397 
+ GenerateSupport                245   340 
+ GetArgCount                     81   153 
+ GetArgument                     81   154 
+ GetString                       66   315   348 
+
+-H-
+ HelpFile                       111   213 
+
+-I-
+ i                              359   361   363   364   365   371   372 
+ Idents                          66 
+ IF                             155   160   166   216   230   234   255   277   295   311   312   334   345   364   367   370   371 
+                                386 
+ IMPLEMENTATION                  54 
+ IMPORT                          56    57    58    59    60    61    62    65    66    67    71    72    73    74    75    76    80 
+                                 81    82    83 
+ In                             381   384   385 
+ in                             252   281   281   282   284   289   289   290   292   298   298   299   301   305   305   306   308 
+                                325   325   326   328 
+ INC                            363   372 
+ InsertPath                      72   145   146   214   232   280   288   297   304   324   331   335 
+ IO                              67 
+ IsEqual                         57   176   178   180   182   184   186   188   190   192   197   199   201   203   206   208   210 
+                                212 
+
+-L-
+ Language                        83   177   179   255 
+ Length                          78   364   386 
+ Line                           356   364   365   371   382   385   386   386   386   387   389 
+ LineFlag                       207   395 
+ Listing                         71 
+ LOOP                           362 
+
+-M-
+ MakeDef                        148   181   194   334 
+ MakeErr                        132   149   183   193   295 
+ MakeFileName                   278   286   342   354 
+ MakeParsDrv                    132   151   191   195   311 
+ MakeScan                       132   150   189   196   277 
+ Modula2                        179   255 
+ MODULE                          54 
+
+-N-
+ Name                           342   345   348 
+ NoDefault                       61   211 
+ NoIdent                         66   312   345   367   370 
+ NoPosition                      75   162   226 
+ NOT                            384 
+ NoTrace                         60   209 
+
+-O-
+ OF                             133   138   141   247   251   342   342   366 
+ Out                            356   364   368   369   373   375   376   381   387   389 
+ out                            252   279   279   282   283   287   287   290   291   296   296   299   300   303   303   306   307 
+                                323   323   326   327 
+
+-P-
+ Pars                           332   332 
+ ParsDef                        249   257   267   335   336   336 
+ ParsDefC                       107   267 
+ ParsDefM                        99   257 
+ ParsDrv                        248   256   266   324   325   325 
+ ParsDrvC                       109   266 
+ ParsDrvM                       101   256 
+ Parser                          73   313   368 
+ ParserName                      56   312   315   367   369 
+ ParsImp                        249   258   268   331   332   332 
+ ParsImpC                       108   268 
+ ParsImpM                       100   258 
+ ParsTabName                     73   146 
+ Path                            72 
+ Positions                       75 
+ PROCEDURE                      135   245   342   356   381 
+
+-R-
+ ReadClose                       68   284   292   301   308   328 
+ ReadL                           78   385 
+ ReadOpen                        68   165   215   233   281   289   298   305   325   332   336 
+ RETURN                         223   241 
+
+-S-
+ ScanDef                        250   259   269   280   281   281 
+ ScanDefC                       103   269 
+ ScanDefM                        95   259 
+ ScanImp                        250   260   270   288   289   289 
+ ScanImpC                       104   270 
+ ScanImpM                        96   260 
+ Scanner                         74   278   286   373 
+ ScannerName                     56   278   286   370   375 
+ ScanTabName                     74   145 
+ SetReportMode                   63   185   187 
+ ShortHelpFile                  112   231 
+ SourceFile                      71   165   166   168   169   230 
+ SourceFileIsOpen               142   144   160   171 
+ SourceFileName                  83   164 
+ StatIsBad                       80   166   216   234 
+ StdInput                        67   169   230 
+ StdOutput                       67   220   238 
+ String1                        253   313   315   318   320   321   322   343   346   348   351   352   353 
+ String2                        253   317   318   319   320   343   350   351 
+ Strings                         76 
+ StringToArray                   77   322   353 
+ StringToInt                     79   157 
+ SubString                       77 
+ SysError                        80 
+ SysErrorMessageI                80   168   218   236 
+ SYSTEM                          82 
+ System                          81 
+
+-T-
+ TEST                           200   396 
+ tFile                           67   140   252   356   381 
+ THEN                           155   159   160   166   176   178   180   182   184   186   188   190   192   197   199   201   203 
+                                206   208   210   212   216   230   234   255   277   295   311   312   334   345   364   368   370 
+                                372   386 
+ tIdent                          66   342 
+ tLanguage                       83 
+ TO                             153 
+ tReportMode                     63 
+ TRUE                           158   171   181   183   189   191   193   194   195   196   198   200   202   204   205   207   209 
+                                211   397 
+ tString                         76   139   253   343   356   382 
+ tStringIndex                    76 
+
+-V-
+ VAR                            132   133   136   246   342   343   357   382 
+ Verbose                         58   202   204 
+
+-W-
+ WHILE                          384 
+ WriteC                          70   376 
+ WriteClose                      69   283   291   300   307   327 
+ WriteIdent                      66   369   375 
+ WriteL                          79   389 
+ WriteNl                         70   364 
+ WriteOpen                       68   279   287   296   303   323 
+ WriteS                          70   368   373 
+ WriteTok                        83 
+
+end cross reference, 884 occurrences of 196 identifiers.

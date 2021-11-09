@@ -1,0 +1,377 @@
+(*
+ *	ell2 - a redesign of ell
+ *
+ *	$RCSfile: SupC.MI,v $
+ *	
+ *	purpose:	generate supported modules (C)
+ *
+ *	$Author: grosch $
+ *	$Date: 1992/10/15 18:26:55 $
+ *)
+
+IMPLEMENTATION MODULE SupC;
+
+
+
+
+
+
+
+FROM ArgCheck	IMPORT	SourceFileName;
+FROM Checks	IMPORT	CheckWriteOpen;
+FROM IO		IMPORT	tFile, WriteC, WriteS, WriteI, WriteNl, WriteOpen, WriteClose;
+FROM Strings	IMPORT	tString, Char, ArrayToString, Concatenate, Append, StringToArray;
+FROM Idents	IMPORT	tIdent, NoIdent, WriteIdent, GetString, MakeIdent;
+FROM Tree	IMPORT	ScannerName, ParserName;
+
+CONST
+  cErrDef = 'Errors.h';
+  cErrImp = 'Errors.c';
+  cDrvImp = 'Drv.c';
+  cScaDef = '.h';
+  cScaImp = '.c';
+
+VAR
+  PathS, String	: tString;
+  PathA		: ARRAY [0..128] OF CHAR;
+
+PROCEDURE ErrC;
+  VAR file: tFile;
+  BEGIN
+    file := WriteOpen (cErrDef);
+    CheckWriteOpen (file, cErrDef);
+
+WriteS (file, '# ifndef yyErrors');WriteNl (file);
+WriteS (file, '# define yyErrors');WriteNl (file);
+WriteNl (file);
+WriteS (file, '# include "Positions.h"');WriteNl (file);
+WriteNl (file);
+WriteS (file, '# define xxNoText		0');WriteNl (file);
+WriteS (file, '# define xxSyntaxError		1	/* error codes		*/');WriteNl (file);
+WriteS (file, '# define xxExpectedTokens	2');WriteNl (file);
+WriteS (file, '# define xxRestartPoint		3');WriteNl (file);
+WriteS (file, '# define xxTokenInserted	4');WriteNl (file);
+WriteNl (file);
+WriteS (file, '# define xxFatal		1	/* error classes	*/');WriteNl (file);
+WriteS (file, '# define xxRestriction		2');WriteNl (file);
+WriteS (file, '# define xxError		3');WriteNl (file);
+WriteS (file, '# define xxWarning		4');WriteNl (file);
+WriteS (file, '# define xxRepair		5');WriteNl (file);
+WriteS (file, '# define xxNote			6');WriteNl (file);
+WriteS (file, '# define xxInformation		7');WriteNl (file);
+WriteNl (file);
+WriteS (file, '# define xxNone			0');WriteNl (file);
+WriteS (file, '# define xxInteger		1	/* info classes		*/');WriteNl (file);
+WriteS (file, '# define xxShort		2');WriteNl (file);
+WriteS (file, '# define xxLong			3');WriteNl (file);
+WriteS (file, '# define xxReal			4');WriteNl (file);
+WriteS (file, '# define xxBoolean		5');WriteNl (file);
+WriteS (file, '# define xxCharacter		6');WriteNl (file);
+WriteS (file, '# define xxString		7');WriteNl (file);
+WriteS (file, '# define xxSet			8');WriteNl (file);
+WriteS (file, '# define xxIdent		9');WriteNl (file);
+WriteNl (file);
+WriteS (file, '# if defined __STDC__ | defined __cplusplus');WriteNl (file);
+WriteS (file, '# define ARGS(parameters)	parameters');WriteNl (file);
+WriteS (file, '# else');WriteNl (file);
+WriteS (file, '# define ARGS(parameters)	()');WriteNl (file);
+WriteS (file, '# endif');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'extern void (* Errors_Exit) ();');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'extern void ErrorMessage  ARGS((short yyErrorCode, short yyErrorClass, tPosition yyPosition));');WriteNl (file);
+WriteS (file, 'extern void ErrorMessageI ARGS((short yyErrorCode, short yyErrorClass, tPosition yyPosition, short yyInfoClass, char * yyInfo));');WriteNl (file);
+WriteS (file, 'extern void Message  ARGS((char * yyErrorText, short yyErrorClass, tPosition yyPosition));');WriteNl (file);
+WriteS (file, 'extern void MessageI ARGS((char * yyErrorText, short yyErrorClass, tPosition yyPosition, short yyInfoClass, char * yyInfo));');WriteNl (file);
+WriteNl (file);
+WriteS (file, '# endif');WriteNl (file);
+
+    WriteClose (file);
+
+    file := WriteOpen (cErrImp);
+    CheckWriteOpen (file, cErrImp);
+
+WriteS (file, '# include "Errors.h"');WriteNl (file);
+WriteS (file, '# include <stdio.h>');WriteNl (file);
+WriteNl (file);
+WriteS (file, '# ifdef __cplusplus');WriteNl (file);
+WriteS (file, 'extern "C" {');WriteNl (file);
+WriteS (file, '#  include "System.h"');WriteNl (file);
+WriteS (file, '#  include "Sets.h"');WriteNl (file);
+WriteS (file, '#  include "Idents.h"');WriteNl (file);
+WriteS (file, '}');WriteNl (file);
+WriteS (file, '# else');WriteNl (file);
+WriteS (file, '#  include "System.h"');WriteNl (file);
+WriteS (file, '#  include "Sets.h"');WriteNl (file);
+WriteS (file, '#  include "Idents.h"');WriteNl (file);
+WriteS (file, '# endif');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'static void yyExit () { Exit (1); }');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'void (* Errors_Exit) () = yyExit;');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'static void WriteHead');WriteNl (file);
+WriteS (file, '# if defined __STDC__ | defined __cplusplus');WriteNl (file);
+WriteS (file, '   (short yyErrorClass, tPosition yyPosition)');WriteNl (file);
+WriteS (file, '# else');WriteNl (file);
+WriteS (file, '   (yyErrorClass, yyPosition) short yyErrorClass; tPosition yyPosition;');WriteNl (file);
+WriteS (file, '# endif');WriteNl (file);
+WriteS (file, '{');WriteNl (file);
+WriteS (file, '   WritePosition (stderr, yyPosition);');WriteNl (file);
+WriteS (file, '   (void) fputs (": ", stderr);');WriteNl (file);
+WriteS (file, '   switch (yyErrorClass) {');WriteNl (file);
+WriteS (file, '   case xxFatal		: (void) fputs ("Fatal       ", stderr); break;');WriteNl (file);
+WriteS (file, '   case xxRestriction	: (void) fputs ("Restriction ", stderr); break;');WriteNl (file);
+WriteS (file, '   case xxError		: (void) fputs ("Error       ", stderr); break;');WriteNl (file);
+WriteS (file, '   case xxWarning	: (void) fputs ("Warning     ", stderr); break;');WriteNl (file);
+WriteS (file, '   case xxRepair	: (void) fputs ("Repair      ", stderr); break;');WriteNl (file);
+WriteS (file, '   case xxNote		: (void) fputs ("Note        ", stderr); break;');WriteNl (file);
+WriteS (file, '   case xxInformation	: (void) fputs ("Information ", stderr); break;');WriteNl (file);
+WriteS (file, '   default		: (void) fprintf (stderr, "Error class: %d ", yyErrorClass);');WriteNl (file);
+WriteS (file, '   }');WriteNl (file);
+WriteS (file, '}');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'static void WriteTail');WriteNl (file);
+WriteS (file, '# if defined __STDC__ | defined __cplusplus');WriteNl (file);
+WriteS (file, '   (short yyErrorClass)');WriteNl (file);
+WriteS (file, '# else');WriteNl (file);
+WriteS (file, '   (yyErrorClass) short yyErrorClass;');WriteNl (file);
+WriteS (file, '# endif');WriteNl (file);
+WriteS (file, '{');WriteNl (file);
+
+WriteS (file, "   (void) fputc ('\n', stderr);");WriteNl (file);
+
+WriteS (file, '   if (yyErrorClass == xxFatal) Errors_Exit ();');WriteNl (file);
+WriteS (file, '}');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'static void WriteCode');WriteNl (file);
+WriteS (file, '# if defined __STDC__ | defined __cplusplus');WriteNl (file);
+WriteS (file, '   (short yyErrorCode)');WriteNl (file);
+WriteS (file, '# else');WriteNl (file);
+WriteS (file, '   (yyErrorCode) short yyErrorCode;');WriteNl (file);
+WriteS (file, '# endif');WriteNl (file);
+WriteS (file, '{');WriteNl (file);
+WriteS (file, '   switch (yyErrorCode) {');WriteNl (file);
+WriteS (file, '   case xxNoText	: break;');WriteNl (file);
+WriteS (file, '   case xxSyntaxError	: (void) fputs ("syntax error"		, stderr); break;');WriteNl (file);
+WriteS (file, '   case xxExpectedTokens: (void) fputs ("expected tokens"	, stderr); break;');WriteNl (file);
+WriteS (file, '   case xxRestartPoint	: (void) fputs ("restart point"		, stderr); break;');WriteNl (file);
+WriteS (file, '   case xxTokenInserted	: (void) fputs ("token inserted "	, stderr); break;');WriteNl (file);
+WriteS (file, '   default		: (void) fprintf (stderr, " error code: %d", yyErrorCode);');WriteNl (file);
+WriteS (file, '   }');WriteNl (file);
+WriteS (file, '}');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'static void WriteInfo');WriteNl (file);
+WriteS (file, '# if defined __STDC__ | defined __cplusplus');WriteNl (file);
+WriteS (file, '   (short yyInfoClass, char * yyInfo)');WriteNl (file);
+WriteS (file, '# else');WriteNl (file);
+WriteS (file, '   (yyInfoClass, yyInfo) short yyInfoClass; char * yyInfo;');WriteNl (file);
+WriteS (file, '# endif');WriteNl (file);
+WriteS (file, '{');WriteNl (file);
+WriteS (file, '   (void) fputs (": ", stderr);');WriteNl (file);
+WriteS (file, '   switch (yyInfoClass) {');WriteNl (file);
+WriteS (file, '   case xxInteger	: (void) fprintf (stderr, "%d", * (int *)	yyInfo); break;');WriteNl (file);
+WriteS (file, '   case xxShort		: (void) fprintf (stderr, "%d", * (short *)	yyInfo); break;');WriteNl (file);
+WriteS (file, '   case xxCharacter	: (void) fprintf (stderr, "%c", *		yyInfo); break;');WriteNl (file);
+WriteS (file, '   case xxString	: (void) fputs	 (yyInfo, stderr);			 break;');WriteNl (file);
+WriteS (file, '   case xxSet		: WriteSet	 (stderr, (tSet *)		yyInfo); break;');WriteNl (file);
+WriteS (file, '   case xxIdent		: WriteIdent	 (stderr, * (tIdent *)		yyInfo); break;');WriteNl (file);
+WriteS (file, '   default		: (void) fprintf (stderr, "info class: %d", yyInfoClass);');WriteNl (file);
+WriteS (file, '   }');WriteNl (file);
+WriteS (file, '}');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'void ErrorMessage');WriteNl (file);
+WriteS (file, '# if defined __STDC__ | defined __cplusplus');WriteNl (file);
+WriteS (file, '   (short yyErrorCode, short yyErrorClass, tPosition yyPosition)');WriteNl (file);
+WriteS (file, '# else');WriteNl (file);
+WriteS (file, '   (yyErrorCode, yyErrorClass, yyPosition)');WriteNl (file);
+WriteS (file, '   short yyErrorCode, yyErrorClass; tPosition yyPosition;');WriteNl (file);
+WriteS (file, '# endif');WriteNl (file);
+WriteS (file, '{');WriteNl (file);
+WriteS (file, '   WriteHead (yyErrorClass, yyPosition);');WriteNl (file);
+WriteS (file, '   WriteCode (yyErrorCode);');WriteNl (file);
+WriteS (file, '   WriteTail (yyErrorClass);');WriteNl (file);
+WriteS (file, '}');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'void ErrorMessageI');WriteNl (file);
+WriteS (file, '# if defined __STDC__ | defined __cplusplus');WriteNl (file);
+WriteS (file, '   (short yyErrorCode, short yyErrorClass, tPosition yyPosition, short yyInfoClass, char * yyInfo)');WriteNl (file);
+WriteS (file, '# else');WriteNl (file);
+WriteS (file, '   (yyErrorCode, yyErrorClass, yyPosition, yyInfoClass, yyInfo)');WriteNl (file);
+WriteS (file, '   short yyErrorCode, yyErrorClass; tPosition yyPosition; short yyInfoClass; char * yyInfo;');WriteNl (file);
+WriteS (file, '# endif');WriteNl (file);
+WriteS (file, '{');WriteNl (file);
+WriteS (file, '   WriteHead (yyErrorClass, yyPosition);');WriteNl (file);
+WriteS (file, '   WriteCode (yyErrorCode);');WriteNl (file);
+WriteS (file, '   WriteInfo (yyInfoClass, yyInfo);');WriteNl (file);
+WriteS (file, '   WriteTail (yyErrorClass);');WriteNl (file);
+WriteS (file, '}');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'void Message');WriteNl (file);
+WriteS (file, '# if defined __STDC__ | defined __cplusplus');WriteNl (file);
+WriteS (file, '   (char * yyErrorText, short yyErrorClass, tPosition yyPosition)');WriteNl (file);
+WriteS (file, '# else');WriteNl (file);
+WriteS (file, '   (yyErrorText, yyErrorClass, yyPosition)');WriteNl (file);
+WriteS (file, '   char * yyErrorText; short yyErrorClass; tPosition yyPosition;');WriteNl (file);
+WriteS (file, '# endif');WriteNl (file);
+WriteS (file, '{');WriteNl (file);
+WriteS (file, '   WriteHead (yyErrorClass, yyPosition);');WriteNl (file);
+WriteS (file, '   (void) fputs (yyErrorText, stderr);');WriteNl (file);
+WriteS (file, '   WriteTail (yyErrorClass);');WriteNl (file);
+WriteS (file, '}');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'void MessageI');WriteNl (file);
+WriteS (file, '# if defined __STDC__ | defined __cplusplus');WriteNl (file);
+WriteS (file, '   (char * yyErrorText, short yyErrorClass, tPosition yyPosition, short yyInfoClass, char * yyInfo)');WriteNl (file);
+WriteS (file, '# else');WriteNl (file);
+WriteS (file, '   (yyErrorText, yyErrorClass, yyPosition, yyInfoClass, yyInfo)');WriteNl (file);
+WriteS (file, '   char * yyErrorText; short yyErrorClass; tPosition yyPosition; short yyInfoClass; char * yyInfo;');WriteNl (file);
+WriteS (file, '# endif');WriteNl (file);
+WriteS (file, '{');WriteNl (file);
+WriteS (file, '   WriteHead (yyErrorClass, yyPosition);');WriteNl (file);
+WriteS (file, '   (void) fputs (yyErrorText, stderr);');WriteNl (file);
+WriteS (file, '   WriteInfo (yyInfoClass, yyInfo);');WriteNl (file);
+WriteS (file, '   WriteTail (yyErrorClass);');WriteNl (file);
+WriteS (file, '}');WriteNl (file);
+
+    WriteClose (file);
+  END ErrC;
+
+PROCEDURE ParC;
+  VAR file: tFile;
+  BEGIN
+    GetString		(ParserName, PathS);
+    ArrayToString	(cDrvImp, String);
+    Concatenate		(PathS, String);
+    Append		(PathS, 0C);
+    StringToArray	(PathS, PathA);
+    file := WriteOpen	(PathA);
+    CheckWriteOpen	(file, PathA);
+
+WriteS (file, '# include "');WriteIdent (file, ParserName);WriteS (file, '.h"');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'main ()');WriteNl (file);
+WriteS (file, '{');WriteNl (file);
+WriteS (file, '   (void) ');WriteIdent (file, ParserName);WriteS (file, ' ();');WriteNl (file);
+WriteS (file, '   Close');WriteIdent (file, ParserName);WriteS (file, '  ();');WriteNl (file);
+WriteS (file, '   return 0;');WriteNl (file);
+WriteS (file, '}');WriteNl (file);
+
+    WriteClose (file);
+  END ParC;
+
+PROCEDURE ScaC;
+  VAR
+    file	: tFile;
+    ScanName	: tIdent;
+    String	: tString;
+
+  PROCEDURE Prefix;
+    BEGIN
+      IF ScannerName # NoIdent THEN
+WriteIdent (file, ScannerName);WriteS (file, '_');
+      END;
+    END Prefix;
+
+  BEGIN
+    IF ScannerName = NoIdent THEN
+       ArrayToString ("Scanner", String);
+       ScanName := MakeIdent (String);
+    ELSE
+       ScanName := ScannerName;
+    END;
+    GetString		(ScanName, PathS);
+    ArrayToString	(cScaDef, String);
+    Concatenate		(PathS, String);
+    Append		(PathS, 0C);
+    StringToArray	(PathS, PathA);
+    file := WriteOpen	(PathA);
+    CheckWriteOpen	(file, PathA);
+
+WriteS (file, '# ifndef	yy');WriteIdent (file, ScanName);WriteNl (file);
+WriteS (file, '# define	yy');WriteIdent (file, ScanName);WriteNl (file);
+WriteNl (file);
+WriteS (file, '# if defined __STDC__ | defined __cplusplus');WriteNl (file);
+WriteS (file, '# define ARGS(parameters)	parameters');WriteNl (file);
+WriteS (file, '# else');WriteNl (file);
+WriteS (file, '# define ARGS(parameters)	()');WriteNl (file);
+WriteS (file, '# endif');WriteNl (file);
+WriteNl (file);
+WriteS (file, '# include "Positions.h"');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'typedef	struct { tPosition Position; } ');
+    Prefix;
+WriteS (file, 'tScanAttribute;');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'extern	');
+    Prefix;
+WriteS (file, 'tScanAttribute	');
+    Prefix;
+WriteS (file, 'Attribute	;');WriteNl (file);
+WriteS (file, 'extern	int		');
+    Prefix;
+WriteS (file, 'GetToken	();');WriteNl (file);
+WriteS (file, 'extern	void		');
+    Prefix;
+WriteS (file, 'ErrorAttribute	ARGS((int Token, ');
+    Prefix;
+WriteS (file, 'tScanAttribute * RepairAttribute));');WriteNl (file);
+WriteNl (file);
+WriteS (file, '# endif');WriteNl (file);
+
+    WriteClose (file);
+
+    GetString		(ScanName, PathS);
+    ArrayToString	(cScaImp, String);
+    Concatenate		(PathS, String);
+    Append		(PathS, 0C);
+    StringToArray	(PathS, PathA);
+    file := WriteOpen	(PathA);
+    CheckWriteOpen	(file, PathA);
+
+WriteS (file, '# include <stdio.h>');WriteNl (file);
+WriteS (file, '# include "');WriteIdent (file, ScanName);WriteS (file, '.h"');WriteNl (file);
+WriteNl (file);
+
+    Prefix;
+WriteS (file, 'tScanAttribute	');
+    Prefix;
+WriteS (file, 'Attribute	= {{ 1, 0 }};');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'int ');
+    Prefix;
+WriteS (file, 'GetToken ()');WriteNl (file);
+WriteS (file, '{');WriteNl (file);
+WriteS (file, '   char ch;');WriteNl (file);
+WriteNl (file);
+WriteS (file, '   do {');WriteNl (file);
+WriteS (file, '      ch = getchar ();');WriteNl (file);
+
+WriteS (file, "      if (ch == '\n') {");WriteNl (file);
+WriteS (file, "        ");
+    Prefix;
+WriteS (file, "Attribute.Position.Column = 0;");WriteNl (file);
+WriteS (file, "        ");
+    Prefix;
+WriteS (file, "Attribute.Position.Line ++;");WriteNl (file);
+WriteS (file, "      } else ");
+    Prefix;
+WriteS (file, "Attribute.Position.Column ++;");WriteNl (file);
+WriteS (file, "   } while (ch == ' ' || ch == '\t' || ch == '\n');");WriteNl (file);
+
+WriteS (file, '   return ch == -1 ? 0 : ch;');WriteNl (file);
+WriteS (file, '}');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'void ');
+    Prefix;
+WriteS (file, 'ErrorAttribute (Token, RepairAttribute)');WriteNl (file);
+WriteS (file, '   int Token;');WriteNl (file);
+WriteS (file, '   ');
+    Prefix;
+WriteS (file, 'tScanAttribute * RepairAttribute;');WriteNl (file);
+WriteS (file, '{ }');WriteNl (file);
+
+    WriteClose (file);
+  END ScaC;
+
+END SupC.

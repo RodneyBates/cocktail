@@ -1,0 +1,2019 @@
+     1 
+     2 (* Ich, Doktor Josef Grosch, Informatiker, 21.3.1989 *)
+     3 (* Rodney Bates 6-94 Added ForAllClassesPreAndPost, to support max 
+c    4      subclass #s. *)
+     5 (* Rodney Bates 11-95 Added attributes Class.ClassChildCount and 
+c    6      Child.ChildIndex, to support generating parsers which respect 
+c    7      attribute dependencies. *)
+     8 (* Rodney M. Bates: Feb 96 added SpecWith and BodyWith
+c    9      target code texts to support Ada. *)
+    10 (* Rodney M. Bates: Jul 96 added MustBeLabel field to VarUse to 
+c   11      support allow/require ':' or ':>' after label in pattern (-u switch) *) 
+    12 (* Rodney M. Bates: May 97 split DontCare[1]{Explicit|Internal} *)
+    13 (* Rodney M. Bates: May 97 gave TreeName an EmptyType field in MODULE Puma *)
+    14 (* Rodney M. Bates: Jun 97 Added puma node BinaryCompound to support Ada's
+c   15      AND THEN and OR ELSE operators. *) 
+    16 (* Rodney M. Bates: Jun 97 Rename 'Then' to 'ThenPart' and 'Else' to 
+c   17      'ElsePart', to avoid conflicts with new case-insensitive recognition
+c   18      of Ada operators THEN and ELSE *) 
+    19 (* Rodney M. Bates: Sept 97 Add field Object to Ident, for use in replacing
+c   20      the -w WITH generation with explicit paths. *) 
+    21 (* Rodney M. Bates: Sept 97 use C comment delimiters to hide some cpp
+c   22      macro definitions which were formerly hidden just by not being in
+c   23      col 1.  GNU cpp recognizes them even with leading blanks. *)
+    24 (* Rodney M. Bates: Sept 97 change backslash chars from quote-backslash-quote
+c   25      to 134C, which is still modula-2 but doesn`t give cpp heartburn. *) 
+    26 (* Rodney M. Bates: Nov 97 Add ForAllClassesExtensions, which does 
+c   27    extensions first.  This makes it work for generation of Modula-3 
+c   28    TYPECASE statements. Some existing code (particularly, oag.puma) 
+c   29    apparently depend on doing extensions last, so that version 
+c   30      remains. *) 
+    31 (* Rodney M. Bates Jun 98 Add attribute property Link. *) 
+    32 (* Rodney M. Bates Sep 98 Add IsProperlyNarrowed to ConsType. *) 
+    33 (* Rodney M. Bates Sep 98 Add UniversalClass to TreeName, 
+c   34              add Depth to Class, add new subclass RoutineFormal . *) 
+    35 (* Rodney M. Bates May 1999 Add IsProperlyNarrowed to Decompose and NilTest. *) 
+    36 (* Rodney M. Bates July 1999 Add tPosition fields NamePos for LHS of NamedExpr
+c   37              and AttributePos for RHS of AttrDesc and Designator. *)
+    38 (* Rodney M. Bates Aug 1999 Puma changes for more general labels:
+c   39              Give all Expr a Selector and a Widen.
+c   40              Give NilTest, DontCare1, and Value a Selector. 
+c   41              Give NilTest a Widen. *) 
+    42 (* Rodney M. Bates Aug 1999 Puma changes:
+c   43              Change TargetType and DeclaredTypeIsGuaranteed of
+c   44              RoutineFormal to INPUT attributes.
+c   45              Add children Hides and DeclPos to Formal. 
+c   46              Add HasDelimiter to VarDef. *) 
+    47 (* Rodney M. Bates Nov 1999 Puma changes:
+c   48              Rename field "Name" of VarDef to "Selector". *) 
+    49 
+    50 MODULE AstIn                                                                  *     *
+    51 
+    52 PROPERTY INPUT                                                                *     *
+    53 
+    54 RULE                                                                          *
+    55 
+    56 Classes         = <                                                           *
+    57    NoClass      = .                                                           *
+    58    Class        = [Name: tIdent] [Properties: tClassProperties]               *     *     *     *     *
+    59                   Attributes Extensions: Classes Next: Classes REV .          *     *    56     *     *     *
+    60 >.
+    61 Attributes      = <                                                          59
+    62    NoAttribute  = .                                                           *
+    63    AttrOrAction = Next: Attributes REV <                                      *    59    61    59
+    64       Child     = [Name: tIdent] [Type: tIdent] [Properties: tAttrProperties] .     *    58    58     *     *    58     *
+    65       Attribute = [Name: tIdent] [Type: tIdent] [Properties: tAttrProperties] .     *    64    64    64     *    64    64
+    66       ActionPart= .                                                           *
+    67    >.
+    68 >.
+    69 
+    70 END AstIn                                                                     *    50
+    71 
+    72 MODULE Ast                                                                   50     *
+    73 
+    74 RULE                                                                         54
+    75 
+    76 Class           = BaseClass: Classes .                                       58     *    59
+    77 
+    78 END Ast                                                                      70    72
+    79 
+    80 MODULE Common                                                                72     *
+    81 
+    82 TREE IMPORT     {                                                             *     *
+    83 
+    84 FROM SYSTEM     IMPORT ADDRESS;                                               *     *    82     *
+    85 FROM IO         IMPORT tFile;                                                84     *    84     *
+    86 FROM Strings    IMPORT tString;                                              85     *    85     *
+    87 FROM StringMem  IMPORT tStringRef;                                           86     *    86     *
+    88 FROM Idents     IMPORT tIdent;                                               87     *    87    65
+    89 FROM Texts      IMPORT tText;                                                88     *    88     *
+    90 FROM Sets       IMPORT tSet;                                                 89     *    89     *
+    91 FROM Relations  IMPORT tRelation;                                            90     *    90     *
+    92 FROM Positions  IMPORT tPosition;                                            91     *    91     *
+    93 
+    94 VAR ErrorCount  : CARDINAL;                                                   *     *     *
+    95 
+    96 CONST                                                                         *
+    97 
+    98    (* properties of attributes and attribute instances          *)
+    99 
+   100    Virtual      = 0;                                                          *
+   101    Computed     = 1;                                                          *
+   102    Reverse      = 2;    (* list attribute to be used for reversion *)         *
+   103    Write        = 3;    (* Usage:                               *)            *
+   104    Read         = 4;    (*                                      *)            *
+   105    Inherited    = 5;    (* Kind:                                *)            *
+   106    Synthesized  = 6;                                                          *
+   107    Input        = 7;    (* Mode:                                *)            *
+   108    Output       = 8;                                                          *
+   109    Tree         = 9;    (* Store:                               *)            *
+   110    Parameter    = 10;                                                         *
+   111    Stack        = 11;                                                         *
+   112    Variable     = 12;   (*      global variable                 *)            *
+   113    Demand       = 13;                                                         *
+   114    Funct        = 14;                                                         *
+   115    Ignore       = 15;                                                         *
+   116 (* Abstract     = 16;                                           *)
+   117    Link         = 16;   (* a link child, not a tree child       *)            *
+   118    Thread       = 17;   (* specified thread                     *)            *
+   119    Test         = 18;   (* generated for check                  *)            *
+   120    Left         = 19;   (* lhs/rhs of rule (for instances)      *)            *
+   121    Right        = 20;   (*                                      *)            *
+   122    CopyDef      = 21;   (* defined by copy rule                 *)            *
+   123    CopyUse      = 22;   (* used by copy rule                    *)            *
+   124    NonBaseComp  = 23;   (* non inherited computation            *)            *
+   125    MultInhComp  = 24;   (* multiple inherited computation       *)            *
+   126    First        = 25;   (* first attribute of group             *)            *
+   127    Dummy        = 26;   (* dummy attribute for complete evaluation *)         *
+   128    Def          = 27;   (* marks definition of attribute        *)            *
+   129    Use          = 28;   (* marks last use of attribute          *)            *
+   130    ChildUse     = 29;   (* marks last use of rhs attribute      *)            *
+   131    ParentUse    = 30;   (* marks last use of lhs attribute      *)            *
+   132    Generated    = 31;   (* action part has been generated       *)            *
+   133 
+   134    (* properties of classes                                     *)
+   135 
+   136    Top          = 0;    (* declaration level:                   *)            *
+   137    Intermediate = 1;    (*                                      *)            *
+   138    Low          = 2;    (*      (has no extensions)             *)            *
+   139    Referenced   = 3;    (* explicitly used                      *)            *
+   140    Reachable    = 4;    (* reachable maybe via extensions       *)            *
+   141    Nonterminal  = 5;                                                          *
+   142    Terminal     = 6;                                                          *
+   143    Explicit     = 7;    (* class explicitely declared           *)            *
+   144    Implicit     = 8;    (* class implicitely declared           *)            *
+   145    Trace        = 9;    (*                                      *)            *
+   146    String       = 10;   (* named by string, otherwise ident     *)            *
+   147    HasSelector  = 11;   (* selector explicitly specified        *)            *
+   148    HasChildren  = 12;   (*                                      *)            *
+   149    HasAttributes= 13;   (*                                      *)            *
+   150    HasActions   = 14;   (*                                      *)            *
+   151 (* Ignore       = 15;                                           *)
+   152    Abstract     = 16;                                                         *
+   153    Mark         = 17;                                                         *
+   154    HasOutput    = 18;   (* has output attributes or tests       *)            *
+   155 }
+   156 
+   157 EXPORT  {                                                                     *
+   158 
+   159 TYPE                                                                          *
+   160    INTEGER0             = SHORTCARD;                                          *     *
+   161    tAttrProperties      = BITSET;                                            65     *
+   162    tClassProperties     = BITSET;                                            58   161
+   163    tClass               = tTree;                                              *     *
+   164    ProcOfT              = PROCEDURE (tTree);                                  *     *   163
+   165 
+   166 VAR                                                                          94
+   167    Options      : tSet;                                                       *    90
+   168    f            : tFile;                                                      *    85
+   169    SourceFile   : ARRAY [0..255] OF CHAR;                                     *     *     *     *
+   170    NoCodeAttr   ,                                                             *
+   171    NoCodeClass  : BITSET;                                                     *   162
+   172 
+   173 PROCEDURE InitIdentifyClass     (t: tTree);                                 164     *     *   164
+   174 PROCEDURE InitIdentifyClass2    (t: tTree);                                 173     *   173   173
+   175 PROCEDURE IdentifyClass         (t: tTree; Ident: tIdent): tTree;           174     *   174   174     *    88     *
+   176 (* Return Attribute node for attribute "Ident" of class "t" *) 
+   177 PROCEDURE IdentifyAttribute     (t: tTree; Ident: tIdent): tTree;           175     *   175   175   175   175     *
+   178 PROCEDURE ForallClasses         (t: tTree; Proc: ProcOfT);                  177     *   177   177     *   164
+   179 PROCEDURE ForallClassesExtensionsFirst (t: tTree; Proc: ProcOfT);           178     *   178   178   178   178
+   180 PROCEDURE ForallClassesPreAndPost (t: tTree; PreProc, PostProc : ProcOfT);        179     *   179   179     *     *   179
+   181 PROCEDURE ForallAttributes      (t: tTree; Proc: ProcOfT);                  180     *   180   180   179   180
+   182 PROCEDURE Error         (ErrorCode: INTEGER; Pos: tPosition);               181     *     *     *     *    92
+   183 PROCEDURE Warning       (ErrorCode: INTEGER; Pos: tPosition);               182     *   182   182   182   182
+   184 PROCEDURE Information   (ErrorCode: INTEGER; Pos: tPosition);               183     *   183   183   183   183
+   185 PROCEDURE ErrorI        (ErrorCode: INTEGER; Pos: tPosition; iClass: INTEGER; iPtr: \   184     *   184   184   184   184
+                                                                                     *     *     *
+      \ADDRESS);                                                                    84
+   186 PROCEDURE WarningI      (ErrorCode: INTEGER; Pos: tPosition; iClass: INTEGER; iPtr: \   185     *   185   185   185   185
+                                                                                   185     *   185
+      \ADDRESS);                                                                   185
+   187 PROCEDURE InformationI  (ErrorCode: INTEGER; Pos: tPosition; iClass: INTEGER; iPtr: \   186     *   186   186   186   186
+                                                                                   186     *   186
+      \ADDRESS);                                                                   186
+   188 PROCEDURE WI            (i: tIdent);                                        187     *     *   177
+   189 PROCEDURE WE            (i: tIdent);                                        188     *   188   188
+   190 PROCEDURE WN            (n: INTEGER);                                       189     *     *   187
+   191 }
+   192 
+   193 GLOBAL  {                                                                     *
+   194 
+   195 FROM SYSTEM     IMPORT ADR, ADDRESS, TSIZE;                                  92    84    92     *   187     *
+   196 FROM DynArray   IMPORT MakeArray;                                           195     *   195     *
+   197 FROM IO         IMPORT tFile, StdOutput, ReadI, WriteS, WriteI, WriteC, WriteNl;        196    85   196   168     *     *
+                                                                                     *     *     *     *
+   198 FROM Strings    IMPORT tString, ArrayToString, Concatenate, Length, Char;   197    86   197    86     *     *     *     *
+   199 FROM StringMem  IMPORT tStringRef, WriteString;                             198    87   198    87     *
+   200 FROM Idents     IMPORT tIdent, NoIdent, GetString, WriteIdent, MakeIdent, MaxIdent;     199    88   199   189     *     *
+                                                                                     *     *     *
+   201 FROM Texts      IMPORT tText, MakeText;                                     200    89   200    89     *
+   202 FROM Sets       IMPORT tSet, Include, IsElement, MakeSet;                   201    90   201   167     *     *     *
+   203 FROM Relations  IMPORT tRelation, IsRelated, MakeRelation;                  202    91   202    91     *     *
+   204 FROM Positions  IMPORT tPosition;                                           203    92   203   187
+   205 
+   206 IMPORT Relations, Errors;                                                   204   203     *
+   207 
+   208 # define beginINTEGER0(a)       a := 0;                                       *     *     *     *
+   209 # define readINTEGER0(a)        a := IO.ReadI (yyf);                        208     *   208     *   197   197     *
+   210 # define writeINTEGER0(a)       IO.WriteI (yyf, a, 0);                      209     *   209   209   197   209     *
+   211 # define beginBOOLEAN(a)        a := FALSE;                                 210     *   210     *     *
+   212 # define begintIdent(a)         a := NoIdent;                               211     *   211     *   200
+   213 
+   214 CONST Backslash = 134C ; (* This code goes through cpp (via cg), as well as into         96     *
+c  215                             a modula-2 compiler.  cpp chokes on 
+c  216                             quote-backslash-quote. *)  
+   217 
+   218 VAR IdentToClassPtr     : POINTER TO ARRAY [0..1000000] OF tTree;           166     *     *     *   169   169   181
+   219 VAR IdentToClassSize    : LONGINT;                                          218     *     *
+   220 VAR sIdentToClassSize   : tIdent;                                           219     *   200
+   221 
+   222 PROCEDURE InitIdentifyClass (t: tTree);                                     190   173   181   218
+   223    VAR i: INTEGER;                                                          220   189   190
+   224    BEGIN                                                                      *
+   225       IdentToClassSize := MaxIdent () + 1;                                  219   200
+   226       sIdentToClassSize := IdentToClassSize;                                220   225
+   227       MakeArray (IdentToClassPtr, IdentToClassSize, TSIZE (tTree));         196   218   226   195   222
+   228       FOR i := 0 TO IdentToClassSize - 1 DO                                   *   223   218   227     *
+   229          IdentToClassPtr^ [i] := NoTree;                                    227   228     *
+   230       END;                                                                   78
+   231       ForallClasses (t, InitIdentifyClass2);                                178   222   174
+   232    END InitIdentifyClass;                                                   230   222
+   233 
+   234 PROCEDURE InitIdentifyClass2 (t: tTree);                                    222   231   231   227
+   235    BEGIN                                                                    224
+   236       IdentToClassPtr^ [t^.Class.Name] := t;                                229   234    76    65     *
+   237    END InitIdentifyClass2;                                                  232   234
+   238 
+   239 PROCEDURE IdentifyClass (t: tTree; Ident: tIdent): tTree;                   234   175   236   234   177   220     *
+   240    BEGIN                                                                    235
+   241       IF Ident < sIdentToClassSize THEN RETURN IdentToClassPtr^ [Ident]; END;       *   239   226     *     *   236     *
+                                                                                   237
+   242       RETURN NoTree;                                                        241   229
+   243    END IdentifyClass;                                                       241   239
+   244 
+   245 (* Return Attribute node for attribute "Ident" of class "t" *) 
+   246 PROCEDURE IdentifyAttribute (t: tTree; Ident: tIdent): tTree;               239   177   239   239   241   239     *
+   247    VAR attribute        : tTree;                                            223     *   246
+   248    BEGIN                                                                    240
+   249       LOOP                                                                    *
+   250          CASE t^.Kind OF                                                      *   246     *   218
+   251          | Class:                                                           236
+   252                attribute := IdentifyAttribute (t^.Class.BaseClass, Ident);        247   246   250   251    76   246
+   253                IF attribute # NoTree THEN RETURN attribute; END;            241   252   242   241   242     *   243
+   254                t := t^.Class.Attributes;                                    252     *   252    63
+   255                         (* RETURN IdentifyAttribute (t^.Class.Attributes, Ident); *)
+   256          | Child:                                                            64
+   257                IF t^.Child.Name = Ident THEN RETURN t; END;                 253   254   256   236   252   253   253     *
+                                                                                   253
+   258                t := t^.Child.Next;                                          257     *   257    63
+   259                         (* RETURN IdentifyAttribute (t^.Child.Next, Ident); *)
+   260          | Attribute:                                                        65
+   261                IF t^.Attribute.Name = Ident THEN RETURN t; END;             257   258   260   257   257   257   257     *
+                                                                                   257
+   262                t := t^.Attribute.Next;                                      261     *   261   258
+   263                         (* RETURN IdentifyAttribute (t^.Attribute.Next, Ident); *)
+   264          | ActionPart:                                                       66
+   265                t := t^.ActionPart.Next;                                     262     *   264   262
+   266                         (* RETURN IdentifyAttribute (t^.ActionPart.Next, Ident); *)
+   267          ELSE                                                                 *
+   268                RETURN NoTree;                                               261   253
+   269          END;                                                               261
+   270       END;                                                                  269
+   271    END IdentifyAttribute;                                                   270   252
+   272 
+   273 PROCEDURE ForallClasses (t: tTree; Proc: ProcOfT);                          246   231   265   247   181   181
+   274    BEGIN                                                                    248
+   275       WHILE t^.Kind = Class DO                                                *   273   250   254   228
+   276          Proc (t);                                                          273   275
+   277          ForallClasses (t^.Class.Extensions, Proc);                         273   276   275    59   276
+   278          t := t^.Class.Next;            (* ForallClasses (t^.Class.Next, Proc); *)      277     *   277   265
+   279       END;                                                                  271
+   280    END ForallClasses;                                                       279   277
+   281 
+   282 PROCEDURE ForallClassesExtensionsFirst (t: tTree; Proc: ProcOfT);           273   179   278   273   277   273
+   283    BEGIN                                                                    274
+   284       WHILE t^.Kind = Class DO                                              275   282   275   278   275
+   285          ForallClassesExtensionsFirst (t^.Class.Extensions, Proc);          282   284   284   277   282
+   286          Proc (t);                                                          285   285
+   287          t := t^.Class.Next;            (* ForallClassesExtensionsFirst (t^.Class.Ne\   286     *   285   278
+c     \xt, Proc); *)
+   288       END;                                                                  280
+   289    END ForallClassesExtensionsFirst ;                                       288   285
+   290 
+   291 (* R.M.B. *)
+   292 PROCEDURE ForallClassesPreAndPost (t: tTree; PreProc, PostProc : ProcOfT);        282   180   287   282   180   180   282
+   293    BEGIN                                                                    283
+   294       WHILE t^.Kind = Class DO                                              284   292   284   287   284
+   295          PreProc (t);                                                       292   294
+   296          ForallClassesPreAndPost (t^.Class.Extensions, PreProc, PostProc);        292   295   294   285   295   292
+   297          PostProc (t);                                                      296   296
+   298          t := t^.Class.Next;                                                297     *   296   287
+   299       END;                                                                  289
+   300    END ForallClassesPreAndPost;                                             299   296
+   301 (* R.M.B. end *)
+   302 
+   303 PROCEDURE ForallAttributes (t: tTree; Proc: ProcOfT);                       292   181   298   292   286   292
+   304    BEGIN                                                                    293
+   305       LOOP                                                                  249
+   306          CASE t^.Kind OF                                                    250   303   294   250
+   307          | Class:                                                           298
+   308                ForallAttributes (t^.Class.BaseClass, Proc);                 303   306   307   252   303
+   309                t := t^.Class.Attributes; (* ForallAttributes (t^.Class.Attributes, P\   308     *   308   254
+c     \roc); *)
+   310          | Child:                                                           258
+   311                Proc (t);                                                    308   309
+   312                t := t^.Child.Next;      (* ForallAttributes (t^.Child.Next, Proc); *\   311     *   310   298
+c     \)
+   313          | Attribute:                                                       262
+   314                Proc (t);                                                    311   312
+   315                t := t^.Attribute.Next;  (* ForallAttributes (t^.Attribute.Next, Proc\   314     *   313   312
+c     \); *)
+   316          | ActionPart:                                                      265
+   317                Proc (t);                                                    314   315
+   318                t := t^.ActionPart.Next; (* ForallAttributes (t^.ActionPart.Next, Pro\   317     *   316   315
+c     \c); *)
+   319          ELSE                                                               267
+   320                RETURN;                                                      268
+   321          END;                                                               300
+   322       END;                                                                  321
+   323    END ForallAttributes;                                                    322   308
+   324 
+   325 PROCEDURE Error (ErrorCode: INTEGER; Pos: tPosition);                       303   182   187   223   187   204
+   326    BEGIN                                                                    304
+   327       Errors.ErrorMessage (ErrorCode, Errors.Error, Pos);                   206     *   325     *   325   325
+   328       INC (ErrorCount);                                                       *    94
+   329    END Error;                                                               323   327
+   330 
+   331 PROCEDURE Warning (ErrorCode: INTEGER; Pos: tPosition);                     325   183   327   325   327   325
+   332    BEGIN                                                                    326
+   333       Errors.ErrorMessage (ErrorCode, Errors.Warning, Pos);                 327   327   331     *   331   331
+   334    END Warning;                                                             329   333
+   335 
+   336 PROCEDURE Information (ErrorCode: INTEGER; Pos: tPosition);                 331   184   333   331   333   331
+   337    BEGIN                                                                    332
+   338       Errors.ErrorMessage (ErrorCode, Errors.Information, Pos);             333   333   336     *   336   336
+   339    END Information;                                                         334   338
+   340 
+   341 PROCEDURE ErrorI (ErrorCode: INTEGER; Pos: tPosition; iClass: INTEGER; iPtr: ADDRESS\   336   185   338   336   338   336
+                                                                                   187     *   187   195
+      \);
+   342    BEGIN                                                                    337
+   343       Errors.ErrorMessageI (ErrorCode, Errors.Error, Pos, iClass, iPtr);    338     *   341     *   329   341   341   341
+   344       INC (ErrorCount);                                                     328   328
+   345    END ErrorI;                                                              339   341
+   346 
+   347 PROCEDURE WarningI (ErrorCode: INTEGER; Pos: tPosition; iClass: INTEGER; iPtr: ADDRE\   341   186   343   341   343   341
+                                                                                   343     *   343
+      \SS);                                                                        341
+   348    BEGIN                                                                    342
+   349       Errors.ErrorMessageI (ErrorCode, Errors.Warning, Pos, iClass, iPtr);        343   343   347     *   334   347   347
+                                                                                   347
+   350    END WarningI;                                                            345   347
+   351 
+   352 PROCEDURE InformationI (ErrorCode: INTEGER; Pos: tPosition; iClass: INTEGER; iPtr: A\   347   187   349   347   349   347
+                                                                                   349     *   349
+      \DDRESS);                                                                    347
+   353    BEGIN                                                                    348
+   354       Errors.ErrorMessageI (ErrorCode, Errors.Information, Pos, iClass, iPtr);    349   349   352     *   339   352   352
+                                                                                   352
+   355    END InformationI;                                                        350   352
+   356 
+   357 PROCEDURE WI (i: tIdent); BEGIN WriteIdent (f, i); END WI;                  352   188   229   246   353   200   168     *
+                                                                                   355     *
+   358 
+   359 PROCEDURE WE (i: tIdent);                                                   357   189   357   357
+   360    VAR s: tString; Ch: CHAR; j: SHORTCARD;                                  247     *   198     *   169     *   160
+   361    BEGIN                                                                    357
+   362       GetString (i, s);                                                     200   359   360
+   363       FOR j := 1 TO Length (s) DO                                           228   360   228   198   362   294
+   364          Ch := Char (s, j);                                                 360   198   363   363
+   365          IF (Ch = '{') OR (Ch = '}') OR (Ch = Backslash)                    261   364     *     *     *     *   214
+   366          THEN WriteC (f, Backslash);                                        261   197   357   365
+   367          END;                                                               357
+   368          WriteC (f, Ch);                                                    366   366   365
+   369       END;                                                                  367
+   370    END WE;                                                                  369   359
+   371 
+   372 PROCEDURE WN (n: INTEGER); BEGIN WriteI (f, n, 0); END WN;                  359   190   190   352   361   210   368     *
+                                                                                   370     *
+   373 }
+   374 
+   375 BEGIN   {                                                                   372
+   376    ErrorCount := 0;                                                         344
+   377    MakeSet (Options, 127);                                                  202   167
+   378    NoCodeAttr  := {Test, Dummy, Virtual, Parameter};                        170   119   127   100   110
+   379    NoCodeClass := {Ignore, Abstract};                                       171   115   152
+   380 }
+   381 
+   382 PROPERTY INPUT                                                               52    52
+   383 
+   384 RULE                                                                         74
+   385 
+   386 Codes           = [Export: tText] [Import: tText] [Global: tText]             *     *   201     *     *     *     *
+   387                   [SpecWith: tText] [BodyWith: tText]                         *   386     *     *
+   388                   [Local: tText] [Begin: tText] [Close: tText]                *   387     *     *     *     *
+   389                   [ExportLine: tPosition] [ImportLine: tPosition] [GlobalLine: tPosi\     *   352     *     *     *
+      \tion]                                                                         *
+   390                   [SpecWithLine: tPosition] [BodyWithLine: tPosition]         *   389     *     *
+   391                   [LocalLine: tPosition] [BeginLine: tPosition] [CloseLine: tPositio\     *   390     *     *     *
+      \n] .                                                                          *
+   392 
+   393 Designators     = <                                                           *
+   394    NoDesignator = .                                                           *
+   395    Designator   = [Selector: tIdent] [Attribute: tIdent] [Pos: tPosition]     *     *   359   315     *   354   391
+   396                   [AttributePos: tPosition (* of RHS *) ]                     *   395
+   397                   Next: Designators REV .                                   318   393    63
+   398    Ident        = [Attribute: tIdent] [Pos: tPosition]                      261   395   395   395   396
+   399                   Next: Designators REV .                                   397   397   397
+   400    Remote       = Designators [Type: tIdent] [Attribute: tIdent] [Pos: tPosition]         *   399    65   398   398     *
+                                                                                   398   398
+   401                   Next: Designators REV .                                   399   400   399
+   402    Any          = [Code: tStringRef]                                          *     *   199
+   403                   Next: Designators REV .                                   401   401   401
+   404    Anys         = Layouts                                                     *     *
+   405                   Next: Designators REV .                                   403   403   403
+   406 >.
+   407 Layouts         = <                                                         404
+   408    NoLayout     = .                                                           *
+   409    LayoutAny    = [Code: tStringRef]                                          *   402   402
+   410                   Next: Layouts REV .                                       405   407   405
+   411 >.
+   412 Names           = <                                                           *
+   413    NoName       = .                                                           *
+   414    Name         = [Name: tIdent] [Pos: tPosition]                           261     *   400   400   400
+   415                   Next: Names REV .                                         410   412   410
+   416 >.
+   417 
+   418 END Common                                                                  372    80
+   419 
+   420 MODULE Cg                                                                    80     *
+   421 
+   422 TREE IMPORT     {                                                            82   206
+   423 
+   424 CONST                   (* grammar classes      *)                          214
+   425 
+   426    cLNC         = 0;    (* locally non circular *)                            *
+   427    cWAG         = 1;    (* well defined *)                                    *
+   428    cSNC         = 2;    (* ANC, ANCAG *)                                      *
+   429    cDNC         = 3;                                                          *
+   430    cLordered    = 4;                                                          *
+   431    cOAG         = 5;                                                          *
+   432    cSweep       = 6;                                                          *
+   433    cALT         = 7;    (* APAG *)                                            *
+   434    cLAG         = 8;                                                          *
+   435    cRAG         = 9;                                                          *
+   436    cSAG         = 10;                                                         *
+   437 
+   438 TYPE                                                                        159
+   439    tBitInfo     = RECORD ToBit, ToAttr: SHORTCARD; END;                       *     *     *     *   360   418
+   440    tBitIndex    = POINTER TO ARRAY [1 .. 1000000] OF tBitInfo;                *   218   363   218   306   439
+   441    tInstancePtr = POINTER TO tInstances;                                      *   440   440     *
+   442    tSetOfRelPtr = POINTER TO tSetOfRel;                                       *   441   441     *
+   443    tSetOfRel    = RECORD Relation: tRelation; Next: tSetOfRelPtr; END;      442   439     *   203   415   442   439
+   444    INTEGER9999  = SHORTCARD;                                                  *   439
+   445 
+   446 VAR                                                                         360
+   447    ClassCount   : INTEGER;                                                    *   372
+   448    GrammarClass : BITSET;                                                     *   171
+   449    MaxVisit     : SHORTCARD;                                                  *   444
+   450    SubUnit      ,                                                             *
+   451    ViewName     ,                                                             *
+   452    iPosition    ,                                                             *
+   453    itPosition   ,                                                             *
+   454    iInteger     ,                                                             *
+   455    iMain        , (* TREE name *)                                             *
+   456    iModule      , (* SUBUNIT module name, possibly different from iMain *)          *
+   457    itTree       ,                                                             *
+   458    iNoTree      : tIdent;                                                     *   414
+   459    ModuleName   : tString;                                                    *   360
+   460    TypeNames    ,                                                             *
+   461    MaxSet       : tSet;                                                       *   202
+   462 }
+   463 
+   464 EXPORT  {                                                                   157
+   465 TYPE                                                                        438
+   466    tInstance    = RECORD                                                      *   443
+   467                      Selector   : tTree; (* For rhs attributes only, the rhs      395   303
+c  468                                             child to which it belongs *) 
+   469                      Attribute  : tTree;                                    400   467
+   470                      Action     : tTree;                                      *   469
+   471                      Properties : tAttrProperties;                           65   161
+   472                      Order      : SHORTINT;                                   *     *
+   473                      CopyArg    : SHORTCARD;                                  *   449
+   474                   END;                                                      443
+   475    tInstances   = ARRAY [1 .. 100000] OF tInstance;                         441   440   440   466
+   476 
+   477 VAR                                                                         446
+   478    nNoAction    ,                                                             *
+   479    nNoAttribute ,                                                             *
+   480    nNoClass     ,                                                             *
+   481    nNoDecl      ,                                                             *
+   482    nNoDesignator,                                                             *
+   483    nNoLayout    ,                                                             *
+   484    nNoModule    ,                                                             *
+   485    nNoName      ,                                                             *
+   486    nNoPrec      ,                                                             *
+   487    nNoProp      : tTree;                                                      *   470
+   488 
+   489 PROCEDURE BeginTree2;                                                       372     *
+   490 PROCEDURE IdentifyModule        (t: tTree; Ident: tIdent): tTree;           489     *   318   487   398   458     *
+   491 PROCEDURE WriteName             (i: tInstance);                             490     *   362   475
+   492 PROCEDURE WriteInstance         (i: tInstance);                             491     *   491   491
+   493 PROCEDURE WriteDependencies     (t: tTree; r: tRelation; s: tSet);          492     *   490   490     *   443   364   461
+   494 PROCEDURE WriteCyclics          (t: tTree; s: tSet);                        493     *   493   493   493   493
+   495 PROCEDURE WriteAttrProperties   (f: tFile; Properties: tAttrProperties);    494     *   372   197   471   471
+   496 PROCEDURE WriteClassProperties  (f: tFile; Properties: tClassProperties);   495     *   495   495   495   162
+   497 PROCEDURE WriteClass            (t: tTree);                                 496     *   494   494
+   498 }
+   499 
+   500 GLOBAL  {                                                                   193
+   501 
+   502 VAR                                                                         477
+   503    DummySet     : tSet;                                                       *   494
+   504    DummyRelation: tRelation;                                                  *   493
+   505 
+   506 # define begintPosition(a)      a.Line := 0; a.Column := 0;                 212     *   212     *     *     *     *
+   507 # define readtPosition(a)       a.Line := ReadI (yyf); a.Column := ReadI (yyf);   506     *   506     *   506   209   210
+                                                                                     *   506     *     *
+   508 # define beginINTEGER9999(a)    a := 9999;                                  507     *   507     *
+   509 # define readINTEGER9999(a)     a := IO.ReadI (yyf);                        508     *   508     *   210   507   507
+   510 # define writeINTEGER9999(a)    WriteI (yyf, a, 0);                         509     *   509   372   509     *
+   511 # define beginBITSET(a)         a := {};                                    510     *   510     *
+   512 # define writetClass(a)         yyWriteHex (a);                             511     *   511     *     *
+   513 # define begintText(a)          MakeText (a);                               512     *   512   201     *
+   514 # define begintSet(a)           a := DummySet;                              513     *   513     *   503
+   515 # define begintRelation(a)      a := DummyRelation;                         514     *   514     *   504
+   516 (* IF NOT Test *)
+   517 # define writetAttrProperties(a)        WriteAttrProperties(yyf, a);        515     *   515   495   510     *
+   518 # define writetClassProperties(a)       WriteClassProperties(yyf, a);       517     *   517   496   517     *
+   519 (* *)
+   520 (* IF Test 
+c  521 /*  On Linux, GNU cpp recognizes and processes these macro definitions,
+c  522     even though they do not start in col 1.  Hiding them in C comment
+c  523     delimiters prevents this. 
+c  524    # define readtText(a)                yyReadHex (a);
+c  525    # define writetText(a)               yyWriteHex (a);
+c  526    # define puttText(a)         yyPut (a);
+c  527    # define gettText(a)         yyGet (a);
+c  528    # define writetSet(a)                yyWriteHex (a);
+c  529    # define readtSet(a)         yyReadHex (a);
+c  530    # define puttSet(a)          yyPut (a);
+c  531    # define gettSet(a)          yyGet (a);
+c  532    # define readtRelation(a)    yyReadHex (a);
+c  533    # define writetRelation(a)   yyWriteHex (a);
+c  534    # define puttRelation(a)     yyPut (a);
+c  535    # define gettRelation(a)     yyGet (a);
+c  536 */ 
+c  537 *)
+   538 
+   539 PROCEDURE BeginTree2;                                                       497   489
+   540    VAR Word     : tString;                                                  502     *   459
+   541    BEGIN                                                                    375
+   542       WITH TreeRoot^.Ag DO                                                    *     *     *   363
+   543          IF ParserName = NoIdent THEN                                       365     *   212   366
+   544             ArrayToString ("Parser"     , Word); ParserName     := MakeIdent (Word);    198   540   543   200     *
+   545          END;                                                               474
+   546          IF TreeName = NoIdent THEN                                         543     *   543   543
+   547             ArrayToString ("Tree"       , Word); TreeName       := MakeIdent (Word);    544   544   546   544     *
+   548          END;                                                               545
+   549          IF EvalName = NoIdent THEN                                         546     *   546   546
+   550             ArrayToString ("Eval"       , Word); EvalName       := MakeIdent (Word);    547   547   549   547     *
+   551          END;                                                               548
+   552          IF ViewName = NoIdent THEN ViewName := TreeName; END;              549   451   549   549     *   547   551
+   553          GetString (TreeName, ModuleName);                                  362   552   459
+   554          iMain := TreeName;                                                 455   553
+   555       END;                                                                  552
+   556       ArrayToString ("t" , Word); Concatenate (Word, ModuleName); itTree  := MakeIde\   550   550   198     *   553   457
+      \nt (Word);                                                                  550     *
+   557       ArrayToString ("No", Word); Concatenate (Word, ModuleName); iNoTree := MakeIde\   556   556   556     *   556   458
+      \nt (Word);                                                                  556     *
+   558       ArrayToString ("Position"         , Word); iPosition      := MakeIdent (Word);    557   557   452   557     *
+   559       ArrayToString ("tPosition"        , Word); itPosition     := MakeIdent (Word);    558   558   453   558     *
+   560 
+   561       IF SubUnit = NoIdent THEN                                             552   450   552   552
+   562          iModule := iMain;                                                  456   554
+   563       ELSE                                                                  319
+   564          iModule := SubUnit;                                                562   561
+   565          Include (Options, ORD ('<'));                                      202   377     *
+   566       END;                                                                  555
+   567    END BeginTree2;                                                          566   539
+   568 
+   569 PROCEDURE IdentifyModule (t: tTree; Ident: tIdent): tTree;                  539   490   497   497   490   490     *
+   570    VAR module   : tTree;                                                    540     *   569
+   571    BEGIN                                                                    541
+   572       IF t^.Kind = Module THEN                                              561   569   306     *   561
+   573          IF t^.Module.Name = Ident THEN RETURN t; END;                      572   572   572   414   569   572   320     *
+                                                                                   567
+   574          RETURN IdentifyModule (t^.Module.Next, Ident);                     573   569   573   573   443   573
+   575       ELSE                                                                  563
+   576          RETURN NoTree;                                                     574   268
+   577       END;                                                                  573
+   578    END IdentifyModule;                                                      577   574
+   579 
+   580 PROCEDURE WriteInstance (i: tInstance);                                     569   492   492   492
+   581    BEGIN                                                                    571
+   582       WITH i DO                                                             542   580   542
+   583          WriteS  (StdOutput, " ");                                          197   197
+   584          WriteName (i);                                                     491   582
+   585          WriteS  (StdOutput, "  ");                                         583   583
+   586          WriteI  (StdOutput, Attribute^.Child.Partition, 0);                510   585   469   312     *
+   587          WriteS  (StdOutput, " ");                                          585   586
+   588          WriteAttrProperties (StdOutput, Properties + Attribute^.Child.Properties);     517   587   496   586   586     *
+   589          WriteNl (StdOutput);                                               197   588
+   590       END;                                                                  578
+   591    END WriteInstance;                                                       590   580
+   592 
+   593 PROCEDURE WriteName (i: tInstance);                                         580   584   584   580
+   594    BEGIN                                                                    581
+   595       WITH i DO                                                             582   593   582
+   596          IF (Selector # NoTree) AND (Right IN Properties) THEN              573   467   576     *   121     *   588   573
+   597             WriteIdent (StdOutput, Selector^.Child.Name);                   357   589   596   588   573
+   598             WriteS     (StdOutput, ":");                                    587   597
+   599          END;                                                               591
+   600 
+   601          IF Attribute # NoTree THEN                                         596   588   596   596
+   602             WriteIdent (StdOutput, Attribute^.Child.Name);                  597   598   601   597   597
+   603          END;                                                               599
+   604       END;                                                                  603
+   605    END WriteName;                                                           604   593
+   606 
+   607 PROCEDURE WriteAttrProperties (f: tFile; Properties: tAttrProperties);      593   588   496   496   596   495
+   608    BEGIN                                                                    594
+   609       IF Virtual        IN Properties THEN WriteS (f, "Virtual "        ); END;   601   378   596   607   601   598   607
+                                                                                   605
+   610       IF Computed       IN Properties THEN WriteS (f, "Computed "       ); END;   609   101   609   609   609   609   609
+                                                                                   609
+   611       IF Reverse        IN Properties THEN WriteS (f, "Reverse "        ); END;   610   102   610   610   610   610   610
+                                                                                   610
+   612       IF Write          IN Properties THEN WriteS (f, "Write "  ); END;     611   103   611   611   611   611   611   611
+   613       IF Read           IN Properties THEN WriteS (f, "Read "   ); END;     612   104   612   612   612   612   612   612
+   614       IF Inherited      IN Properties THEN WriteS (f, "Inherited "      ); END;   613   105   613   613   613   613   613
+                                                                                   613
+   615       IF Synthesized    IN Properties THEN WriteS (f, "Synthesized "    ); END;   614   106   614   614   614   614   614
+                                                                                   614
+   616       IF Input          IN Properties THEN WriteS (f, "Input "  ); END;     615   107   615   615   615   615   615   615
+   617       IF Output         IN Properties THEN WriteS (f, "Output " ); END;     616   108   616   616   616   616   616   616
+   618       IF Tree           IN Properties THEN WriteS (f, "Tree "   ); END;     617   109   617   617   617   617   617   617
+   619       IF Parameter      IN Properties THEN WriteS (f, "Parameter "      ); END;   618   378   618   618   618   618   618
+                                                                                   618
+   620       IF Stack          IN Properties THEN WriteS (f, "Stack "  ); END;     619   111   619   619   619   619   619   619
+   621       IF Variable       IN Properties THEN WriteS (f, "Variable "       ); END;   620   112   620   620   620   620   620
+                                                                                   620
+   622       IF Demand         IN Properties THEN WriteS (f, "Demand " ); END;     621   113   621   621   621   621   621   621
+   623       IF Funct          IN Properties THEN WriteS (f, "Function "       ); END;   622   114   622   622   622   622   622
+                                                                                   622
+   624       IF Ignore         IN Properties THEN WriteS (f, "Ignore " ); END;     623   379   623   623   623   623   623   623
+   625       IF Thread         IN Properties THEN WriteS (f, "Thread " ); END;     624   118   624   624   624   624   624   624
+   626       IF Test           IN Properties THEN WriteS (f, "Test "   ); END;     625   378   625   625   625   625   625   625
+   627       IF Left           IN Properties THEN WriteS (f, "Left "   ); END;     626   120   626   626   626   626   626   626
+   628       IF Right          IN Properties THEN WriteS (f, "Right "  ); END;     627   596   627   627   627   627   627   627
+   629       IF CopyDef        IN Properties THEN WriteS (f, "CopyDef "        ); END;   628   122   628   628   628   628   628
+                                                                                   628
+   630       IF CopyUse        IN Properties THEN WriteS (f, "CopyUse "        ); END;   629   123   629   629   629   629   629
+                                                                                   629
+   631       IF NonBaseComp    IN Properties THEN WriteS (f, "NonBaseComp "    ); END;   630   124   630   630   630   630   630
+                                                                                   630
+   632       IF MultInhComp    IN Properties THEN WriteS (f, "MultInhComp "    ); END;   631   125   631   631   631   631   631
+                                                                                   631
+   633       IF First          IN Properties THEN WriteS (f, "First "  ); END;     632   126   632   632   632   632   632   632
+   634       IF Dummy          IN Properties THEN WriteS (f, "Dummy "  ); END;     633   378   633   633   633   633   633   633
+   635       IF Def            IN Properties THEN WriteS (f, "Def "    ); END;     634   128   634   634   634   634   634   634
+   636       IF Use            IN Properties THEN WriteS (f, "Use "    ); END;     635   129   635   635   635   635   635   635
+   637       IF ChildUse       IN Properties THEN WriteS (f, "ChildUse "       ); END;   636   130   636   636   636   636   636
+                                                                                   636
+   638       IF ParentUse      IN Properties THEN WriteS (f, "ParentUse "      ); END;   637   131   637   637   637   637   637
+                                                                                   637
+   639       IF Generated      IN Properties THEN WriteS (f, "Generated "      ); END;   638   132   638   638   638   638   638
+                                                                                   638
+   640    END WriteAttrProperties;                                                 639   607
+   641 
+   642 PROCEDURE WriteClassProperties (f: tFile; Properties: tClassProperties);    607   518   639   607   639   496
+   643    BEGIN                                                                    608
+   644       IF Top            IN Properties THEN WriteS (f, "Top "    ); END;     639   136   639   642   639   639   642   640
+   645       IF Intermediate   IN Properties THEN WriteS (f, "Intermediate "   ); END;   644   137   644   644   644   644   644
+                                                                                   644
+   646       IF Low            IN Properties THEN WriteS (f, "Low "    ); END;     645   138   645   645   645   645   645   645
+   647       IF Referenced     IN Properties THEN WriteS (f, "Referenced "     ); END;   646   139   646   646   646   646   646
+                                                                                   646
+   648       IF Reachable      IN Properties THEN WriteS (f, "Reachable "      ); END;   647   140   647   647   647   647   647
+                                                                                   647
+   649       IF Nonterminal    IN Properties THEN WriteS (f, "Nonterminal "    ); END;   648   141   648   648   648   648   648
+                                                                                   648
+   650       IF Terminal       IN Properties THEN WriteS (f, "Terminal "       ); END;   649   142   649   649   649   649   649
+                                                                                   649
+   651       IF Explicit       IN Properties THEN WriteS (f, "Explicit "       ); END;   650   143   650   650   650   650   650
+                                                                                   650
+   652       IF Implicit       IN Properties THEN WriteS (f, "Implicit "       ); END;   651   144   651   651   651   651   651
+                                                                                   651
+   653       IF Trace          IN Properties THEN WriteS (f, "Trace "  ); END;     652   145   652   652   652   652   652   652
+   654       IF String         IN Properties THEN WriteS (f, "String " ); END;     653   146   653   653   653   653   653   653
+   655       IF HasSelector    IN Properties THEN WriteS (f, "HasSelector "    ); END;   654   147   654   654   654   654   654
+                                                                                   654
+   656       IF HasChildren    IN Properties THEN WriteS (f, "HasChildren "    ); END;   655   148   655   655   655   655   655
+                                                                                   655
+   657       IF HasAttributes  IN Properties THEN WriteS (f, "HasAttributes "  ); END;   656   149   656   656   656   656   656
+                                                                                   656
+   658       IF HasActions     IN Properties THEN WriteS (f, "HasActions "     ); END;   657   150   657   657   657   657   657
+                                                                                   657
+   659       IF Abstract       IN Properties THEN WriteS (f, "Abstract "       ); END;   658   379   658   658   658   658   658
+                                                                                   658
+   660       IF Mark           IN Properties THEN WriteS (f, "Mark "   ); END;     659   153   659   659   659   659   659   659
+   661       IF HasOutput      IN Properties THEN WriteS (f, "HasOutput "      ); END;   660   154   660   660   660   660   660
+                                                                                   660
+   662    END WriteClassProperties;                                                661   642
+   663 
+   664 PROCEDURE WriteDependencies (t: tTree; r: tRelation; s: tSet);              642   493   574   570   493   504   494   503
+   665    VAR i, j, k, count   : SHORTCARD;                                        570   595   364     *     *   473
+   666    BEGIN                                                                    643
+   667       IF (t = NoTree)                                                       661   664   601
+   668       OR (VAL(SHORTCARD,r.Max1) # t^.Class.InstCount) THEN RETURN; END;     365     *   665   664     *   667   309     *
+                                                                                   661   576   662
+   669 (* ^Give Max1 an abstract access function *) 
+   670       WriteIdent (StdOutput, t^.Class.Name);                                602   602   668   668   602
+   671       WriteS (StdOutput, "      ");                                         661   670
+   672       WriteClassProperties (StdOutput, t^.Class.Properties);                662   671   670   670   661
+   673       WriteNl (StdOutput);                                                  589   672
+   674       WriteNl (StdOutput);                                                  673   673
+   675       FOR i := 1 TO t^.Class.InstCount DO                                   363   665   442   672   672   668   595
+   676          IF IsElement (i, s) AND NOT (Dummy IN t^.Class.Instance^ [i].Properties) TH\   667   202   675   664   596     *
+                                                                                   634   661   675   675     *     *   672
+      \EN                                                                          668
+   677             WriteName (t^.Class.Instance^ [i]);                             605   676   676   676   676
+   678             WriteS    (StdOutput, "     :");                                671   674
+   679             count := 0;                                                     665
+   680             k := 0;                                                         665
+   681             FOR j := 1 TO t^.Class.InstCount DO                             675   665   675   677   677   675   675
+   682                IF IsElement (j, s) AND IsRelated (i, j, r) THEN             676   676   681   676   676   203   677     *
+                                                                                   668   676
+   683                   IF count = 5 THEN                                         682   679   682
+   684                      WriteNl (StdOutput);                                   674   678
+   685                      WriteS  (StdOutput, "      ");                         678   684
+   686                      count := 0;                                            683
+   687                   END;                                                      668
+   688                   WriteS    (StdOutput, " ");                               685   685
+   689                   WriteName (t^.Class.Instance^ [j]);                       677   681   681   677   682
+   690                   INC (count);                                              344   686
+   691                   INC (k);                                                  690   680
+   692                END;                                                         687
+   693             END;                                                            692
+   694             WriteS (StdOutput, " (");                                       688   688
+   695             WriteI (StdOutput, k, 0);                                       586   694   691
+   696             WriteS (StdOutput, ")");                                        694   695
+   697             WriteNl (StdOutput);                                            684   696
+   698          END;                                                               693
+   699       END;                                                                  698
+   700       WriteNl (StdOutput);                                                  697   697
+   701    END WriteDependencies;                                                   699   664
+   702 
+   703 PROCEDURE WriteCyclics          (t: tTree; s: tSet);                        664   494   689   664   682   664
+   704    VAR i, count : SHORTCARD;                                                665   682   690   668
+   705    BEGIN                                                                    666
+   706       count := 0;                                                           704
+   707       FOR i := 1 TO t^.Class.InstCount DO                                   681   704   681   703   689   681   681
+   708          IF IsElement (i, s) THEN                                           683   682   707   703   683
+   709             IF count = 5 THEN                                               708   706   708
+   710                WriteNl (StdOutput);                                         700   700
+   711                count := 0;                                                  709
+   712             END;                                                            701
+   713             WriteName (t^.Class.Instance^ [i]);                             689   707   707   689   708
+   714             WriteS    (StdOutput, " ");                                     696   710
+   715             INC (count);                                                    691   711
+   716          END;                                                               712
+   717       END;                                                                  716
+   718       WriteNl (StdOutput);                                                  710   714
+   719    END WriteCyclics;                                                        717   703
+   720 
+   721 PROCEDURE WriteClass (t: tTree);                                            703   497   713   703
+   722    VAR i        : SHORTCARD;                                                704   713   704
+   723    BEGIN                                                                    705
+   724       CASE t^.Kind OF                                                       306   721   572   475
+   725       | Class   : WITH t^.Class DO                                          713   595   724     *   707
+   726             WriteIdent  (StdOutput, Name);                                  670   718   670
+   727             WriteS      (StdOutput, " =");                                  714   726
+   728             WriteNl     (StdOutput);                                        718   727
+   729             ForallAttributes (t, WriteClass);                               323   725   721
+   730             WriteNl     (StdOutput);                                        728   728
+   731             FOR i := 1 TO InstCount DO                                      707   722   707   707   725
+   732                WITH Instance^ [i] DO                                        725   713   731   731
+   733                   IF Action # ADR (Action) THEN                             709   470   195     *   709
+   734                      IF Test IN Properties THEN                             733   626   676   676   733
+   735                         WriteName (Instance^ [i]);                          713   732   732
+   736                         WriteS  (StdOutput, ":");                           727   730
+   737                      END;                                                   719
+   738                      WriteS     (StdOutput, "   {");                        736   736
+   739                      WriteClass (Action);                                   729   733
+   740                      WriteS     (StdOutput, "}");                           738   738
+   741                      WriteNl    (StdOutput);                                730   740
+   742                   END;                                                      737
+   743                END;                                                         742
+   744             END;                                                            743
+   745             WriteS      (StdOutput, ".");                                   740   741
+   746             WriteNl     (StdOutput);                                        741   745
+   747          END;                                                               744
+   748       | Child   : WITH t^.Child DO                                          602   732   729     *   732
+   749             WriteS      (StdOutput, "   ");                                 745   746
+   750             WriteIdent  (StdOutput, Name);                                  726   749   726
+   751             WriteS      (StdOutput, ": ");                                  749   750
+   752             WriteIdent  (StdOutput, Type);                                  750   751   400
+   753             WriteNl     (StdOutput);                                        746   752
+   754          END;                                                               747
+   755       | Attribute       : WITH t^.Attribute DO                              602   748   748     *   748
+   756             WriteS      (StdOutput, "   [");                                751   753
+   757             WriteIdent  (StdOutput, Name);                                  752   756   750
+   758             WriteS      (StdOutput, ": ");                                  756   757
+   759             WriteIdent  (StdOutput, Type);                                  757   758   752
+   760             WriteS      (StdOutput, "]");                                   758   759
+   761             WriteNl     (StdOutput);                                        753   760
+   762          END;                                                               754
+   763       | Assign  : WITH t^.Assign DO                                           *   755   755     *   755
+   764             WriteClass  (Results);                                          739     *
+   765             WriteS      (StdOutput, ":=");                                  760   761
+   766             WriteClass  (Arguments);                                        764     *
+   767             WriteS      (StdOutput, ";");                                   765   765
+   768          END;                                                               762
+   769       | Copy    : WITH t^.Copy DO                                             *   763   763     *   763
+   770             WriteClass  (Results);                                          766   764
+   771             WriteS      (StdOutput, " :- ");                                767   767
+   772             WriteClass  (Arguments);                                        770   766
+   773             WriteS      (StdOutput, ";");                                   771   771
+   774          END;                                                               768
+   775       | TargetCode      : WITH t^.TargetCode DO                               *   769   769     *   769
+   776             IF Results^.Kind # NoDesignator THEN                            734   770   724   394   734
+   777                WriteClass (Results);                                        772   776
+   778                WriteS     (StdOutput, ":= {");                              773   773
+   779                WriteClass (Code);                                           777   409
+   780                WriteS     (StdOutput, "};");                                778   778
+   781             END;                                                            774
+   782          END;                                                               781
+   783       | Order   : WITH t^.Order DO                                          472   775   775     *   775
+   784             WriteClass  (Results);                                          779   777
+   785             WriteS      (StdOutput, " AFTER ");                             780   780
+   786             WriteClass  (Arguments);                                        784   772
+   787             WriteS      (StdOutput, ";");                                   785   785
+   788          END;                                                               782
+   789       | Check   : WITH t^.Check DO                                            *   783   783     *   783
+   790             IF Condition # NoTree THEN                                      776     *   667   776
+   791                WriteS     (StdOutput, "CHECK ");                            787   787
+   792                WriteClass (Condition);                                      786   790
+   793             END;                                                            788
+   794             IF Statement # NoTree THEN                                      790     *   790   790
+   795                WriteS     (StdOutput, " ==> { ");                           791   791
+   796                WriteClass (Statement);                                      792   794
+   797                WriteS     (StdOutput, "}");                                 795   795
+   798             END;                                                            793
+   799             WriteClass  (Actions);                                          796     *
+   800             WriteS      (StdOutput, ";");                                   797   797
+   801          END;                                                               798
+   802       | Designator      : WITH t^.Designator DO                             395   789   789     *   789
+   803             WriteIdent  (StdOutput, Selector);                              759   800   597
+   804             WriteS      (StdOutput, ":");                                   800   803
+   805             WriteIdent  (StdOutput, Attribute);                             803   804   755
+   806             WriteClass  (Next);                                             799   574
+   807          END;                                                               801
+   808       | Ident   : WITH t^.Ident DO                                          574   802   802     *   802
+   809             WriteIdent  (StdOutput, Attribute);                             805   805   805
+   810             WriteClass  (Next);                                             806   806
+   811          END;                                                               807
+   812       | Remote  : WITH t^.Remote DO                                         400   808   808     *   808
+   813             WriteS      (StdOutput, "REMOTE ");                             804   809
+   814             WriteClass  (Designators);                                      810   405
+   815             WriteS      (StdOutput, "==>");                                 813   813
+   816             WriteIdent  (StdOutput, Type);                                  809   815   759
+   817             WriteS      (StdOutput, ":");                                   815   816
+   818             WriteIdent  (StdOutput, Attribute);                             816   817   809
+   819             WriteClass  (Next);                                             814   810
+   820          END;                                                               811
+   821       | Any     : WITH t^.Any DO                                            402   812   812     *   812
+   822             WriteString (StdOutput, Code);                                  199   818   779
+   823             WriteClass  (Next);                                             819   819
+   824          END;                                                               820
+   825       | Anys    : WITH t^.Anys DO                                           404   821   821     *   821
+   826             WriteClass  (Layouts);                                          823   410
+   827             WriteClass  (Next);                                             826   823
+   828          END;                                                               824
+   829       | LayoutAny       : WITH t^.LayoutAny DO                              409   825   825     *   825
+   830             WriteString (StdOutput, Code);                                  822   822   822
+   831             WriteClass  (Next);                                             827   827
+   832          END;                                                               828
+   833       ELSE                                                                  575
+   834       END;                                                                  832
+   835    END WriteClass;                                                          834   831
+   836 }
+   837 
+   838 BEGIN   {                                                                   723
+   839    MakeSet      (DummySet, 0);                                              377   514
+   840    MakeRelation (DummyRelation, 0, 0);                                      203   515
+   841 
+   842    nNoAction    := mNoAction    ();                                         478     *
+   843    nNoAttribute := mNoAttribute ();                                         479     *
+   844    nNoClass     := mNoClass     ();                                         480     *
+   845    nNoDecl      := mNoDecl      ();                                         481     *
+   846    nNoDesignator:= mNoDesignator();                                         482     *
+   847    nNoLayout    := mNoLayout    ();                                         483     *
+   848    nNoModule    := mNoModule    ();                                         484     *
+   849    nNoName      := mNoName      ();                                         485     *
+   850    nNoPrec      := mNoPrec      ();                                         486     *
+   851    nNoProp      := mNoProp      ();                                         487     *
+   852 }
+   853 
+   854 PROPERTY INPUT                                                              382   382
+   855 
+   856 RULE                                                                        384
+   857 
+   858 Ag              = [Name: tIdent]                                            542   757   569
+   859                   [ScannerName  : tIdent]                                     *   858
+   860                   [ParserName   : tIdent] ParserCodes: Codes                544   859     *   386
+   861                   [TreeName     : tIdent] TreeCodes  : Codes                554   860     *   860
+   862                   [EvalName     : tIdent] EvalCodes  : Codes                550   861     *   861
+   863                   Precs Props Decls Classes Modules .                         *     *     *    76     *
+   864 Precs           = <                                                         863
+   865    NoPrec       = .                                                           *
+   866    Prec         = Names Next: Precs REV <                                     *   415   831   864   415
+   867       LeftAssoc = .                                                           *
+   868       RightAssoc= .                                                           *
+   869       NonAssoc  = .                                                           *
+   870    >.
+   871 >.
+   872 Class           = [Selector: tIdent] [Pos: tPosition] [Code: SHORTCARD] [Prec: tIden\   725   803   862   414   414   830
+                                                                                   722   866
+      \t] Names .                                                                    *   866
+   873 Child           = [Pos: tPosition] .                                        748   872   872
+   874 Attribute       = [Pos: tPosition] .                                        818   873   873
+   875 ActionPart      = Actions .                                                 318   799
+   876 
+   877 Actions         = <                                                         875
+   878    NoAction     = .                                                           *
+   879    Action       = Next: Actions REV [Pos: tPosition] <                      739   866   877   866   874   874
+   880       Assign    = Results: Designators Arguments: Designators .             763   784   814   786     *
+   881       Copy      = Results: Designators Arguments: Designators .             769   880   880   880     *
+   882       TargetCode= Results: Designators Code: Designators .                  775   881   881   872     *
+   883       Order     = Results: Designators Arguments: Designators .             783   882   882   881     *
+   884       Check     = Condition: Designators Statement: Designators Actions .   789   792   883   796     *   879
+   885    >.
+   886 >.
+   887 Modules         = <                                                         863
+   888    NoModule     = .                                                           *
+   889    Module       = [Name: tIdent] ParserCodes: Codes TreeCodes: Codes EvalCodes: Code\   574   858   872   860   862   861
+                                                                                     *   862
+      \s                                                                             *
+   890                   Props Decls Classes Next: Modules REV .                   863   863   863   879   887   879
+   891 >.
+   892 Props           = <                                                         890
+   893    NoProp       = .                                                           *
+   894    Prop         = [Properties: BITSET] Names Next: Props REV .                *   734   448   872   890   892   890
+   895    Select       = Names Next: Props REV .                                     *   894   894   894   894
+   896 >.
+   897 Decls           = <                                                         890
+   898    NoDecl       = .                                                           *
+   899    Decl         = Names Attributes [Properties: tClassProperties]             *   895   309   894   642
+   900                   Next: Decls REV .                                         895   897   895
+   901 >.
+   902 
+   903 END Cg                                                                      835   420
+   904 
+   905 MODULE Ag                                                                   420   858
+   906 
+   907 TREE EXPORT     {                                                           422   464
+   908 PROCEDURE HasItem (t: tTree; Item: SHORTCARD): BOOLEAN;                     721     *   829   721     *   872     *
+   909 }
+   910 
+   911 GLOBAL  {                                                                   500
+   912 PROCEDURE HasItem (t: tTree; Item: SHORTCARD): BOOLEAN;                     908   908   908   908   908   908   908
+   913    BEGIN                                                                    838
+   914       CASE t^.Kind OF                                                       724   912   776   724
+   915       | Class:                                                              872
+   916          RETURN HasItem (t^.Class.BaseClass, Item) OR HasItem (t^.Class.Attributes, \   668   912   914   915   308   912
+                                                                                   668     *     *     *   899
+      \Item);                                                                        *
+   917       | NoClass, NoAttribute:                                                57    62
+   918          RETURN FALSE;                                                      916   211
+   919       ELSE                                                                  833
+   920          RETURN (t^.AttrOrAction.Item = Item) OR HasItem (t^.AttrOrAction.Next, Item\   918   916    63   916     *   916
+                                                                                   916     *     *   900     *
+      \);
+   921       END;                                                                  903
+   922    END HasItem;                                                             921   920
+   923 
+   924 }
+   925 
+   926 RULE                                                                        856
+   927 
+   928 Ag              = [Properties: BITSET] .                                    905   899   894
+   929 
+   930 Class           = [AttrCount: SHORTCARD] [InstCount: SHORTCARD] [Instance: tInstance\   916     *   912   731     *   735
+      \Ptr]                                                                        441
+   931                   [DP: tRelation] [SNC: tRelation] [DNC: tRelation] [OAG: tRelation]      *   664     *     *     *     *
+                                                                                     *     *
+   932                   [Part: tRelation] [Index: SHORTCARD] [Visits: SHORTCARD] [Users: t\     *   931     *   930     *     *
+                                                                                     *
+      \Set]                                                                        703
+   933                   [Generated: INTEGER0] [BitCount: SHORTCARD] [BitIndex: tBitIndex]     639   160     *   932     *   440
+   934                   [D: tSetOfRelPtr] .                                         *   443
+   935 Child           = [AttrIndex: SHORTCARD] [Partition: INTEGER9999] [Usage: BITSET]       873     *   933   586   444     *
+                                                                                   928
+   936                   [InstOffset: SHORTCARD] [Class: tClass] [ParsIndex: SHORTCARD]          *   935   930   163     *     *
+   937                   [BitOffset: SHORTCARD] .                                    *   936
+   938 Attribute       = [AttrIndex: SHORTCARD] [Partition: INTEGER9999] [Usage: BITSET] .     874   935   937   935   935   935
+                                                                                   935
+   939 ActionPart      = [Name: SHORTCARD] [ParsIndex: SHORTCARD] [Properties: BITSET] .       875   889   938   936     *   928
+                                                                                   938
+   940 
+   941 AttrOrAction    = [Item: SHORTCARD] .                                       920   920   939
+   942 
+   943 Check           = Results: Designators .                                    884   883   884
+   944 
+   945 Module          = [Properties: BITSET] .                                    889   939   939
+   946 
+   947 END Ag                                                                      922   928
+   948 
+   949 MODULE PumaIn                                                               905     *
+   950 
+   951 PROPERTY INPUT                                                              854   854
+   952 
+   953 RULE                                                                        926
+   954 
+   955 Spec            = [ TrafoName : tIdent ]                                      *     *   889
+   956                   TreeNames                                                   *
+   957                   Public : Names (* Names in MODULE Ag *)                     *   899
+   958                   Extern : Names (* Names in MODULE Ag *)                     *   957
+   959                   Codes          (* Codes in MODULE Cg *)                   889
+   960                   Routines                                                    *
+   961                 .
+   962 
+   963 (* TreeNames is structurally identical to Names in Ag *) 
+   964 TreeNames                                                                   956
+   965 = < NoTreeName   = .                                                          *
+   966     TreeName     = [ Name : tIdent ] [ Pos : tPosition ] Next : TreeNames REV .   861   939   955   879   879   920   964
+                                                                                   900
+   967   > .
+   968 
+   969 Routines                                                                    960
+   970 = < NoRoutine    = .                                                          *
+   971     Routine      = Next : Routines REV                                        *   966   969   966
+   972                    [ Name : tIdent ]                                        966   966
+   973                    (* ^Can be a string name with the quotes removed. *)  
+   974                    [ Pos : tPosition ] (* of Name *)                        966   966
+   975                    InParams : Parameters                                      *     *
+   976                    OutParams : Parameters                                     *   975
+   977                    Extern : Names                                           958   958
+   978                    [ Local : tText ]                                        388   388
+   979                    [ LocalLine : tPosition ]                                391   974
+   980                    Rules                                                      *
+   981    <  Procedure = .                                                           *
+   982       Function  = ReturnParams : Parameters                                   *     *   976
+   983                   (* ^A list of length 1, FALSE, NoIdent, NoPos *) 
+   984                 .
+   985       Predicate = .                                                           *
+   986    >.
+   987 >.
+   988 Parameters                                                                  982
+   989 = < NoParameter  = .                                                          *
+   990     Param        = [ IsRef : BOOLEAN ]                                        *     *   912
+   991                    [ Name : tIdent ]                                        972   972
+   992                    [ Pos : tPosition ]                                      974   979
+   993                    Type                                                     816
+   994                    Next : Parameters REV                                    971   988   971
+   995                  .
+   996   > .
+   997 Type            = [ Name : tIdent ] (* Simple name, or, if present,         993   991   991
+c  998                                        tree name prefix. *) 
+   999                   [ Pos : tPosition ]                                       992   992
+  1000                   Names (* idents inside the brackets. *)                   977
+  1001                 .
+  1002 
+  1003 Rules                                                                       980
+  1004 = < NoRule       = .                                                          *
+  1005     Rule         = [ Line : tPosition ]                                       *   507   999
+  1006                    Patterns                                                   *
+  1007                    Exprs                                                      *
+  1008                    Expr (* Result expression *)                               *
+  1009                    Statements                                                 *
+  1010                    Next : Rules REV                                         994  1003   994
+  1011                  .
+  1012   > .
+  1013 Patterns                                                                   1006
+  1014 = < NoPattern    = [Pos: tPosition] .                                         *   999  1005
+  1015     OnePattern   = Pattern Next: Patterns REV .                               *     *  1010  1013  1010
+  1016     OnePatternAlts = PatternsList : Patterns                                  *     *  1015
+  1017                      Next: Patterns REV                                    1015  1016  1015
+  1018                      Current : Patterns .                                     *  1017
+  1019     (* Used temporarily during expansion of types in patterns. *) 
+  1020   > .
+  1021 PatternsList                                                               1016
+  1022 = < NoPatternsList       = .                                                  *
+  1023     OnePatternsList      = Patterns Next: PatternsList REVERSE .              *  1018  1017  1021     *
+  1024   > .
+  1025 Pattern        = [ Pos : tPosition ]                                       1015  1014  1014
+  1026                    (* NOTE: It would be nicest to factor out
+c 1027                       Selector from the descendents of Pattern
+c 1028                       and put it here.  But there are additional
+c 1029                       children and attributes of Pattern, declared
+c 1030                       in module Puma, which go beteen things declared
+c 1031                       here and things declared immediately below,
+c 1032                       for each child.  So this change would reorder
+c 1033                       fields.  There are numerous positional patterns
+c 1034                       in opt.puma, and God knows where all else, which
+c 1035                       would break.  So I am leaving it like this.  Shows
+c 1036                       the extreme fragility of positional patterns in
+c 1037                       puma! *) 
+  1038   < Decompose    = [ Selector : tIdent ] (* Label *)                          *   872   997
+  1039                    Expr                                                    1008
+  1040                    Patterns                                                1023
+  1041                    [ Widen : BOOLEAN ]                                        *   990
+  1042                  .
+  1043     VarDef       = (* Lone ident in a pattern, possibly with colon. *)        *
+  1044                    [ Selector : tIdent ] (* Label *)                       1038  1038
+  1045                    [ HasDelimiter : BOOLEAN ]                                 *  1041
+  1046                  .
+  1047     NilTest      = [ Selector : tIdent ] (* Label *)                          *  1044  1044
+  1048                    [ Widen : BOOLEAN ]                                     1041  1045
+  1049                  .
+  1050     DontCare1    = [ Selector : tIdent ] (* Label *)                          *  1047  1047
+  1051     < DontCare1Explicit = . (* explicit '_' in source *)                      *
+  1052       DontCare1Internal = . (* Internally generated in expanding patterns. *)       *
+  1053     > . 
+  1054     DontCare     =                                                            *
+  1055     < DontCareExplicit = . (* explicit '..' in source *)                      *
+  1056       DontCareInternal = . (* Internally generated in expanding patterns. *)        *
+  1057     > .
+  1058     Value        = [ Selector : tIdent ] (* Label *)                          *  1050  1050
+  1059                    Expr                                                    1039
+  1060                  .
+  1061   > .
+  1062 Exprs                                                                      1007
+  1063 = < NoExpr       = [Pos: tPosition] .                                         *  1025  1025
+  1064     OneExpr      = Expr (* This can be DontCare, violating the graph grammar *)           *  1059
+  1065                    Next: Exprs REV                                         1023  1062  1017
+  1066       < NamedExpr = (* Named association in an actuals list *)                *
+  1067                     [ Name : tIdent ]                                       997  1058
+  1068                     [ NamePos : tPosition ] (* of Name.                       *  1063
+c 1069                                                Pos is of := *)  
+  1070                   .
+  1071       > .
+  1072   > .
+  1073 Expr            = [ Pos : tPosition ]                                      1064  1063  1068
+  1074                   [ Selector : tIdent ] (* Label *)                        1058  1067
+  1075   <  Compose      = (* <Expr> '(' <Exprs> ')' *)                              *
+  1076                     Expr                                                   1073
+  1077                     Exprs                                                  1065
+  1078                     [ Widen : BOOLEAN ] .                                  1048  1048
+  1079      VarUse       = [ Name : tIdent ]                                         *  1067  1074
+  1080                     [ Widen : BOOLEAN ]                                    1078  1078
+  1081      <
+  1082         AttrDesc  = (* :: construct in puma expression *)                     *
+  1083                     [ Attribute : tIdent ]                                  938  1079
+  1084                     [ AttributePos : tPosition ] (* of RHS *) .             396  1073
+  1085      > .
+  1086      Nil          = [ Widen : BOOLEAN ] .                                     *  1080  1080
+  1087      Call         = Expr Exprs Patterns .                                     *  1076  1077  1040
+  1088      Binary       = Lop : Expr                                                *     *  1087
+  1089                     [ Operator : tIdent ]                                     *  1083
+  1090                     Rop : Expr                                                *  1088
+  1091                     [ Widen : BOOLEAN ]                                    1086  1086
+  1092        < = . 
+  1093          BinaryCompound = [ CompoundOperator : tIdent ] .                     *     *  1089
+  1094        > .
+  1095      PreOperator  = [ Operator : tIdent ] Expr .                              *  1089  1093  1090
+  1096      PostOperator = [ Operator : tIdent ] Expr .                              *  1095  1095  1095
+  1097      Index        = (* <Expr> '[' <Exprs> ']' *)                            932
+  1098                     Expr                                                   1096
+  1099                     Exprs                                                  1087
+  1100                     [ Widen : BOOLEAN ]                                    1091  1091
+  1101                   .
+  1102      Parents      = Expr (* Parentheses *) .                                  *  1098
+  1103      TargetExpr   = Expr : Designators .                                      *  1102   943
+  1104      StringExpr   = [ String : tStringRef ] .                                 *   654   409
+  1105   >.
+  1106 Statements                                                                 1009
+  1107 = < NoStatement   = .                                                         *
+  1108     Statement     = [ Pos : tPosition ]                                     884  1073  1084
+  1109                     Next : Statements REV                                  1065  1106  1065
+  1110     <  ProcCall   = Call (* Can have Kind changed in place to Condition *) .        *  1087
+  1111        Condition  = Expr .                                                  884  1103
+  1112        Assignment = Adr : Expr Expr .                                         *     *  1111     *
+  1113        Reject     = .                                                         *
+  1114        Fail       = .                                                         *
+  1115        TargetStmt = Parameters (* Comma-separated declarations in a rule      *   994
+c 1116                                   parse as one TargetStmt with the list
+c 1117                                   attached here, all NOT IsRef, and no
+c 1118                                   Designators. *)   
+  1119                     Stmt : Designators .                                      *  1103
+  1120        Nl         = .                                                         *
+  1121        WriteStr   = [ String : tStringRef ] .                                 *  1104  1104
+  1122     > .
+  1123   > .
+  1124 
+  1125 Formals         (* Formals are built by semantics for                         *
+c 1126                    1) explicit formal parameters of puma routines
+c 1127                    2) implicitly declared children of decompose pattersn
+c 1128                    3) labels 
+c 1129                    4) variable declarations of a rule. 
+c 1130                  *) 
+  1131 = < NoFormal     = .                                                          *
+  1132     Formal                                                                    *
+  1133       = Next : Formals REV                                                 1109  1125  1109
+  1134         Hides : Formal                                                        *  1132
+  1135         [ Name: tIdent]                                                    1079  1096
+  1136         [ DeclPos : tPosition ]                                               *  1108
+  1137         TypeDesc                                                              *
+  1138         Path                                                                  *
+  1139         < PlainFormal = .                                                     *
+  1140           RoutineFormal                                                       *
+  1141             = TargetClass : Classes                                           *   890
+  1142               (* Smallest target language class which contains the 
+c 1143                  puma-declared type *)  
+  1144               [ DeclaredTypeIsGuaranteed : BOOLEAN ]                          *  1100
+  1145               (* It is known statically that the value passed to this in 
+c 1146                  formal or returned in this out formal is of the 
+c 1147                  puma-declared type of the formal *) 
+  1148             . 
+  1149         > .
+  1150     DummyFormal  = Next:  Formals .                                           *  1133  1133
+  1151   > .
+  1152 TypeDesc                                                                   1137
+  1153 = < NodeTypes    = TreeName [ Types : tSet ] .                                *   966     *   932
+  1154     UserType     = [ Type : tIdent ] .                                        *   997  1135
+  1155   > .
+  1156 Path                                                                       1138
+  1157 = < Var          = [ Name : tIdent ]                                          *  1135  1154
+  1158                    [ IsOutput : BOOLEAN ]                                     *  1144
+  1159                    [ IsRegister: BOOLEAN ]                                    *  1158
+  1160                  .
+  1161     ConsType     = Next : Path                                                *  1150  1156
+  1162                    [ Name : tIdent ]                                       1157  1157
+  1163                    [ IsProperlyNarrowed : BOOLEAN ]                           *  1159
+  1164                  .
+  1165     Field        = Next : Path [ Name : tIdent ] .                            *  1161  1161  1162  1162
+  1166   > .
+  1167 
+  1168 (* The following are built in opt.puma to optimize into CASE
+c 1169    statements.  *) 
+  1170 
+  1171 Tests           (* Rooted at a Rule *)                                        *
+  1172 = <
+  1173    NoTest       = .                                                           *
+  1174    OneTest      = Next : Tests Path                                           *  1165  1171  1165
+  1175    <  TestKind  = (* Exact equality of kind *)                                *
+  1176                   TypeDesc : NodeTypes                                     1152  1153
+  1177                   [ Name : tIdent ]                                        1165  1165
+  1178                 .
+  1179       TestIsType= (* Subtype inclusion *)                                     *
+  1180                   TypeDesc : NodeTypes                                     1176  1176
+  1181                   [ Name : tIdent ]                                        1177  1177
+  1182                 .
+  1183       TestNil   = .                                                           *
+  1184       TestNonlin= Path2 : Path TypeDesc .                                     *     *  1174  1180
+  1185       TestValue = Expr                                                        *  1112
+  1186                   TypeDesc (* of Formal *)                                 1184
+  1187                 .
+  1188    > .
+  1189 > .
+  1190 Decisions       (* Rooted at a Routine *)                                     *
+  1191 = <
+  1192    NoDecision   = .                                                           *
+  1193    Decision     = ThenPart : Decisions                                        *     *  1190
+  1194                   ElsePart : Decisions                                        *  1193
+  1195                   OneTest                                                  1174
+  1196                   [ Cases : SHORTCARD ]                                       *   941
+  1197                   (* ^Cases > 0 iff this is the head of an if-elsif chain of
+c 1198                      Cases alternative branches, each on the Kind of the
+c 1199                      same node and haveing disjoint value sets. *) 
+  1200                   [ IsUnchanged : BOOLEAN ]                                   *  1163
+  1201                   (* ^Statements of the rule this Decision came from do
+c 1202                      not assign the path of a TestKind or TestIsType
+c 1203                      attached to this decision *) 
+  1204                 .
+  1205    Decided      = ElsePart : Decisions                                        *  1194  1194
+  1206                   (* ^For when predicates in the rule fail. *)  
+  1207                   Rule                                                     1005
+  1208                 .
+  1209 > .
+  1210 
+  1211 END PumaIn                                                                  947   949
+  1212 
+  1213 MODULE Puma                                                                 949     *
+  1214 
+  1215 DECLARE                                                                       *
+  1216 
+  1217 TreeName        = Classes                                                  1153  1141
+  1218                   [ ClassCount : SHORTCARD ]                                447  1196
+  1219                   EmptyType : TypeDesc                                        *  1186
+  1220                   UniversalClass : Classes                                    *  1217
+  1221                 .
+  1222 
+  1223 Name Compose Decompose VarDef VarUse Call Assignment Designator Ident      1181  1075  1038  1043  1079  1110  1112   802
+                                                                                   808
+  1224                 = [ Object : tClass ] .                                       *   936
+  1225 Pattern Compose = [ Tempo : tIdent ]                                       1025  1223     *  1181
+  1226                   TypeDesc                                                 1219
+  1227                 .
+  1228 
+  1229 TargetExpr TargetStmt                                                      1103  1115
+  1230                 = [ UsedNames : tSet ] .                                      *  1153
+  1231 
+  1232 Class           = Formals                                                   936  1150
+  1233                   TypeDesc                                                 1226
+  1234                   [ Index : SHORTCARD ]                                    1097  1218
+  1235                   [ Depth : INTEGER ]                                         *   447
+  1236                 .
+  1237 Routine         = InForm : Formals                                          971     *  1232
+  1238                   OutForm : Formals                                           *  1237
+  1239                   ParamDecls : Formals                                        *  1238
+  1240                   [ IsExtern : BOOLEAN (* Really means is PUBLIC *) ]         *  1200
+  1241                 .
+  1242 Routine         = Decisions .                                              1237  1205
+  1243 Function        = ReturnForm: Formals .                                     982     *  1239
+  1244 Rule            = VarDecls : Formals                                       1207     *  1243
+  1245                   [ HasTempos : BOOLEAN ]                                     *  1240
+  1246                   [ HasPatterns : BOOLEAN ]                                   *  1245
+  1247                   [ Tempo : tIdent ]                                       1225  1225
+  1248                   [ Index : SHORTCARD ]                                    1234  1234
+  1249                 .
+  1250 Rule            = Tests                                                    1244  1174
+  1251                   [ HasExit : BOOLEAN ]                                       *  1246
+  1252                   [ HasAssign : BOOLEAN ]                                     *  1251
+  1253                   [ HasTargetCode : BOOLEAN ]                                 *  1252
+  1254                   [ HasRejectOrFail : BOOLEAN ]                               *  1253
+  1255                 .
+  1256 Pattern         = Path .                                                   1225  1184
+  1257 DontCare        = Tempos : Formals .                                       1054     *  1244
+  1258 AttrDesc Designator                                                        1082  1223
+  1259                 = [ Type : tIdent ] .                                      1154  1247
+  1260 Decompose NilTest = [ IsProperlyNarrowed : BOOLEAN ] .                     1223  1047  1163  1254
+  1261 
+  1262 END Puma                                                                   1211  1213
+  1263  
+  1264 MODULE ChildCt                                                             1213     *
+  1265 
+  1266 DECLARE                                                                    1215
+  1267 
+  1268   Class = [ ClassChildCount : SHORTCARD ] .                                1232     *  1248
+  1269 
+  1270   Child = [ ChildIndex : SHORTCARD ] .                                      935     *  1268
+  1271 
+  1272 END ChildCt                                                                1262  1264
+  1273 
+Cross reference: 
+
+-A-
+ a                              208   208   209   209   210   210   211   211   212   212   506   506   506   507   507   507   508 
+                                508   509   509   510   510   511   511   512   512   513   513   514   514   515   515   517   517 
+                                518   518 
+ Abstract                       152   379   659 
+ Action                         470   733   733   739   879 
+ ActionPart                      66   264   265   316   318   875   939 
+ Actions                        799   875   877   879   884 
+ ADDRESS                         84   185   186   187   195   341   347   352 
+ ADR                            195   733 
+ Adr                           1112 
+ Ag                             542   858   905   928   947 
+ AND                            596   676   682 
+ Any                            402   821   821 
+ Anys                           404   825   825 
+ Arguments                      766   772   786   880   881   883 
+ ARRAY                          169   218   440   475 
+ ArrayToString                  198   544   547   550   556   557   558   559 
+ Assign                         763   763   880 
+ Assignment                    1112  1223 
+ Ast                             72    78 
+ AstIn                           50    70 
+ AttrCount                      930 
+ AttrDesc                      1082  1258 
+ Attribute                       65   260   261   262   313   315   395   398   400   469   586   588   601   602   755   755   805 
+                                809   818   874   938  1083 
+ attribute                      247   252   253   253 
+ AttributePos                   396  1084 
+ Attributes                      59    61    63   254   309   899   916 
+ AttrIndex                      935   938 
+ AttrOrAction                    63   920   920   941 
+
+-B-
+ Backslash                      214   365   366 
+ BaseClass                       76   252   308   916 
+ BEGIN                          224   235   240   248   274   283   293   304   326   332   337   342   348   353   357   361   372 
+                                375   541   571   581   594   608   643   666   705   723   838   913 
+ Begin                          388 
+ beginBITSET                    511 
+ beginBOOLEAN                   211 
+ beginINTEGER0                  208 
+ beginINTEGER9999               508 
+ BeginLine                      391 
+ begintIdent                    212 
+ begintPosition                 506 
+ BeginTree2                     489   539   567 
+ begintRelation                 515 
+ begintSet                      514 
+ begintText                     513 
+ Binary                        1088 
+ BinaryCompound                1093 
+ BitCount                       933 
+ BitIndex                       933 
+ BitOffset                      937 
+ BITSET                         161   162   171   448   894   928   935   938   939   945 
+ BodyWith                       387 
+ BodyWithLine                   390 
+ BOOLEAN                        908   912   990  1041  1045  1048  1078  1080  1086  1091  1100  1144  1158  1159  1163  1200  1240 
+                               1245  1246  1251  1252  1253  1254  1260 
+
+-C-
+ Call                          1087  1110  1223 
+ cALT                           433 
+ CARDINAL                        94 
+ CASE                           250   306   724   914 
+ Cases                         1196 
+ cDNC                           429 
+ Cg                             420   903 
+ Ch                             360   364   365   365   365   368 
+ CHAR                           169   360 
+ Char                           198   364 
+ Check                          789   789   884   943 
+ Child                           64   256   257   258   310   312   586   588   597   602   748   748   873   935  1270 
+ ChildCt                       1264  1272 
+ ChildIndex                    1270 
+ ChildUse                       130   637 
+ cLAG                           434 
+ Class                           58    76   236   251   252   254   275   277   278   284   285   287   294   296   298   307   308 
+                                309   668   670   672   675   676   677   681   689   707   713   725   725   872   915   916   916 
+                                930   936  1232  1268 
+ ClassChildCount               1268 
+ ClassCount                     447  1218 
+ Classes                         56    59    59    76   863   890  1141  1217  1220 
+ cLNC                           426 
+ cLordered                      430 
+ Close                          388 
+ CloseLine                      391 
+ cOAG                           431 
+ Code                           402   409   779   822   830   872   882 
+ Codes                          386   860   861   862   889   889   889   959 
+ Column                         506   507 
+ Common                          80   418 
+ Compose                       1075  1223  1225 
+ CompoundOperator              1093 
+ Computed                       101   610 
+ Concatenate                    198   556   557 
+ Condition                      790   792   884  1111 
+ CONST                           96   214   424 
+ ConsType                      1161 
+ Copy                           769   769   881 
+ CopyArg                        473 
+ CopyDef                        122   629 
+ CopyUse                        123   630 
+ count                          665   679   683   686   690   704   706   709   711   715 
+ cRAG                           435 
+ cSAG                           436 
+ cSNC                           428 
+ cSweep                         432 
+ Current                       1018 
+ cWAG                           427 
+
+-D-
+ D                              934 
+ Decided                       1205 
+ Decision                      1193 
+ Decisions                     1190  1193  1194  1205  1242 
+ Decl                           899 
+ DECLARE                       1215  1266 
+ DeclaredTypeIsGuaranteed      1144 
+ DeclPos                       1136 
+ Decls                          863   890   897   900 
+ Decompose                     1038  1223  1260 
+ Def                            128   635 
+ define                         208   209   210   211   212   506   507   508   509   510   511   512   513   514   515   517   518 
+ Demand                         113   622 
+ Depth                         1235 
+ Designator                     395   802   802  1223  1258 
+ Designators                    393   397   399   400   401   403   405   814   880   880   881   881   882   882   883   883   884 
+                                884   943  1103  1119 
+ DNC                            931 
+ DO                             228   275   284   294   363   542   582   595   675   681   707   725   731   732   748   755   763 
+                                769   775   783   789   802   808   812   821   825   829 
+ DontCare                      1054  1257 
+ DontCare1                     1050 
+ DontCare1Explicit             1051 
+ DontCare1Internal             1052 
+ DontCareExplicit              1055 
+ DontCareInternal              1056 
+ DP                             931 
+ Dummy                          127   378   634   676 
+ DummyFormal                   1150 
+ DummyRelation                  504   515   840 
+ DummySet                       503   514   839 
+ DynArray                       196 
+
+-E-
+ ELSE                           267   319   563   575   833   919 
+ ElsePart                      1194  1205 
+ EmptyType                     1219 
+ END                             70    78   230   232   237   241   243   253   257   261   269   270   271   279   280   288   289 
+                                299   300   321   322   323   329   334   339   345   350   355   357   367   369   370   372   418 
+                                439   443   474   545   548   551   552   555   566   567   573   577   578   590   591   599   603 
+                                604   605   609   610   611   612   613   614   615   616   617   618   619   620   621   622   623 
+                                624   625   626   627   628   629   630   631   632   633   634   635   636   637   638   639   640 
+                                644   645   646   647   648   649   650   651   652   653   654   655   656   657   658   659   660 
+                                661   662   668   687   692   693   698   699   701   712   716   717   719   737   742   743   744 
+                                747   754   762   768   774   781   782   788   793   798   801   807   811   820   824   828   832 
+                                834   835   903   921   922   947  1211  1262  1272 
+ Error                          182   325   327   329   343 
+ ErrorCode                      182   183   184   185   186   187   325   327   331   333   336   338   341   343   347   349   352 
+                                354 
+ ErrorCount                      94   328   344   376 
+ ErrorI                         185   341   345 
+ ErrorMessage                   327   333   338 
+ ErrorMessageI                  343   349   354 
+ Errors                         206   327   327   333   333   338   338   343   343   349   349   354   354 
+ EvalCodes                      862   889 
+ EvalName                       549   550   862 
+ Explicit                       143   651 
+ EXPORT                         157   464   907 
+ Export                         386 
+ ExportLine                     389 
+ Expr                          1008  1039  1059  1064  1073  1076  1087  1088  1090  1095  1096  1098  1102  1103  1111  1112  1112 
+                               1185 
+ Exprs                         1007  1062  1065  1077  1087  1099 
+ Extensions                      59   277   285   296 
+ Extern                         958   977 
+
+-F-
+ f                              168   357   366   368   372   495   496   607   609   610   611   612   613   614   615   616   617 
+                                618   619   620   621   622   623   624   625   626   627   628   629   630   631   632   633   634 
+                                635   636   637   638   639   642   644   645   646   647   648   649   650   651   652   653   654 
+                                655   656   657   658   659   660   661 
+ Fail                          1114 
+ FALSE                          211   918 
+ Field                         1165 
+ First                          126   633 
+ FOR                            228   363   675   681   707   731 
+ ForallAttributes               181   303   308   323   729 
+ ForallClasses                  178   231   273   277   280 
+ ForallClassesExtensionsFirst   179   282   285   289 
+ ForallClassesPreAndPost        180   292   296   300 
+ Formal                        1132  1134 
+ Formals                       1125  1133  1150  1232  1237  1238  1239  1243  1244  1257 
+ FROM                            84    85    86    87    88    89    90    91    92   195   196   197   198   199   200   201   202 
+                                203   204 
+ Funct                          114   623 
+ Function                       982  1243 
+
+-G-
+ Generated                      132   639   933 
+ GetString                      200   362   553 
+ GLOBAL                         193   500   911 
+ Global                         386 
+ GlobalLine                     389 
+ GrammarClass                   448 
+
+-H-
+ HasActions                     150   658 
+ HasAssign                     1252 
+ HasAttributes                  149   657 
+ HasChildren                    148   656 
+ HasDelimiter                  1045 
+ HasExit                       1251 
+ HasItem                        908   912   916   916   920   922 
+ HasOutput                      154   661 
+ HasPatterns                   1246 
+ HasRejectOrFail               1254 
+ HasSelector                    147   655 
+ HasTargetCode                 1253 
+ HasTempos                     1245 
+ Hides                         1134 
+
+-I-
+ i                              188   189   223   228   229   357   357   359   362   491   492   580   582   584   593   595   665 
+                                675   676   676   677   682   704   707   708   713   722   731   732   735 
+ iClass                         185   186   187   341   343   347   349   352   354 
+ Ident                          175   177   239   241   241   246   252   257   261   398   490   569   573   574   808   808  1223 
+ IdentifyAttribute              177   246   252   271 
+ IdentifyClass                  175   239   243 
+ IdentifyModule                 490   569   574   578 
+ Idents                          88   200 
+ IdentToClassPtr                218   227   229   236   241 
+ IdentToClassSize               219   225   226   227   228 
+ IF                             241   253   257   261   365   543   546   549   552   561   572   573   596   601   609   610   611 
+                                612   613   614   615   616   617   618   619   620   621   622   623   624   625   626   627   628 
+                                629   630   631   632   633   634   635   636   637   638   639   644   645   646   647   648   649 
+                                650   651   652   653   654   655   656   657   658   659   660   661   667   676   682   683   708 
+                                709   733   734   776   790   794 
+ Ignore                         115   379   624 
+ iInteger                       454 
+ iMain                          455   554   562 
+ iModule                        456   562   564 
+ Implicit                       144   652 
+ IMPORT                          82    84    85    86    87    88    89    90    91    92   195   196   197   198   199   200   201 
+                                202   203   204   206   422 
+ Import                         386 
+ ImportLine                     389 
+ IN                             596   609   610   611   612   613   614   615   616   617   618   619   620   621   622   623   624 
+                                625   626   627   628   629   630   631   632   633   634   635   636   637   638   639   644   645 
+                                646   647   648   649   650   651   652   653   654   655   656   657   658   659   660   661   676 
+                                734 
+ INC                            328   344   690   691   715 
+ Include                        202   565 
+ Index                          932  1097  1234  1248 
+ InForm                        1237 
+ Information                    184   336   338   339   354 
+ InformationI                   187   352   355 
+ Inherited                      105   614 
+ InitIdentifyClass              173   222   232 
+ InitIdentifyClass2             174   231   234   237 
+ iNoTree                        458   557 
+ InParams                       975 
+ INPUT                           52   382   854   951 
+ Input                          107   616 
+ Instance                       676   677   689   713   732   735   930 
+ InstCount                      668   675   681   707   731   930 
+ InstOffset                     936 
+ INTEGER                        182   183   184   185   185   186   186   187   187   190   223   325   331   336   341   341   347 
+                                347   352   352   372   447  1235 
+ INTEGER0                       160   933 
+ INTEGER9999                    444   935   938 
+ Intermediate                   137   645 
+ IO                              85   197   209   210   509 
+ iPosition                      452   558 
+ iPtr                           185   186   187   341   343   347   349   352   354 
+ IsElement                      202   676   682   708 
+ IsExtern                      1240 
+ IsOutput                      1158 
+ IsProperlyNarrowed            1163  1260 
+ IsRef                          990 
+ IsRegister                    1159 
+ IsRelated                      203   682 
+ IsUnchanged                   1200 
+ Item                           908   912   916   916   920   920   920   941 
+ itPosition                     453   559 
+ itTree                         457   556 
+
+-J-
+ j                              360   363   364   665   681   682   682   689 
+
+-K-
+ k                              665   680   691   695 
+ Kind                           250   275   284   294   306   572   724   776   914 
+
+-L-
+ LayoutAny                      409   829   829 
+ Layouts                        404   407   410   826 
+ Left                           120   627 
+ LeftAssoc                      867 
+ Length                         198   363 
+ Line                           506   507  1005 
+ Link                           117 
+ Local                          388   978 
+ LocalLine                      391   979 
+ LONGINT                        219 
+ LOOP                           249   305 
+ Lop                           1088 
+ Low                            138   646 
+
+-M-
+ MakeArray                      196   227 
+ MakeIdent                      200   544   547   550   556   557   558   559 
+ MakeRelation                   203   840 
+ MakeSet                        202   377   839 
+ MakeText                       201   513 
+ Mark                           153   660 
+ Max1                           668 
+ MaxIdent                       200   225 
+ MaxSet                         461 
+ MaxVisit                       449 
+ mNoAction                      842 
+ mNoAttribute                   843 
+ mNoClass                       844 
+ mNoDecl                        845 
+ mNoDesignator                  846 
+ mNoLayout                      847 
+ mNoModule                      848 
+ mNoName                        849 
+ mNoPrec                        850 
+ mNoProp                        851 
+ MODULE                          50    72    80   420   905   949  1213  1264 
+ Module                         572   573   574   889   945 
+ module                         570 
+ ModuleName                     459   553   556   557 
+ Modules                        863   887   890 
+ MultInhComp                    125   632 
+
+-N-
+ n                              190   372   372 
+ Name                            58    64    65   236   257   261   414   414   573   597   602   670   726   750   757   858   889 
+                                939   966   972   991   997  1067  1079  1135  1157  1162  1165  1177  1181  1223 
+ NamedExpr                     1066 
+ NamePos                       1068 
+ Names                          412   415   866   872   894   895   899   957   958   977  1000 
+ Next                            59    63   258   262   265   278   287   298   312   315   318   397   399   401   403   405   410 
+                                415   443   574   806   810   819   823   827   831   866   879   890   894   895   900   920   966 
+                                971   994  1010  1015  1017  1023  1065  1109  1133  1150  1161  1165  1174 
+ Nil                           1086 
+ NilTest                       1047  1260 
+ Nl                            1120 
+ nNoAction                      478   842 
+ nNoAttribute                   479   843 
+ nNoClass                       480   844 
+ nNoDecl                        481   845 
+ nNoDesignator                  482   846 
+ nNoLayout                      483   847 
+ nNoModule                      484   848 
+ nNoName                        485   849 
+ nNoPrec                        486   850 
+ nNoProp                        487   851 
+ NoAction                       878 
+ NoAttribute                     62   917 
+ NoClass                         57   917 
+ NoCodeAttr                     170   378 
+ NoCodeClass                    171   379 
+ NoDecision                    1192 
+ NoDecl                         898 
+ NoDesignator                   394   776 
+ NodeTypes                     1153  1176  1180 
+ NoExpr                        1063 
+ NoFormal                      1131 
+ NoIdent                        200   212   543   546   549   552   561 
+ NoLayout                       408 
+ NoModule                       888 
+ NoName                         413 
+ NonAssoc                       869 
+ NonBaseComp                    124   631 
+ Nonterminal                    141   649 
+ NoParameter                    989 
+ NoPattern                     1014 
+ NoPatternsList                1022 
+ NoPrec                         865 
+ NoProp                         893 
+ NoRoutine                      970 
+ NoRule                        1004 
+ NoStatement                   1107 
+ NOT                            676 
+ NoTest                        1173 
+ NoTree                         229   242   253   268   576   596   601   667   790   794 
+ NoTreeName                     965 
+
+-O-
+ OAG                            931 
+ Object                        1224 
+ OF                             169   218   250   306   440   475   724   914 
+ OneExpr                       1064 
+ OnePattern                    1015 
+ OnePatternAlts                1016 
+ OnePatternsList               1023 
+ OneTest                       1174  1195 
+ Operator                      1089  1095  1096 
+ Options                        167   377   565 
+ OR                             365   365   668   916   920 
+ ORD                            565 
+ Order                          472   783   783   883 
+ OutForm                       1238 
+ OutParams                      976 
+ Output                         108   617 
+
+-P-
+ Param                          990 
+ ParamDecls                    1239 
+ Parameter                      110   378   619 
+ Parameters                     975   976   982   988   994  1115 
+ Parents                       1102 
+ ParentUse                      131   638 
+ ParserCodes                    860   889 
+ ParserName                     543   544   860 
+ ParsIndex                      936   939 
+ Part                           932 
+ Partition                      586   935   938 
+ Path                          1138  1156  1161  1165  1174  1184  1256 
+ Path2                         1184 
+ Pattern                       1015  1025  1225  1256 
+ Patterns                      1006  1013  1015  1016  1017  1018  1023  1040  1087 
+ PatternsList                  1016  1021  1023 
+ PlainFormal                   1139 
+ POINTER                        218   440   441   442 
+ Pos                            182   183   184   185   186   187   325   327   331   333   336   338   341   343   347   349   352 
+                                354   395   398   400   414   872   873   874   879   966   974   992   999  1014  1025  1063  1073 
+                               1108 
+ Positions                       92   204 
+ PostOperator                  1096 
+ PostProc                       180   292   296   297 
+ Prec                           866   872 
+ Precs                          863   864   866 
+ Predicate                      985 
+ PreOperator                   1095 
+ PreProc                        180   292   295   296 
+ Proc                           178   179   181   273   276   277   282   285   286   303   308   311   314   317 
+ ProcCall                      1110 
+ PROCEDURE                      164   173   174   175   177   178   179   180   181   182   183   184   185   186   187   188   189 
+                                190   222   234   239   246   273   282   292   303   325   331   336   341   347   352   357   359 
+                                372   489   490   491   492   493   494   495   496   497   539   569   580   593   607   642   664 
+                                703   721   908   912 
+ Procedure                      981 
+ ProcOfT                        164   178   179   180   181   273   282   292   303 
+ Prop                           894 
+ Properties                      58    64    65   471   495   496   588   588   596   607   609   610   611   612   613   614   615 
+                                616   617   618   619   620   621   622   623   624   625   626   627   628   629   630   631   632 
+                                633   634   635   636   637   638   639   642   644   645   646   647   648   649   650   651   652 
+                                653   654   655   656   657   658   659   660   661   672   676   734   894   899   928   939   945 
+ PROPERTY                        52   382   854   951 
+ Props                          863   890   892   894   895 
+ Public                         957 
+ Puma                          1213  1262 
+ PumaIn                         949  1211 
+
+-R-
+ r                              493   664   668   682 
+ Reachable                      140   648 
+ Read                           104   613 
+ ReadI                          197   209   507   507   509 
+ readINTEGER0                   209 
+ readINTEGER9999                509 
+ readtPosition                  507 
+ RECORD                         439   443   466 
+ Referenced                     139   647 
+ Reject                        1113 
+ Relation                       443 
+ Relations                       91   203   206 
+ Remote                         400   812   812 
+ Results                        764   770   776   777   784   880   881   882   883   943 
+ RETURN                         241   242   253   257   261   268   320   573   574   576   668   916   918   920 
+ ReturnForm                    1243 
+ ReturnParams                   982 
+ REV                             59    63   397   399   401   403   405   410   415   866   879   890   894   895   900   966   971 
+                                994  1010  1015  1017  1065  1109  1133 
+ REVERSE                       1023 
+ Reverse                        102   611 
+ Right                          121   596   628 
+ RightAssoc                     868 
+ Rop                           1090 
+ Routine                        971  1237  1242 
+ RoutineFormal                 1140 
+ Routines                       960   969   971 
+ RULE                            54    74   384   856   926   953 
+ Rule                          1005  1207  1244  1250 
+ Rules                          980  1003  1010 
+
+-S-
+ s                              360   362   363   364   493   494   664   676   682   703   708 
+ ScannerName                    859 
+ Select                         895 
+ Selector                       395   467   596   597   803   872  1038  1044  1047  1050  1058  1074 
+ Sets                            90   202 
+ SHORTCARD                      160   360   439   444   449   473   665   668   704   722   872   908   912   930   930   932   932 
+                                933   935   936   936   937   938   939   939   941  1196  1218  1234  1248  1268  1270 
+ SHORTINT                       472 
+ sIdentToClassSize              220   226   241 
+ SNC                            931 
+ SourceFile                     169 
+ Spec                           955 
+ SpecWith                       387 
+ SpecWithLine                   390 
+ Stack                          111   620 
+ Statement                      794   796   884  1108 
+ Statements                    1009  1106  1109 
+ StdOutput                      197   583   585   586   587   588   589   597   598   602   670   671   672   673   674   678   684 
+                                685   688   694   695   696   697   700   710   714   718   726   727   728   730   736   738   740 
+                                741   745   746   749   750   751   752   753   756   757   758   759   760   761   765   767   771 
+                                773   778   780   785   787   791   795   797   800   803   804   805   809   813   815   816   817 
+                                818   822   830 
+ Stmt                          1119 
+ String                         146   654  1104  1121 
+ StringExpr                    1104 
+ StringMem                       87   199 
+ Strings                         86   198 
+ SubUnit                        450   561   564 
+ Synthesized                    106   615 
+ SYSTEM                          84   195 
+
+-T-
+ t                              173   174   175   177   178   179   180   181   222   231   234   236   236   239   246   250   252 
+                                254   254   257   257   258   258   261   261   262   262   265   265   273   275   276   277   278 
+                                278   282   284   285   286   287   287   292   294   295   296   297   298   298   303   306   308 
+                                309   309   311   312   312   314   315   315   317   318   318   490   493   494   497   569   572 
+                                573   573   574   664   667   668   670   672   675   676   677   681   689   703   707   713   721 
+                                724   725   729   748   755   763   769   775   783   789   802   808   812   821   825   829   908 
+                                912   914   916   916   920   920 
+ TargetClass                   1141 
+ TargetCode                     775   775   882 
+ TargetExpr                    1103  1229 
+ TargetStmt                    1115  1229 
+ tAttrProperties                 64    65   161   471   495   607 
+ tBitIndex                      440   933 
+ tBitInfo                       439   440 
+ tClass                         163   936  1224 
+ tClassProperties                58   162   496   642   899 
+ Tempo                         1225  1247 
+ Tempos                        1257 
+ Terminal                       142   650 
+ Test                           119   378   626   734 
+ TestIsType                    1179 
+ TestKind                      1175 
+ TestNil                       1183 
+ TestNonlin                    1184 
+ Tests                         1171  1174  1250 
+ TestValue                     1185 
+ Texts                           89   201 
+ tFile                           85   168   197   495   496   607   642 
+ THEN                           241   253   257   261   366   543   546   549   552   561   572   573   596   601   609   610   611 
+                                612   613   614   615   616   617   618   619   620   621   622   623   624   625   626   627   628 
+                                629   630   631   632   633   634   635   636   637   638   639   644   645   646   647   648   649 
+                                650   651   652   653   654   655   656   657   658   659   660   661   668   676   682   683   708 
+                                709   733   734   776   790   794 
+ ThenPart                      1193 
+ Thread                         118   625 
+ tIdent                          58    64    64    65    65    88   175   177   188   189   200   220   239   246   357   359   395 
+                                395   398   400   400   414   458   490   569   858   859   860   861   862   872   872   889   955 
+                                966   972   991   997  1038  1044  1047  1050  1058  1067  1074  1079  1083  1089  1093  1095  1096 
+                               1135  1154  1157  1162  1165  1177  1181  1225  1247  1259 
+ tInstance                      466   475   491   492   580   593 
+ tInstancePtr                   441   930 
+ tInstances                     441   475 
+ TO                             218   228   363   440   441   442   675   681   707   731 
+ ToAttr                         439 
+ ToBit                          439 
+ Top                            136   644 
+ tPosition                       92   182   183   184   185   186   187   204   325   331   336   341   347   352   389   389   389 
+                                390   390   391   391   391   395   396   398   400   414   872   873   874   879   966   974   979 
+                                992   999  1005  1014  1025  1063  1068  1073  1084  1108  1136 
+ Trace                          145   653 
+ TrafoName                      955 
+ TREE                            82   422   907 
+ Tree                           109   618 
+ TreeCodes                      861   889 
+ TreeName                       546   547   552   553   554   861   966  1153  1217 
+ TreeNames                      956   964   966 
+ TreeRoot                       542 
+ tRelation                       91   203   443   493   504   664   931   931   931   931   932 
+ tSet                            90   167   202   461   493   494   503   664   703   932  1153  1230 
+ tSetOfRel                      442   443 
+ tSetOfRelPtr                   442   443   934 
+ TSIZE                          195   227 
+ tString                         86   198   360   459   540 
+ tStringRef                      87   199   402   409  1104  1121 
+ tText                           89   201   386   386   386   387   387   388   388   388   978 
+ tTree                          163   164   173   174   175   175   177   177   178   179   180   181   218   222   227   234   239 
+                                239   246   246   247   273   282   292   303   467   469   470   487   490   490   493   494   497 
+                                569   569   570   664   703   721   908   912 
+ TYPE                           159   438   465 
+ Type                            64    65   400   752   759   816   993   997  1154  1259 
+ TypeDesc                      1137  1152  1176  1180  1184  1186  1219  1226  1233 
+ TypeNames                      460 
+ Types                         1153 
+
+-U-
+ UniversalClass                1220 
+ Usage                          935   938 
+ Use                            129   636 
+ UsedNames                     1230 
+ Users                          932 
+ UserType                      1154 
+
+-V-
+ VAL                            668 
+ Value                         1058 
+ VAR                             94   166   218   219   220   223   247   360   446   477   502   540   570   665   704   722 
+ Var                           1157 
+ VarDecls                      1244 
+ VarDef                        1043  1223 
+ Variable                       112   621 
+ VarUse                        1079  1223 
+ ViewName                       451   552   552 
+ Virtual                        100   378   609 
+ Visits                         932 
+
+-W-
+ Warning                        183   331   333   334   349 
+ WarningI                       186   347   350 
+ WE                             189   359   370 
+ WHILE                          275   284   294 
+ WI                             188   357   357 
+ Widen                         1041  1048  1078  1080  1086  1091  1100 
+ WITH                           542   582   595   725   732   748   755   763   769   775   783   789   802   808   812   821   825 
+                                829 
+ WN                             190   372   372 
+ Word                           540   544   544   547   547   550   550   556   556   556   557   557   557   558   558   559   559 
+ Write                          103   612 
+ WriteAttrProperties            495   517   588   607   640 
+ WriteC                         197   366   368 
+ WriteClass                     497   721   729   739   764   766   770   772   777   779   784   786   792   796   799   806   810 
+                                814   819   823   826   827   831   835 
+ WriteClassProperties           496   518   642   662   672 
+ WriteCyclics                   494   703   719 
+ WriteDependencies              493   664   701 
+ WriteI                         197   210   372   510   586   695 
+ WriteIdent                     200   357   597   602   670   726   750   752   757   759   803   805   809   816   818 
+ WriteInstance                  492   580   591 
+ writeINTEGER0                  210 
+ writeINTEGER9999               510 
+ WriteName                      491   584   593   605   677   689   713   735 
+ WriteNl                        197   589   673   674   684   697   700   710   718   728   730   741   746   753   761 
+ WriteS                         197   583   585   587   598   609   610   611   612   613   614   615   616   617   618   619   620 
+                                621   622   623   624   625   626   627   628   629   630   631   632   633   634   635   636   637 
+                                638   639   644   645   646   647   648   649   650   651   652   653   654   655   656   657   658 
+                                659   660   661   671   678   685   688   694   696   714   727   736   738   740   745   749   751 
+                                756   758   760   765   767   771   773   778   780   785   787   791   795   797   800   804   813 
+                                815   817 
+ WriteStr                      1121 
+ WriteString                    199   822   830 
+ writetAttrProperties           517 
+ writetClass                    512 
+ writetClassProperties          518 
+
+-Y-
+ yyf                            209   210   507   507   509   510   517   518 
+ yyWriteHex                     512 
+
+end cross reference, 2952 occurrences of 541 identifiers.

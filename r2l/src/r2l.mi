@@ -1,0 +1,96 @@
+(* $Id: r2l.mi,v 1.4 90/06/11 11:28:09 grosch rel Locker: grosch $ *)
+
+(* $Log:	r2l.mi,v $
+ *)
+
+(* Ich, Doktor Josef Grosch, Informatiker, Dec. 1990 *)
+
+MODULE r2l;
+
+FROM System	IMPORT GetArgCount, GetArgument, Exit;
+FROM Strings	IMPORT tString, AssignEmpty, Assign, Append, Concatenate,
+			ArrayToString, StringToArray;
+FROM IO		IMPORT CloseIO;
+FROM StdIO	IMPORT WriteS, WriteNl;
+FROM Scanner	IMPORT BeginScanner, BeginFile, ScanTabName;
+FROM Parser	IMPORT ParsTabName, Parser;
+
+VAR
+   SourceFile	,
+   Argument	: ARRAY [0 .. 127] OF CHAR;
+   RexLib	,
+   FileNameS	,
+   Path		: tString;
+   i, j, n	: SHORTCARD;
+   h		: BOOLEAN;
+   ch		: CHAR;
+
+BEGIN
+   h := FALSE;
+   n := 0;
+   AssignEmpty (RexLib);
+   SourceFile [0] := 0C;
+
+   FOR i := 1 TO GetArgCount () - 1 DO
+      GetArgument (i, Argument);
+      IF Argument [0] = '-' THEN 
+	 IF Argument [1] = 'l' THEN 
+	    AssignEmpty (RexLib);
+	    j := 2;
+	    LOOP
+	       ch := Argument [j];
+	       IF ch = 0C THEN EXIT; END;
+	       Append (RexLib, ch);
+	       INC (j);
+	    END;
+	    Append (RexLib, '/');
+	 ELSE
+	    j := 0;
+	    LOOP
+	       INC (j);
+	       ch := Argument [j];
+	       CASE ch OF
+	       | 0C : EXIT;
+	       | '?': h := TRUE;
+	       | 'h': h := TRUE;
+	       ELSE
+	       END;
+	    END;
+	 END;
+      ELSIF Argument [0] = '?' THEN 
+	 h := TRUE;
+      ELSE
+	 j := 0;
+	 REPEAT
+            ch := Argument [j];
+	    SourceFile [j] := ch;
+	    INC (j);
+	 UNTIL ch = 0C;
+      END;
+   END;
+
+   IF h THEN
+WriteS ("usage: r2l [-options] [file]"			); WriteNl; WriteNl;
+WriteS (" -h print help information"				); WriteNl;
+WriteS (" -ldir specify the directory dir where r2l finds its table and data files"); WriteNl;
+   ELSE
+      ArrayToString	(ScanTabName, FileNameS); (* name of scanner table *)
+      Assign		(Path, RexLib);
+      Concatenate 	(Path, FileNameS);
+      Append		(Path, 0C);
+      StringToArray	(Path, ScanTabName);
+
+      ArrayToString	(ParsTabName, FileNameS); (* name of parser table *)
+      Assign		(Path, RexLib);
+      Concatenate 	(Path, FileNameS);
+      Append		(Path, 0C);
+      StringToArray	(Path, ParsTabName);
+
+      IF SourceFile [0] # 0C THEN BeginFile (SourceFile); END;
+      BeginScanner;
+      n := Parser ();
+   END;
+
+   CloseIO;
+   Exit (0);
+END r2l.

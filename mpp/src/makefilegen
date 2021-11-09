@@ -1,0 +1,71 @@
+#
+# Revised makefile for mpp RMB Nov-93
+#
+
+DEFS	= Parser.md Scanner.md Table.md
+IMPS	= Parser.mi Scanner.mi Table.mi
+
+ifndef INSTALLGMD
+  INSTALLGMD=/usr/local
+endif
+export INSTALLGMD
+
+INSTALLLIB	= $(INSTALLGMD)/lib
+INSTALLBIN	= $(INSTALLGMD)/bin
+
+INCLUDE = .
+
+BIN = ../../bintobuildwith
+ELL = $(BIN)/ell
+
+MC      = mocka_mtc
+MOCKAFLAGS = 
+MOCKALIBS = -d ../../common/gen -d ../../reuse/gen
+
+MODULASOURCES = Scanner.md Scanner.mi Table.md Table.mi mpp.mi
+OTHERSOURCES = mpp.ell
+SOURCES = $(MODULESOURCES) $(OTHERSOURCES) 
+ 
+MODULAGENS    = Parser.md Parser.mi 
+GENS    = $(MODULAGENS) Parser.Tab
+EXE     = mpp
+
+include $(INCLUDE)/make.include
+
+# Generated sources:
+
+Parser.mi Parser.md Parser.Tab:	../src/mpp.ell
+	$(ELL) -di ../src/mpp.ell;
+
+install_modula:
+
+install_mocka:
+
+#install_modula: mpp ../lib/mpp.sh Parser.Tab $(INSTALLLIB)/mpp
+#	if test $(INSTALLLIB) = $(INSTALLBIN); then echo error: INSTALLINSTALLBIN = INSTALLLIB; false; else true; fi
+#	sed 's;LIB;$(INSTALLLIB);' < ../lib/mpp.sh > $(INSTALLBIN)/mpp
+#	chmod a+rx $(INSTALLBIN)/mpp
+#	install -c -s -m 755 mpp $(INSTALLLIB)/mpp
+#	install -c -m 644 Parser.Tab $(INSTALLLIB)/mpp
+
+# installation directories
+
+$(INSTALLLIB)/mpp:	$(INSTALLLIB)
+	sh -c "if test ! -d $(INSTALLLIB)/mpp; then mkdir $(INSTALLLIB)/mpp; else true; fi"
+
+# swap all byte pairs of the file Scanner.Tab
+# reverse all BITSETs (long words) of the file Parser.Tab
+
+bin.conv:	convert
+	dd conv=swab < Parser.Tab | convert > .Parser.Tab; mv .Parser.Tab Parser.Tab
+
+convert:	convert.o
+	cc -o convert convert.o
+
+clean:
+	rm -f *.[dimor] mpp $(GENS)
+
+CLEAN:	clean
+	rm -f Parser.m[di] Parser.Tab
+
+

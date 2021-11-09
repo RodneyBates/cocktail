@@ -1,0 +1,29 @@
+Common Front-End for Lalr, Ell, and Bnf
+=======================================
+
+The front-end (front) makes use of a library of reusable Modula-2 modules.
+This library (MLIB=reuse) must have been compiled before.
+It has been compiled successfully on several configurations
+using 2 different Modula-2 compilers:
+
+configuration | computer | processor | operating-system | compiler
+--------------------------------------------------------------------
+MC            | PCS 9900 | MC 68020  | MUNIX m32-1.2    | MOCKA (mc)
+MC            | SUN 3    | MC 68020  | SunOS 4.1        | MOCKA (mc)
+M2C           | SUN 3    | MC 68020  | SunOS 4.0        | SUN Modula (m2c)
+MC            | SUN 3    | MC 68020  | PCTE 1.4		| MOCKA (mc)
+MC            | SUN 4    | SPARC     | SunOS 4.1        | MOCKA (mc)
+MC	      | VAX 750	 |	     | BSD UNIX 4.2	| MOCKA (mc)
+MC	      | VAX 8500 |	     | ULTRIX V2.0-1	| MOCKA (mc)
+MC	      | DEC 3100 | MIPS      | ULTRIX V2.0-7	| MOCKA (mc)
+
+When moving from little-endian to big-endian machines or vice versa
+(like e. g. VAX and MC 68000) the binary files Scan.Tab and Pars.Tab
+have to be converted:
+
+   make bin.conv
+
+To generate the front-end use:
+
+   make <configuration> MLIB=...
+   make install LIB=...

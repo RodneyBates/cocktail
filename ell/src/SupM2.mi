@@ -1,0 +1,320 @@
+(*
+ *	ell2 - a redesign of ell
+ *
+ *	$RCSfile: SupM2.MI,v $
+ *	
+ *	purpose:	generate supported modules (MODULA2)
+ *
+ *	$Author: grosch $
+ *	$Date: 1992/10/15 18:26:55 $
+ *)
+
+IMPLEMENTATION MODULE SupM2;
+
+
+
+
+
+
+
+FROM ArgCheck	IMPORT	SourceFileName;
+FROM Checks	IMPORT	CheckWriteOpen;
+FROM IO		IMPORT	tFile, WriteS, WriteI, WriteNl, WriteOpen, WriteClose;
+FROM Idents	IMPORT	tIdent, NoIdent, WriteIdent, GetString, MakeIdent;
+FROM Tree	IMPORT	ScannerName, ParserName;
+FROM Strings	IMPORT	tString, Char, ArrayToString, Concatenate, Append, StringToArray;
+
+CONST
+  cErrDef = 'Errors.md';
+  cErrImp = 'Errors.mi';
+  cDrvImp = 'Drv.mi';
+  cScaDef = '.md';
+  cScaImp = '.mi';
+
+VAR
+  PathS, String	: tString;
+  PathA		: ARRAY [0..128] OF CHAR;
+
+PROCEDURE ErrM2;
+  VAR file: tFile;
+  BEGIN
+    file := WriteOpen (cErrDef);
+    CheckWriteOpen (file, cErrDef);
+
+WriteS (file, 'DEFINITION MODULE Errors;');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'FROM SYSTEM	IMPORT ADDRESS;');WriteNl (file);
+WriteS (file, 'FROM Positions	IMPORT tPosition;');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'CONST');WriteNl (file);
+WriteS (file, '   NoText		= 0	;');WriteNl (file);
+WriteS (file, '   SyntaxError		= 1	;	(* error codes		*)');WriteNl (file);
+WriteS (file, '   ExpectedTokens	= 2	;');WriteNl (file);
+WriteS (file, '   RestartPoint		= 3	;');WriteNl (file);
+WriteS (file, '   TokenInserted	= 4	;');WriteNl (file);
+WriteS (file, '   WrongParseTable	= 5	;');WriteNl (file);
+WriteS (file, '   OpenParseTable	= 6	;');WriteNl (file);
+WriteS (file, '   ReadParseTable	= 7	;');WriteNl (file);
+WriteNl (file);
+WriteS (file, '   Fatal		= 1	;	(* error classes	*)');WriteNl (file);
+WriteS (file, '   Restriction		= 2	;');WriteNl (file);
+WriteS (file, '   Error		= 3	;');WriteNl (file);
+WriteS (file, '   Warning		= 4	;');WriteNl (file);
+WriteS (file, '   Repair		= 5	;');WriteNl (file);
+WriteS (file, '   Note			= 6	;');WriteNl (file);
+WriteS (file, '   Information		= 7	;');WriteNl (file);
+WriteNl (file);
+WriteS (file, '   None			= 0	;');WriteNl (file);
+WriteS (file, '   Integer		= 1	;	(* info classes		*)');WriteNl (file);
+WriteS (file, '   Short		= 2	;');WriteNl (file);
+WriteS (file, '   Long			= 3	;');WriteNl (file);
+WriteS (file, '   Real			= 4	;');WriteNl (file);
+WriteS (file, '   Boolean		= 5	;');WriteNl (file);
+WriteS (file, '   Character		= 6	;');WriteNl (file);
+WriteS (file, '   String		= 7	;');WriteNl (file);
+WriteS (file, '   Array		= 8	;');WriteNl (file);
+WriteS (file, '   Set			= 9	;');WriteNl (file);
+WriteS (file, '   Ident		= 10	;');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'VAR Exit	: PROC;');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'PROCEDURE ErrorMessage	(ErrorCode, ErrorClass: CARDINAL; Position: tPosition);');WriteNl (file);
+WriteS (file, 'PROCEDURE ErrorMessageI	(ErrorCode, ErrorClass: CARDINAL; Position: tPosition;');WriteNl (file);
+WriteS (file, '			 InfoClass: CARDINAL; Info: ADDRESS);');WriteNl (file);
+WriteS (file, 'PROCEDURE Message  (ErrorText: ARRAY OF CHAR; ErrorClass: CARDINAL; Position: tPosition);');WriteNl (file);
+WriteS (file, 'PROCEDURE MessageI (ErrorText: ARRAY OF CHAR; ErrorClass: CARDINAL; Position: tPosition;');WriteNl (file);
+WriteS (file, '			 InfoClass: CARDINAL; Info: ADDRESS);');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'END Errors.');WriteNl (file);
+
+    WriteClose (file);
+
+    file := WriteOpen (cErrImp);
+    CheckWriteOpen (file, cErrImp);
+
+
+WriteS (file, "IMPLEMENTATION MODULE Errors;");WriteNl (file);
+WriteNl (file);
+WriteS (file, "FROM SYSTEM	IMPORT ADDRESS;");WriteNl (file);
+WriteS (file, "FROM IO		IMPORT tFile, StdError, WriteC, WriteNl, WriteS, WriteI,");WriteNl (file);
+WriteS (file, "		       WriteB, WriteR, CloseIO;");WriteNl (file);
+WriteS (file, "FROM Sets	IMPORT tSet, IsElement, Size;");WriteNl (file);
+WriteS (file, "FROM Idents	IMPORT tIdent, WriteIdent;");WriteNl (file);
+WriteS (file, "FROM Positions	IMPORT tPosition, WritePosition;");WriteNl (file);
+WriteNl (file);
+WriteS (file, "IMPORT System, Strings;");WriteNl (file);
+WriteNl (file);
+WriteS (file, "PROCEDURE ErrorMessage	(ErrorCode, ErrorClass: CARDINAL; Position: tPosition);");WriteNl (file);
+WriteS (file, "   BEGIN");WriteNl (file);
+WriteS (file, "      WriteHead	(Position, ErrorClass);");WriteNl (file);
+WriteS (file, "      WriteCode	(ErrorCode);");WriteNl (file);
+WriteS (file, "      WriteTail	(ErrorClass);");WriteNl (file);
+WriteS (file, "   END ErrorMessage;");WriteNl (file);
+WriteNl (file);
+WriteS (file, "PROCEDURE ErrorMessageI	(ErrorCode, ErrorClass: CARDINAL; Position: tPosition;");WriteNl (file);
+WriteS (file, "			 InfoClass: CARDINAL; Info: ADDRESS);");WriteNl (file);
+WriteS (file, "   BEGIN");WriteNl (file);
+WriteS (file, "      WriteHead	(Position, ErrorClass);");WriteNl (file);
+WriteS (file, "      WriteCode	(ErrorCode);");WriteNl (file);
+WriteS (file, "      WriteInfo	(InfoClass, Info);");WriteNl (file);
+WriteS (file, "      WriteTail	(ErrorClass);");WriteNl (file);
+WriteS (file, "   END ErrorMessageI;");WriteNl (file);
+WriteNl (file);
+WriteS (file, "PROCEDURE Message  (ErrorText: ARRAY OF CHAR; ErrorClass: CARDINAL; Position: tPosition);");WriteNl (file);
+WriteS (file, "   BEGIN");WriteNl (file);
+WriteS (file, "      WriteHead	(Position, ErrorClass);");WriteNl (file);
+WriteS (file, "      WriteS	(StdError, ErrorText);");WriteNl (file);
+WriteS (file, "      WriteTail	(ErrorClass);");WriteNl (file);
+WriteS (file, "   END Message;");WriteNl (file);
+WriteNl (file);
+WriteS (file, "PROCEDURE MessageI (ErrorText: ARRAY OF CHAR; ErrorClass: CARDINAL; Position: tPosition;");WriteNl (file);
+WriteS (file, "			 InfoClass: CARDINAL; Info: ADDRESS);");WriteNl (file);
+WriteS (file, "   BEGIN");WriteNl (file);
+WriteS (file, "      WriteHead	(Position, ErrorClass);");WriteNl (file);
+WriteS (file, "      WriteS	(StdError, ErrorText);");WriteNl (file);
+WriteS (file, "      WriteInfo	(InfoClass, Info);");WriteNl (file);
+WriteS (file, "      WriteTail	(ErrorClass);");WriteNl (file);
+WriteS (file, "   END MessageI;");WriteNl (file);
+WriteNl (file);
+WriteS (file, "PROCEDURE WriteHead (Position: tPosition; ErrorClass: CARDINAL);");WriteNl (file);
+WriteS (file, "   BEGIN");WriteNl (file);
+WriteS (file, "      WritePosition (StdError, Position);");WriteNl (file);
+WriteS (file, "      WriteS	(StdError, ': ');");WriteNl (file);
+WriteS (file, "      CASE ErrorClass OF");WriteNl (file);
+WriteS (file, "      |  Fatal		: WriteS (StdError, 'Fatal       ');");WriteNl (file);
+WriteS (file, "      |  Restriction	: WriteS (StdError, 'Restriction ');");WriteNl (file);
+WriteS (file, "      |  Error		: WriteS (StdError, 'Error       ');");WriteNl (file);
+WriteS (file, "      |  Warning	: WriteS (StdError, 'Warning     ');");WriteNl (file);
+WriteS (file, "      |  Repair		: WriteS (StdError, 'Repair      ');");WriteNl (file);
+WriteS (file, "      |  Note		: WriteS (StdError, 'Note        ');");WriteNl (file);
+WriteS (file, "      |  Information	: WriteS (StdError, 'Information ');");WriteNl (file);
+WriteS (file, "      ELSE WriteS (StdError, 'Error class: '); WriteI (StdError, ErrorClass, 0);");WriteNl (file);
+WriteS (file, "      END;");WriteNl (file);
+WriteS (file, "   END WriteHead;");WriteNl (file);
+WriteNl (file);
+WriteS (file, "PROCEDURE WriteTail (ErrorClass: CARDINAL);");WriteNl (file);
+WriteS (file, "   BEGIN");WriteNl (file);
+WriteS (file, "      WriteNl (StdError);");WriteNl (file);
+WriteS (file, "      IF ErrorClass = Fatal THEN Exit; END;");WriteNl (file);
+WriteS (file, "   END WriteTail;");WriteNl (file);
+WriteNl (file);
+WriteS (file, "PROCEDURE WriteCode (ErrorCode: CARDINAL);");WriteNl (file);
+WriteS (file, "   BEGIN");WriteNl (file);
+WriteS (file, "      CASE ErrorCode OF");WriteNl (file);
+WriteS (file, "      |  NoText		 :");WriteNl (file);
+WriteS (file, "      |  SyntaxError	 : WriteS (StdError, 'syntax error'		);");WriteNl (file);
+WriteS (file, "      |  ExpectedTokens	 : WriteS (StdError, 'expected tokens'		);");WriteNl (file);
+WriteS (file, "      |  RestartPoint	 : WriteS (StdError, 'restart point'		);");WriteNl (file);
+WriteS (file, "      |  TokenInserted	 : WriteS (StdError, 'token inserted '		);");WriteNl (file);
+WriteS (file, "      |  WrongParseTable : WriteS (StdError, 'parse table mismatch'	);");WriteNl (file);
+WriteS (file, "      |  OpenParseTable	 : WriteS (StdError, 'cannot open parse table'	);");WriteNl (file);
+WriteS (file, "      |  ReadParseTable	 : WriteS (StdError, 'cannot read parse table'	);");WriteNl (file);
+WriteS (file, "      ELSE WriteS (StdError, ' error code: '); WriteI (StdError, ErrorCode, 0);");WriteNl (file);
+WriteS (file, "      END;");WriteNl (file);
+WriteS (file, "   END WriteCode;");WriteNl (file);
+WriteNl (file);
+WriteS (file, "PROCEDURE WriteInfo	(InfoClass: CARDINAL; Info: ADDRESS);");WriteNl (file);
+WriteS (file, "   VAR");WriteNl (file);
+WriteS (file, "      PtrToInteger	: POINTER TO INTEGER;");WriteNl (file);
+WriteS (file, "      PtrToShort	: POINTER TO SHORTCARD;");WriteNl (file);
+WriteS (file, "      PtrToLong		: POINTER TO LONGINT;");WriteNl (file);
+WriteS (file, "      PtrToReal		: POINTER TO REAL;");WriteNl (file);
+WriteS (file, "      PtrToBoolean	: POINTER TO BOOLEAN;");WriteNl (file);
+WriteS (file, "      PtrToCharacter	: POINTER TO CHAR;");WriteNl (file);
+WriteS (file, "      PtrToString	: POINTER TO Strings.tString;");WriteNl (file);
+WriteS (file, "      PtrToArray	: POINTER TO ARRAY [0..1023] OF CHAR;");WriteNl (file);
+WriteS (file, "      PtrToIdent	: POINTER TO tIdent;");WriteNl (file);
+WriteS (file, "   BEGIN");WriteNl (file);
+WriteS (file, "      WriteS (StdError, ': ');");WriteNl (file);
+WriteS (file, "      CASE InfoClass OF");WriteNl (file);
+WriteS (file, "      | Integer	: PtrToInteger	:= Info; WriteI (StdError, PtrToInteger^, 0);");WriteNl (file);
+WriteS (file, "      | Short  	: PtrToShort	:= Info; WriteI (StdError, PtrToShort^, 0);");WriteNl (file);
+WriteS (file, "      | Long   	: PtrToLong	:= Info; WriteI (StdError, PtrToLong^, 0);");WriteNl (file);
+WriteS (file, "      | Real   	: PtrToReal	:= Info; WriteR (StdError, PtrToReal^, 1, 10, 1);");WriteNl (file);
+WriteS (file, "      | Boolean	: PtrToBoolean	:= Info; WriteB (StdError, PtrToBoolean^);");WriteNl (file);
+WriteS (file, "      | Character:PtrToCharacter:= Info; WriteC (StdError, PtrToCharacter^);");WriteNl (file);
+WriteS (file, "      | String	: PtrToString	:= Info; Strings.WriteS (StdError, PtrToString^);");WriteNl (file);
+WriteS (file, "      | Array	: PtrToArray	:= Info; WriteS (StdError, PtrToArray^);");WriteNl (file);
+WriteS (file, "      | Ident	: PtrToIdent	:= Info; WriteIdent (StdError, PtrToIdent^);");WriteNl (file);
+WriteS (file, "      ELSE");WriteNl (file);
+WriteS (file, "      END;");WriteNl (file);
+WriteS (file, "   END WriteInfo;");WriteNl (file);
+WriteNl (file);
+WriteS (file, "PROCEDURE yyExit;");WriteNl (file);
+WriteS (file, "   BEGIN");WriteNl (file);
+WriteS (file, "      CloseIO; System.Exit (1);");WriteNl (file);
+WriteS (file, "   END yyExit;");WriteNl (file);
+WriteNl (file);
+WriteS (file, "BEGIN");WriteNl (file);
+WriteS (file, "   Exit := yyExit;");WriteNl (file);
+WriteS (file, "END Errors.");WriteNl (file);
+
+    WriteClose (file);
+  END ErrM2;
+
+
+PROCEDURE ParM2;
+  VAR file: tFile;
+  BEGIN
+    GetString		(ParserName, PathS);
+    ArrayToString	(cDrvImp, String);
+    Concatenate		(PathS, String);
+    Append		(PathS, 0C);
+    StringToArray	(PathS, PathA);
+    file := WriteOpen	(PathA);
+    CheckWriteOpen	(file, PathA);
+
+WriteS (file, 'MODULE ');WriteIdent (file, ParserName);WriteS (file, 'Drv;');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'FROM ');WriteIdent (file, ParserName);WriteS (file, '	IMPORT ');WriteIdent (file, ParserName);WriteS (file, ', Close');WriteIdent (file, ParserName);WriteS (file, ';');WriteNl (file);
+WriteS (file, 'FROM IO		IMPORT CloseIO;');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'BEGIN');WriteNl (file);
+WriteS (file, '   IF ');WriteIdent (file, ParserName);WriteS (file, ' () = 0 THEN END;');WriteNl (file);
+WriteS (file, '   Close');WriteIdent (file, ParserName);WriteS (file, ';');WriteNl (file);
+WriteS (file, '   CloseIO;');WriteNl (file);
+WriteS (file, 'END ');WriteIdent (file, ParserName);WriteS (file, 'Drv.');WriteNl (file);
+
+    WriteClose (file);
+  END ParM2;
+
+PROCEDURE ScaM2;
+  VAR
+    file	: tFile;
+    ScanName	: tIdent;
+    String	: tString;
+  BEGIN
+    IF ScannerName = NoIdent THEN
+       ArrayToString ("Scanner", String);
+       ScanName := MakeIdent (String);
+    ELSE
+       ScanName := ScannerName;
+    END;
+    GetString		(ScanName, PathS);
+    ArrayToString	(cScaDef, String);
+    Concatenate		(PathS, String);
+    Append		(PathS, 0C);
+    StringToArray	(PathS, PathA);
+    file := WriteOpen	(PathA);
+    CheckWriteOpen	(file, PathA);
+
+WriteS (file, 'DEFINITION MODULE ');WriteIdent (file, ScanName);WriteS (file, ';');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'FROM Positions	IMPORT	tPosition;');WriteNl (file);
+WriteS (file, 'TYPE tScanAttribute	= RECORD Position: tPosition; END;');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'VAR  Attribute		: tScanAttribute;');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'PROCEDURE GetToken ()	: INTEGER;');WriteNl (file);
+WriteS (file, 'PROCEDURE ErrorAttribute (Token: INTEGER; VAR Attribute: tScanAttribute);');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'END ');WriteIdent (file, ScanName);WriteS (file, '.');WriteNl (file);
+
+    WriteClose (file);
+
+    GetString		(ScanName, PathS);
+    ArrayToString	(cScaImp, String);
+    Concatenate		(PathS, String);
+    Append		(PathS, 0C);
+    StringToArray	(PathS, PathA);
+    file := WriteOpen	(PathA);
+    CheckWriteOpen	(file, PathA);
+
+WriteS (file, 'IMPLEMENTATION MODULE ');WriteIdent (file, ScanName);WriteS (file, ';');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'FROM IO		IMPORT StdInput, ReadC;');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'PROCEDURE GetToken (): INTEGER;');WriteNl (file);
+WriteS (file, '   VAR ch	: CHAR;');WriteNl (file);
+WriteS (file, '   BEGIN');WriteNl (file);
+WriteS (file, '      LOOP');WriteNl (file);
+WriteS (file, '	 ch := ReadC (StdInput);');WriteNl (file);
+WriteS (file, '         IF ch = 12C THEN');WriteNl (file);
+WriteS (file, '	   INC (Attribute.Position.Line);');WriteNl (file);
+WriteS (file, '	   Attribute.Position.Column := 0;');WriteNl (file);
+
+WriteS (file, "	 ELSIF ch = ' ' THEN");WriteNl (file);
+
+WriteS (file, '	   INC (Attribute.Position.Column);');WriteNl (file);
+WriteS (file, '         ELSE');WriteNl (file);
+WriteS (file, '	   INC (Attribute.Position.Column);');WriteNl (file);
+WriteS (file, '	   EXIT;');WriteNl (file);
+WriteS (file, '	 END;');WriteNl (file);
+WriteS (file, '      END;');WriteNl (file);
+WriteS (file, '      RETURN ORD (ch);');WriteNl (file);
+WriteS (file, '   END GetToken;');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'PROCEDURE ErrorAttribute (Token: INTEGER; VAR Attribute: tScanAttribute);');WriteNl (file);
+WriteS (file, '   BEGIN');WriteNl (file);
+WriteS (file, '   END ErrorAttribute;');WriteNl (file);
+WriteNl (file);
+WriteS (file, 'BEGIN');WriteNl (file);
+WriteS (file, '  Attribute.Position.Line	:= 1;');WriteNl (file);
+WriteS (file, '  Attribute.Position.Column	:= 0;');WriteNl (file);
+WriteS (file, 'END ');WriteIdent (file, ScanName);WriteS (file, '.');WriteNl (file);
+
+
+    WriteClose (file);
+  END ScaM2;
+
+END SupM2.

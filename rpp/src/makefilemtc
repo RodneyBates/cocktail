@@ -1,0 +1,88 @@
+INSTALLBIN	= $(INSTALLGMD)/bin
+INSTALLLIB	= $(INSTALLGMD)/lib
+OPT	= -O
+CC	= cc
+
+BIN = ../../bintobuildwith
+MTC = $(BIN)/mtc
+
+                # C library (reuse)
+REUSE	= ../../reuse/mtc
+
+                # C libraries
+CLIBS	= $(REUSE)/libreuse.a
+
+                # options for C compiler
+CFLAGS	= -w -I$(REUSE) $(OPT)
+
+M2FLAGS	= -c -d$(REUSE)
+
+EXE     =  rpp
+
+all:	rpp
+
+cleanmtc:
+	cd ../src; make cleanmtc
+
+cleancompile: cleanmtc
+	rm -f *.o $(EXE)
+
+compile: $(EXE)
+
+mtc_only : sources
+
+install:	rpp ../lib/rpp.sh $(INSTALLLIB)/rpp ../gen/Scanner.Tab
+	if test $(INSTALLLIB) = $(INSTALLBIN); then echo error: INSTALLBIN = INSTALLLIB; false; else true; fi
+	sed 's;LIB;$(INSTALLLIB);g' < ../lib/rpp.sh > $(INSTALLBIN)/rpp
+	chmod a+rx $(INSTALLBIN)/rpp
+	install -c -s -m 755 rpp $(INSTALLLIB)/rpp
+	install -c -m 644 ../gen/Scanner.Tab $(INSTALLLIB)/rpp
+
+#	installation directories
+
+$(INSTALLLIB)/rpp:	$(INSTALLLIB)
+	sh -c "if test ! -d $(INSTALLLIB)/rpp; then mkdir $(INSTALLLIB)/rpp; else true; fi"
+
+# swap all byte pairs of the file Scanner.Tab
+
+bin.conv:
+	dd conv=swab < Scanner.Tab > .Scanner.Tab; mv .Scanner.Tab Scanner.Tab
+
+
+# HEAD
+
+sources	: Scanner.h
+
+sources	: Scanner.c
+Scanner.o	: Scanner.c Scanner.h
+
+sources	: rpp.c
+all	: rpp
+rpp.o	: rpp.c
+rpp.o	: Scanner.h
+
+SYSTEM_.o	: SYSTEM_.c SYSTEM_.h
+
+rpp	: $(CLIBS)	\
+	rpp.o	\
+	Scanner.o	\
+;	$(CC) $(CFLAGS) -o rpp 	\
+	rpp.o	\
+	Scanner.o	\
+	$(CLIBS)
+
+# TAIL
+
+clean	:
+	rm -f core *.o
+
+.SUFFIXES: .md .mi .h .c .o
+
+.mi.c:
+	$(MTC) $(M2FLAGS) $*.mi;
+
+.md.h:
+	$(MTC) $(M2FLAGS) $*.md;
+
+.c.o:
+	$(CC) $(CFLAGS) -c $*.c

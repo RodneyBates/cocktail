@@ -1,0 +1,1619 @@
+     1 
+     2 (* Ich, Doktor Josef Grosch, Informatiker, 22.3.1989 *)
+     3 
+     4 (* file ada1.puma 
+c    5    Rodney M. Bates, modifications: 
+c    6    (Changes made to precursor file mod1.puma:) 
+c    7       - Added generation of declaration and import
+c    8         of constants <Node>Max, with option '+'. 
+c    9       - Added generation of declaration and import
+c   10         of types p<Node>, with option '^'. 
+c   11       - Put IsType in generated imports list. 
+c   12    (Changes to file ada1.puma:)
+c   13    4-97  Copied from mod1.puma to ada1.puma and just began 
+c   14          the conversion to produce Ada output. 
+c   15    9-97  Changed to use IOUtils.WriteBackslash 
+c   16    7-99  Added handling of LINK attributes to Check. 
+c   17    7-99  Added handling of LINK attributes to Query. 
+c   18    6-2000 Changed generated yyStoreOldToNew and yyMapOldToNew to use 
+c   19           element zero. 
+c   20    6-2000 Partial conversion to Ada output.  Did not implement these
+c   21           command line options: -f - F -o -w -r -p -g -q -t -b -R -y 
+c   22           These routines (which help to implement the above options)
+c   23           are not called and not converted to Ada output:
+c   24             TraverseTD TraverseBU Reverse1 Reverse2 
+c   25             ReleaseAttributes1 ReleaseAttributes2 Copy
+c   26             InitNodeSize QueryAttributes IsEqualAttributes 
+c   27 *)
+    28 
+    29 TRAFO TreeAda1                                                                *     *
+    30 TREE Tree                                                                     *     *
+    31 PUBLIC TreePackSpec TreePackBody                                              *     *     *
+    32 
+    33 EXPORT {                                                                      *
+    34   FROM Positions  IMPORT tPosition;                                           *     *     *     *
+    35   CONST BSS       = 32;   (* BITSET size *)                                   *     *
+    36 }
+    37 
+    38 GLOBAL {                                                                      *
+    39 
+    40 FROM Positions IMPORT tPosition ;                                            34    34    34    34
+    41 
+    42 FROM General    IMPORT Max;                                                  40     *    40     *
+    43 FROM IO         IMPORT WriteS, WriteNl, StdError;                            42     *    42     *     *     *
+    44 FROM Idents     IMPORT tIdent;                                               43     *    43     *
+    45 FROM Texts      IMPORT WriteText;                                            44     *    44     *
+    46 FROM Sets       IMPORT IsElement, Include;                                   45     *    45     *     *
+    47 FROM TreeMod2   IMPORT GetIterator, Iterator;                                46     *    46     *     *
+    48 (*   ^ Strange place to get these from? but they are presumably target
+c   49        language independent. *) 
+    50 (* FROM TreeAda2   IMPORT TreeIO; *) 
+    51 FROM IOUtils    IMPORT WriteBackslash ;                                      47     *    47     *
+    52 
+    53 FROM Tree       IMPORT                                                       51    30    51
+    54    NoTree       , tTree         , Input         , Reverse       ,             *     *     *     *
+    55    Class        , Child         , Attribute     , Abstract      ,             *     *     *     *
+    56    HasChildren  , HasAttributes , NoCodeAttr    , NoCodeClass   ,             *     *     *     *
+    57    Options      , TreeRoot      , ClassCount    , iNoTree       ,             *     *     *     *
+    58    itTree       , iMain         , iModule       , f             ,             *     *     *     *
+    59    WI   , WN    , ForallClasses , ForallAttributes, Ignore      ,             *     *     *     *     *
+    60    Test         , Dummy         , ForallClassesPreAndPost       ,             *     *     *
+    61    Link         ;                                                             *
+    62 
+    63 IMPORT Strings;                                                              53     *
+    64 
+    65 VAR                                                                           *
+    66    ConstCount   ,                                                             *
+    67    ListCount    : INTEGER;                                                    *     *
+    68    iRange       ,                                                             *
+    69    iClassName   : tIdent;                                                     *    44
+    70    Node         : tTree;                                                      *    54
+    71    gBitCount    : SHORTCARD;                                                  *     *
+    72    i, MaxBit    : SHORTCARD;                                                  *     *    71
+    73 
+    74 (* Move this to Ada2.puma when it is converted: *) 
+    75 PROCEDURE WriteLine (Line: tPosition);                                        *     *     *    40
+    76    BEGIN                                                                      *
+    77       IF Line.Line # 0 THEN                                                   *    75     *     *
+    78          !-- Copied from line ! WN (Line.Line); @ of file "@ WI (Line.File); @" @         *     *     *    59    77     *
+                                                                                     *     *
+    79       END;                                                                    *
+    80    END WriteLine;                                                            79    75
+    81 }
+    82 
+    83 BEGIN { ConstCount := 0; }                                                   76    66
+    84 
+    85 PROCEDURE TreePackSpec (t: Tree)                                             75    31     *    53
+    86 
+    87 Ag (..) :- {                                                                  *
+    88         !!
+    89         !-- This Ada PACKAGE spec file was mechanically generated by cg. !          *     *     *     *    78     *     *
+                                                                                     *     *     *
+    90         !!
+    91       IF IsElement (ORD ('<'), Options) THEN                                 77    46     *    57    77
+    92         !WITH ! WI (iMain); ! ; !                                             *    59    58
+    93       END;                                                                   80
+    94         WriteLine (TreeCodes^.Codes.SpecWithLine);                           80     *     *     *
+    95         WriteText (f, TreeCodes^.Codes.SpecWith);                            45    58    94    94     *
+    96         Node := Modules;                                                     70     *
+    97         WHILE Node^.Kind = Tree.Module DO                                     *    96     *    85     *     *
+    98            WriteLine (Node^.Module.TreeCodes^.Codes.SpecWithLine);           94    97    97    95    95    94
+    99            WriteText (f, Node^.Module.TreeCodes^.Codes.SpecWith);            95    95    98    98    98    98    95
+   100            Node := Node^.Module.Next;                                        99     *    99     *
+   101         END;                                                                 93
+   102         !PACKAGE ! WI (iModule); ! IS !                                      89    92    58     *
+   103         !!
+   104         WriteLine (TreeCodes^.Codes.ImportLine);                             98    99    99     *
+   105         WriteText (f, TreeCodes^.Codes.Import);                              99    99   104   104     *
+   106         Node := Modules;                                                    100    96
+   107         WHILE Node^.Kind = Tree.Module DO                                    97   106    97    97   100    97
+   108            WriteLine (Node^.Module.TreeCodes^.Codes.ImportLine);            104   107   107   105   105   104
+   109            WriteText (f, Node^.Module.TreeCodes^.Codes.Import);             105   105   108   108   108   108   105
+   110            Node := Node^.Module.Next;                                       109     *   109   100
+   111         END;                                                                101
+   112         !!
+   113       IF NOT IsElement (ORD ('<'), Options) THEN                             91     *    91    91    91    91
+   114         !KindNull : CONSTANT := ! WN (ConstCount); ! ; !                      *     *    78    83
+   115         ForallClassesPreAndPost (Classes, ConstDeclsPre, ConstDeclsPost);    60     *     *     *
+   116         !!
+   117         IF IsElement (ORD ('^'), Options) THEN                              113   113   113   113   113
+   118           ForallClasses ( Classes, PointerTypes);                            59   115     *
+   119         END;                                                                111
+   120         !KindLast : CONSTANT := ! WN (ConstCount+1); ! ; !                    *   114   114   114
+   121      (* !tProcTree = PROCEDURE (! WI (itTree); !);!*) 
+   122       END;                                                                  119
+   123         WriteLine (TreeCodes^.Codes.ExportLine);                            108   109   109     *
+   124         WriteText (f, TreeCodes^.Codes.Export);                             109   109   123   123     *
+   125         Node := Modules;                                                    110   106
+   126         WHILE Node^.Kind = Tree.Module DO                                   107   125   107   107   110   107
+   127            WriteLine (Node^.Module.TreeCodes^.Codes.ExportLine);            123   126   126   124   124   123
+   128            WriteText (f, Node^.Module.TreeCodes^.Codes.Export);             124   124   127   127   127   127   124
+   129            Node := Node^.Module.Next;                                       128     *   128   110
+   130         END;                                                                122
+   131         !!
+   132       IF NOT IsElement (ORD ('<'), Options) THEN                            117   113   117   117   117   117
+   133         !# ifndef yyNodeHead!                                                 *     *
+   134         !# define yyNodeHead!                                                 *   133
+   135         !# endif!                                                             *
+   136         !SUBTYPE KindTyp IS INTEGER RANGE KindNull .. KindLast ; !            *     *   102    67     *   114   120
+   137         !!
+   138         !SUBTYPE SHORTCARD IS INTEGER RANGE 0 .. 32767 ; !                  136    72   136   136   136
+   139         !!
+   140         !TYPE BITSET IS ARRAY ( 0 .. 31 ) OF BOOLEAN ; !                      *     *   138     *     *     *
+   141         !BitSetEmpty : CONSTANT BITSET := ( OTHERS => FALSE ) ; !             *   120   140     *     *
+   142         !!
+   143       IF IsElement (ORD ('L'), Options) THEN                                132   132   132   132   132
+   144         MaxBit := 0;                                                         72
+   145         ForallClasses (Classes, CompMaxBit);                                118   118     *
+   146         !TYPE yytNodeHead IS RECORD !                                       140     *   140     *
+   147         !  yyMark , yyOffset : SHORTCARD ; !                                  *     *   138
+   148         !  yyParent : ! WI (itTree); ! ; !                                    *   102    58
+   149         !  yyIsComp0!                                                         *
+   150       IF IsElement (ORD ('5'), Options) THEN                                143   143   143   143   143
+   151         ! , yyIsDone0!                                                        *
+   152       END;                                                                  130
+   153         FOR i := 1 TO (MaxBit - 1) DIV BSS DO                                 *    72     *   144     *    35   126
+   154            ! , yyIsComp! WN (i);                                              *   120   153
+   155       IF IsElement (ORD ('5'), Options) THEN                                150   150   150   150   150
+   156            ! , yyIsDone! WN (i);                                              *   154   154
+   157       END;                                                                  152
+   158         END;                                                                157
+   159         ! : BITSET ; yyNodeHead !                                           141   134
+   160         !END RECORD ; !                                                     158   146
+   161       ELSE                                                                    *
+   162         !TYPE yytNodeHead IS RECORD !                                       146   146   146   160
+   163         !  yyMark : SHORTCARD ; yyNodeHead !                                147   147   159
+   164         !END RECORD ; !                                                     160   162
+   165       END;                                                                  164
+   166         ForallClasses (Classes, TypeDeclNode);                              145   145     *
+   167         !!
+   168         !TYPE yyNode ( Kind : KindTyp := KindNull ) IS RECORD !             162     *   126   136   136   162   164
+   169         !  yyHead : yytNodeHead ; !                                           *   162
+   170         !  CASE Kind IS !                                                     *   168   168
+   171         ForallClasses (Classes, TypeDeclRecord);                            166   166     *
+   172         !  WHEN OTHERS => NULL ; !                                            *   141     *
+   173         !  END CASE ; !                                                     165   170
+   174         !END RECORD ; !                                                     173   168
+   175         !!
+   176         !TYPE ! WI (itTree); ! IS ACCESS yyNode ; !                         168   148   148   170     *   168
+   177         WI (iNoTree); ! : CONSTANT ! WI (itTree); ! := NULL ; !             176    57   141     *   176   172
+   178         !!
+   179         WI (iMain); !Root : ! WI (itTree); ! ; !                            177    92     *     *   177
+   180      (* !VAR HeapUsed   : LONGCARD;!
+c  181         !VAR yyPoolFreePtr, yyPoolMaxPtr        : SYSTEM.ADDRESS;!
+c  182         !VAR yyNodeSize : ARRAY [0..! WN (ClassCount); !] OF SHORTCARD;!
+c  183         !VAR yyExit     : PROC;!
+c  184         !!
+c  185         !PROCEDURE yyAlloc      (): ! WI (itTree); !;!*) 
+   186         !FUNCTION Make! WI (iMain); ! ( Kind : KindTyp ) RETURN ! WI (itTree); ! ; !      *     *   179   179   170   168
+                                                                                     *     *   179
+   187         !FUNCTION IsType ( Tree : ! WI (itTree); ! ; Kind : KindTyp ) RETURN BOOLEAN\   186     *   126   186   186   186
+                                                                                   186   186   140
+      \ ; !
+   188         !!
+   189       END;                                                                  174
+   190       IF IsElement (ORD ('n'), Options) THEN                                155   155   155   155   155
+   191         ForallClasses (Classes, ProcedureDecln);                            171   171     *
+   192         !!
+   193       END;                                                                  189
+   194       IF IsElement (ORD ('m'), Options) THEN                                190   190   190   190   190
+   195         ForallClasses (Classes, ProcedureDeclm);                            191   191     *
+   196         !!
+   197       END;                                                                  193
+   198       IF IsElement (ORD ('f'), Options) THEN                                194   194   194   194   194
+   199         WriteS ( StdError , "-f option not implemented for Ada" ) ;          43    43
+   200         WriteNl (StdError ) ;                                                43   199
+   201         (* !PROCEDURE Release! WI (iModule); !     (Tree: ! WI (itTree); !);!*)
+   202       END;                                                                  197
+   203       IF IsElement (ORD ('F'), Options) AND NOT IsElement (ORD ('<'), Options) THEN     198   198   198   198     *   132
+                                                                                     *     *     *   198
+   204         WriteS ( StdError , "-F option not implemented for Ada" ) ;         199   200
+   205         WriteNl (StdError ) ;                                               200   204
+   206         (*!PROCEDURE Release! WI (iModule); !Module;!*) 
+   207       END;                                                                  202
+   208       IF IsElement (ORD ('o'), Options) THEN                                203   203   203   203   203
+   209         WriteS ( StdError , "-o option not implemented for Ada" ) ;         204   205
+   210         WriteNl (StdError ) ;                                               205   209
+   211         (*!PROCEDURE Write! WI (iModule); !Node   (f: IO.tFile; Tree: ! WI (itTree);\
+c     \ !);!*)
+   212       END;                                                                  207
+   213       IF IsElement (ORD ('w'), Options) THEN                                208   208   208   208   208
+   214         WriteS ( StdError , "-w option not implemented for Ada" ) ;         209   210
+   215         WriteNl (StdError ) ;                                               210   214
+   216         (*!PROCEDURE Write! WI (iModule); !       (f: IO.tFile; Tree: ! WI (itTree);\
+c     \ !);!*)
+   217       END;                                                                  212
+   218       IF IsElement (ORD ('r'), Options) THEN                                213   213   213   213   213
+   219         WriteS ( StdError , "-r option not implemented for Ada" ) ;         214   215
+   220         WriteNl (StdError ) ;                                               215   219
+   221         (*!PROCEDURE Read! WI (iModule); !        (f: IO.tFile): ! WI (itTree); !;!*\
+c     \)
+   222       END;                                                                  217
+   223       IF IsElement (ORD ('p'), Options) THEN                                218   218   218   218   218
+   224         WriteS ( StdError , "-p option not implemented for Ada" ) ;         219   220
+   225         WriteNl (StdError ) ;                                               220   224
+   226         (*!PROCEDURE Put! WI (iModule); ! (f: IO.tFile; Tree: ! WI (itTree); !);!*)
+   227       END;                                                                  222
+   228       IF IsElement (ORD ('g'), Options) THEN                                223   223   223   223   223
+   229         WriteS ( StdError , "-g option not implemented for Ada" ) ;         224   225
+   230         WriteNl (StdError ) ;                                               225   229
+   231         (*!PROCEDURE Get! WI (iModule); ! (f: IO.tFile): ! WI (itTree); !;!*)
+   232       END;                                                                  227
+   233       IF IsElement (ORD ('t'), Options) THEN                                228   228   228   228   228
+   234         WriteS ( StdError , "-t option not implemented for Ada" ) ;         229   230
+   235         WriteNl (StdError ) ;                                               230   234
+   236         (*!PROCEDURE Traverse! WI (iModule); !TD  (Tree: ! WI (itTree); !; Proc: tPr\
+c     \ocTree);!*)
+   237       END;                                                                  232
+   238       IF IsElement (ORD ('b'), Options) THEN                                233   233   233   233   233
+   239         WriteS ( StdError , "-b option not implemented for Ada" ) ;         234   235
+   240         WriteNl (StdError ) ;                                               235   239
+   241         (*!PROCEDURE Traverse! WI (iModule); !BU  (Tree: ! WI (itTree); !; Proc: tPr\
+c     \ocTree);!*)
+   242       END;                                                                  237
+   243       IF IsElement (ORD ('R'), Options) THEN                                238   238   238   238   238
+   244         WriteS ( StdError , "-R option not implemented for Ada" ) ;         239   240
+   245         WriteNl (StdError ) ;                                               240   244
+   246         (*!PROCEDURE Reverse! WI (iModule); !     (Tree: ! WI (itTree); !): ! WI (it\
+c     \Tree); !;!*)
+   247       END;                                                                  242
+   248       IF IsElement (ORD ('y'), Options) THEN                                243   243   243   243   243
+   249         WriteS ( StdError , "-y option not implemented for Ada" ) ;         244   245
+   250         WriteNl (StdError ) ;                                               245   249
+   251         (*!PROCEDURE Copy! WI (iModule); !        (Tree: ! WI (itTree); !): ! WI (it\
+c     \Tree); !;!*)
+   252       END;                                                                  247
+   253       IF IsElement (ORD ('k'), Options) THEN                                248   248   248   248   248
+   254         !FUNCTION Check! WI (iModule); ! ( Tree : ! WI (itTree); ! ) RETURN BOOLEAN \   187     *   187   102   187     *
+                                                                                   187   187   187
+      \; !
+   255       END;                                                                  252
+   256       IF IsElement (ORD ('q'), Options) THEN                                253   253   253   253   253
+   257         WriteS ( StdError , "-q option not implemented for Ada" ) ;         249   250
+   258         WriteNl (StdError ) ;                                               250   257
+   259         (*!PROCEDURE Query! WI (iModule); !       (Tree: ! WI (itTree); !);!*)
+   260       END;                                                                  255
+   261       IF IsElement (ORD ('='), Options) THEN                                256   256   256   256   256
+   262         WriteS ( StdError , "-= option not implemented for Ada" ) ;         257   258
+   263         WriteNl (StdError ) ;                                               258   262
+   264       (*!FUNCTION IsEqual! WI (iModule); ! ( Tree1 , Tree2 : ! WI (itTree); 
+c  265            !) RETURN BOOLEAN ; !*)
+   266       END;                                                                  260
+   267       IF IsElement (ORD ('L'), Options) THEN                                261   261   261   261   261
+   268         !PROCEDURE Init! WI (iModule); ! ( Tree : ! WI (itTree); ! ) ; !     85     *   254   254   254     *   254
+   269       END;                                                                  266
+   270         !PROCEDURE Begin! WI (iModule); ! ; !                               268     *   268   268
+   271         !PROCEDURE Close! WI (iModule); ! ; !                               270     *   270   270
+   272         !!
+   273         !END ! WI (iModule); ! ; !                                          269   271   271
+   274 }; .
+   275 
+   276 
+   277 PROCEDURE ConstDeclsPre (t: Tree)                                           271   115    85   268
+   278 
+   279 Class (..) :- {                                                              55
+   280         IF NOT (Abstract IN Properties) THEN                                267   203    55     *     *   267
+   281            INC (ConstCount);                                                  *   120
+   282            IF NOT (Ignore IN Properties) THEN                               280   280    59   280   280   280
+   283               WI (Name); ! : CONSTANT := ! WN (ConstCount); !;!             273     *   177   156   281
+   284            END;                                                             273
+   285         END;                                                                284
+   286 }; .
+   287 
+   288 PROCEDURE ConstDeclsPost (t: Tree)                                          277   115   277   277
+   289 
+   290 Class (..) :- {                                                             279
+   291       IF IsElement (ORD ('+'), Options) THEN                                282   267   267   267   282
+   292         IF NOT (Abstract IN Properties) THEN                                291   282   280   282   282   291
+   293            IF NOT (Ignore IN Properties) THEN                               292   292   282   292   292   292
+   294               WI (Name); !Max : CONSTANT := ! WN (ConstCount); ! ; !        283   283    42   283   283   283
+   295            END;                                                             285
+   296         END;                                                                295
+   297       END;                                                                  296
+   298 }; .
+   299 
+   300 PROCEDURE PointerTypes (t: Tree)                                            288   118   288   288
+   301 
+   302 Class (..) :- {                                                             290
+   303         IF NOT (Abstract IN Properties) THEN                                293   293   292   293   293   293
+   304            IF NOT (Ignore IN Properties) THEN                               303   303   293   303   303   303
+   305               !SUBTYPE p!WI (Name); ! IS ! WI ( itTree ); ! ; !             138     *   294   294   176     *   268
+   306            END;                                                             297
+   307         END;                                                                306
+   308 }; .
+   309 
+   310 PROCEDURE TypeDeclNode (t: Tree)                                            300   166   300   300
+   311 
+   312 Class (..) :- {                                                             302
+   313         IF (NoCodeClass * Properties) = {} THEN                             304    56   304   304
+   314            !TYPE y! WI (Name); ! IS RECORD !                                176     *   305   305   305   174
+   315            ForallAttributes (t, TypeDeclNode);                               59   310   310
+   316            !  END RECORD ; !                                                307   314
+   317         END;                                                                316
+   318 }; .
+   319 Child (..) :- {                                                              55
+   320         !  ! WI (Name); ! : ! WI (itTree); ! ; !                            314   314     *   305
+   321 }; .
+   322 Attribute (..) :- {                                                          55
+   323         IF (NoCodeAttr * Properties) = {} THEN                              313    56   313   313
+   324            !  ! WI (Name); ! : ! WI (Type); ! ; !                           320   320     *     *
+   325         END;                                                                317
+   326 }; .
+   327 
+   328 
+   329 PROCEDURE TypeDeclRecord (t: Tree)                                          310   171   315   310
+   330 
+   331 Class (..) :- {                                                             312
+   332         IF (NoCodeClass * Properties) = {} THEN                             323   313   323   323
+   333            !  WHEN ! WI (Name); ! => ! WI (Name); ! : y! WI (Name); ! ; !   172   324   324     *     *   314     *     *
+   334         END;                                                                325
+   335 }; .
+   336 
+   337 
+   338 PROCEDURE ProcedureDecln (t: Tree)                                          329   191   329   329
+   339 
+   340 Class (..) :- {                                                             331
+   341         IF (NoCodeClass * Properties) = {} THEN                             332   332   332   332
+   342            !FUNCTION n! WI (Name); ! RETURN ! WI (itTree); ! ; !            254     *   333   333   254     *   320
+   343         END;                                                                334
+   344 }; .
+   345 
+   346 
+   347 PROCEDURE ProcedureDeclm (t: Tree)                                          338   195   338   338
+   348 
+   349   Class ( .. )                                                              340
+   350     :- ProcedureHeadingm ( t ) ;                                              *   347
+   351        ! ; !
+   352     . 
+   353 
+   354 PROCEDURE ProcedureHeadingm (t: Tree)                                       347   350   350   347
+   355 
+   356 Class (..) :- {                                                             349
+   357         IF (NoCodeClass * Properties) = {} THEN                             341   341   341   341
+   358            ListCount := 0;                                                   67
+   359            !FUNCTION m! WI (Name); !!                                       342     *   342   342
+   360            !  ( !  
+   361            ForallAttributes (t, ProcedureHeadingm);                         315   354   354
+   362            !) RETURN ! WI (itTree); !! (*No EOL*)                           342   359   342
+   363         END;                                                                343
+   364 }; .
+   365 Child (..) :- {                                                             319
+   366         IF Input IN Properties THEN                                         357    54   304   357   357
+   367            IF ListCount > 0 THEN !; ! END;                                  366   358   366   363
+   368            !  p! WI (Name); ! : ! WI (itTree); ! := NULL !                  305   362   359     *   362   177
+   369            !  ! 
+   370            INC (ListCount);                                                 281   367
+   371         END;                                                                367
+   372 }; .
+   373 Attribute (..) :- {                                                         322
+   374         IF Input IN Properties THEN                                         367   366   366   366   367
+   375            IF ListCount > 0 THEN !; ! END;                                  374   370   374   371
+   376            !  p! WI (Name); !: ! WI (Type); !!                              368   368   368     *   324
+   377            !  !
+   378            INC (ListCount);                                                 370   375
+   379         END;                                                                375
+   380 }; .
+   381 
+   382 PROCEDURE TreePackBody (t: Tree)                                            354    31   361   354
+   383 
+   384 Ag (..) :- {                                                                 87
+   385         !!
+   386         !-- This Ada PACKAGE BODY file was mechanically generated by cg. !         89    89   102     *    89    89    89
+                                                                                    89    89    89
+   387         !!
+   388       IF IsElement (ORD ('k'), Options)                                     375   291   291   291
+   389          OR IsElement (ORD ('q'), Options) THEN                               *   388   388   388   375
+   390         !WITH Text_IO ; !                                                    92     *
+   391       END;                                                                  379
+   392       IF IsElement (ORD ('<'), Options) THEN                                388   389   389   389   389
+   393         !WITH ! WI (iMain); ! ; USE ! WI (iMain); ! ; !                     390   376   186     *     *     *
+   394         !!
+   395       END;                                                                  391
+   396         !PACKAGE BODY ! WI (iModule); ! IS !                                386   386   393   273   314
+   397       (*!# define yyALLOC(ptr, size)    ptr := yyPoolFreePtr; ! WriteBackslash ( f )\
+c     \ ; !!
+c  398         !  IF SYSTEM.ADDRESS (ptr) >= yyPoolMaxPtr THEN ptr := yyAlloc (); END; ! Wr\
+c     \iteBackslash ( f ) ; !!
+c  399         !  INC (yyPoolFreePtr, size);!
+c  400         !# define yyFREE(ptr, size)     !
+c  401         !!
+c  402         !IMPORT SYSTEM, System, General, Memory, DynArray, IO, Layout, StringMem, St\
+c     \rings, Idents, Texts, Sets, Positions;!*)
+   403       IF IsElement (ORD ('<'), Options) THEN                                392   392   392   392   392
+   404       (*!FROM ! WI (iMain); ! IMPORT ! WI (itTree); !, ! WI (iNoTree); !, tProcTree,\
+c     \ Make! WI (iMain); !, IsType, yyExit,!
+c  405         ForallClasses (Classes, ImportConst);
+c  406         !yyAlloc, yyPoolFreePtr, yyPoolMaxPtr, yyNodeSize;!
+c  407         !!*) 
+   408       END;                                                                  395
+   409         WriteLine (TreeCodes^.Codes.GlobalLine);                            127   128   128     *
+   410         WriteText (f, TreeCodes^.Codes.Global);                             128   128   409   409     *
+   411         Node := Modules;                                                    129   125
+   412         WHILE Node^.Kind = Tree.Module DO                                   126   411   187   382   129   153
+   413            WriteLine (Node^.Module.TreeCodes^.Codes.GlobalLine);            409   412   412   410   410   409
+   414            WriteText (f, Node^.Module.TreeCodes^.Codes.Global);             410   410   413   413   413   413   410
+   415            Node := Node^.Module.Next;                                       414     *   414   129
+   416         END;                                                                408
+   417         WriteLine (TreeCodes^.Codes.LocalLine);                             413   414   414     *
+   418         WriteText (f, TreeCodes^.Codes.Local);                              414   414   417   417     *
+   419         Node := Modules;                                                    415   411
+   420         WHILE Node^.Kind = Tree.Module DO                                   412   419   412   412   415   412
+   421            WriteLine (Node^.Module.TreeCodes^.Codes.LocalLine);             417   420   420   418   418   417
+   422            WriteText (f, Node^.Module.TreeCodes^.Codes.Local);              418   418   421   421   421   421   418
+   423            Node := Node^.Module.Next;                                       422     *   422   415
+   424         END;                                                                416
+   425         @# include "yy@ WI (iModule); @.w"@                                   *
+   426         !!
+   427       IF NOT IsElement (ORD ('<'), Options) THEN                            403   304   403   403   403   403
+   428       (*!CONST yyBlockSize = 20480;!
+c  429         !!
+c  430         !TYPE!
+c  431         ! yytBlockPtr   = POINTER TO yytBlock;!
+c  432         ! yytBlock      = RECORD!
+c  433         !                    yyBlock    : ARRAY [1..yyBlockSize] OF CHAR;!
+c  434         !                    yySuccessor: yytBlockPtr;!
+c  435         !                 END;!
+c  436         !!
+c  437         !VAR yyBlockList        : yytBlockPtr;!
+c  438         !VAR yyMaxSize, yyi     : SHORTCARD;!
+c  439         !VAR yyTypeRange        : ARRAY [0..! WN (ClassCount); !] OF SHORTCARD;!
+c  440         !!
+c  441         !PROCEDURE yyAlloc (): ! WI (itTree); !;!
+c  442         ! VAR yyBlockPtr        : yytBlockPtr;!
+c  443         ! BEGIN!
+c  444         !  yyBlockPtr   := yyBlockList;!
+c  445         !  yyBlockList  := Memory.Alloc (SYSTEM.TSIZE (yytBlock));!
+c  446         !  yyBlockList^.yySuccessor := yyBlockPtr;!
+c  447         !  yyPoolFreePtr        := SYSTEM.ADR (yyBlockList^.yyBlock);!
+c  448         !  yyPoolMaxPtr := yyPoolFreePtr + yyBlockSize - yyMaxSize + 1;!
+c  449         !  INC (HeapUsed, yyBlockSize);!
+c  450         !  RETURN yyPoolFreePtr;!
+c  451         ! END yyAlloc;!
+c  452         !!*)
+   453         !FUNCTION  Make! WI (iMain); ! ( yyKind : KindTyp ) RETURN ! WI (itTree); !!    359   186   396   393     *   187
+                                                                                   362     *   368
+   454         !  IS !                                                             396
+   455         !    yyt : ! WI (itTree); ! ; !                                       *   453   453
+   456         !  BEGIN !                                                           83
+   457         !    yyt := NEW yyNode ( yyKind ) ; !                               455     *   176   453
+   458         !    yyt . ALL . yyMark := 0 ; !                                    457     *   163
+   459         !    RETURN yyt; !                                                  453   458
+   460         ! END Make! WI (iMain); ! ; !                                       424   453   455   453
+   461         !!
+   462         !FUNCTION IsType ( yyTree : ! WI (itTree); ! ; yyKind : KindTyp ) RETURN  BO\   453   187     *   460   455   457
+                                                                                   453   459
+      \OLEAN !                                                                     254
+   463         !  IS BEGIN !                                                       454   456
+   464         !    RETURN yyTree /= ! WI (iNoTree); !!                            462   462   462   177
+   465         !      AND yyKind <= yyTree . ALL . Kind !                          203   462   464   458   420
+   466         !      AND yyTree . ALL . Kind <= yyTypeRange ( yyKind ) ; !        465   465   465   465     *   465
+   467         !  END IsType ; !                                                   460   462
+   468         !!
+   469       END;                                                                  467
+   470       IF IsElement (ORD ('n'), Options) THEN                                427   427   427   427   427
+   471         ForallClasses (Classes, ProcedureBodyn);                            195   195     *
+   472       END;                                                                  469
+   473         !!
+   474       IF IsElement (ORD ('m'), Options) THEN                                470   470   470   470   470
+   475         ForallClasses (Classes, ProcedureBodym);                            471   471     *
+   476       END;                                                                  472
+   477 (* This will implement more things when provided: TreeIO (t); *) 
+   478       IF IsElement (ORD ('f'), Options) THEN                                474   474   474   474   474
+   479       (*!PROCEDURE Release! WI (iModule); ! (yyt: ! WI (itTree); !);!
+c  480         ! BEGIN!
+c  481         !  yyMark (yyt);!
+c  482         !  yyRelease! WI (iModule); ! (yyt);!
+c  483         ! END Release! WI (iModule); !;!
+c  484         !!
+c  485         !VAR yyChild    : ! WI (itTree); !;!
+c  486         !!
+c  487         !PROCEDURE yyRelease! WI (iModule); ! (yyt: ! WI (itTree); !);!
+c  488         ! BEGIN!
+c  489         !  IF yyt = ! WI (iNoTree); ! THEN RETURN; END;!
+c  490         !  CASE yyt . ALL . Kind OF!
+c  491         ForallClasses (Classes, ReleaseAttributes1);
+c  492         !  ELSE!
+c  493         !  END;!
+c  494         !!
+c  495         !  DEC (yyt . ALL . yyMark);!
+c  496         !  IF yyt . ALL . yyMark = 0 THEN!
+c  497         !   CASE yyt . ALL . Kind OF!
+c  498         ForallClasses (Classes, ReleaseAttributes2);
+c  499         !   ELSE!
+c  500         !   END;!
+c  501         !   yyFREE (yyt, yyNodeSize [yyt . ALL . Kind])!
+c  502         !  END;!
+c  503         ! END yyRelease! WI (iModule); !;!
+c  504         !!*)
+   505       END;                                                                  476
+   506       IF IsElement (ORD ('F'), Options) AND NOT IsElement (ORD ('<'), Options) THEN     478   478   478   478   466   427
+                                                                                     *     *     *   478
+   507       (*!PROCEDURE Release! WI (iModule); !Module;!
+c  508         ! VAR yyBlockPtr        : yytBlockPtr;!
+c  509         ! BEGIN!
+c  510         !  WHILE yyBlockList /= NIL DO!
+c  511         !   yyBlockPtr  := yyBlockList;!
+c  512         !   yyBlockList := yyBlockList^.yySuccessor;!
+c  513         !   Memory.Free (SYSTEM.TSIZE (yytBlock), yyBlockPtr);!
+c  514         !  END;!
+c  515         !  yyPoolFreePtr        := NIL;!
+c  516         !  yyPoolMaxPtr := NIL;!
+c  517         !  HeapUsed     := 0;!
+c  518         ! END Release! WI (iModule); !Module;!
+c  519         !!*)
+   520       END;                                                                  505
+   521       IF IsElement (ORD ('t'), Options) OR                                  506   506   506   506   389
+   522          IsElement (ORD ('b'), Options) THEN                                521   521   521   506
+   523       (*!VAR yyProc     : tProcTree;!
+c  524         !!*)
+   525       END;                                                                  520
+   526       IF IsElement (ORD ('t'), Options) THEN                                521   522   522   522   522
+   527       (*!PROCEDURE Traverse! WI (iModule); !TD (yyt: ! WI (itTree); !; yyyProc: tPro\
+c     \cTree);!
+c  528         ! BEGIN!
+c  529         !  yyMark (yyt);!
+c  530         !  yyProc := yyyProc;!
+c  531         !  yyTraverse! WI (iModule); !TD (yyt);!
+c  532         ! END Traverse! WI (iModule); !TD;!
+c  533         !!
+c  534         !PROCEDURE yyTraverse! WI (iModule); !TD (yyt: ! WI (itTree); !);!
+c  535         ! BEGIN!
+c  536         !  LOOP!
+c  537         !   IF (yyt = ! WI (iNoTree); !) OR (yyt . ALL . yyMark = 0) THEN RETURN; EN\
+c     \D;!
+c  538         !   yyt . ALL . yyMark := 0;!
+c  539         !   yyProc (yyt);!
+c  540         !!
+c  541         !   CASE yyt . ALL . Kind OF!
+c  542         ForallClasses (Classes, TraverseTD);
+c  543         !   ELSE RETURN;!
+c  544         !   END;!
+c  545         !  END;!
+c  546         ! END yyTraverse! WI (iModule); !TD;!
+c  547         !!
+c  548       END;
+c  549       IF IsElement (ORD ('b'), Options) THEN
+c  550         !PROCEDURE Traverse! WI (iModule); !BU (yyt: ! WI (itTree); !; yyyProc: tPro\
+c     \cTree);!
+c  551         ! BEGIN!
+c  552         !  yyMark (yyt);!
+c  553         !  yyProc := yyyProc;!
+c  554         !  yyTraverse! WI (iModule); !BU (yyt);!
+c  555         ! END Traverse! WI (iModule); !BU;!
+c  556         !!
+c  557         !PROCEDURE yyTraverse! WI (iModule); !BU (yyt: ! WI (itTree); !);!
+c  558         ! BEGIN!
+c  559         !  IF (yyt = ! WI (iNoTree); !) OR (yyt . ALL . yyMark = 0) THEN RETURN; END\
+c     \;!
+c  560         !  yyt . ALL . yyMark := 0;!
+c  561         !!
+c  562         !  CASE yyt . ALL . Kind OF!
+c  563         ForallClasses (Classes, TraverseBU);
+c  564         !  ELSE!
+c  565         !  END;!
+c  566         !  yyProc (yyt);!
+c  567         ! END yyTraverse! WI (iModule); !BU;!
+c  568         !!*)
+   569       END;                                                                  525
+   570       IF IsElement (ORD ('R'), Options) THEN                                526   526   526   526   526
+   571       (*!PROCEDURE Reverse! WI (iModule); ! (yyOld: ! WI (itTree); !): ! WI (itTree)\
+c     \; !;!
+c  572         ! VAR yyNew, yyNext, yyTail     : ! WI (itTree); !;!
+c  573         ! BEGIN!
+c  574         !  yyNew        := yyOld;!
+c  575         !  yyTail       := yyOld;!
+c  576         !  LOOP!
+c  577         !   CASE yyOld . ALL . Kind OF!
+c  578         ForallClasses (Classes, Reverse1);
+c  579         !   ELSE EXIT;!
+c  580         !   END;!
+c  581         !   yyNew       := yyOld;!
+c  582         !   yyOld       := yyNext;!
+c  583         !  END;!
+c  584         !  CASE yyTail . ALL . Kind OF!
+c  585         ForallClasses (Classes, Reverse2);
+c  586         !  ELSE!
+c  587         !  END;!
+c  588         !  RETURN yyNew;!
+c  589         ! END Reverse! WI (iModule); !;!
+c  590         !!*)
+   591       END;                                                                  569
+   592       IF IsElement (ORD ('y'), Options) THEN                                570   570   570   570   570
+   593       (*!CONST yyInitOldToNewStoreSize  = 32;!
+c  594         !!
+c  595         !TYPE yytOldToNew = RECORD yyOld, yyNew: ! WI (itTree); !; END;!
+c  596         !!
+c  597         !VAR yyOldToNewStoreSize        : LONGINT;!
+c  598         !VAR yyOldToNewStorePtr : POINTER TO ARRAY [0..50000] OF yytOldToNew;!
+c  599         !VAR yyOldToNewCount    : INTEGER;!
+c  600         !!
+c  601         !PROCEDURE yyStoreOldToNew (yyOld, yyNew: ! WI (itTree); !);!
+c  602         ! BEGIN!
+c  603         !  IF (yyOldToNewCount = yyOldToNewStoreSize) THEN!
+c  604         !   DynArray.ExtendArray (yyOldToNewStorePtr, yyOldToNewStoreSize, SYSTEM.TS\
+c     \IZE (yytOldToNew));!
+c  605         !  END;!
+c  606         !  yyOldToNewStorePtr^[yyOldToNewCount].yyOld := yyOld;!
+c  607         !  yyOldToNewStorePtr^[yyOldToNewCount].yyNew := yyNew;!
+c  608         !  INC (yyOldToNewCount);!
+c  609         ! END yyStoreOldToNew;!
+c  610         !!
+c  611         !PROCEDURE yyMapOldToNew (yyOld: ! WI (itTree); !): ! WI (itTree); !;!
+c  612         ! VAR yyi: INTEGER;!
+c  613         ! BEGIN!
+c  614         !  FOR yyi := 0 TO yyOldToNewCount - 1 DO!
+c  615         !   IF yyOldToNewStorePtr^[yyi].yyOld = yyOld THEN!
+c  616         !    RETURN yyOldToNewStorePtr^[yyi].yyNew;!
+c  617         !   END;!
+c  618         !  END;!
+c  619         ! END yyMapOldToNew;!
+c  620         !!
+c  621         !PROCEDURE yyCopy! WI (iModule); ! (yyt: ! WI (itTree); !; yyNew: yyPtrtTree\
+c     \);!
+c  622         ! BEGIN!
+c  623         !  LOOP!
+c  624         !   IF yyt = ! WI (iNoTree); ! THEN yyNew^ := ! WI (iNoTree); !; RETURN; END\
+c     \;!
+c  625         !   IF yyt . ALL . yyMark = 0 THEN yyNew^ := yyMapOldToNew (yyt); RETURN; EN\
+c     \D;!
+c  626         !   yyNew^ := Make! WI (iMain); ! (yyt . ALL . Kind);!
+c  627         !   IF yyt . ALL . yyMark > 1 THEN yyStoreOldToNew (yyt, yyNew^); END;!
+c  628         !   yyt . ALL . yyMark := 0;!
+c  629         !!
+c  630         !   CASE yyt . ALL . Kind OF!
+c  631         ForallClasses (Classes, Copy);
+c  632         !   ELSE!
+c  633         !   END;!
+c  634         !  END;!
+c  635         ! END yyCopy! WI (iModule); !;!
+c  636         !!
+c  637         !PROCEDURE Copy! WI (iModule); ! (yyt: ! WI (itTree); !): ! WI (itTree); !;!
+c  638         ! VAR yyNew     : ! WI (itTree); !;!
+c  639         ! BEGIN!
+c  640         !  yyMark (yyt);!
+c  641         !  yyOldToNewCount := 0;!
+c  642         !  yyCopy! WI (iModule); ! (yyt, SYSTEM.ADR (yyNew));!
+c  643         !  RETURN yyNew;!
+c  644         ! END Copy! WI (iModule); !;!
+c  645         !!*)
+   646       END;                                                                  591
+   647       IF IsElement (ORD ('k'), Options) THEN                                592   592   592   592   592
+   648         !FUNCTION yyCheckChild !                                            462     *
+   649         !  ( yyParent , yyChild : ! WI (itTree); !!                         148     *   464   462
+   650         !  ; yyType : KindTyp ; yySelector: STRING !                          *   462     *     *
+   651         !  ) !
+   652         !RETURN BOOLEAN ; !                                                 464   462
+   653         !!
+   654         !FUNCTION yyCheck! WI (iModule); ! ( yyt : ! WI (itTree); ! ) RETURN BOOLEAN\   648     *   649   396   459     *
+                                                                                   649   652   652
+      \ !
+   655         !  IS !                                                             463
+   656         !    yyResult : BOOLEAN ; !                                           *   654
+   657         !  BEGIN !                                                          463
+   658         !    IF yyt = ! WI (iNoTree); ! THEN RETURN FALSE ; !               647   654   654   464   647   654   141
+   659         !    ELSIF yyt . ALL . .yyMark = 0 THEN RETURN TRUE ; !               *   658   466   458   658   658     *
+   660         !    END IF ; !                                                     646   658
+   661         !    yyt . ALL . yyMark := 0;!                                      659   659   659
+   662         !!
+   663         !    yyResult := TRUE;!                                             656   659
+   664         !    CASE yyt . ALL . Kind OF!                                      173   661   661   466   140
+   665         ForallClasses (Classes, CheckAttributes);                           475   475     *
+   666         !    ELSE !                                                         161
+   667         !    END CASE ; !                                                   660   664
+   668         !    RETURN yyResult ; !                                            659   663
+   669         !  END yyCheck! WI (iModule); ! ; !                                 667   654   658   654
+   670         !!
+   671         !FUNCTION yyCheckChild !                                            654   648
+   672         !  ( yyParent , yyChild : ! WI (itTree); !!                         649   649   669   654
+   673         !  ; yyType : KindTyp ; yySelector: STRING !                        650   650   650   650
+   674         !  ) !
+   675         !RETURN BOOLEAN !                                                   668   656
+   676         !  IS !                                                             655
+   677         !    yyf : CONSTANT Text_Io . File := Text_Io . StdErr ; !            *   294     *     *     *     *
+   678         !    yySuccess : BOOLEAN ; !                                          *   675
+   679         !  BEGIN!                                                           657
+   680         !    yySuccess := IsType ( yyChild , yyType ) ; !                   678   467   672   673
+   681         !    IF NOT yySuccess THEN!                                         660   506   680   659
+   682         @      Text_Io . Put ( yyf , "CheckTree: parent = " ) ; @           677     *   677
+   683         !      Write! WI (iModule); !Node ( yyf , yyParent ) ; !              *   672   669   423   682   672
+   684         !      Text_Io . Put_Line ( yyf ) ; !                               682     *   683
+   685         @      Text_Io . Put ( yyf , "selector: " ) ; @                     684   682   684
+   686         !      Text_Io . Put ( yyf , yySelector ) ; !                       685   685   685   673
+   687         @      Text_Io . Put ( yyf , ", child = " ) ; @                     686   686   686
+   688         !      Write! WI (iModule); !Node ( yyf , yyChild ) ; !             683   683   683   683   687   680
+   689         !      Text_Io . Put_Line ( yyf ) ; !                               687   684   688
+   690         !    END IF ; !                                                     669   681
+   691         !  RETURN yyCheck! WI (iModule); ! ( yyChild ) AND yySuccess ; !    675   669   688   688   688   506   681
+   692         ! END yyCheckChild ; !                                              690   671
+   693         !!
+   694         !FUNCTION Check! WI (iModule); ! ( Tree : ! WI (itTree); ! ) RETURN BOOLEAN \   671   254   691   691   420     *
+                                                                                   672   691   678
+      \!
+   695         !  IS BEGIN !                                                       676   679
+   696         !    yyMark ( Tree ) ; !                                            661   694
+   697         !    RETURN yyCheck! WI (iModule); ! ( Tree ) ; !                   694   691   694   694   696
+   698         !  END Check! WI (iModule); ! ; !                                   692   694   697   697
+   699         !!
+   700       END;                                                                  698
+   701       IF IsElement (ORD ('q'), Options) THEN                                690   647   647   647   681
+   702       (*!CONST yyyWrite = 1; yyyRead = 2; yyyQuit = 3;!
+c  703         !!
+c  704         !VAR yyString   : ARRAY [0..31] OF CHAR;!
+c  705         !VAR yyLength   : INTEGER;!
+c  706         !VAR yyCh       : CHAR;!
+c  707         !VAR yyState    : INTEGER;!
+c  708         !!
+c  709         !PROCEDURE yyyIsEqual (yya: ARRAY OF CHAR): BOOLEAN;!
+c  710         ! VAR yyi       : INTEGER;!
+c  711         ! BEGIN!
+c  712         !  IF (yyLength >= 0) AND (yyString [yyLength] = ' ') THEN!
+c  713         !   IF yyLength - 1 /= INTEGER (HIGH (yya)) THEN RETURN FALSE; END;!
+c  714         !   FOR yyi := 0 TO yyLength - 1 DO!
+c  715         !    IF yyString [yyi] /= yya [yyi] THEN RETURN FALSE; END;!
+c  716         !   END;!
+c  717         !  ELSE!
+c  718         !   IF yyLength > INTEGER (HIGH (yya)) THEN RETURN FALSE; END;!
+c  719         !   FOR yyi := 0 TO yyLength DO!
+c  720         !    IF yyString [yyi] /= yya [yyi] THEN RETURN FALSE; END;!
+c  721         !   END;!
+c  722         !  END;!
+c  723         !  RETURN TRUE;!
+c  724         ! END yyyIsEqual;!
+c  725         !!
+c  726         !PROCEDURE Query! WI (iModule); ! (yyt: ! WI (itTree); !);!
+c  727         ! BEGIN!
+c  728         !  yyState := yyyWrite;!
+c  729         !  LOOP!
+c  730         !   CASE yyState OF!
+c  731         !   | yyyQuit   : RETURN;!
+c  732         !   | yyyWrite  : Write! WI (iModule); !Node (IO.StdOutput, yyt); yyState :=\
+c     \ yyyRead;!
+c  733         !   | yyyRead   : Text_Io . Put (IO.StdOutput, '? '); yyLength := -1; yyCh :\
+c     \= IO.ReadC (IO.StdInput);!
+c  734         !    WHILE yyCh /= 12C DO INC (yyLength); yyString [yyLength] := yyCh; yyCh \
+c     \:= IO.ReadC (IO.StdInput); END;!
+c  735         !    IF    yyyIsEqual ('parent') THEN yyState := yyyWrite; RETURN;!
+c  736         !    ELSIF yyyIsEqual ('quit'  ) THEN yyState := yyyQuit ; RETURN;!
+c  737         !    ELSIF yyt /= ! WI (iNoTree); ! THEN!
+c  738         !     CASE yyt . ALL . Kind OF!
+c  739         ForallClasses (Classes, QueryAttributes);
+c  740         !     ELSE!
+c  741         !     END;!
+c  742         !    END;!
+c  743         !   END;!
+c  744         !  END;!
+c  745         ! END Query! WI (iModule); !;!
+c  746         !!*)
+   747       END;                                                                  700
+   748       IF IsElement (ORD ('='), Options) THEN                                701   701   701   701   701
+   749       (*!PROCEDURE yyIsEqual (yya, yyb: ARRAY OF SYSTEM.BYTE): BOOLEAN;!
+c  750         ! VAR yyi       : INTEGER;!
+c  751         ! BEGIN!
+c  752         !  FOR yyi := 0 TO INTEGER (HIGH (yya)) DO!
+c  753         !   IF yya [yyi] /= yyb [yyi] THEN RETURN FALSE; END;!
+c  754         !  END;!
+c  755         !  RETURN TRUE;!
+c  756         ! END yyIsEqual;!
+c  757         !!
+c  758         !PROCEDURE IsEqual! WI (iModule); ! (yyt1, yyt2: ! WI (itTree); !): BOOLEAN;\
+c     \!
+c  759         ! BEGIN!
+c  760         !  IF yyt1 = yyt2 THEN RETURN TRUE; END;!
+c  761         !  IF (yyt1 = ! WI (iNoTree); !) OR (yyt2 = ! WI (iNoTree); !) OR (yyt1 . AL\
+c     \L . Kind /= yyt2 . ALL . Kind) THEN RETURN FALSE; END;!
+c  762         !  CASE yyt1 . ALL . Kind OF!
+c  763         ForallClasses (Classes, IsEqualAttributes);
+c  764         !  ELSE RETURN TRUE;!
+c  765         !  END;!
+c  766         ! END IsEqual! WI (iModule); !;!
+c  767         !!*)
+   768       END;                                                                  747
+   769       IF IsElement (ORD ('L'), Options) THEN                                748   748   748   748   748
+   770         MaxBit := 0;                                                        153
+   771         ForallClasses (Classes, CompMaxBit);                                665   665   145
+   772         !PROCEDURE Init! WI ( iModule); ! ( yyt : ! WI (itTree); ! ) !      382   268   698   698   664     *   694
+   773         !  IS BEGIN!                                                        695   695
+   774         !  LOOP!                                                              *
+   775         FOR i := 0 TO (MaxBit - 1) DIV BSS DO                               153   156   153   770   153   153   420
+   776            !     yyt . ALL . yyIsComp! WN (i); ! := BitsetEmpty ; !         772   664   154   294   775     *
+   777       IF IsElement (ORD ('5'), Options) THEN                                769   769   769   769   769
+   778            !     yyt . ALL . yyIsDone! WN (i); ! := BitsetEmpty ;!          776   776   156   776   776   776
+   779       END;                                                                  768
+   780         END;                                                                779
+   781         !    CASE yyt . ALL . Kind OF!                                      667   778   778   664   664
+   782         ForallClasses (Classes, InitAttributes);                            771   771     *
+   783         !    ELSE RETURN;!                                                  666   697
+   784         !    END CASE ; !                                                   780   781
+   785         !  END LOOP ;!                                                      784   774
+   786         ! END Init! WI (iModule); !;!                                       785   772   772   772
+   787         !!
+   788       END;                                                                  786
+   789         !PROCEDURE Begin! WI (iModule); !!                                  772   270   786   786
+   790         !  IS BEGIN !                                                       773   773
+   791         WriteLine (TreeCodes^.Codes.BeginLine);                             421   422   422     *
+   792         WriteText (f, TreeCodes^.Codes.Begin);                              422   422   791   791   789
+   793         Node := Modules;                                                    688   419
+   794         WHILE Node^.Kind = Tree.Module DO                                   420   793   781   697   423   775
+   795            WriteLine (Node^.Module.TreeCodes^.Codes.BeginLine);             791   794   794   792   792   791
+   796            WriteText (f, Node^.Module.TreeCodes^.Codes.Begin);              792   792   795   795   795   795   792
+   797            Node := Node^.Module.Next;                                       796     *   796   423
+   798         END;                                                                788
+   799         !  END Begin! WI (iModule); ! ; !                                   798   796   789   789
+   800         !!
+   801         !PROCEDURE Close! WI (iModule); !!                                  789   271   799   799
+   802         !  IS BEGIN !                                                       790   790
+   803         WriteLine (TreeCodes^.Codes.CloseLine);                             795   796   796     *
+   804         WriteText (f, TreeCodes^.Codes.Close);                              796   796   803   803   801
+   805         Node := Modules;                                                    797   793
+   806         WHILE Node^.Kind = Tree.Module DO                                   794   805   794   794   797   794
+   807            WriteLine (Node^.Module.TreeCodes^.Codes.CloseLine);             803   806   806   804   804   803
+   808            WriteText (f, Node^.Module.TreeCodes^.Codes.Close);              804   804   807   807   807   807   804
+   809            Node := Node^.Module.Next;                                       808     *   808   797
+   810         END;                                                                799
+   811         !  END Close! WI (iModule); ! ; !                                   810   808   801   801
+   812         !!
+   813       IF NOT IsElement (ORD ('<'), Options) THEN                            777   681   777   777   777   777
+   814       (*!  PROCEDURE xxExit !
+c  815         !  IS BEGIN !
+c  816         !     Exit ( 1 ) ; !
+c  817         !   END xxExit ; !
+c  818         !!*)
+   819       END;                                                                  811
+   820         !BEGIN!                                                             802
+   821       IF IsElement (ORD ('r'), Options) THEN                                813   813   813   813   813
+   822         (*! yyIsInitialized := FALSE;!*)
+   823       END;                                                                  819
+   824       IF NOT IsElement (ORD ('<'), Options) THEN                            821   813   821   821   821   821
+   825       (*! yyBlockList   := NIL;!
+c  826         ! yyPoolFreePtr := NIL;!
+c  827         ! yyPoolMaxPtr  := NIL;!
+c  828         ! HeapUsed      := 0;!
+c  829         ! yyExit        := xxExit;!
+c  830         ForallClasses (Classes, InitNodeSize);
+c  831         ! yyMaxSize     := 0 ; !
+c  832         ! FOR yyi := 1 TO ! WN (ClassCount); ! DO!
+c  833         !  yyNodeSize [yyi] := LONGINT (BITSET (yyNodeSize [yyi] + CARDINAL (General\
+c     \.MaxAlign) - 1) * General.AlignMasks [General.MaxAlign]);!
+c  834         !  yyMaxSize := General.Max (yyNodeSize [yyi], yyMaxSize);!
+c  835         ! END;!*)
+   836         ForallClasses (Classes, InitTypeRange);                             782   782     *
+   837       END;                                                                  823
+   838       IF IsElement (ORD (';'), Options) THEN                                824   824   824   824   824
+   839       (*! yyRecursionLevel := 0;!
+c  840         ! yyTreeStoreSize := yyInitTreeStoreSize;!
+c  841         ! DynArray.MakeArray (yyTreeStorePtr, yyTreeStoreSize, SYSTEM.TSIZE (! WI (i\
+c     \tTree); !));!*) 
+   842       END;                                                                  837
+   843       IF IsElement (ORD ('y'), Options) THEN                                838   838   838   838   838
+   844       (*! yyOldToNewStoreSize := yyInitOldToNewStoreSize;!
+c  845         ! DynArray.MakeArray (yyOldToNewStorePtr, yyOldToNewStoreSize, SYSTEM.TSIZE \
+c     \(yytOldToNew));!*)
+   846       END;                                                                  842
+   847         !  Begin! WI (iModule); ! ; !                                       799   811   811
+   848         !END ! WI (iModule); !!                                             846   847   847
+   849 }; .
+   850 
+   851 
+   852 PROCEDURE ProcedureBodyn (t: Tree)                                          801   471   382   806
+   853 
+   854 Class (..) :- {                                                             356
+   855         IF (NoCodeClass * Properties) = {} THEN                             843   357   374   843
+   856            !FUNCTION n! WI (Name); ! RETURN ! WI (itTree); !!               694   342   848   376   783     *   772
+   857            !  IS !                                                          802
+   858            !    yyt : ! WI (itTree); ! ; !                                  781   856   856
+   859            !  BEGIN !                                                       820
+   860            !    yyt := NEW yyNode ( ! WI ( Name ) ; ! ) ; !                 858   457   457   858   856
+   861            !    yyt . ALL . yyMark := 0 ; !                                 860   781   696
+   862            iClassName := Name;                                               69   860
+   863            ForallAttributes (t, ProcedureBodyn);                            361   852   852
+   864            !    RETURN yyt ; !                                              856   861
+   865            ! END n! WI (Name); ! ; !                                        848   856   860   862
+   866            !!
+   867         END;                                                                865
+   868 }; .
+   869 Child (..) :- {                                                             365
+   870         !    begin! WI (itTree); ! ( yyt . ALL . ! WI (Name); ! ) !           *   865   858   864   861     *   865
+   871 }; .
+   872 Attribute (..) :- {                                                         373
+   873         IF (NoCodeAttr * Properties) = {} THEN                              855   323   855   855
+   874            !    begin! WI (Type); ! ( yyt . ALL . ! WI (Name); ! ) !        870   870   376   870   870     *   870
+   875         END;                                                                867
+   876 }; .
+   877 
+   878 
+   879 PROCEDURE ProcedureBodym (t: Tree)                                          852   475   863   852
+   880 
+   881 Class (..) :- {                                                             854
+   882         IF (NoCodeClass * Properties) = {} THEN                             873   855   873   873
+   883            ProcedureHeadingm (t);                                           361   879
+   884            !  IS !                                                          857
+   885            !    yyt : ! WI (itTree); ! ; !                                  874   874   870
+   886            !  BEGIN !                                                       859
+   887            !    yyt := NEW yyNode ( ! WI ( Name ) ; ! ) ; !                 885   860   860   885   874
+   888            !    yyt . ALL . yyMark := 0 ; !                                 887   874   861
+   889            IF ({HasChildren, HasAttributes} * Properties) # {} THEN         882    56    56   882   882
+   890               !  WITH yyt^.! WI (Name); ! DO!                               393   888   887   887   806
+   891               ForallAttributes (t, ProcedureBodym);                         863   883   879
+   892               !  END;!                                                      875
+   893            END;                                                             892
+   894            !    RETURN yyt ; !                                              864   890
+   895            !  END m! WI (Name); ! ; !                                       893   359   890   890
+   896            !!
+   897         END;                                                                895
+   898 }; .
+   899 Child (..) :- {                                                             869
+   900         IF Input IN Properties THEN                                         889   374   374   889   889
+   901            !    yyt . ALL . ! WI (Name); ! := p! WI (Name); ! ; !           894   888   895   895   376     *     *
+   902         ELSE                                                                783
+   903            !    begin! WI (itTree); ! ( yyt . ALL . ! WI (Name); ! ) !      874   901   885   901   901     *   901
+   904         END;                                                                897
+   905 }; .
+   906 Attribute (..) :- {                                                         872
+   907         IF (NoCodeAttr * Properties) = {} THEN                              900   873   900   900
+   908            IF Input IN Properties THEN                                      907   900   900   907   907
+   909               !    yyt . ALL . ! WI (Name); ! := p! WI (Name); ! ; !        903   903   903   903   901     *     *
+   910            ELSE                                                             902
+   911               !    begin! WI (Type); ! ( yyt . ALL . ! WI (Name); ! ) !     903   909   874   909   909     *   909
+   912            END;                                                             904
+   913         END;                                                                912
+   914 }; .
+   915 
+   916 
+   917 PROCEDURE ReleaseAttributes1 (t: Tree)                                      879     *   891   879
+   918 
+   919 Class (..) :- {                                                             881
+   920         IF ((NoCodeClass * Properties) = {}) AND (HasChildren IN Properties) THEN       908   882   908   691   889   908
+                                                                                     *   908
+   921            !| ! WI (Name); !:!                                              911   911
+   922            iClassName := Name;                                              862   921
+   923            ForallAttributes (t, ReleaseAttributes1);                        891   917   917
+   924         END;                                                                913
+   925 }; .
+   926 Child (..) :- {                                                             899
+   927         !close! WI (itTree); ! (yyt^.! WI (iClassName); !.! WI (Name); !)!          *   921   903   911     *   922     *
+                                                                                   922
+   928 }; .
+   929 
+   930 
+   931 PROCEDURE ReleaseAttributes2 (t: Tree)                                      917     *   923   917
+   932 
+   933 Class (..) :- {                                                             919
+   934         IF ((NoCodeClass * Properties) = {}) AND (HasAttributes IN Properties) THEN     920   920   920   920   889   920
+                                                                                     *   920
+   935            !| ! WI (Name); !:!                                              927   927
+   936            iClassName := Name;                                              927   935
+   937            ForallAttributes (t, ReleaseAttributes2);                        923   931   931
+   938         END;                                                                924
+   939 }; .
+   940 Attribute (..) :- {                                                         906
+   941         IF (NoCodeAttr * Properties) = {} THEN                              934   907   934   934
+   942            !close! WI (Type); ! (yyt^.! WI (iClassName); !.! WI (Name); !)!       927   935   911   927     *   936     *
+                                                                                   936
+   943         END;                                                                938
+   944 }; .
+   945 
+   946 
+   947 PROCEDURE TraverseTD (t: Tree)                                              931     *   937   931
+   948 
+   949 Class (..) :- {                                                             933
+   950         IF ((NoCodeClass * Properties) = {}) AND (HasChildren IN Properties) THEN       941   934   941   934   920   934
+                                                                                     *   941
+   951            !| ! WI (Name); !:!                                              942   942
+   952            GetIterator (t);                                                  47   947
+   953            iClassName := Name;                                              942   951
+   954            ForallAttributes (t, TraverseTD);                                937   952   947
+   955            IF Iterator = NoTree THEN                                        950    47    54   950
+   956               !RETURN;!                                                     894
+   957            ELSE                                                             910
+   958               !yyt := yyt^.! WI (iClassName); !.! WI (Iterator^.Child.Name); !;!        942     *   951   953     *   955
+                                                                                   926   953
+   959            END;                                                             943
+   960         END;                                                                959
+   961 }; .
+   962 Child (..) :- {                                                             958
+   963         IF t # Iterator THEN                                                955   954   958   955
+   964            !yyTraverse! WI (iModule); !TD (yyt^.! WI (iClassName); !.! WI (Name); !)\     *   958   848     *   958     *
+                                                                                   958     *   958
+      \;!
+   965         END;                                                                960
+   966 }; .
+   967 
+   968 
+   969 PROCEDURE TraverseBU (t: Tree)                                              947     *   963   947
+   970 
+   971 Class (..) :- {                                                             949
+   972         IF ((NoCodeClass * Properties) = {}) AND (HasChildren IN Properties) THEN       963   950   950   950   950   950
+                                                                                     *   963
+   973            !| ! WI (Name); !:!                                              964   964
+   974            GetIterator (t);                                                 952   969
+   975            iClassName := Name;                                              964   973
+   976            ForallAttributes (t, TraverseBU);                                954   974   969
+   977            IF Iterator = NoTree THEN                                        972   963   955   972
+   978               !RETURN;!                                                     956
+   979            ELSE                                                             957
+   980               !yyTraverse! WI (iModule); !BU (yyt^.! WI (iClassName); !.! WI (Iterat\   964   973   964     *   964     *
+                                                                                   975     *
+      \or^.Child.Name); !);!                                                       977   962   975
+   981            END;                                                             965
+   982         END;                                                                981
+   983 }; .
+   984 Child (..) :- {                                                             980
+   985         IF t # Iterator THEN                                                977   976   980   977
+   986            !yyTraverse! WI (iModule); !BU (yyt^.! WI (iClassName); !.! WI (Name); !)\   980   980   980   980   980     *
+                                                                                   980     *   980
+      \;!
+   987         END;                                                                982
+   988 }; .
+   989 
+   990 
+   991 PROCEDURE Reverse1 (t: Tree)                                                969     *   985   969
+   992 
+   993 Class (..) :- {                                                             971
+   994         IF (NoCodeClass * Properties) = {} THEN                             985   972   972   985
+   995            iClassName := Name;                                              986   986
+   996            ForallAttributes (t, Reverse1);                                  976   991   991
+   997         END;                                                                987
+   998 }; .
+   999 Child (..) :- {                                                             984
+  1000         IF Reverse IN Properties THEN                                       994    54   972   994   994
+  1001            !| ! WI (iClassName); !: yyNext := yyOld^.! WI (iClassName); !.! WI (Name\   986   995     *     *     *     *
+                                                                                     *   995
+      \); !;! 
+  1002            ! yyOld^.! WI (iClassName); !.! WI (Name); ! := yyNew;!         1001  1001  1001     *  1001     *
+  1003         END;                                                                997
+  1004 }; .
+  1005 
+  1006 
+  1007 PROCEDURE Reverse2 (t: Tree)                                                991     *   996   991
+  1008 
+  1009 Class (..) :- {                                                             993
+  1010         IF (NoCodeClass * Properties) = {} THEN                            1000   994  1000  1000
+  1011            iClassName := Name;                                             1002  1002
+  1012            ForallAttributes (t, Reverse2);                                  996  1007  1007
+  1013         END;                                                               1003
+  1014 }; .
+  1015 Child (..) :- {                                                             999
+  1016         IF Reverse IN Properties THEN                                      1010  1000  1000  1010  1010
+  1017            !| ! WI (iClassName); !: yyTail^.! WI (iClassName); !.! WI (Name); ! := y\  1002  1011     *     *     *     *
+                                                                                  1011
+      \yOld;!                                                                     1002
+  1018         END;                                                               1013
+  1019 }; .
+  1020 
+  1021 
+  1022 PROCEDURE Copy (t: Tree)                                                   1007     *  1012  1007
+  1023 
+  1024 Class (..) :- {                                                            1009
+  1025         IF (NoCodeClass * Properties) = {} THEN                            1016  1010  1016  1016
+  1026            !| ! WI (Name); !: yyNew^^.! WI (Name); ! := yyt^.! WI (Name); !;!    1017  1017  1002     *     *   986     *
+                                                                                     *
+  1027            GetIterator (t);                                                 974  1022
+  1028            iClassName := Name;                                             1017  1026
+  1029            ForallAttributes (t, Copy);                                     1012  1027  1022
+  1030            IF Iterator = NoTree THEN                                       1025   985   977  1025
+  1031               !RETURN;!                                                     978
+  1032            ELSE                                                             979
+  1033               !yyt := yyt^.! WI (Name); !.! WI (Iterator^.Child.Name); !;!       1026     *  1026  1028     *  1030  1015
+                                                                                     *
+  1034               !yyNew := SYSTEM.ADR (yyNew^^.! WI (Name); !.! WI (Iterator^.Child.Nam\  1026     *     *     *  1033  1033
+                                                                                     *  1033  1033
+      \e); !);!                                                                      *
+  1035            END;                                                            1018
+  1036         END;                                                               1035
+  1037 }; .
+  1038 Child (..) :- {                                                            1034
+  1039         IF t # Iterator THEN                                               1030  1029  1034  1030
+  1040            !copy! WI (itTree); ! (yyNew^^.! WI (iClassName); !.! WI (Name); !, !          *  1034   927  1034     *  1028
+                                                                                     *  1034
+  1041               !yyt^.! WI (iClassName); !.! WI (Name); !)!                  1033  1040  1040     *  1040
+  1042         END;                                                               1036
+  1043 }; .
+  1044 Attribute (..) :- {                                                         940
+  1045         IF (NoCodeAttr * Properties) = {} THEN                             1039   941  1025  1039
+  1046            !copy! WI (Type); ! (yyNew^^.! WI (iClassName); !.! WI (Name); !, !   1040  1041   942  1040     *  1041     *
+                                                                                  1041
+  1047               !yyt^.! WI (iClassName); !.! WI (Name); !)!                  1041  1046  1046     *  1046
+  1048         END;                                                               1042
+  1049 }; .
+  1050 
+  1051 
+  1052 PROCEDURE CheckAttributes (t: Tree)                                        1022   665  1039  1022
+  1053 
+  1054 Class (..) :- {                                                            1024
+  1055         IF ((NoCodeClass * Properties) = {})                               1045  1025  1045
+  1056            AND (HasChildren IN Properties) THEN                             972   972  1016  1055  1045
+  1057            !    WHEN ! WI (Name); ! => !                                    333  1047  1047
+  1058            iClassName := Name;                                             1047  1057
+  1059            ForallAttributes (t, CheckAttributes);                          1029  1052  1052
+  1060         END;                                                               1048
+  1061 }; .
+  1062 Child (..)                                                                 1038
+  1063   :- { !       yyResult := yyResult AND THEN !                              668     *  1056  1056
+  1064        !         yyCheckChild ( yyt , yyt . ALL . ! WI (Name); ! , !        692  1047     *   911  1057  1058
+  1065                    WI (Type); @ , "@ WI (Name); @" ) ; @                   1064  1046
+  1066      } ; .
+  1067 Attribute (..)                                                             1044
+  1068   :- ( { Link IN Properties } ) ;                                            61  1056  1056
+  1069      { !       yyResult := yyResult AND THEN !                             1063     *  1063  1063
+  1070        !         yyCheckChild  ( yyt , yyt . ALL . ! WI (Name); ! , !      1064  1064     *  1064  1065  1064
+  1071                    WI (Type); @ , "@ WI (Name); @" ) ; @                   1070  1065
+  1072      } ; .
+  1073 
+  1074 
+  1075 PROCEDURE InitTypeRange (t: Tree)                                          1052   836  1059  1052
+  1076 
+  1077 Class (..) :- {                                                            1054
+  1078         IF (NoCodeClass * Properties) = {} THEN                            1055  1055  1068  1069
+  1079            iRange := Name;                                                   68  1070
+  1080            ForallClasses (Extensions, InitTypeRange2);                      836     *     *
+  1081            !  yyTypeRange (! WI (Name); !) := ! WI (iRange); ! ; !          466  1071  1079     *  1079
+  1082         END;                                                               1060
+  1083 }; .
+  1084 
+  1085 
+  1086 PROCEDURE InitTypeRange2 (t: Tree)                                         1075  1080  1075  1075
+  1087 
+  1088 Class (..) :- {                                                            1077
+  1089         iRange := Name;                                                    1081  1081
+  1090 }; .
+  1091 
+  1092 
+  1093 PROCEDURE QueryAttributes (t: Tree)                                        1086     *  1086  1086
+  1094 
+  1095 Class (..) :- {                                                            1088
+  1096         IF ((NoCodeClass * Properties) = {}) AND (HasChildren IN Properties) THEN      1078  1078  1078  1069  1056  1068
+                                                                                     *  1078
+  1097            !| ! WI (Name); !: IF FALSE THEN!                               1081  1089  1096   658  1096
+  1098            iClassName := Name;                                             1058  1097
+  1099            ForallAttributes (t, QueryAttributes);                          1059  1093  1093
+  1100            !END;!                                                          1082
+  1101         END;                                                               1100
+  1102 }; .
+  1103 Child (..)                                                                 1062
+  1104   :- { !ELSIF yyyIsEqual ('! WI (Name); !') THEN Query! WI (iModule);       659     *  1097     *  1097   986
+  1105        ! (yyt^.! WI (iClassName); !.! WI (Name); !);!                      1070  1104  1098     *  1098
+  1106      } ; .
+  1107 Attribute (..)                                                             1067
+  1108   :- ( { Link IN Properties } ) ;                                          1068  1096  1096
+  1109      { !ELSIF yyyIsEqual ('! WI (Name); !') THEN Query! WI (iModule);      1104  1104  1104  1104  1105  1104
+  1110        ! (yyt^.! WI (iClassName); !.! WI (Name); !);!                      1105  1109  1105     *  1105
+  1111      } ; .
+  1112 
+  1113 
+  1114 PROCEDURE IsEqualAttributes (t: Tree)                                      1093     *  1099  1093
+  1115 
+  1116 Class (..) :- {                                                            1095
+  1117         IF ((NoCodeClass * Properties) = {}) AND                           1097  1096  1108  1096
+  1118            (({HasChildren, HasAttributes} * Properties) # {}) THEN         1096   934  1117  1109
+  1119            !| ! WI (Name); !: RETURN TRUE!                                 1110  1110  1031   663
+  1120            iClassName := Name;                                             1110  1119
+  1121            ForallAttributes (t, IsEqualAttributes);                        1099  1114  1114
+  1122         END;                                                               1101
+  1123 }; .
+  1124 Child (..) :- {                                                            1103
+  1125         !AND equal! WI (itTree); ! (yyt1^.! WI (iClassName); !.! WI (Name);      1117     *  1119  1040     *     *  1120
+                                                                                     *  1120
+  1126         !, yyt2^.! WI (iClassName); !.! WI (Name); !)!                        *  1125  1125     *  1125
+  1127 }; .
+  1128 Attribute (..) :- {                                                        1107
+  1129         IF (NoCodeAttr * Properties) = {} THEN                             1117  1045  1118  1118
+  1130            !AND (equal! WI (Type); ! (yyt1^.! WI (iClassName); !.! WI (Name);    1125  1125  1126  1071  1125     *  1126
+                                                                                     *  1126
+  1131            !, yyt2^.! WI (iClassName); !.! WI (Name); !))!                 1126  1130  1130     *  1130
+  1132         END;                                                               1122
+  1133 }; .
+  1134 
+  1135 
+  1136 PROCEDURE InitAttributes (t: Tree)                                         1114   782  1121  1114
+  1137 
+  1138 Class (..) :-                                                              1116
+  1139         ((NoCodeClass * Properties) = {{}}) AND (HasChildren IN Properties);     1117  1129  1130  1118  1108     *
+  1140         !    WHEN ! WI (Name); ! => !                                      1057  1131  1131
+  1141         GetIterator (t);                                                   1027  1136
+  1142         iClassName := Name;                                                1131  1140
+  1143         gBitCount := BitCount;                                               71     *
+  1144         ForallAttributes (t, InitAttributes);                              1121  1141  1136
+  1145 {       IF (Iterator = NoTree) OR NOT (Input IN Iterator^.Child.Properties) THEN       1129  1039  1030   521   824   908
+                                                                                  1139     *  1124  1139  1129
+  1146            !       RETURN ; !                                              1119
+  1147         ELSE                                                               1032
+  1148            !       yyt := yyt . ALL . ! WI (Iterator^.Child.Name); ! ; !   1110     *  1070  1140  1145  1145  1142
+  1149         END;                                                               1132
+  1150 };      .
+  1151 Child (..) :-                                                              1148
+  1152         Input IN Properties;                                               1145  1145  1145
+  1153         !       yyt . ALL . yyHead . yyOffset := ! (*No EOL *)             1148  1148   169   147
+  1154         WN (gBitCount + BitOffset); ! ; !                                   778  1143     *
+  1155         !       yyt . ALL . yyHead . yyParent := yyt ; !                   1153  1153  1153   683     *
+  1156         t # Iterator;                                                      1144  1148
+  1157         !       Init! WI (iModule); ! (yyt . ALL . ! WI (Name); ! ) ; !     786  1148  1109  1155  1155     *  1148
+  1158         .
+  1159 
+  1160 PROCEDURE InitNodeSize (t: Tree)                                           1136     *  1156  1136
+  1161 
+  1162 Class (..) :-                                                              1138
+  1163         (NoCodeClass * Properties) = {{}};                                 1139  1152
+  1164         ! yyNodeSize [! WI (Name); !] := SYSTEM.TSIZE (y! WI (Name); !);!     *  1157  1157  1034     *   333     *     *
+  1165         .
+  1166 
+  1167 PROCEDURE CompMaxBit (t: Tree)                                             1160   771  1160  1160
+  1168 
+  1169 Class (..) :-                                                              1162
+  1170         i := 1;                                                             778
+  1171         ForallAttributes (t, CompMaxBit);                                  1144  1167  1167
+  1172         MaxBit := Max (i, MaxBit);                                          775   294  1170     *
+  1173         .
+  1174 Child (..) ;                                                               1151
+  1175 Attribute (..) :-                                                          1128
+  1176         ({{Input, Test, Dummy}} * Properties = {{}});                      1152    60    60  1163
+  1177         INC (i);                                                            378  1172
+  1178         .
+Cross reference: 
+
+-A-
+ Abstract                        55   280   292   303 
+ ACCESS                         176 
+ Ada                             89   386 
+ ADR                           1034 
+ Ag                              87   384 
+ ALL                            458   465   466   659   661   664   776   778   781   861   870   874   888   901   903   909   911 
+                               1064  1070  1148  1153  1155  1157 
+ AND                            203   465   466   506   691   920   934   950   972  1056  1063  1069  1096  1117  1125  1130  1139 
+ ARRAY                          140 
+ Attribute                       55   322   373   872   906   940  1044  1067  1107  1128  1175 
+
+-B-
+ BEGIN                           76    83   456   463   657   679   695   773   790   802   820   859   886 
+ Begin                          270   789   792   796   799   847 
+ begin                          870   874   903   911 
+ BeginLine                      791   795 
+ BitCount                      1143 
+ BitOffset                     1154 
+ BITSET                         140   141   159 
+ BitSetEmpty                    141 
+ BitsetEmpty                    776   778 
+ BODY                           386   396 
+ BOOLEAN                        140   187   254   462   652   654   656   675   678   694 
+ BSS                             35   153   775 
+ BU                             980   986 
+ by                              89   386 
+
+-C-
+ CASE                           170   173   664   667   781   784 
+ cg                              89   386 
+ Check                          254   694   698 
+ CheckAttributes                665  1052  1059 
+ Child                           55   319   365   869   899   926   958   962   980   984   999  1015  1033  1034  1038  1062  1103 
+                               1124  1145  1148  1151  1174 
+ Class                           55   279   290   302   312   331   340   349   356   854   881   919   933   949   971   993  1009 
+                               1024  1054  1077  1088  1095  1116  1138  1162  1169 
+ ClassCount                      57 
+ Classes                        115   118   145   166   171   191   195   471   475   665   771   782   836 
+ Close                          271   801   804   808   811 
+ close                          927   942 
+ CloseLine                      803   807 
+ Codes                           94    95    98    99   104   105   108   109   123   124   127   128   409   410   413   414   417 
+                                418   421   422   791   792   795   796   803   804   807   808 
+ CompMaxBit                     145   771  1167  1171 
+ CONST                           35 
+ CONSTANT                       114   120   141   177   283   294   677 
+ ConstCount                      66    83   114   120   281   283   294 
+ ConstDeclsPost                 115   288 
+ ConstDeclsPre                  115   277 
+ Copied                          78 
+ Copy                          1022  1029 
+ copy                          1040  1046 
+
+-D-
+ define                         134 
+ DIV                            153   775 
+ DO                              97   107   126   153   412   420   775   794   806   890 
+ Dummy                           60  1176 
+
+-E-
+ ELSE                           161   666   783   902   910   957   979  1032  1147 
+ ELSIF                          659  1104  1109 
+ END                             79    80    93   101   111   119   122   130   152   157   158   160   164   165   173   174   189 
+                                193   197   202   207   212   217   222   227   232   237   242   247   252   255   260   266   269 
+                                273   284   285   295   296   297   306   307   316   317   325   334   343   363   367   371   375 
+                                379   391   395   408   416   424   460   467   469   472   476   505   520   525   569   591   646 
+                                660   667   669   690   692   698   700   747   768   779   780   784   785   786   788   798   799 
+                                810   811   819   823   837   842   846   848   865   867   875   892   893   895   897   904   912 
+                                913   924   938   943   959   960   965   981   982   987   997  1003  1013  1018  1035  1036  1042 
+                               1048  1060  1082  1100  1101  1122  1132  1149 
+ endif                          135 
+ equal                         1125  1130 
+ EXPORT                          33 
+ Export                         124   128 
+ ExportLine                     123   127 
+ Extensions                    1080 
+
+-F-
+ f                               58    95    99   105   109   124   128   410   414   418   422   792   796   804   808 
+ FALSE                          141   658  1097 
+ File                           677 
+ file                            78    89   386 
+ FOR                            153   775 
+ ForallAttributes                59   315   361   863   891   923   937   954   976   996  1012  1029  1059  1099  1121  1144  1171 
+ ForallClasses                   59   118   145   166   171   191   195   471   475   665   771   782   836  1080 
+ ForallClassesPreAndPost         60   115 
+ FROM                            34    40    42    43    44    45    46    47    51    53 
+ from                            78 
+ FUNCTION                       186   187   254   342   359   453   462   648   654   671   694   856 
+
+-G-
+ gBitCount                       71  1143  1154 
+ General                         42 
+ generated                       89   386 
+ GetIterator                     47   952   974  1027  1141 
+ GLOBAL                          38 
+ Global                         410   414 
+ GlobalLine                     409   413 
+
+-H-
+ HasAttributes                   56   889   934  1118 
+ HasChildren                     56   889   920   950   972  1056  1096  1118  1139 
+
+-I-
+ i                               72   153   154   156   775   776   778  1170  1172  1177 
+ iClassName                      69   862   922   927   936   942   953   958   964   975   980   986   995  1001  1001  1002  1011 
+                               1017  1017  1028  1040  1041  1046  1047  1058  1098  1105  1110  1120  1125  1126  1130  1131  1142 
+ Idents                          44 
+ IF                              77    91   113   117   132   143   150   155   190   194   198   203   208   213   218   223   228 
+                                233   238   243   248   253   256   261   267   280   282   291   292   293   303   304   313   323 
+                                332   341   357   366   367   374   375   388   392   403   427   470   474   478   506   521   526 
+                                570   592   647   658   660   681   690   701   748   769   777   813   821   824   838   843   855 
+                                873   882   889   900   907   908   920   934   941   950   955   963   972   977   985   994  1000 
+                               1010  1016  1025  1030  1039  1045  1055  1078  1096  1097  1117  1129  1145 
+ ifndef                         133 
+ Ignore                          59   282   293   304 
+ iMain                           58    92   179   186   393   393   453   460 
+ iModule                         58   102   254   268   270   271   273   396   654   669   683   688   691   694   697   698   772 
+                                786   789   799   801   811   847   848   964   980   986  1104  1109  1157 
+ IMPORT                          34    40    42    43    44    45    46    47    51    53    63 
+ Import                         105   109 
+ ImportLine                     104   108 
+ IN                             280   282   292   293   303   304   366   374   900   908   920   934   950   972  1000  1016  1056 
+                               1068  1096  1108  1139  1145  1152 
+ INC                            281   370   378  1177 
+ Include                         46 
+ include                        425 
+ Init                           268   772   786  1157 
+ InitAttributes                 782  1136  1144 
+ InitNodeSize                  1160 
+ InitTypeRange                  836  1075 
+ InitTypeRange2                1080  1086 
+ iNoTree                         57   177   464   658 
+ Input                           54   366   374   900   908  1145  1152  1176 
+ INTEGER                         67   136   138 
+ IO                              43 
+ IOUtils                         51 
+ iRange                          68  1079  1081  1089 
+ IS                             102   136   138   140   146   162   168   170   176   305   314   396   454   463   655   676   695 
+                                773   790   802   857   884 
+ IsElement                       46    91   113   117   132   143   150   155   190   194   198   203   203   208   213   218   223 
+                                228   233   238   243   248   253   256   261   267   291   388   389   392   403   427   470   474 
+                                478   506   506   521   522   526   570   592   647   701   748   769   777   813   821   824   838 
+                                843 
+ IsEqualAttributes             1114  1121 
+ IsType                         187   462   467   680 
+ Iterator                        47   955   958   963   977   980   985  1030  1033  1034  1039  1145  1145  1148  1156 
+ itTree                          58   148   176   177   179   186   187   254   268   305   320   342   362   368   453   455   462 
+                                649   654   672   694   772   856   858   870   885   903   927  1040  1125 
+
+-K-
+ Kind                            97   107   126   168   170   186   187   412   420   465   466   664   781   794   806 
+ KindLast                       120   136 
+ KindNull                       114   136   168 
+ KindTyp                        136   168   186   187   453   462   650   673 
+
+-L-
+ Line                            75    77    77    78    78 
+ line                            78 
+ Link                            61  1068  1108 
+ ListCount                       67   358   367   370   375   378 
+ Local                          418   422 
+ LocalLine                      417   421 
+ LOOP                           774   785 
+
+-M-
+ m                              359   895 
+ Make                           186   453   460 
+ Max                             42   294  1172 
+ MaxBit                          72   144   153   770   775  1172  1172 
+ mechanically                    89   386 
+ Module                          97    98    99   100   107   108   109   110   126   127   128   129   412   413   414   415   420 
+                                421   422   423   794   795   796   797   806   807   808   809 
+ Modules                         96   106   125   411   419   793   805 
+
+-N-
+ n                              342   856   865 
+ Name                           283   294   305   314   320   324   333   333   333   342   359   368   376   856   860   862   865 
+                                870   874   887   890   895   901   901   903   909   909   911   921   922   927   935   936   942 
+                                951   953   958   964   973   975   980   986   995  1001  1002  1011  1017  1026  1026  1026  1028 
+                               1033  1033  1034  1034  1040  1041  1046  1047  1057  1058  1064  1070  1079  1081  1089  1097  1098 
+                               1105  1110  1119  1120  1125  1126  1130  1131  1140  1142  1148  1157  1164  1164 
+ NEW                            457   860   887 
+ Next                           100   110   129   415   423   797   809 
+ NoCodeAttr                      56   323   873   907   941  1045  1129 
+ NoCodeClass                     56   313   332   341   357   855   882   920   934   950   972   994  1010  1025  1055  1078  1096 
+                               1117  1139  1163 
+ Node                            70    96    97    98    99   100   100   106   107   108   109   110   110   125   126   127   128 
+                                129   129   411   412   413   414   415   415   419   420   421   422   423   423   683   688   793 
+                                794   795   796   797   797   805   806   807   808   809   809 
+ NOT                            113   132   203   280   282   292   293   303   304   427   506   681   813   824  1145 
+ NoTree                          54   955   977  1030  1145 
+ NULL                           172   177   368 
+
+-O-
+ OF                             140   664   781 
+ of                              78 
+ Options                         57    91   113   117   132   143   150   155   190   194   198   203   203   208   213   218   223 
+                                228   233   238   243   248   253   256   261   267   291   388   389   392   403   427   470   474 
+                                478   506   506   521   522   526   570   592   647   701   748   769   777   813   821   824   838 
+                                843 
+ OR                             389   521  1145 
+ ORD                             91   113   117   132   143   150   155   190   194   198   203   203   208   213   218   223   228 
+                                233   238   243   248   253   256   261   267   291   388   389   392   403   427   470   474   478 
+                                506   506   521   522   526   570   592   647   701   748   769   777   813   821   824   838   843 
+ OTHERS                         141   172 
+
+-P-
+ p                              305   368   376   901   909 
+ PACKAGE                         89   102   386   396 
+ PointerTypes                   118   300 
+ Positions                       34    40 
+ PROCEDURE                       75    85   268   270   271   277   288   300   310   329   338   347   354   382   772   789   801 
+                                852   879   917   931   947   969   991  1007  1022  1052  1075  1086  1093  1114  1136  1160  1167 
+ ProcedureBodym                 475   879   891 
+ ProcedureBodyn                 471   852   863 
+ ProcedureDeclm                 195   347 
+ ProcedureDecln                 191   338 
+ ProcedureHeadingm              350   354   361   883 
+ Properties                     280   282   292   293   303   304   313   323   332   341   357   366   374   855   873   882   889 
+                                900   907   908   920   920   934   934   941   950   950   972   972   994  1000  1010  1016  1025 
+                               1045  1055  1056  1068  1078  1096  1096  1108  1117  1118  1129  1139  1139  1145  1152  1163  1176 
+ PUBLIC                          31 
+ Put                            682   685   686   687 
+ Put_Line                       684   689 
+
+-Q-
+ Query                         1104  1109 
+ QueryAttributes               1093  1099 
+
+-R-
+ RANGE                          136   138 
+ RECORD                         146   160   162   164   168   174   314   316 
+ ReleaseAttributes1             917   923 
+ ReleaseAttributes2             931   937 
+ RETURN                         186   187   254   342   362   453   459   462   464   652   654   658   659   668   675   691   694 
+                                697   783   856   864   894   956   978  1031  1119  1146 
+ Reverse                         54  1000  1016 
+ Reverse1                       991   996 
+ Reverse2                      1007  1012 
+ Root                           179 
+
+-S-
+ Sets                            46 
+ SHORTCARD                       71    72   138   147   163 
+ spec                            89 
+ SpecWith                        95    99 
+ SpecWithLine                    94    98 
+ StdErr                         677 
+ StdError                        43   199   200   204   205   209   210   214   215   219   220   224   225   229   230   234   235 
+                                239   240   244   245   249   250   257   258   262   263 
+ STRING                         650   673 
+ Strings                         63 
+ SUBTYPE                        136   138   305 
+ SYSTEM                        1034  1164 
+
+-T-
+ t                               85   277   288   300   310   315   329   338   347   350   354   361   382   852   863   879   883 
+                                891   917   923   931   937   947   952   954   963   969   974   976   985   991   996  1007  1012 
+                               1022  1027  1029  1039  1052  1059  1075  1086  1093  1099  1114  1121  1136  1141  1144  1156  1160 
+                               1167  1171 
+ TD                             964 
+ Test                            60  1176 
+ Texts                           45 
+ Text_IO                        390 
+ Text_Io                        677   677   682   684   685   686   687   689 
+ THEN                            77    91   113   117   132   143   150   155   190   194   198   203   208   213   218   223   228 
+                                233   238   243   248   253   256   261   267   280   282   291   292   293   303   304   313   323 
+                                332   341   357   366   367   374   375   389   392   403   427   470   474   478   506   522   526 
+                                570   592   647   658   659   681   701   748   769   777   813   821   824   838   843   855   873 
+                                882   889   900   907   908   920   934   941   950   955   963   972   977   985   994  1000  1010 
+                               1016  1025  1030  1039  1045  1056  1063  1069  1078  1096  1097  1104  1109  1118  1129  1145 
+ This                            89   386 
+ tIdent                          44    69 
+ TO                             153   775 
+ tPosition                       34    40    75 
+ TRAFO                           29 
+ TraverseBU                     969   976 
+ TraverseTD                     947   954 
+ TREE                            30 
+ Tree                            30    53    85    97   107   126   187   254   268   277   288   300   310   329   338   347   354 
+                                382   412   420   694   696   697   794   806   852   879   917   931   947   969   991  1007  1022 
+                               1052  1075  1086  1093  1114  1136  1160  1167 
+ TreeAda1                        29 
+ TreeCodes                       94    95    98    99   104   105   108   109   123   124   127   128   409   410   413   414   417 
+                                418   421   422   791   792   795   796   803   804   807   808 
+ TreeMod2                        47 
+ TreePackBody                    31   382 
+ TreePackSpec                    31    85 
+ TreeRoot                        57 
+ TRUE                           659   663  1119 
+ TSIZE                         1164 
+ tTree                           54    70 
+ TYPE                           140   146   162   168   176   314 
+ Type                           324   376   874   911   942  1046  1065  1071  1130 
+ TypeDeclNode                   166   310   315 
+ TypeDeclRecord                 171   329 
+
+-U-
+ USE                            393 
+
+-V-
+ VAR                             65 
+
+-W-
+ was                             89   386 
+ WHEN                           172   333  1057  1140 
+ WHILE                           97   107   126   412   420   794   806 
+ WI                              59    92   102   148   176   177   177   179   179   186   186   187   254   254   268   268   270 
+                                271   273   283   294   305   305   314   320   320   324   324   333   333   333   342   342   359 
+                                362   368   368   376   376   393   393   396   453   453   455   460   462   464   649   654   654 
+                                658   669   672   683   688   691   694   694   697   698   772   772   786   789   799   801   811 
+                                847   848   856   856   858   860   865   870   870   874   874   885   887   890   895   901   901 
+                                903   903   909   909   911   911   921   927   927   927   935   942   942   942   951   958   958 
+                                964   964   964   973   980   980   980   986   986   986  1001  1001  1001  1002  1002  1017  1017 
+                               1017  1026  1026  1026  1033  1033  1034  1034  1040  1040  1040  1041  1041  1046  1046  1046  1047 
+                               1047  1057  1064  1065  1070  1071  1081  1081  1097  1104  1105  1105  1109  1110  1110  1119  1125 
+                               1125  1125  1126  1126  1130  1130  1130  1131  1131  1140  1148  1157  1157  1164  1164 
+ WITH                            92   390   393   890 
+ WN                              59    78   114   120   154   156   283   294   776   778  1154 
+ Write                          683   688 
+ WriteBackslash                  51 
+ WriteLine                       75    80    94    98   104   108   123   127   409   413   417   421   791   795   803   807 
+ WriteNl                         43   200   205   210   215   220   225   230   235   240   245   250   258   263 
+ WriteS                          43   199   204   209   214   219   224   229   234   239   244   249   257   262 
+ WriteText                       45    95    99   105   109   124   128   410   414   418   422   792   796   804   808 
+
+-Y-
+ y                              314   333  1164 
+ yyCheck                        654   669   691   697 
+ yyCheckChild                   648   671   692  1064  1070 
+ yyChild                        649   672   680   688   691 
+ yyf                            677   682   683   684   685   686   687   688   689 
+ yyHead                         169  1153  1155 
+ yyIsComp                       154   776 
+ yyIsComp0                      149 
+ yyIsDone                       156   778 
+ yyIsDone0                      151 
+ yyKind                         453   457   462   465   466 
+ yyMark                         147   163   458   659   661   696   861   888 
+ yyNew                         1002  1026  1034  1034  1040  1046 
+ yyNext                        1001 
+ yyNode                         168   176   457   860   887 
+ yyNodeHead                     133   134   159   163 
+ yyNodeSize                    1164 
+ yyOffset                       147  1153 
+ yyOld                         1001  1002  1017 
+ yyParent                       148   649   672   683  1155 
+ yyResult                       656   663   668  1063  1063  1069  1069 
+ yySelector                     650   673   686 
+ yySuccess                      678   680   681   691 
+ yyt                            455   457   458   459   654   658   659   661   664   772   776   778   781   858   860   861   864 
+                                870   874   885   887   888   890   894   901   903   909   911   927   942   958   958   964   980 
+                                986  1026  1033  1033  1041  1047  1064  1064  1070  1070  1105  1110  1148  1148  1153  1155  1155 
+                               1157 
+ yyt1                          1125  1130 
+ yyt2                          1126  1131 
+ yyTail                        1017 
+ yytNodeHead                    146   162   169 
+ yyTraverse                     964   980   986 
+ yyTree                         462   464   465   466 
+ yyType                         650   673   680 
+ yyTypeRange                    466  1081 
+ yyyIsEqual                    1104  1109 
+
+end cross reference, 2245 occurrences of 255 identifiers.

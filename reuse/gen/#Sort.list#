@@ -1,0 +1,282 @@
+GAS LISTING Sort.s 			page 1
+
+
+   1              		.text
+   2              		.stabs "/home/rodney/proj/gmd/working/reuse/gen/",100,0,0,.LBB0
+   3              		.stabs "Sort.mi",100,0,0,.LBB0
+   4              	.LBB0:
+   5              		.stabs "BOOLEAN:t1=eTRUE:1,FALSE:0,;",0x80,0,0,0
+   6              		.stabs "CHAR:t2=r2;0;255;",0x80,0,0,0
+   7              		.stabs "SHORTCARD:t3=r3;0;65535;",0x80,0,0,0
+   8              		.stabs "LONGCARD:t4=r4;0;-1;",0x80,0,0,0
+   9              		.stabs "CARDINAL:t5=r5;0;-1;",0x80,0,0,0
+  10              		.stabs "SHORTINT:t6=r6;-32768;32767;",0x80,0,0,0
+  11              		.stabs "LONGINT:t7=r7;-2147483648;2147483647;",0x80,0,0,0
+  12              		.stabs "INTEGER:t8=r8;-2147483648;2147483647;",0x80,0,0,0
+  13              		.stabs "REAL:t9=r8;4;0;",0x80,0,0,0
+  14              		.stabs "LONGREAL:t10=r8;8;0;",0x80,0,0,0
+  15              		.stabs "BITSET:t11=r4;0;-1",0x80,0,0,0
+  16              		.stabs "WORD:t13=r13;0;255;",0x80,0,0,0
+  17              		.stabs "BYTE:t14=r2;0;255",0x80,0,0,0
+  18              		.stabs "VOID:t16=16",0x80,0,0,0
+  19              		.stabs "ADDRESS:t15=*16",0x80,0,0,0
+  20              		.stabs "PROC:t12=*f16;",0x80,0,0,0
+  21              		.globl	Sort
+  22              		.globl	Sort_Sort
+  23              		.globl	Sort_Sort_QuickSort
+  24              		.stabs "Sort_Sort_QuickSort:F16",36,0,0,Sort_Sort_QuickSort
+  25 ???? 9090     		.align 4
+  26              	Sort_Sort_QuickSort:
+  27 ???? 55       		pushl	%ebp
+  28 ???? 89E5     		movl	%esp,%ebp
+  29 ???? 81EC0000 		subl	$.Lab1, %esp
+  29      0000
+  30              	.LN1:
+   1:Sort.mi       **** (* $Id: Sort.mi,v 1.0 1992/08/07 14:42:01 grosch rel $ *)
+   2:Sort.mi       **** 
+   3:Sort.mi       **** (* $Log: Sort.mi,v $
+   4:Sort.mi       **** # Revision 1.0  1992/08/07  14:42:01  grosch
+   5:Sort.mi       **** # Initial revision
+   6:Sort.mi       **** #
+   7:Sort.mi       ****  *)
+   8:Sort.mi       **** 
+   9:Sort.mi       **** (* Ich, Doktor Josef Grosch, Informatiker, Juli 1992 *)
+  10:Sort.mi       **** 
+  11:Sort.mi       **** IMPLEMENTATION MODULE Sort;
+  12:Sort.mi       **** 
+  13:Sort.mi       **** PROCEDURE Sort (Lwb, Upb: INTEGER; IsLess: tProcIntIntBool; Swap: tProcIntInt);
+  14:Sort.mi       **** 
+  15:Sort.mi       ****    PROCEDURE QuickSort (Lwb, Upb: INTEGER);
+  16:Sort.mi       ****       VAR i, j: INTEGER;
+  17:Sort.mi       ****       BEGIN
+  31              		.stabn  68,0,17,.LN1-Sort_Sort_QuickSort		# line 17, column 7
+  32              	.LBB1:
+  33              	.Lab2:
+  34              	.LN2:
+  18:Sort.mi       **** 	 LOOP
+  19:Sort.mi       **** 	    IF Lwb >= Upb THEN RETURN; END;
+  35              		.stabn  68,0,19,.LN2-Sort_Sort_QuickSort		# line 19, column 13
+  36 ???? 8B4508   		movl	8(%ebp),%eax
+  37 ???? 3B450C   		cmpl	12(%ebp),%eax
+GAS LISTING Sort.s 			page 2
+
+
+  38 ???? 7C       		jl	.Lab4
+  39              	.Lab5:
+  40              	.LN3:
+  41              		.stabn  68,0,19,.LN3-Sort_Sort_QuickSort		# line 19, column 32
+  42 ???? C9       		leave
+  43 ???? C3       		ret
+  44              	.Lab4:
+  45              	.LN4:
+  20:Sort.mi       **** 	    i := Lwb + 1;
+  46              		.stabn  68,0,20,.LN4-Sort_Sort_QuickSort		# line 20, column 15
+  47 ???? B8010000 		movl	$1,%eax
+  47      00
+  48 ???? 034508   	 	addl	8(%ebp),%eax 
+  49 ???? 8945F8   		movl	%eax,-8(%ebp) 
+  50              	.LN5:
+  21:Sort.mi       **** 	    j := Upb;
+  51              		.stabn  68,0,21,.LN5-Sort_Sort_QuickSort		# line 21, column 15
+  52 ???? 8B450C   		movl	12(%ebp),%eax
+  53 ???? 8945F4   		movl	%eax,-12(%ebp) 
+  54              	.Lab6:
+  55 ???? EB       		jmp	.Lab8
+  56              	.Lab9:
+  57              	.LN6:
+  22:Sort.mi       **** 
+  23:Sort.mi       **** 	    REPEAT
+  24:Sort.mi       **** 	       WHILE (i < Upb) AND IsLess (i, Lwb) DO INC (i); END;
+  58              		.stabn  68,0,24,.LN6-Sort_Sort_QuickSort		# line 24, column 55
+  59 ???? FF45F8   		incl	-8(%ebp) 
+  60              	.Lab8:
+  61              	.LN7:
+  62              		.stabn  68,0,24,.LN7-Sort_Sort_QuickSort		# line 24, column 32
+  63 ???? 8B45F8   		movl	-8(%ebp),%eax
+  64 ???? 3B450C   		cmpl	12(%ebp),%eax
+  65 ???? 7D       		jge	.Lab10
+  66              	.Lab11:
+  67 ???? FF7508   		pushl	8(%ebp)
+  68 ???? FF75F8   		pushl	-8(%ebp)
+  69 ???? A1000000 		movl	DISPLAY_,%eax
+  69      00
+  70 ???? 8B4010   		movl	16(%eax),%eax
+  71              		call	%eax
+  72 ???? 83C408   		addl	$8, %esp
+  73 ???? 3C01     		cmpb	$1,%al
+  74 ???? 74       		je	.Lab9
+  75              	.Lab10:
+  76 ???? EB       		jmp	.Lab12
+  77              	.Lab13:
+  78              	.LN8:
+  25:Sort.mi       **** 	       WHILE (Lwb < j) AND IsLess (Lwb, j) DO DEC (j); END;
+  79              		.stabn  68,0,25,.LN8-Sort_Sort_QuickSort		# line 25, column 55
+  80 ???? FF4DF4   		decl	-12(%ebp) 
+  81              	.Lab12:
+  82              	.LN9:
+  83              		.stabn  68,0,25,.LN9-Sort_Sort_QuickSort		# line 25, column 32
+  84 ???? 8B4508   		movl	8(%ebp),%eax
+  85 ???? 3B45F4   		cmpl	-12(%ebp),%eax
+  86 ???? 7D       		jge	.Lab14
+GAS LISTING Sort.s 			page 3
+
+
+  87              	.Lab15:
+  88 ???? FF75F4   		pushl	-12(%ebp)
+  89 ???? FF7508   		pushl	8(%ebp)
+  90 ???? A1000000 		movl	DISPLAY_,%eax
+  90      00
+  91 ???? 8B4010   		movl	16(%eax),%eax
+  92              		call	%eax
+  93 ???? 83C408   		addl	$8, %esp
+  94 ???? 3C01     		cmpb	$1,%al
+  95 ???? 74       		je	.Lab13
+  96              	.Lab14:
+  97              	.LN10:
+  26:Sort.mi       **** 	       IF i < j THEN Swap (i, j); END;
+  98              		.stabn  68,0,26,.LN10-Sort_Sort_QuickSort		# line 26, column 16
+  99 ???? 8B45F8   		movl	-8(%ebp),%eax
+ 100 ???? 3B45F4   		cmpl	-12(%ebp),%eax
+ 101 ???? 7D       		jge	.Lab16
+ 102              	.Lab17:
+ 103              	.LN11:
+ 104              		.stabn  68,0,26,.LN11-Sort_Sort_QuickSort		# line 26, column 30
+ 105 ???? FF75F4   		pushl	-12(%ebp)
+ 106 ???? FF75F8   		pushl	-8(%ebp)
+ 107 ???? A1000000 		movl	DISPLAY_,%eax
+ 107      00
+ 108 ???? 8B4014   		movl	20(%eax),%eax
+ 109              		call	%eax
+ 110 ???? 83C408   		addl	$8, %esp
+ 111              	.Lab16:
+ 112              	.LN12:
+  27:Sort.mi       **** 	    UNTIL i >= j;
+ 113              		.stabn  68,0,27,.LN12-Sort_Sort_QuickSort		# line 27, column 21
+ 114 ???? 8B45F8   		movl	-8(%ebp),%eax
+ 115 ???? 3B45F4   		cmpl	-12(%ebp),%eax
+ 116 ???? 7C       		jl	.Lab6
+ 117              	.Lab7:
+ 118              	.LN13:
+  28:Sort.mi       **** 
+  29:Sort.mi       **** 	    Swap (Lwb, j);
+ 119              		.stabn  68,0,29,.LN13-Sort_Sort_QuickSort		# line 29, column 13
+ 120 ???? FF75F4   		pushl	-12(%ebp)
+ 121 ???? FF7508   		pushl	8(%ebp)
+ 122 ???? A1000000 		movl	DISPLAY_,%eax
+ 122      00
+ 123 ???? 8B4014   		movl	20(%eax),%eax
+ 124              		call	%eax
+ 125 ???? 83C408   		addl	$8, %esp
+ 126              	.LN14:
+  30:Sort.mi       **** 	    QuickSort (Lwb, j - 1);
+ 127              		.stabn  68,0,30,.LN14-Sort_Sort_QuickSort		# line 30, column 13
+ 128 ???? 8B45F4   		movl	-12(%ebp),%eax
+ 129 ???? 83E801   	 	subl	$1,%eax 
+ 130 ???? 50       		pushl	%eax
+ 131 ???? FF7508   		pushl	8(%ebp)
+ 132 ???? E8000000 		call	Sort_Sort_QuickSort
+ 132      00
+ 133 ???? 83C408   		addl	$8, %esp
+ 134              	.LN15:
+GAS LISTING Sort.s 			page 4
+
+
+  31:Sort.mi       **** 	    Lwb := j + 1;		(* QuickSort (j + 1, Upb); *)
+ 135              		.stabn  68,0,31,.LN15-Sort_Sort_QuickSort		# line 31, column 17
+ 136 ???? B8010000 		movl	$1,%eax
+ 136      00
+ 137 ???? 0345F4   	 	addl	-12(%ebp),%eax 
+ 138 ???? 894508   		movl	%eax,8(%ebp) 
+ 139 ???? EB       		jmp	.Lab2
+ 140              	.Lab3:
+ 141              	.LN16:
+  32:Sort.mi       **** 	 END;
+ 142              		.stabn  68,0,32,.LN16-Sort_Sort_QuickSort		# line 32, column 0
+ 143              	.LBE1:
+ 144 ???? C9       		leave
+ 145 ???? C3       		ret
+ 146              		.Lab1 = 12
+ 147              		.stabs "j:7",128,0,4,-12
+ 148              		.stabs "i:7",128,0,4,-8
+ 149              		.stabs "Upb:p7",160,0,4,12
+ 150              		.stabs "Lwb:p7",160,0,4,8
+ 151              		.stabn 192,0,0,.LBB1-Sort_Sort_QuickSort
+ 152              		.stabn 224,0,0,.LBE1-Sort_Sort_QuickSort
+ 153              		.stabs "Sort_Sort:F16",36,0,0,Sort_Sort
+ 154 ???? 9090     		.align 4
+ 155              	Sort_Sort:
+ 156 ???? 55       		pushl	%ebp
+ 157 ???? 89E5     		movl	%esp,%ebp
+ 158 ???? 81EC0000 		subl	$.Lab18, %esp
+ 158      0000
+ 159 ???? 8B0D0000 		movl	DISPLAY_+0,%ecx
+ 159      0000
+ 160 ???? 894DFC   		movl	%ecx,-4(%ebp)
+ 161 ???? 892D0000 		movl	%ebp,DISPLAY_+0
+ 161      0000
+ 162              	.LN17:
+  33:Sort.mi       ****       END QuickSort;
+  34:Sort.mi       **** 
+  35:Sort.mi       ****    BEGIN
+ 163              		.stabn  68,0,35,.LN17-Sort_Sort		# line 35, column 4
+ 164              	.LBB2:
+ 165              	.LN18:
+  36:Sort.mi       ****       QuickSort (Lwb, Upb);
+ 166              		.stabn  68,0,36,.LN18-Sort_Sort		# line 36, column 7
+ 167 ???? FF750C   		pushl	12(%ebp)
+ 168 ???? FF7508   		pushl	8(%ebp)
+ 169 ???? E8000000 		call	Sort_Sort_QuickSort
+ 169      00
+ 170 ???? 83C408   		addl	$8, %esp
+ 171              	.LN19:
+  37:Sort.mi       ****    END Sort;
+ 172              		.stabn  68,0,37,.LN19-Sort_Sort		# line 37, column 0
+ 173              	.LBE2:
+ 174 ???? 8B4DFC   		movl	-4(%ebp),%ecx
+ 175 ???? 890D0000 		movl	%ecx,DISPLAY_+0
+ 175      0000
+ 176 ???? C9       		leave
+ 177 ???? C3       		ret
+ 178              		.Lab18 = 4
+GAS LISTING Sort.s 			page 5
+
+
+ 179              		.stabs "tProcIntInt:t17=12",128,0,0,0
+ 180              		.stabs "Swap:p17",160,0,4,20
+ 181              		.stabs "tProcIntIntBool:t18=12",128,0,0,0
+ 182              		.stabs "IsLess:p18",160,0,4,16
+ 183              		.stabs "Upb:p7",160,0,4,12
+ 184              		.stabs "Lwb:p7",160,0,4,8
+ 185              		.stabn 192,0,0,.LBB2-Sort_Sort
+ 186              		.stabn 224,0,0,.LBE2-Sort_Sort
+ 187              		.stabs "Sort:F16",36,0,0,Sort
+ 188 ???? 9090     		.align 4
+ 189              	Sort:
+ 190 ???? 55       		pushl	%ebp
+ 191 ???? 89E5     		movl	%esp,%ebp
+ 192 ???? 81EC0000 		subl	$.Lab19, %esp
+ 192      0000
+ 193              	.LN20:
+  38:Sort.mi       **** 
+  39:Sort.mi       **** END Sort.
+ 194              		.stabn  68,0,39,.LN20-Sort		# line 39, column 1
+ 195              	.LBB3:
+ 196              	.LN21:
+  40:Sort.mi       **** ...
+ 197              		.stabn  68,0,40,.LN21-Sort		# line 40, column 0
+ 198              	.LBE3:
+ 199 ???? C9       		leave
+ 200 ???? C3       		ret
+ 201              		.Lab19 = 4
+ 202              		.stabn 192,0,0,.LBB3-Sort
+ 203              		.stabn 224,0,0,.LBE3-Sort
+GAS LISTING Sort.s 			page 6
+
+
+DEFINED SYMBOLS
+              Sort.s:189    .text:00000000 Sort
+              Sort.s:155    .text:00000000 Sort_Sort
+              Sort.s:26     .text:00000000 Sort_Sort_QuickSort
+
+UNDEFINED SYMBOLS
+DISPLAY_

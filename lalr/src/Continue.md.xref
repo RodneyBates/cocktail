@@ -1,0 +1,51 @@
+     1 (* compute continuation for error recovery *)
+     2 
+     3 (* $Id: Continue.md,v 1.1 1991/11/21 14:53:14 grosch rel $ *)
+     4 
+     5 (* $Log: Continue.md,v $
+c    6  * Revision 1.1  1991/11/21  14:53:14  grosch
+c    7  * new version of RCS on SPARC
+c    8  *
+c    9  * Revision 1.0  88/10/04  14:36:01  vielsack
+c   10  * Initial revision
+c   11  * 
+c   12  *)
+    13 
+    14 DEFINITION MODULE Continue;                                                   *
+    15 
+    16 FROM Automaton IMPORT                                                         *
+    17   tIndex;                                                                     *
+    18 
+    19 FROM TokenTab IMPORT                                                          *
+    20   Vocabulary;                                                                 *
+    21 
+    22   VAR
+    23     Value : ARRAY Vocabulary OF tIndex;                                       *    20    17
+    24 
+    25   PROCEDURE ValueNonterms;                                                    *
+    26 
+    27   PROCEDURE MakeContinuation;                                                 *
+    28 
+    29 
+    30 END Continue.                                                                14
+Cross reference: * is declaration, = is assignment
+
+-A-
+ Automaton                       16*
+
+-C-
+ Continue                        14*   30*
+
+-M-
+ MakeContinuation                27*
+
+-T-
+ tIndex                          17*   23 
+ TokenTab                        19*
+
+-V-
+ Value                           23*
+ ValueNonterms                   25*
+ Vocabulary                      20*   23 
+
+end cross reference, 11 occurrences of 8 identifiers.

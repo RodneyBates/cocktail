@@ -1,0 +1,1059 @@
+     1 
+     2 (* Ich, Doktor Josef Grosch, Informatiker, April 1991 *)
+     3 (* Modified Rodney M. Bates 
+c    4       Feb 96 to generate Ada code. (-A switch)
+c    5       Feb 96 to allow too few positional patterns (-g switch)  
+c    6       7-96   Allow a label alone (i.e. which matched anything) in a pattern  
+c    7              to be followed by ( ':' | ':>' ) [ '_' ]. 
+c    8              Also add a switch (-u) to require the ( ':' | ':>' ) . 
+c    9       Oct 96 Add -j switch to help message.  This makes puma recognize
+c   10              unqualified names of children and attributes of a node
+c   11              matched by a decompose pattern.  
+c   12       Dec 96 Add -4 switch to write post-semantics data structure to 
+c   13              std output. 
+c   14              Add -5 switch to write post-optimized data structure to 
+c   15              std output. 
+c   16       May 97 Add -J switch to warn when an unqualified child name hides
+c   17              another name. 
+c   18       May 97 Reflect name change Mod to M2 
+c   19       Jun 97 Alphabetize options in help message 
+c   20       Jun 97 accept -l dir, in addition to -ldir 
+c   21       Jan 98 change -K switch to -X, with same meaning.  
+c   22       Jan 98 Add support for Modula-3, using -K switch (for consistency with cg)
+c   23       Jan 98 compile bug fix to -l as last argument. 
+c   24       Jul 98 Moved WriteMessages call before Optimize, since semantic
+c   25              errors can crash Optimize
+c   26 *) 
+    27 
+    28 MODULE puma;                                                                  *
+    29 
+    30 FROM System     IMPORT GetArgCount, GetArgument, System, Exit;                *     *     *     *     *
+    31 FROM Memory     IMPORT MemoryUsed;                                            *     *
+    32 FROM IO         IMPORT StdOutput, StdError, WriteOpen, WriteClose, CloseIO,         *     *     *     *     *     *
+    33                         WriteI, WriteS, WriteNl,                              *     *     *
+    34                         tFile, ReadOpen, ReadClose, EndOfFile, ReadNl;        *     *     *     *     *
+    35 FROM Strings    IMPORT tString, AssignEmpty, Assign, Append, Concatenate,     *     *     *     *     *     *
+    36                         ReadL, WriteL, ArrayToString, StringToArray;          *     *     *     *
+    37 FROM Idents     IMPORT tIdent, MakeIdent, GetString, WriteIdent;              *     *     *     *     *
+    38 FROM Sets       IMPORT tSet, MakeSet, ReleaseSet, Include, Exclude, IsEmpty,        *     *     *     *     *     *     *
+    39                         Extract, Complement, Union, IsElement;                *     *     *     *
+    40 FROM Errors     IMPORT StoreMessages, WriteMessages;                          *     *     *
+    41 FROM Scanner    IMPORT ScanTabName, BeginFile, ErrorI;                        *     *     *     *
+    42 FROM Parser     IMPORT Parser, ParsTabName;                                   *     *     *
+    43 FROM Tree       IMPORT NoTree, tTree, TreeRoot, HeapUsed, Options, SourceFile, f,         *     *     *     *     *     *
+                                                                                     *     *
+    44                         WI, mNoClass, TreeName, ErrorCount, Class, Child, Attribute,\     *     *     *     *     *     *
+                                                                                     *
+      \ 
+    45                         ActionPart, NoClass, Test, Dummy, ForallClasses, ForallAttri\     *     *     *     *     *
+      \butes,                                                                        *
+    46                         QueryTree, WriteTree;                                 *     *
+    47 FROM Tree2      IMPORT GetTree2;                                              *     *
+    48 FROM Semantics  IMPORT Semantics, TypeCount, TypeNames, UserTypes, RemoveTreeTypes;       *     *     *     *     *     *
+    49 FROM Optimize   IMPORT Optimize, RuleProperties;                              *     *     *
+    50 FROM M2         IMPORT DefMod, ImplMod, MacroMod;                             *     *     *     *
+    51 FROM M3         IMPORT Interface, Module, MacroM3;                            *     *     *     *
+    52 FROM Ada        IMPORT PackSpec , PackBody , MacroAda ;                       *     *     *     *
+    53 FROM C          IMPORT DefC, ImplC, MacroC;                                   *     *     *     *
+    54 
+    55 CONST
+    56    DefExtMc     = ".md" ;       (* file extensions for Modula-2 (Mocka compiler mc) \     *
+c     \     *)
+    57    ImpExtMc     = ".mi" ;                                                     *
+    58 
+    59    DefExtM3     = ".i3" ;       (* file extensions for Modula-3      *)       *
+    60    ImpExtM3     = ".m3" ;                                                     *
+    61 
+    62    DefExtAda    = ".ads";       (* file extensions for Ada      *)            *
+    63    ImpExtAda    = ".adb";                                                     *
+    64 
+    65    DefExtC      = ".h"  ;       (* file extensions for C                *)          *
+    66    ImpExtC      = ".c"  ;                                                     *
+    67 
+    68 VAR
+    69    PumaLib      ,                                                             *
+    70    TrafoFile    ,                                                             *
+    71    String       ,                                                             *
+    72    PathS        : tString;                                                    *    35
+    73    Argument     ,                                                             *
+    74    PathA        : ARRAY [0..255] OF CHAR;                                     *     *
+    75    i, j, n      : SHORTCARD;                                                  *     *     *     *
+    76    ch           : CHAR;                                                       *     *
+    77    OptionFound  : BOOLEAN ;                                                   *     *
+    78    Node         : tTree;                                                      *    43
+    79 
+    80 PROCEDURE SmartOpen (FileName: tString): tFile;                               *     *    35    34
+    81    VAR LPathS : tString;                                                      *    35
+    82    BEGIN
+    83       IF IsElement (ORD ('7'), Options) THEN                                 39     *    43
+    84          ArrayToString  ("yy", LPathS);                                      36    81
+    85          Concatenate    (LPathS, FileName);                                  35    81    80
+    86          Append         (LPathS, 0C);                                        35    81
+    87          StringToArray  (LPathS, PathA);                                     36    81    74
+    88       ELSE
+    89          Append         (FileName, 0C);                                      35    80
+    90          StringToArray  (FileName, PathA);                                   36    80    74
+    91       END;
+    92       RETURN WriteOpen  (PathA);                                             32    74
+    93    END SmartOpen;                                                            80
+    94 
+    95 PROCEDURE SmartClose (FileName: tString; f: tFile);                           *    80    35    43    34
+    96    VAR LPathS: tString;                                                      81    35
+    97    BEGIN
+    98       WriteClose        (f);                                                 32    95
+    99       IF IsElement (ORD ('7'), Options) THEN                                 39     *    43
+   100          ArrayToString  ("gmdupd ", LPathS);                                 36    96
+   101          Concatenate    (LPathS, FileName);                                  35    96    95
+   102          ArrayToString  (" yy", String);                                     36    71
+   103          Concatenate    (LPathS, String);                                    35    96    71
+   104          Concatenate    (LPathS, FileName);                                  35    96    95
+   105          Append         (LPathS, 0C);                                        35    96
+   106          StringToArray  (LPathS, PathA);                                     36    96    74
+   107          n := System    (PathA);                                             75    30    74
+   108       END;
+   109    END SmartClose;                                                           95
+   110 
+   111 PROCEDURE GenerateMacros;                                                     *
+   112    VAR TypeTabFile      : tFile;                                              *    34
+   113    VAR s                : tString;                                            *    35
+   114    VAR i                : tIdent;                                            75    37
+   115    VAR j                : INTEGER;                                           75     *
+   116    BEGIN
+   117    IF IsElement (ORD ('c'), Options) THEN                                    39     *    43
+   118       ArrayToString     ("TypeTab.c", String);   (* name of type table for C *)    36    71
+   119    ELSIF IsElement (ORD ('K'), Options) THEN                                 39     *    43
+   120       ArrayToString     ("TypeTab.m3", String);  (* name of type table for Ada *)        36    71
+   121    ELSIF IsElement (ORD ('A'), Options) THEN                                 39     *    43
+   122       ArrayToString     ("TypeTab.a", String);   (* name of type table for Ada *)        36    71
+   123    ELSE
+   124       ArrayToString     ("TypeTab.m", String);   (* name of type table for Modula-2 \    36    71
+c     \*)
+   125    END;
+   126       Assign            (PathS, PumaLib);                                    35    72    69
+   127       Concatenate       (PathS, String);                                     35    72    71
+   128       Append            (PathS, 0C);                                         35    72
+   129       StringToArray     (PathS, PathA);                                      36    72    74
+   130       TypeTabFile := ReadOpen (PathA);                                      112    34    74
+   131 
+   132       ArrayToString     ("yy" , PathS);         (* name of macro file *)     36    72
+   133       GetString         (TreeRoot^.Spec.TrafoName, String);                  37    43     *     *    71
+   134       Concatenate       (PathS, String);                                     35    72    71
+   135       ArrayToString     (".w", String);                                      36    71
+   136       Concatenate       (PathS, String);                                     35    72    71
+   137       Append            (PathS, 0C);                                         35    72
+   138       StringToArray     (PathS, PathA);                                      36    72    74
+   139       f := WriteOpen (PathA);                                                95    32    74
+   140 
+   141       WHILE NOT EndOfFile (TypeTabFile) DO                                   34   112
+   142          ReadL (TypeTabFile, s);                                             36   112   113
+   143          i := MakeIdent (s);                                                114    37   113
+   144          IF (i <= TypeCount) AND IsElement (i, TypeNames) THEN              114    48    39   114    48
+   145             Exclude (TypeNames, i);                                          38    48   114
+   146             WriteS (f, "# ifndef begin"); WI (i); WriteNl (f);               33    95    44   114    33    95
+   147             ReadL (TypeTabFile, s); WriteL (f, s);                           36   112   113    36    95   113
+   148             WriteS (f, "# endif"); WriteNl (f);                              33    95    33    95
+   149             FOR j := 2 TO 7 DO ReadNl (TypeTabFile); END;                   115    34   112
+   150             WriteS (f, "# ifndef equal"); WI (i); WriteNl (f);               33    95    44   114    33    95
+   151             ReadL (TypeTabFile, s); WriteL (f, s);                           36   112   113    36    95   113
+   152             WriteS (f, "# endif"); WriteNl (f);                              33    95    33    95
+   153          ELSE
+   154             FOR j := 1 TO 8 DO ReadNl (TypeTabFile); END;                   115    34   112
+   155          END;
+   156       END;
+   157       ReadClose (TypeTabFile);                                               34   112
+   158       RemoveTreeTypes (TreeRoot);                                            48    43
+   159 
+   160       WHILE NOT IsEmpty (TypeNames) DO                                       38    48
+   161          i := Extract (TypeNames);                                          114    39    48
+   162          Include (UserTypes, i);                                             38    48   114
+   163    IF IsElement (ORD ('c'), Options) THEN                                    39     *    43
+   164          WriteS (f, "# ifndef begin"); WI (i); WriteNl (f);                  33    95    44   114    33    95
+   165          WriteS (f, "# define begin"); WI (i); WriteS (f, "(a)"); WriteNl (f);     33    95    44   114    33    95    33
+                                                                                    95
+   166          WriteS (f, "# endif"); WriteNl (f);                                 33    95    33    95
+   167          WriteS (f, "# ifndef equal"); WI (i); WriteNl (f);                  33    95    44   114    33    95
+   168          WriteS (f, "# define equal"); WI (i); WriteS (f, "(a, b)       memcmp ((cha\    33    95    44   114    33    95
+      \r *) & a, (char *) & b, sizeof (a)) == 0"); WriteNl (f);                     33    95
+   169          WriteS (f, "# endif"); WriteNl (f);                                 33    95    33    95
+   170    ELSIF IsElement (ORD ('K'), Options) THEN                                 39     *    43
+   171          WriteS (f, "# ifndef begin"); WI (i); WriteNl (f);                  33    95    44   114    33    95
+   172          WriteS (f, "# define begin"); WI (i); WriteS (f, "(a)"); WriteNl (f);     33    95    44   114    33    95    33
+                                                                                    95
+   173          WriteS (f, "# endif"); WriteNl (f);                                 33    95    33    95
+   174          WriteS (f, "# ifndef equal"); WI (i); WriteNl (f);                  33    95    44   114    33    95
+   175          WriteS (f, "# define equal"); WI (i); WriteS (f, "(a, b) ( a ) = ( b ) "); \    33    95    44   114    33    95
+      \WriteNl (f);                                                                 33    95
+   176          WriteS (f, "# endif"); WriteNl (f);                                 33    95    33    95
+   177    ELSIF IsElement (ORD ('A'), Options) THEN                                 39     *    43
+   178          WriteS (f, "# ifndef begin"); WI (i); WriteNl (f);                  33    95    44   114    33    95
+   179          WriteS (f, "# define begin"); WI (i); WriteS (f, "(a)"); WriteNl (f);     33    95    44   114    33    95    33
+                                                                                    95
+   180          WriteS (f, "# endif"); WriteNl (f);                                 33    95    33    95
+   181          WriteS (f, "# ifndef equal"); WI (i); WriteNl (f);                  33    95    44   114    33    95
+   182          WriteS (f, "# define equal"); WI (i); WriteS (f, "(a, b) ( a ) = ( b ) "); \    33    95    44   114    33    95
+      \WriteNl (f);                                                                 33    95
+   183          WriteS (f, "# endif"); WriteNl (f);                                 33    95    33    95
+   184    ELSE
+   185          WriteS (f, "# ifndef begin"); WI (i); WriteNl (f);                  33    95    44   114    33    95
+   186          WriteS (f, "# define begin"); WI (i); WriteS (f, "(a)"); WriteNl (f);     33    95    44   114    33    95    33
+                                                                                    95
+   187          WriteS (f, "# endif"); WriteNl (f);                                 33    95    33    95
+   188          WriteS (f, "# ifndef equal"); WI (i); WriteNl (f);                  33    95    44   114    33    95
+   189          WriteS (f, "# define equal"); WI (i); WriteS (f, "(a, b)       yyIsEqual (a\    33    95    44   114    33    95
+      \, b)"); WriteNl (f);                                                         33    95
+   190          WriteS (f, "# endif"); WriteNl (f);                                 33    95    33    95
+   191    END;
+   192       END;
+   193 
+   194    IF IsElement (ORD ('c'), Options) THEN                                    39     *    43
+   195       MacroC (TreeRoot);                                                     53    43
+   196    ELSIF IsElement (ORD ('K'), Options) THEN                                 39     *    43
+   197       MacroM3 (TreeRoot);                                                    51    43
+   198    ELSIF IsElement (ORD ('A'), Options) THEN                                 39     *    43
+   199       MacroAda (TreeRoot);                                                   52    43
+   200    ELSE
+   201       MacroMod (TreeRoot);                                                   50    43
+   202    END;
+   203 
+   204       WriteClose (f);                                                        32    95
+   205    END GenerateMacros;                                                      111
+   206 
+   207 VAR IndentLevel: INTEGER;                                                     *     *
+   208 
+   209 PROCEDURE WriteClass (t: tTree);                                              *     *    43
+   210    VAR i: INTEGER;                                                          114     *
+   211    BEGIN
+   212       CASE t^.Kind OF                                                       209     *
+   213       | Class   : WITH t^.Class DO                                           44   209    44
+   214             FOR i := 1 TO IndentLevel DO                                    210   207
+   215                WriteS   (StdOutput, "   ");                                  33    32
+   216             END;
+   217             WriteIdent  (StdOutput, Name);                                   37    32     *
+   218             WriteS      (StdOutput, "   =");                                 33    32
+   219             WriteClass  (Attributes);                                       209     *
+   220             IF Extensions^.Kind # NoClass THEN                                *     *    45
+   221                WriteS   (StdOutput, " <");                                   33    32
+   222                WriteNl  (StdOutput);                                         33    32
+   223                INC (IndentLevel);                                             *   207
+   224                WriteClass (Extensions);                                     209     *
+   225                DEC (IndentLevel);                                             *   207
+   226                FOR i := 1 TO IndentLevel DO                                 210   207
+   227                   WriteS (StdOutput, "   ");                                 33    32
+   228                END;
+   229                WriteS   (StdOutput, ">");                                    33    32
+   230             END;
+   231             WriteS      (StdOutput, " .");                                   33    32
+   232             WriteNl     (StdOutput);                                         33    32
+   233             WriteClass  (Next);                                             209     *
+   234          END;
+   235       | Child   : WITH t^.Child DO                                           44   209    44
+   236             WriteS      (StdOutput, " ");                                    33    32
+   237             WriteIdent  (StdOutput, Name);                                   37    32     *
+   238             WriteS      (StdOutput, ": ");                                   33    32
+   239             WriteIdent  (StdOutput, Type);                                   37    32     *
+   240             WriteClass  (Next);                                             209     *
+   241          END;
+   242       | Attribute       : WITH t^.Attribute DO                               44   209    44
+   243          IF ({Test, Dummy} * Properties) = {} THEN                           45    45     *
+   244             WriteS      (StdOutput, " [");                                   33    32
+   245             WriteIdent  (StdOutput, Name);                                   37    32     *
+   246             WriteS      (StdOutput, ": ");                                   33    32
+   247             WriteIdent  (StdOutput, Type);                                   37    32     *
+   248             WriteS      (StdOutput, "]");                                    33    32
+   249          END;
+   250             WriteClass  (Next);                                             209     *
+   251          END;
+   252       | ActionPart      : WITH t^.ActionPart DO                              45   209    45
+   253             WriteClass  (Next);                                             209     *
+   254          END;
+   255       ELSE
+   256       END;
+   257    END WriteClass;                                                          209
+   258 
+   259 VAR IsFirst: BOOLEAN;                                                         *     *
+   260 
+   261 PROCEDURE WritePattern (t: tTree);                                            *   209    43
+   262    BEGIN
+   263       CASE t^.Kind OF                                                       261     *
+   264       | Class   : WITH t^.Class DO                                           44   261    44
+   265             WriteIdent  (StdOutput, Name);                                   37    32     *
+   266             WriteS      (StdOutput, " (");                                   33    32
+   267             IsFirst := TRUE;                                                259     *
+   268             ForallAttributes (t, WritePattern);                              45   261   261
+   269             WriteS      (StdOutput, ")");                                    33    32
+   270             WriteNl     (StdOutput);                                         33    32
+   271          END;
+   272       | Child   : WITH t^.Child DO                                           44   261    44
+   273             IF IsFirst THEN                                                 259
+   274                IsFirst := FALSE;                                            259     *
+   275             ELSE
+   276                WriteS   (StdOutput, ", ");                                   33    32
+   277             END;
+   278             WriteIdent  (StdOutput, Name);                                   37    32     *
+   279             WriteS      (StdOutput, ":");                                    33    32
+   280             WriteIdent  (StdOutput, Type);                                   37    32     *
+   281          END;
+   282       | Attribute       : WITH t^.Attribute DO                               44   261    44
+   283          IF ({Test, Dummy} * Properties) = {} THEN                           45    45     *
+   284             IF IsFirst THEN                                                 259
+   285                IsFirst := FALSE;                                            259     *
+   286             ELSE
+   287                WriteS   (StdOutput, ", ");                                   33    32
+   288             END;
+   289             WriteIdent  (StdOutput, Name);                                   37    32     *
+   290          END;
+   291          END;
+   292       ELSE
+   293       END;
+   294    END WritePattern;                                                        261
+   295 
+   296 BEGIN
+   297    IndentLevel := 0;                                                        207
+   298    AssignEmpty (PumaLib);                                                    35    69
+   299    SourceFile [0] := 0C;                                                     43
+   300    OptionFound := FALSE ;                                                    77     *
+   301    n := GetArgCount () - 1;                                                  75    30
+   302 
+   303    i := 1 ;                                                                 210
+   304    WHILE i <= n                                                             210    75
+   305    DO 
+   306       GetArgument (i, Argument);                                             30   210    73
+   307       IF Argument [0] = '-' THEN                                             73
+   308          IF Argument [1] = 'l' THEN                                          73
+   309             AssignEmpty (PumaLib);                                           35    69
+   310             IF Argument [ 2 ] = 0C                                           73
+   311             THEN (* lib path is separate argument *) 
+   312               INC ( i )                                                       *   210
+   313             ; IF i <= n                                                     210    75
+   314               THEN 
+   315                  GetArgument ( i , Argument )                                30   210    73
+   316               ELSE Argument [ 0 ] := 0C                                      73
+   317               END (* IF *) 
+   318             ; j := 0                                                        115
+   319             ELSE 
+   320               j := 2;                                                       115
+   321             END (* IF *) ; 
+   322             LOOP
+   323                ch := Argument [j];                                           76    73   115
+   324                IF ch = 0C THEN EXIT; END;                                    76
+   325                Append (PumaLib, ch);                                         35    69    76
+   326                INC (j);                                                       *   115
+   327             END;
+   328             Append (PumaLib, '/');                                           35    69
+   329          ELSE
+   330             j := 0;                                                         115
+   331             LOOP
+   332                INC (j);                                                       *   115
+   333                ch := Argument [j];                                           76    73   115
+   334                IF ch = 0C THEN                                               76
+   335                   EXIT;
+   336                ELSE 
+   337                  OptionFound := TRUE ;                                       77     *
+   338                  IF ch = '?' THEN                                            76
+   339                     Include (Options, ORD ('h'));                            38    43     *
+   340                  ELSIF ch = 'c' THEN                                         76
+   341                     Include (Options, ORD ('c'));                            38    43     *
+   342                     Exclude (Options, ORD ('K'));                            38    43     *
+   343                     Exclude (Options, ORD ('A'));                            38    43     *
+   344                  ELSIF ch = 'K' THEN                                         76
+   345                     Include (Options, ORD ('K'));                            38    43     *
+   346                     Exclude (Options, ORD ('c'));                            38    43     *
+   347                     Exclude (Options, ORD ('A'));                            38    43     *
+   348                  ELSIF ch = 'A' THEN                                         76
+   349                     Include (Options, ORD ('A'));                            38    43     *
+   350                     Exclude (Options, ORD ('c'));                            38    43     *
+   351                     Exclude (Options, ORD ('K'));                            38    43     *
+   352                  ELSE
+   353                     Include (Options, ORD (ch));                             38    43     *    76
+   354                  END;
+   355                END;
+   356             END;
+   357          END;
+   358       ELSIF Argument [0] = '?' THEN                                          73
+   359          Include (Options, ORD ('h'));                                       38    43     *
+   360       ELSE
+   361          j := 0;                                                            115
+   362          REPEAT
+   363             ch := Argument [j];                                              76    73   115
+   364             SourceFile [j] := ch;                                            43   115    76
+   365             INC (j);                                                          *   115
+   366          UNTIL ch = 0C;                                                      76
+   367       END;
+   368       INC ( i ) ;                                                             *   210
+   369    END;
+   370 
+   371    IF NOT OptionFound THEN                                (* {} -> a              *)     77
+   372       Include (Options, ORD ('a'));                                          38    43     *
+   373    END;
+   374 
+   375    IF IsElement (ORD ('a'), Options) THEN       (* a -> {d, i}          *)         39     *    43
+   376       Include (Options, ORD ('d'));                                          38    43     *
+   377       Include (Options, ORD ('i'));                                          38    43     *
+   378    END;
+   379 
+   380    IF IsElement (ORD ('h'), Options) THEN                                    39     *    43
+   381       Exclude (Options, ORD ('h'));                                          38    43     *
+   382       f := StdOutput;                                                        95    32
+   383       WriteNl (f);                                                           33    95
+   384       WriteS (f, "usage: puma [-options] [-ldir | -l dir] [file]"); WriteNl (f);         33    95    33    95
+   385       WriteNl (f);                                                           33    95
+   386       WriteS (f, " a generate all, same as -di (default)"); WriteNl (f);     33    95    33    95
+   387       WriteS (f, " b suppress optimization of multiple IFs into CASE statements"); W\    33    95
+      \riteNl (f);                                                                  33    95
+   388       WriteS (f, " c generate C code (default is Modula-2)"); WriteNl (f);         33    95    33    95
+   389       WriteS (f, " d generate definition module"); WriteNl (f);              33    95    33    95
+   390       WriteS (f, " e treat undefined names as error"); WriteNl (f);          33    95    33    95
+   391       WriteS (f, " f signal a runtime error if none of the rules of a procedure matc\    33    95
+      \hes"); WriteNl (f);                                                          33    95
+   392       WriteS (f, " g allow too few positional patterns in a rule"); WriteNl (f);         33    95    33    95
+   393       WriteS (f, " h print help information"); WriteNl (f);                  33    95    33    95
+   394       WriteS (f, " i generate implementation module"); WriteNl (f);          33    95    33    95
+   395       WriteS (f, " j recognize unqualified names of children of decompose patterns")\    33    95
+      \; WriteNl (f);                                                               33    95
+   396       WriteS (f, " k allow non-linear patterns"); WriteNl (f);               33    95    33    95
+   397       WriteS (f, " -ldir or -l dir specify the directory dir where puma finds its ta\    33    95
+      \bles"); WriteNl (f);                                                         33    95
+   398       WriteS (f, " m use procedure MakeTREE to construct nodes (default is inline co\    33    95
+      \de)"); WriteNl (f);                                                          33    95
+   399       WriteS (f, " n check parameters for NoTREE (NIL) and treat as failure (tg comp\    33    95
+      \atibility)"); WriteNl (f);                                                   33    95
+   400       WriteS (f, " o list undefined names on standard output"); WriteNl (f);       33    95    33    95
+   401       WriteS (f, " p allow node constructors without parentheses"); WriteNl (f);         33    95    33    95
+   402       WriteS (f, " q browse internal data structure"); WriteNl (f);          33    95    33    95
+   403       WriteS (f, " r print patterns"); WriteNl (f);                          33    95    33    95
+   404       WriteS (f, " s suppress warnings"); WriteNl (f);                       33    95    33    95
+   405       WriteS (f, " t print tree definitions"); WriteNl (f);                  33    95    33    95
+   406       WriteS (f, " u require ':' or ':>' after label"); WriteNl (f);         33    95    33    95
+   407       WriteS (f, " v treat undefined names as warning"); WriteNl (f);        33    95    33    95
+   408       WriteS (f, " w surround actions by WITH statements (Modula), or DECLARE"); Wri\    33    95
+      \teNl (f);                                                                    33    95
+   409       WriteS (f, "   blocks with renames (Ada) (tg compatibility)"); WriteNl (f);        33    95    33    95
+   410       WriteS (f, " A generate Ada code (default is Modula-2)"); WriteNl (f);       33    95    33    95
+   411       WriteS (f, " J warn on duplicated names children of decompose patterns"); Writ\    33    95
+      \eNl (f);                                                                     33    95
+   412       WriteS (f, " K generate Modula-3 code (default is Modula-2)"); WriteNl (f);        33    95    33    95
+   413       WriteS (f, " X keep macro file and cpp input"); WriteNl (f);           33    95    33    95
+   414       WriteS (f, " 3 write puma internal data structure to std output, before semant\    33    95
+      \ics."); WriteNl (f);                                                         33    95
+   415       WriteS (f, " 4 write puma internal data structure to std output, after semanti\    33    95
+      \cs."); WriteNl (f);                                                          33    95
+   416       WriteS (f, " 5 write puma internal data structure to std output, after optimiz\    33    95
+      \e/RuleProperties."); WriteNl (f);                                            33    95
+   417       WriteS (f, " 6 generate # line directives"); WriteNl (f);              33    95    33    95
+   418       WriteS (f, " 7 touch output files only if necessary"); WriteNl (f);    33    95    33    95
+   419       WriteS (f, " 8 report storage consumption"); WriteNl (f);              33    95    33    95
+   420       WriteNl (f);                                                           33    95
+   421    END;
+   422 
+   423    IF IsEmpty (Options) THEN CloseIO; HALT; END;                             38    43    32     *
+   424 
+   425       ArrayToString     (ScanTabName, String);  (* name of scanner table *)        36    41    71
+   426       Assign            (PathS, PumaLib);                                    35    72    69
+   427       Concatenate       (PathS, String);                                     35    72    71
+   428       Append            (PathS, 0C);                                         35    72
+   429       StringToArray     (PathS, ScanTabName);                                36    72    41
+   430 
+   431       ArrayToString     (ParsTabName, String);  (* name of parser table *)         36    42    71
+   432       Assign            (PathS, PumaLib);                                    35    72    69
+   433       Concatenate       (PathS, String);                                     35    72    71
+   434       Append            (PathS, 0C);                                         35    72
+   435       StringToArray     (PathS, ParsTabName);                                36    72    42
+   436 
+   437       StoreMessages (TRUE);                                                  40     *
+   438       IF SourceFile [0] # 0C THEN BeginFile (SourceFile); END;               43    41    43
+   439       INC (ErrorCount, Parser ());                                            *    44    42
+   440 
+   441       Node := TreeRoot^.Spec.TreeNames;                                      78    43     *     *
+   442       WHILE Node^.Kind = TreeName DO                                         78     *    44
+   443          GetString      (Node^.TreeName.Name, PathS);                        37    78    44     *    72
+   444          ArrayToString  (".TS", String);                                     36    71
+   445          Concatenate    (PathS, String);                                     35    72    71
+   446          Append         (PathS, 0C);                                         35    72
+   447          StringToArray  (PathS, PathA);                                      36    72    74
+   448          f := ReadOpen  (PathA);                                             95    34    74
+   449          IF f >= 0 THEN                                                      95
+   450             ReadL (f, String); Node^.TreeName.Name := MakeIdent (String);    36    95    71    78    44     *    37    71
+   451             Node^.TreeName.Classes := GetTree2 (f);                          78    44     *    47    95
+   452             ReadClose   (f);                                                 34    95
+   453    IF IsElement (ORD ('t'), Options) THEN                                    39     *    43
+   454             WriteS (StdOutput, "Tree Definition: "); WriteIdent (StdOutput, Node^.Tr\    33    32    37    32    78
+      \eeName.Name);                                                                44     *
+   455             WriteNl (StdOutput);                                             33    32
+   456             WriteS (StdOutput, "----------------"); WriteNl (StdOutput);     33    32    33    32
+   457             WriteNl (StdOutput);                                             33    32
+   458             WriteClass (Node^.TreeName.Classes);                            209    78    44     *
+   459             WriteNl (StdOutput);                                             33    32
+   460    END;
+   461    IF IsElement (ORD ('r'), Options) THEN                                    39     *    43
+   462             WriteS (StdOutput, "Patterns: "); WriteIdent (StdOutput, Node^.TreeName.\    33    32    37    32    78    44
+      \Name);                                                                        *
+   463             WriteNl (StdOutput);                                             33    32
+   464             WriteS (StdOutput, "---------"); WriteNl (StdOutput);            33    32    33    32
+   465             WriteNl (StdOutput);                                             33    32
+   466             ForallClasses (Node^.TreeName.Classes, WritePattern);            45    78    44     *   261
+   467             WriteNl (StdOutput);                                             33    32
+   468    END;
+   469          ELSE
+   470             Node^.TreeName.Classes := mNoClass ();                           78    44     *    44
+   471             ErrorI ("cannot read view file", Node^.TreeName.Pos, Node^.TreeName.Name\    41    78    44     *    78    44
+                                                                                     *
+      \);
+   472          END;
+   473          Node := Node^.TreeName.Next;                                        78    78    44     *
+   474       END;
+   475    IF IsElement (ORD ('3'), Options) THEN                                    39     *    43
+   476       WriteS ( StdOutput, "puma data structure, before semantics:");         33    32
+   477       WriteNl (StdOutput);                                                   33    32
+   478       WriteTree         (StdOutput,TreeRoot);                                46    32    43
+   479       WriteS ( StdOutput, "End puma data structure.");                       33    32
+   480       WriteNl (StdOutput);                                                   33    32
+   481    END;
+   482 
+   483       Semantics (TreeRoot);                                                  48    43
+   484    IF IsElement (ORD ('4'), Options) THEN                                    39     *    43
+   485       WriteS ( StdOutput, "puma data structure, after semantics:");          33    32
+   486       WriteNl (StdOutput);                                                   33    32
+   487       WriteTree         (StdOutput,TreeRoot);                                46    32    43
+   488       WriteS ( StdOutput, "End puma data structure.");                       33    32
+   489       WriteNl (StdOutput);                                                   33    32
+   490    END;
+   491 
+   492       WriteMessages (StdError);                                              40    32
+   493 
+   494 (* NOTE: Running Optimize when there are semantic errors can cause
+c  495          a crash on nil deref of field Path of a TestKind node in
+c  496          certain cases.  See puma/test/t8* . 
+c  497          I am not bailing out yet, because somebody might want to see
+c  498          the tree after optimize, even if semantic errors, and I
+c  499          hope to fix the crash in Optimize some day.  WriteMessages
+c  500          is now before Optimize, so you will at least see the
+c  501          error messages. 
+c  502 *) 
+   503 
+   504    IF IsElement (ORD ('b'), Options) THEN                                    39     *    43
+   505       RuleProperties    (TreeRoot);                                          49    43
+   506    ELSE
+   507       Optimize          (TreeRoot);                                          49    43
+   508    END;
+   509 
+   510    IF IsElement (ORD ('q'), Options) THEN                                    39     *    43
+   511       QueryTree         (TreeRoot);                                          46    43
+   512    END;
+   513 
+   514    IF IsElement (ORD ('5'), Options) THEN                                    39     *    43
+   515       WriteS                                                                 33
+   516         ( StdOutput, "puma data structure, after optimize/RuleProperties:");       32
+   517       WriteNl (StdOutput);                                                   33    32
+   518       WriteTree         (StdOutput,TreeRoot);                                46    32    43
+   519       WriteS ( StdOutput, "End puma data structure.");                       33    32
+   520       WriteNl (StdOutput);                                                   33    32
+   521    END;
+   522 
+   523       IF ErrorCount > 0 THEN CloseIO; Exit (1); END;                         44    32    30
+   524       GenerateMacros;                                                       111
+   525 
+   526    IF IsElement (ORD ('d'), Options) THEN                                    39     *    43
+   527       GetString         (TreeRoot^.Spec.TrafoName, PathS);                   37    43     *     *    72
+   528    IF IsElement (ORD ('c'), Options) THEN                                    39     *    43
+   529       ArrayToString     (DefExtC , String);                                  36    65    71
+   530    ELSIF IsElement (ORD ('K'), Options) THEN                                 39     *    43
+   531       ArrayToString     (DefExtM3 , String);                                 36    59    71
+   532    ELSIF IsElement (ORD ('A'), Options) THEN                                 39     *    43
+   533       ArrayToString     (DefExtAda , String);                                36    62    71
+   534    ELSE
+   535       ArrayToString     (DefExtMc, String);                                  36    56    71
+   536    END;
+   537       Concatenate       (PathS, String);                                     35    72    71
+   538       f := SmartOpen    (PathS);                                             95    80    72
+   539    IF IsElement (ORD ('c'), Options) THEN                                    39     *    43
+   540       DefC              (TreeRoot);                                          53    43
+   541    ELSIF IsElement (ORD ('K'), Options) THEN                                 39     *    43
+   542       Interface          (TreeRoot);                                         51    43
+   543    ELSIF IsElement (ORD ('A'), Options) THEN                                 39     *    43
+   544       PackSpec          (TreeRoot);                                          52    43
+   545    ELSE
+   546       DefMod            (TreeRoot);                                          50    43
+   547    END;
+   548       SmartClose        (PathS, f);                                          95    72    95
+   549    END;
+   550 
+   551    IF IsElement (ORD ('i'), Options) THEN                                    39     *    43
+   552       GetString         (TreeRoot^.Spec.TrafoName, PathS);                   37    43     *     *    72
+   553    IF IsElement (ORD ('c'), Options) THEN                                    39     *    43
+   554       ArrayToString     (ImpExtC , String);                                  36    66    71
+   555    ELSIF IsElement (ORD ('K'), Options) THEN                                 39     *    43
+   556       ArrayToString     (ImpExtM3 , String);                                 36    60    71
+   557    ELSIF IsElement (ORD ('A'), Options) THEN                                 39     *    43
+   558       ArrayToString     (ImpExtAda , String);                                36    63    71
+   559    ELSE
+   560       ArrayToString     (ImpExtMc, String);                                  36    57    71
+   561    END;
+   562       Concatenate       (PathS, String);                                     35    72    71
+   563       Assign            (TrafoFile, PathS);                                  35    70    72
+   564       f := SmartOpen    (PathS);                                             95    80    72
+   565    IF IsElement (ORD ('c'), Options) THEN                                    39     *    43
+   566       ImplC             (TreeRoot);                                          53    43
+   567    ELSIF IsElement (ORD ('K'), Options) THEN                                 39     *    43
+   568       Module              (TreeRoot);                                        51    43
+   569    ELSIF IsElement (ORD ('A'), Options) THEN                                 39     *    43
+   570       PackBody            (TreeRoot);                                        52    43
+   571    ELSE
+   572       ImplMod           (TreeRoot);                                          50    43
+   573    END;
+   574       SmartClose        (PathS, f);                                          95    72    95
+   575 
+   576    IF NOT IsElement (ORD ('c'), Options) THEN                                39     *    43
+   577       IF IsElement ( ORD ( 'X' ) , Options )                                 39     *    43
+   578       THEN
+   579         ArrayToString ( "cp -p " , PathS ) ;                                 36    72
+   580         Concatenate ( PathS , TrafoFile ) ;                                  35    72    70
+   581         ArrayToString ( " " , String ) ;                                     36    71
+   582         Concatenate ( PathS , String ) ;                                     35    72    71
+   583         Concatenate ( PathS , TrafoFile ) ;                                  35    72    70
+   584         ArrayToString ( ".precpp" , String ) ;                               36    71
+   585         Concatenate ( PathS , String ) ;                                     35    72    71
+   586         StringToArray     (PathS, PathA);                                    36    72    74
+   587         n := System       (PathA);                                           75    30    74
+   588       END (* IF *) ;  
+   589       ArrayToString     ("gmdcpp ", PathS);             (* call cpp *)       36    72
+   590       Concatenate       (PathS, TrafoFile);                                  35    72    70
+   591       Append            (PathS, 0C);                                         35    72
+   592       StringToArray     (PathS, PathA);                                      36    72    74
+   593       n := System       (PathA);                                             75    30    74
+   594 
+   595    IF NOT IsElement ( ORD ( 'X' ) , Options )                                39     *    43
+   596    THEN
+   597       ArrayToString     ("gmdrm yy" , PathS);           (* name of macro file *)         36    72
+   598       GetString         (TreeRoot^.Spec.TrafoName, String);                  37    43     *     *    71
+   599       Concatenate       (PathS, String);                                     35    72    71
+   600       ArrayToString     (".w", String);                                      36    71
+   601       Concatenate       (PathS, String);                                     35    72    71
+   602       Append            (PathS, 0C);                                         35    72
+   603       StringToArray     (PathS, PathA);                                      36    72    74
+   604       n := System       (PathA);                                             75    30    74
+   605    END; 
+   606    END;
+   607    END;
+   608 
+   609    IF IsElement (ORD ('8'), Options) THEN                                    39     *    43
+   610       WriteNl (StdError);                                                    33    32
+   611       WriteS  (StdError, "Memory"); WriteI (StdError, MemoryUsed, 8);        33    32    33    32    31
+   612       WriteS  (StdError, "  Heap"); WriteI (StdError, HeapUsed  , 8);        33    32    33    32    43
+   613       WriteNl (StdError);                                                    33    32
+   614    END;
+   615    CloseIO; Exit (0);                                                        32    30
+   616 END puma.                                                                    28
+   617 
+Cross reference: * is declaration, = is assignment
+
+-"-
+ "   "                          215   227 
+ "   ="                         218 
+ "   blocks with renames (Ada\  409 
+   ) (tg compatibility)"
+ "  Heap"                       612 
+ " "                            236   581 
+ " ("                           266 
+ " -ldir or -l dir specify th\  397 
+   e directory dir where puma finds i
+ " ."                           231 
+ " 3 write puma internal data\  414 
+    structure to std output, before s
+ " 4 write puma internal data\  415 
+    structure to std output, after se
+ " 5 write puma internal data\  416 
+    structure to std output, after op
+ " 6 generate # line directiv\  417 
+   es"
+ " 7 touch output files only \  418 
+   if necessary"
+ " 8 report storage consumpti\  419 
+   on"
+ " <"                           221 
+ " A generate Ada code (defau\  410 
+   lt is Modula-2)"
+ " a generate all, same as -d\  386 
+   i (default)"
+ " b suppress optimization of\  387 
+    multiple IFs into CASE statements
+ " c generate C code (default\  388 
+    is Modula-2)"
+ " d generate definition modu\  389 
+   le"
+ " e treat undefined names as\  390 
+    error"
+ " f signal a runtime error i\  391 
+   f none of the rules of a procedure
+ " g allow too few positional\  392 
+    patterns in a rule"
+ " h print help information"    393 
+ " i generate implementation \  394 
+   module"
+ " j recognize unqualified na\  395 
+   mes of children of decompose patte
+ " J warn on duplicated names\  411 
+    children of decompose patterns"
+ " k allow non-linear pattern\  396 
+   s"
+ " K generate Modula-3 code (\  412 
+   default is Modula-2)"
+ " m use procedure MakeTREE t\  398 
+   o construct nodes (default is inli
+ " n check parameters for NoT\  399 
+   REE (NIL) and treat as failure (tg
+ " o list undefined names on \  400 
+   standard output"
+ " p allow node constructors \  401 
+   without parentheses"
+ " q browse internal data str\  402 
+   ucture"
+ " r print patterns"            403 
+ " s suppress warnings"         404 
+ " t print tree definitions"    405 
+ " u require ':' or ':>' afte\  406 
+   r label"
+ " v treat undefined names as\  407 
+    warning"
+ " w surround actions by WITH\  408 
+    statements (Modula), or DECLARE"
+ " X keep macro file and cpp \  413 
+   input"
+ " yy"                          102 
+ " ["                           244 
+ "# define begin"               165   172   179   186 
+ "# define equal"               168   175   182   189 
+ "# endif"                      148   152   166   169   173   176   180   183   187   190 
+ "# ifndef begin"               146   164   171   178   185 
+ "# ifndef equal"               150   167   174   181   188 
+ "(a)"                          165   172   179   186 
+ "(a, b)       memcmp ((char \  168 
+   *) & a, (char *) & b, sizeof (a))
+ "(a, b)       yyIsEqual (a, \  189 
+   b)"
+ "(a, b) ( a ) = ( b ) "        175   182 
+ ")"                            269 
+ ", "                           276   287 
+ "---------"                    464 
+ "----------------"             456 
+ ".adb"                          63 
+ ".ads"                          62 
+ ".c"                            66 
+ ".h"                            65 
+ ".i3"                           59 
+ ".m3"                           60 
+ ".md"                           56 
+ ".mi"                           57 
+ ".precpp"                      584 
+ ".TS"                          444 
+ ".w"                           135   600 
+ ": "                           238   246 
+ ":"                            279 
+ ">"                            229 
+ "cannot read view file"        471 
+ "cp -p "                       579 
+ "End puma data structure."     479   488   519 
+ "gmdcpp "                      589 
+ "gmdrm yy"                     597 
+ "gmdupd "                      100 
+ "Memory"                       611 
+ "Patterns: "                   462 
+ "puma data structure, after \  516 
+   optimize/RuleProperties:"
+ "puma data structure, after \  485 
+   semantics:"
+ "puma data structure, before\  476 
+    semantics:"
+ "Tree Definition: "            454 
+ "TypeTab.a"                    122 
+ "TypeTab.c"                    118 
+ "TypeTab.m"                    124 
+ "TypeTab.m3"                   120 
+ "usage: puma [-options] [-ld\  384 
+   ir | -l dir] [file]"
+ "yy"                            84   132 
+ "]"                            248 
+
+-'-
+ '-'                            307 
+ '/'                            328 
+ '3'                            475 
+ '4'                            484 
+ '5'                            514 
+ '7'                             83    99 
+ '8'                            609 
+ '?'                            338   358 
+ 'A'                            121   177   198   343   347   348   349   532   543   557   569 
+ 'a'                            372   375 
+ 'b'                            504 
+ 'c'                            117   163   194   340   341   346   350   528   539   553   565   576 
+ 'd'                            376   526 
+ 'h'                            339   359   380   381 
+ 'i'                            377   551 
+ 'K'                            119   170   196   342   344   345   351   530   541   555   567 
+ 'l'                            308 
+ 'q'                            510 
+ 'r'                            461 
+ 't'                            453 
+ 'X'                            577   595 
+
+-0-
+ 0                               74   297   299   307   316   318   330   358   361   438   449   523   615 
+ 0C                              86    89   105   128   137   299   310   316   324   334   366   428   434   438   446   591   602 
+
+-1-
+ 1                              154   214   226   301   303   308   523 
+
+-2-
+ 2                              149   310   320 
+ 255                             74 
+
+-7-
+ 7                              149 
+
+-8-
+ 8                              154   611   612 
+
+-A-
+ ActionPart                      45*  252   252 
+ Ada                             52*
+ Append                          35*   86    89   105   128   137   325   328   428   434   446   591   602 
+ Argument                        73*  306   307   308   310   315   316=  323   333   358   363 
+ ArrayToString                   36*   84   100   102   118   120   122   124   132   135   425   431   444   529   531   533   535 
+                                554   556   558   560   579   581   584   589   597   600 
+ Assign                          35*  126   426   432   563 
+ AssignEmpty                     35*  298   309 
+ Attribute                       44*  242   242   282   282 
+ Attributes                     219 
+
+-B-
+ BeginFile                       41*  438 
+ BOOLEAN                         77   259 
+
+-C-
+ C                               53*
+ ch                              76*  323=  324   325   333=  334   338   340   344   348   353   363=  364   366 
+ CHAR                            74    76 
+ Child                           44*  235   235   272   272 
+ Class                           44*  213   213   264   264 
+ Classes                        451=  458   466   470=
+ CloseIO                         32*  423   523   615 
+ Complement                      39*
+ Concatenate                     35*   85   101   103   104   127   134   136   427   433   445   537   562   580   582   583   585 
+                                590   599   601 
+
+-D-
+ DEC                            225 
+ DefC                            53*  540 
+ DefExtAda                       62*  533 
+ DefExtC                         65*  529 
+ DefExtM3                        59*  531 
+ DefExtMc                        56*  535 
+ DefMod                          50*  546 
+ Dummy                           45*  243   283 
+
+-E-
+ EndOfFile                       34*  141 
+ ErrorCount                      44*  439   523 
+ ErrorI                          41*  471 
+ Errors                          40*
+ Exclude                         38*  145   342   343   346   347   350   351   381 
+ Exit                            30*  523   615 
+ Extensions                     220   224 
+ Extract                         39*  161 
+
+-F-
+ f                               43*   95*   98   139=  146   146   147   148   148   150   150   151   152   152   164   164   165 
+                                165   165   166   166   167   167   168   168   168   169   169   171   171   172   172   172   173 
+                                173   174   174   175   175   175   176   176   178   178   179   179   179   180   180   181   181 
+                                182   182   182   183   183   185   185   186   186   186   187   187   188   188   189   189   189 
+                                190   190   204   382=  383   384   384   385   386   386   387   387   388   388   389   389   390 
+                                390   391   391   392   392   393   393   394   394   395   395   396   396   397   397   398   398 
+                                399   399   400   400   401   401   402   402   403   403   404   404   405   405   406   406   407 
+                                407   408   408   409   409   410   410   411   411   412   412   413   413   414   414   415   415 
+                                416   416   417   417   418   418   419   419   420   448=  449   450   451   452   538=  548   564=
+                                574 
+ FALSE                          274   285   300 
+ FileName                        80*   85    89    90    95*  101   104 
+ ForallAttributes                45*  268 
+ ForallClasses                   45*  466 
+
+-G-
+ GenerateMacros                 111*  205   524 
+ GetArgCount                     30*  301 
+ GetArgument                     30*  306   315 
+ GetString                       37*  133   443   527   552   598 
+ GetTree2                        47*  451 
+
+-H-
+ HALT                           423 
+ HeapUsed                        43*  612 
+
+-I-
+ i                               75*  114*  143=  144   144   145   146   150   161=  162   164   165   167   168   171   172   174 
+                                175   178   179   181   182   185   186   188   189   210*  214=  226=  303=  304   306   312   313 
+                                315   368 
+ Idents                          37*
+ ImpExtAda                       63*  558 
+ ImpExtC                         66*  554 
+ ImpExtM3                        60*  556 
+ ImpExtMc                        57*  560 
+ ImplC                           53*  566 
+ ImplMod                         50*  572 
+ INC                            223   312   326   332   365   368   439 
+ Include                         38*  162   339   341   345   349   353   359   372   376   377 
+ IndentLevel                    207*  214   223   225   226   297=
+ INTEGER                        115   207   210 
+ Interface                       51*  542 
+ IO                              32*
+ IsElement                       39*   83    99   117   119   121   144   163   170   177   194   196   198   375   380   453   461 
+                                475   484   504   510   514   526   528   530   532   539   541   543   551   553   555   557   565 
+                                567   569   576   577   595   609 
+ IsEmpty                         38*  160   423 
+ IsFirst                        259*  267=  273   274=  284   285=
+
+-J-
+ j                               75*  115*  149=  154=  318=  320=  323   326   330=  332   333   361=  363   364   365 
+
+-K-
+ Kind                           212   220   263   442 
+
+-L-
+ LPathS                          81*   84    85    86    87    96*  100   101   103   104   105   106 
+
+-M-
+ M2                              50*
+ M3                              51*
+ MacroAda                        52*  199 
+ MacroC                          53*  195 
+ MacroM3                         51*  197 
+ MacroMod                        50*  201 
+ MakeIdent                       37*  143   450 
+ MakeSet                         38*
+ Memory                          31*
+ MemoryUsed                      31*  611 
+ mNoClass                        44*  470 
+ Module                          51*  568 
+
+-N-
+ n                               75*  107=  301=  304   313   587=  593=  604=
+ Name                           217   237   245   265   278   289   443   450=  454   462   471 
+ Next                           233   240   250   253   473 
+ NoClass                         45*  220 
+ Node                            78*  441=  442   443   450=  451=  454   458   462   466   470=  471   471   473=  473 
+ NoTree                          43*
+
+-O-
+ Optimize                        49*   49*  507 
+ OptionFound                     77*  300=  337=  371 
+ Options                         43*   83    99   117   119   121   163   170   177   194   196   198   339   341   342   343   345 
+                                346   347   349   350   351   353   359   372   375   376   377   380   381   423   453   461   475 
+                                484   504   510   514   526   528   530   532   539   541   543   551   553   555   557   565   567 
+                                569   576   577   595   609 
+ ORD                             83    99   117   119   121   163   170   177   194   196   198   339   341   342   343   345   346 
+                                347   349   350   351   353   359   372   375   376   377   380   381   453   461   475   484   504 
+                                510   514   526   528   530   532   539   541   543   551   553   555   557   565   567   569   576 
+                                577   595   609 
+
+-P-
+ PackBody                        52*  570 
+ PackSpec                        52*  544 
+ Parser                          42*   42*  439 
+ ParsTabName                     42*  431   435 
+ PathA                           74*   87    90    92   106   107   129   130   138   139   447   448   586   587   592   593   603 
+                                604 
+ PathS                           72*  126   127   128   129   132   134   136   137   138   426   427   428   429   432   433   434 
+                                435   443   445   446   447   527   537   538   548   552   562   563   564   574   579   580   582 
+                                583   585   586   589   590   591   592   597   599   601   602   603 
+ Pos                            471 
+ Properties                     243   283 
+ puma                            28*  616 
+ PumaLib                         69*  126   298   309   325   328   426   432 
+
+-Q-
+ QueryTree                       46*  511 
+
+-R-
+ ReadClose                       34*  157   452 
+ ReadL                           36*  142   147   151   450 
+ ReadNl                          34*  149   154 
+ ReadOpen                        34*  130   448 
+ ReleaseSet                      38*
+ RemoveTreeTypes                 48*  158 
+ RuleProperties                  49*  505 
+
+-S-
+ s                              113*  142   143   147   147   151   151 
+ Scanner                         41*
+ ScanTabName                     41*  425   429 
+ Semantics                       48*   48*  483 
+ Sets                            38*
+ SHORTCARD                       75 
+ SmartClose                      95*  109   548   574 
+ SmartOpen                       80*   93   538   564 
+ SourceFile                      43*  299=  364=  438   438 
+ Spec                           133   441   527   552   598 
+ StdError                        32*  492   610   611   611   612   612   613 
+ StdOutput                       32*  215   217   218   221   222   227   229   231   232   236   237   238   239   244   245   246 
+                                247   248   265   266   269   270   276   278   279   280   287   289   382   454   454   455   456 
+                                456   457   459   462   462   463   464   464   465   467   476   477   478   479   480   485   486 
+                                487   488   489   516   517   518   519   520 
+ StoreMessages                   40*  437 
+ String                          71*  102   103   118   120   122   124   127   133   134   135   136   425   427   431   433   444 
+                                445   450   450   529   531   533   535   537   554   556   558   560   562   581   582   584   585 
+                                598   599   600   601 
+ Strings                         35*
+ StringToArray                   36*   87    90   106   129   138   429   435   447   586   592   603 
+ System                          30*   30*  107   587   593   604 
+
+-T-
+ t                              209*  212   213   235   242   252   261*  263   264   268   272   282 
+ Test                            45*  243   283 
+ tFile                           34*   80    95   112 
+ tIdent                          37*  114 
+ TrafoFile                       70*  563   580   583   590 
+ TrafoName                      133   527   552   598 
+ Tree                            43*
+ Tree2                           47*
+ TreeName                        44*  442   443   450=  451=  454   458   462   466   470=  471   471   473 
+ TreeNames                      441 
+ TreeRoot                        43*  133   158   195   197   199   201   441   478   483   487   505   507   511   518   527   540 
+                                542   544   546   552   566   568   570   572   598 
+ TRUE                           267   337   437 
+ tSet                            38*
+ tString                         35*   72    80    81    95    96   113 
+ tTree                           43*   78   209   261 
+ Type                           239   247   280 
+ TypeCount                       48*  144 
+ TypeNames                       48*  144   145   160   161 
+ TypeTabFile                    112*  130=  141   142   147   149   151   154   157 
+
+-U-
+ Union                           39*
+ UserTypes                       48*  162 
+
+-W-
+ WI                              44*  146   150   164   165   167   168   171   172   174   175   178   179   181   182   185   186 
+                                188   189 
+ WriteClass                     209*  219   224   233   240   250   253   257   458 
+ WriteClose                      32*   98   204 
+ WriteI                          33*  611   612 
+ WriteIdent                      37*  217   237   239   245   247   265   278   280   289   454   462 
+ WriteL                          36*  147   151 
+ WriteMessages                   40*  492 
+ WriteNl                         33*  146   148   150   152   164   165   166   167   168   169   171   172   173   174   175   176 
+                                178   179   180   181   182   183   185   186   187   188   189   190   222   232   270   383   384 
+                                385   386   387   388   389   390   391   392   393   394   395   396   397   398   399   400   401 
+                                402   403   404   405   406   407   408   409   410   411   412   413   414   415   416   417   418 
+                                419   420   455   456   457   459   463   464   465   467   477   480   486   489   517   520   610 
+                                613 
+ WriteOpen                       32*   92   139 
+ WritePattern                   261*  268   294   466 
+ WriteS                          33*  146   148   150   152   164   165   165   166   167   168   168   169   171   172   172   173 
+                                174   175   175   176   178   179   179   180   181   182   182   183   185   186   186   187   188 
+                                189   189   190   215   218   221   227   229   231   236   238   244   246   248   266   269   276 
+                                279   287   384   386   387   388   389   390   391   392   393   394   395   396   397   398   399 
+                                400   401   402   403   404   405   406   407   408   409   410   411   412   413   414   415   416 
+                                417   418   419   454   456   462   464   476   479   485   488   515   519   611   612 
+ WriteTree                       46*  478   487   518 
+
+end cross reference, 1550 occurrences of 275 identifiers.

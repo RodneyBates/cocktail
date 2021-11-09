@@ -1,0 +1,63 @@
+(*
+ *	ell2 - a redesign of ell
+ *
+ *	$RCSfile: Types.mi,v $
+ *	
+ *	purpose:	distinguish terminals and nonterminals
+ *
+ *	$Author: grosch $
+ *	$Date: 1991/02/06 16:16:47 $
+ *)
+
+IMPLEMENTATION MODULE Types;
+
+FROM Idents	IMPORT	tIdent, MaxIdent;
+FROM Sets	IMPORT	tSet, MakeSet, IsElement, Include, Assign;
+
+VAR vDefined, vTerms, vNonterms: tSet;
+
+PROCEDURE BeginTypes	;
+  BEGIN
+    MakeSet (vDefined, MaxIdent ());
+    MakeSet (vTerms, MaxIdent ());
+    MakeSet (vNonterms, MaxIdent ());
+  END BeginTypes;
+
+PROCEDURE MakeTerm	(id: tIdent);
+  BEGIN
+    Include (vDefined, id);
+    Include (vTerms, id);
+  END MakeTerm;
+
+PROCEDURE MakeNonterm	(id: tIdent);
+  BEGIN
+    Include (vDefined, id);
+    Include (vNonterms, id);
+  END MakeNonterm;
+
+PROCEDURE IsDeclared	(id: tIdent): BOOLEAN;
+  BEGIN
+    RETURN IsElement (id, vDefined);
+  END IsDeclared;
+
+PROCEDURE IsTerm	(id: tIdent): BOOLEAN;
+  BEGIN
+    RETURN IsElement (id, vTerms);
+  END IsTerm;
+
+PROCEDURE IsNonterm	(id: tIdent): BOOLEAN;
+  BEGIN
+    RETURN IsElement (id, vNonterms);
+  END IsNonterm;
+
+PROCEDURE Terminals	(VAR set: tSet);
+  BEGIN
+    Assign (set, vTerms);
+  END Terminals;
+
+PROCEDURE Nonterminals	(VAR set: tSet);
+  BEGIN
+    Assign (set, vNonterms);
+  END Nonterminals;
+
+END Types.

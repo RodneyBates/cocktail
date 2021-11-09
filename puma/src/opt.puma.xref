@@ -1,0 +1,1067 @@
+     1 
+     2 (* File opt.puma puma optimization of tests in rules. *) 
+     3 
+     4 (* Ich, Doktor Josef Grosch, Informatiker, 10.12.1991 *)
+     5 
+     6 (* Rodney M. Bates Modifications: 
+c    7 
+c    8    RMB Nov 96 made the minimum number of alternatives for conversion
+c    9               of IF statments to a CASE statement a named constant
+c   10               (MinCases) and set the value to 2. 
+c   11 
+c   12    RMB Dec 96 fixed bug in ElimDeadTests. It was changing the Types
+c   13               in the test in the original Tests list, while leaving
+c   14               Types in the new test in the Decisions tree unchanged,
+c   15               which is backwards.  Tests is not used after this, while
+c   16               Decisions is. 
+c   17    RMB May 97 Minor changes to match changes to puma.cg, name change
+c   18               of Mod to M2
+c   19    RMB Jun 97 Rename 'Then' to 'ThenPart' and 'Else' to 'ElsePart',
+c   20               to avoid conflicts with new case-insensitive recognition
+c   21               of Ada operators THEN and ELSE 
+c   22    RMB Sep 98 Changed to match added ConsType field IsProperlyNarrowed
+c   23    RMB Sep 98 Temporarily made it always narrow for Modula-3 
+c   24    RMB Oct 98 Changed to match new field UniversalClass of TreeName 
+c   25    RMB Oct 98 Added ':' after all labels 
+c   26    RMB May 99 Added Dontcares to match added IsProperlyNarrowed fields 
+c   27    RMB July 99 Added 'VAR' to local declarations of rules and one "(..)"
+c   28 
+c   29 *)
+    30 
+    31 TRAFO Optimize                                                                *     *
+    32 PUBLIC Optimize RuleProperties NeedsTempo NeedsMatch NeedsNoFinale GetRule          *    31     *     *     *     *     *
+    33 
+    34 GLOBAL {                                                                      *
+    35 
+    36 FROM IO         IMPORT StdOutput, WriteB, WriteS, WriteI, WriteNl;            *     *     *     *     *     *     *     *
+    37 FROM Idents     IMPORT WriteIdent;                                           36     *    36     *
+    38 FROM M2         IMPORT ImplMod;                                              37     *    37     *
+    39 FROM Tree       IMPORT tTree, NoTree, mTestIsType, mNodeTypes, Options;      38     *    38     *     *     *     *     *
+    40 FROM Scanner    IMPORT Warning;                                              39     *    39     *
+    41 FROM Positions  IMPORT tPosition;                                            40     *    40     *
+    42 
+    43 FROM Sets       IMPORT                                                       41     *    41
+    44    tSet         , MakeSet       , ReleaseSet    , AssignEmpty   ,             *     *     *     *
+    45    IsEmpty      , Difference    , IsSubset      , Assign        ,             *     *     *     *
+    46    IsEqual      , IsNotEqual    , Intersection  , Union         ,             *     *     *     *
+    47    Size         , WriteSet      , IsElement ;                                 *     *     *
+    48 
+    49 IMPORT Sets;                                                                 43    43
+    50 
+    51 CONST MinCases = 2 ;                                                          *     *
+    52 
+    53 VAR                                                                           *
+    54    gHasExit : BOOLEAN;                                                        *     *
+    55    gHasAssign : BOOLEAN;                                                      *    54
+    56    gHasTargetCode : BOOLEAN;                                                  *    55
+    57    gHasRejectOrFail: BOOLEAN;                                                 *    56
+    58    gRule, nNoDecision, nNoTest  : tTree;                                      *     *     *    39
+    59 
+    60 PROCEDURE IsDisjoint (s1, s2: tSet): BOOLEAN;                                 *     *     *     *    44    57
+    61    VAR s: tSet; Result: BOOLEAN;                                             53     *    60     *    60
+    62    BEGIN                                                                      *
+    63       MakeSet (s, Size (s1));                                                44    61    47    60
+    64       Assign (s, s1);                                                        45    63    63
+    65       Intersection (s, s2);                                                  46    64    60
+    66       Result := IsEmpty (s);                                                 61    45    65
+    67       ReleaseSet (s);                                                        44    66
+    68       RETURN Result;                                                          *    66
+    69    END IsDisjoint;                                                            *    60
+    70 }
+    71 
+    72 PROCEDURE Optimize (t: Tree)                                                 60    32     *    39
+    73 
+    74 Spec (..)                                                                     *
+    75 :- nNoDecision  := NoDecision ();                                            58     *
+    76    nNoTest      := NoTest ();                                                58     *
+    77    Optimize (Routines);                                                      72     *
+    78 .
+    79 
+    80 Routine (..)                                                                  *
+    81 :- RuleProperties (Rules);                                                   32     *
+    82    CollectTests (Rules, InForm);                                              *    81     *
+    83    BuildTree (Rules, nNoDecision => decisions:_);                             *    82    75     *     *
+    84    Decisions := decisions;                                                    *    83
+    85    ElimDeadTests (Decisions, _, (FALSE), _);                                  *    84    83     *     *
+    86    FindCases (Decisions => _, n:_, s2:_);                                     *    85    85     *     *    65     *
+    87    MarkCases (Decisions, n, s2);                                              *    86    86    86
+    88    Optimize (Next);                                                          77     *
+    89 .
+    90 
+    91 PROCEDURE RuleProperties (Tree)                                              72    81    72
+    92   (* Gets called for each routine.  If Optimize is not called,
+c   93      This must be called directly. *) 
+    94 
+    95 Spec (..)                                                                    74
+    96 :-  RuleProperties (Routines);  .                                            91    77
+    97 
+    98 Routine (..)                                                                 80
+    99 :- RuleProperties (Rules);                                                   96    83
+   100    RuleProperties (Next);                                                    99    88
+   101 .
+   102 
+   103 Rule (..)                                                                     *
+   104 :- gHasExit       := FALSE;                                                  54    85
+   105    gHasAssign     := FALSE;                                                  55   104
+   106    gHasTargetCode := FALSE;                                                  56   105
+   107    gHasRejectOrFail := FALSE;                                                57   106
+   108    RuleProperties (Statements);                                             100     *
+   109    RuleProperties (Exprs);                                                  108     *
+   110    RuleProperties (Expr);                                                   109     *
+   111    HasExit        := gHasExit;                                                *   104
+   112    HasAssign      := gHasAssign;                                              *   105
+   113    HasTargetCode  := gHasTargetCode;                                          *   106
+   114    HasRejectOrFail := gHasRejectOrFail;                                       *   107
+   115    RuleProperties (Next);                                                   110   100
+   116 .
+   117 
+   118 ProcCall (..)                                                                 *
+   119 :- RuleProperties (Call);                                                   115     *
+   120    RuleProperties (Next);                                                   119   115
+   121 .
+   122 
+   123 Assignment (..)                                                               *
+   124 :- gHasAssign     := TRUE;                                                  112     *
+   125    RuleProperties (Adr);                                                    120     *
+   126    RuleProperties (Expr);                                                   125   110
+   127    RuleProperties (Next);                                                   126   120
+   128 .
+   129 
+   130 Condition (..)                                                                *
+   131 :- gHasExit       := TRUE;                                                  111   124
+   132    RuleProperties (Next);                                                   127   127
+   133 .
+   134 
+   135 Reject (..) (* Reject terminates rule *)                                      *
+   136 :- gHasExit       := TRUE;                                                  131   131
+   137    gHasRejectOrFail := TRUE;                                                114   136
+   138    RuleProperties (Next);                                                   132   132
+   139 .
+   140 
+   141 Fail (..) (* Fail terminates subprogram *)                                    *
+   142 :- gHasRejectOrFail := TRUE;                                                137   137
+   143    RuleProperties (Next);                                                   138   138
+   144 .
+   145 
+   146 TargetStmt (..)                                                               *
+   147 :- gHasTargetCode := TRUE;                                                  113   142
+   148    RuleProperties (Next);                                                   143   143
+   149 .
+   150 
+   151 Statement (..)                                                                *
+   152 :-  RuleProperties (Next); .                                                148   148
+   153 
+   154 OneExpr (..)                                                                  *
+   155 :- RuleProperties (Expr);                                                   152   126
+   156    RuleProperties (Next);                                                   155   152
+   157 .
+   158 
+   159 Expr:Expr (..)                                                              155     *
+   160 :- gHasExit := gHasExit OR NeedsMatch (Expr); .                             136     *     *    32   159
+   161 
+   162 PREDICATE NeedsMatch ([Tests, Exprs, Expr])                                   *   160     *   109   160
+   163   (* Contains a call on a puma routine with out parameters to 
+c  164      be matched, or contains a nonlinear pattern match. *) 
+   165 
+   166 TestValue (..) :- NeedsMatch (Expr) OR NeedsMatch (Next);                     *   162   162   160     *   156
+   167    .
+   168 OneTest (..) :- NeedsMatch (Next);                                            *   166   166
+   169    .
+   170 OneExpr (..) :- NeedsMatch (Expr) OR NeedsMatch (Next);                     154   168   166   166     *   168
+   171    .
+   172 Compose (..) :- NeedsMatch (Exprs);                                           *   170   162
+   173    .
+   174 Call    (..) :- NeedsMatch (Expr)                                           119   172   170
+   175                 OR NeedsMatch (Exprs)                                       170   174   172
+   176                 OR (Object # NoTree)                                        175     *    39
+   177                    AND NeedsMatch2 (Patterns, Object^.Routine.OutForm);       *     *     *   176    98     *
+   178    .
+   179 Binary  (..) :- NeedsMatch (Lop) OR NeedsMatch (Rop);                         *   175     *   176     *     *
+   180    .
+   181 Parents (..) ;                                                                *
+   182 PreOperator     (..) ;                                                        *
+   183 PostOperator    (..) :- NeedsMatch (Expr);                                    *   179   174
+   184    .
+   185 Index   (..) :- NeedsMatch (Expr) OR NeedsMatch (Exprs);                      *   183   183   179     *   175
+   186    .
+   187 
+   188 PREDICATE NeedsMatch2 ([Patterns, Pattern], Formal)                         162   177   177     *     *
+   189 
+   190 OnePattern (..), Formals:_ :-                                                 *     *    86
+   191    NeedsMatch2 (Pattern, Formals) OR                                        188   188   190   185
+   192    NeedsMatch2 (Next, Formals^.Formal.Next);                                191   170   191   188     *
+   193    .
+   194 Decompose (..), Formal (_, _, typeDesc:_, _) :-                               *   192   190     *     *     *     *
+   195    (typeDesc^.Kind = Tree.UserType)                                         194     *    91     *
+   196    (* OR IsElement ( ORD ( 'K' ) , Options ) *) 
+   197       (* Modula-3 temporarily needs all cases narrowed *) 
+   198    OR IsNotEqual                                                            191    46
+   199         (Object^.Class.TypeDesc^.NodeTypes.Types                            177     *     *     *     *
+   200 (* Can Object be NIL and segfault if there was a semantic error? *) 
+   201         , typeDesc^.NodeTypes.Types                                         195   199   199
+   202         ) 
+   203    OR NeedsMatch2 (Patterns, Object^.Class.Formals);                        198   192   188   199   199   192
+   204    .
+   205 VarDef  (..), _ :- Object # NoTree; .                                         *   194   203   176
+   206   (* VarDef is subsequent (i.e. to be matched) occurrence of a label. *) 
+   207 NilTest (..), _ :- .                                                          *   205
+   208 Value   (..), _ :- .                                                          *   207
+   209 
+   210 PREDICATE NeedsTempo (Decisions => Rule)                                    188    32    87   103
+   211 
+   212 Decision (ThenPart:_, ..) => Rule                                             *     *   208   210
+   213 :- NeedsTempo (ThenPart => Rule:_); .                                       210   212   212   212
+   214 
+   215 Decided (_, rule:Rule (HasTempos := (TRUE))) => rule                          *   213     *   213     *   147     *
+   216 :- .
+   217 
+   218 PREDICATE NeedsNoFinale (Decisions)                                         210    32   210
+   219 
+   220 Decision (_, ElsePart:_, ..) :- NeedsNoFinale (ElsePart); .                 212   215     *     *   218     *
+   221 
+   222 Decided (_, Rule (HasExit := (FALSE))) :- .                                 215   220   215   111   107
+   223 
+   224 Decided (ElsePart:_ , _) :- NeedsNoFinale (ElsePart); .                     222   220   222     *   220     *
+   225 
+   226 PROCEDURE GetRule (Decisions => Rule)                                        91    32   218   222
+   227 
+   228 Decision (ThenPart:_ , ..) => Rule :- GetRule (ThenPart => Rule:_); .       220   213   224   226   226     *     *     *
+   229 
+   230 Decided (_, Rule:_ ) => Rule :- .                                           224   228   228     *     *
+   231 
+   232 PROCEDURE CollectTests (Rules, Formals)                                     226    82    99   203
+   233   (* For each rule, create a linear list of tests (OneTest) for its
+c  234      patterns only.  Store root in Rule::Tests *) 
+   235 
+   236 Rule (..), Formals:_ :-                                                     230   232   230
+   237    CollectTests2 (Patterns, Formals, nNoTest => tests:_);                     *   203   236    76     *   236
+   238    Tests := tests;                                                          162   237
+   239    CollectTests (Next, Formals);                                            232   192   237
+   240    .
+   241 
+   242 PROCEDURE CollectTests2 (Tree (* patterns *) , Formals, Tests => Tests)     232   237   195   239   238     *
+   243 
+   244 OnePattern (Pattern:_, NextP:_), Formals:Formal (NextF:_, ..),              190   191   237     *     *   242   194     *
+                                                                                     *
+   245    TestsIn:_ => TestsOut (* build backwards *) :-                             *   244     *
+   246    CollectTests2 (NextP, NextF, TestsIn => Tests:_);                        242   244   244   245   242   245
+   247    CollectTests2 (Pattern, Formals, Tests => TestsOut:_);                   246   244   244   246   245   246
+   248    .
+   249 
+   250 (* Type of decomposer identically equals type of formal, just
+c  251    recurse on subformals: *) 
+   252 Decompose (..), Formal (_, _, typeDesc:_, _),                               194   244   247     *   201     *     *
+   253    TestsIn:_  => TestsOut :-                                                246   252   247
+   254    (typeDesc^.Kind # Tree.UserType)                                         252   195   242   195
+   255    (* AND NOT IsElement ( ORD ( 'K' ) , Options ) *) 
+   256            (* Modula-3 temporarily needs all cases narrowed *) 
+   257    AND IsEqual                                                              177    46
+   258          ( Object^.Class.TypeDesc^.NodeTypes.Types                          205   203   199   201   201
+   259          , typeDesc^.NodeTypes.Types                                        254   258   258
+   260          );
+   261    CollectTests2 (Patterns, Object^.Class.Formals, TestsIn => TestsOut:_);        247   237   258   258   247   253   253
+                                                                                   253
+   262    .
+   263 
+   264 (* Decomposer is a leaf type: *) 
+   265 Decompose                                                                   252
+   266   (_, _, _, Path:_, _, _, Patterns:_, _, Object:_, _)                       261     *     *     *     *     *     *   261
+                                                                                     *     *   261     *     *
+   267 , Formal (_, _, typeDesc:_, _)                                              252   266     *   259     *     *
+   268 , TestsIn:_                                                                 261   267
+   269 => TestKind (TestsOut, Path, Object^.Class.TypeDesc, Object^.Class.Name) :-         *   261   266   266   261   258     *
+                                                                                     *     *
+   270    Object^.Class.Extensions^.Kind = Tree.NoClass;       (* Low ? *)         269   269     *   254   254     *
+   271    CollectTests2                                                            261
+   272      (Patterns, Object^.Class.Formals, TestsIn => TestsOut:_);              266   270   270   261   268   269   268
+   273    .
+   274 (* Decomponser is a nonleaf type: *) 
+   275 Decompose (_, _, _, Path:_, _, _, Patterns:_, _, Object:_, _)               265   272     *     *   269     *     *     *
+                                                                                   272     *     *   272     *     *
+   276 , _                                                                         275
+   277 , TestsIn:_                                                                 272   276
+   278 => TestIsType                                                                 *
+   279      (TestsOut, Path, Object^.Class.TypeDesc, Object^.Class.Name) :-        272   275   275   272   269     *     *   269
+   280    CollectTests2                                                            271
+   281      (Patterns, Object^.Class.Formals, TestsIn => TestsOut:_);              275   279   279   272   277   279   277
+   282    .
+   283 VarDef (Path := path:_)                                                     205   279     *   281
+   284 , _                                                                         283
+   285 , Tests :_                                                                  247   284
+   286 => TestNonlin                                                                 *
+   287      (Tests, Object^.Formal.Path, path, Object^.Formal.TypeDesc) :-         285   281   267   283   283     *     *   279
+   288    Object # NoTree;                                                         287   205
+   289    .
+   290 NilTest (_, _, _, Path:_, _, _)                                             207   285     *     *   287     *     *     *
+   291 , _                                                                         290
+   292 , Tests:_ => TestNil (Tests, Path) :-                                       287   291     *     *   290
+   293    .
+   294 Value (_, _, _, Path:_, Expr:_)                                             208   292     *     *   292     *   185     *
+   295 , Formals:Formal(..)                                                        281   287
+   296 , Tests:_                                                                   292   294
+   297 (* Also check that Expr is not a don't care? *) 
+   298 => TestValue (Tests, Path, Expr, Formals^.Formal.TypeDesc) :-               166   296   294   294   295   295   287
+   299    .
+   300 _, _, Tests:_ => Tests :-                                                   296     *   298     *     *
+   301    .
+   302 
+   303 PREDICATE IsSamePath (Path, Path)                                           218     *   298     *
+   304 
+   305 Var (Name:_, ..)          , Var (Name:(*NonlinearReference*), ..)        :- .       *   279   300     *     *
+   306 ConsType (Path1:_, Name:_ , _ )  , ConsType (Path2:_, Name:(*NonlinearReference*) , \     *     *   305   305     *     *
+                                                                                     *     *     *     *
+      \_ )                                                                           *
+   307 ; Field (Path1:_, Name:_)     , Field (Path2:_, Name:(*NonlinearReference*))        *   306   306   306     *     *   306
+                                                                                     *     *
+   308   :- IsSamePath (Path1, Path2); .                                           303   307   307
+   309 
+   310 PREDICATE IsSameType (TypeDesc, TypeDesc)                                   303     *   298     *
+   311 
+   312 NodeTypes (TreeName (Name:_, ..), Types:_)                                  259     *   307   307   259     *
+   313 , NodeTypes (TreeName (Name:_, ..), Types:_)                                312   312   312   312   312     *
+   314   :- .
+   315 UserType (Type:_), UserType (Type:(*NonlinearReference*)) :- .              254     *   313     *     *
+   316 
+   317 PREDICATE IsSameTest (Tests, Tests)                                         310     *   300     *
+   318   (* No attempt to merge IsValue tests, because can't tell if
+c  319      as assignment changes value. *) 
+   320 
+   321 TestKind   (_, Path1:_, TypeDesc1:_, _), TestKind   (_, Path2:_, TypeDesc2:_, _) ;      269   315   308     *     *     *
+                                                                                     *     *     *   308     *     *     *     *
+   322 (* This can have Path1 NIL in the presence of misspelled decompose node
+c  323    names in combination with other things.  see puma/test/t8 *) 
+   324 TestIsType (_, Path1:_, TypeDesc1:_, _), TestIsType (_, Path2:_, TypeDesc2:_, _) :-     278   321   321     *   321     *
+                                                                                     *     *     *   321     *   321     *     *
+   325    IsSamePath (Path1, Path2);                                               308   324   324
+   326    IsSameType (TypeDesc1, TypeDesc2);                                       310   324   324
+   327    .
+   328 TestNil (_, Path1:_), TestNil (_, Path2:_) :-                               292   324   325     *     *     *   325     *
+   329    IsSamePath (Path1, Path2);                                               325   328   328
+   330    .
+   331 TestNonlin (_, Path11:_, Path12:_, _), TestNonlin (_, Path21:_, Path22:_, _) :-   286   328     *     *     *     *     *
+                                                                                     *     *     *     *     *     *     *
+   332    IsSamePath (Path11, Path21);                                             329   331   331
+   333    IsSamePath (Path12, Path22);                                             332   331   331
+   334    .
+   335 
+   336 PROCEDURE BuildTree (Rules, Decisions => Decisions)                         242    83   232   226     *
+   337 
+   338 r:Rule (..), DecisionsIn:_ => DecisionsOut :-                                 *   236     *   331     *
+   339    gRule := r;                                                               58   338
+   340    BuildTree2 (Tests, DecisionsIn => Decisions:_);                            *   317   338   336   338
+   341    UpdateChange (Decisions, gRule);                                           *   340   339
+   342    BuildTree (Next, Decisions => DecisionsOut:_);                           336   239   341   338   340
+   343    .
+   344 NoRule (..), Decisions:_ => Decisions :-                                      *   342   342     *
+   345    .
+   346 
+   347 PROCEDURE BuildTree2 (t: Tests, d: Decisions => Decisions)                  336   340    72   340     *   344     *
+   348   (* Only NoDecision, when passed in to BuildTree2, can be changed--
+c  349      to either Decision or Decided. 
+c  350      ThenPart can never be NoDecision. *) 
+   351 
+   352 o:OneTest (Next:_, _), NoDecision () => Decision (Decisions, d, o, 0, TRUE) :-      *   168   342   344     *    75   228
+                                                                                   347   347     *   215
+   353    BuildTree2 (Next, d => Decisions:_);                                     347   352   352   352   352
+   354    UpdateChange (Decisions, gRule);                                         341   353   341
+   355    .
+   356 (* An optimization case: *) 
+   357 OneTest (Next:_, _)                                                         352   353   353     *
+   358 , Decision (ThenPart:_, ElsePart:_, Test:_, _, (TRUE))                      352   228   357   224     *     *     *     *
+                                                                                   352
+   359 => d (* Decision (Decisions, ElsePart, Test, 0, TRUE) *) :-                 353
+   360    IsSameTest (t, Test);                                                    317   347   358
+   361    NOT HasInterference (t, ElsePart);                                         *     *   360   358
+   362    BuildTree2 (Next, ThenPart => Decisions:_);                              353   357   358   354   358
+   363 (* Should be able to replace the following by assert ThenPart = Decisions *) 
+   364    ThenPart := Decisions;                                                   362   362
+   365    UpdateChange (Decisions, gRule);                                         354   364   354
+   366    .
+   367 OneTest (..)                                                                357
+   368 , Decision (ThenPart:_, ElsePart:_, Test:_, _, _)                           358   364   362   361     *   360     *     *
+                                                                                     *
+   369 => d (* Decision (ThenPart, Decisions, Test, 0, TRUE) *) :-                 359
+   370    BuildTree2 (t, ElsePart => Decisions:_);                                 362   361   368   365   368
+   371    ElsePart := Decisions;                                                   370   370
+   372    UpdateChange (Decisions, gRule);                                         365   371   365
+   373    .
+   374 OneTest (..)                                                                367
+   375 , Decided (ElsePart:_, Rule:_)                                              230   371   370   338     *
+   376 => d (* Decided (Decisions, Rule) *) :-                                     369
+   377    BuildTree2 (t, ElsePart => Decisions:_);                                 370   370   375   372   375
+   378    ElsePart := Decisions;                                                   377   377
+   379    UpdateChange (Decisions, gRule);                                         372   378   372
+   380    .
+   381 NoTest (), NoDecision () => Decided (d, gRule) :-                            76   352   375   376   379
+   382    .
+   383 NoTest ()                                                                   381
+   384 , Decision (ThenPart:_, ElsePart:_, Test:_, _, _)                           368   368   377   378     *   368     *     *
+                                                                                     *
+   385 => d (* Decision (ThenPart, Decisions, Test, 0, TRUE) *) :-                 381
+   386    BuildTree2 (t, ElsePart => Decisions:_);                                 377   377   384   379   384
+   387    ElsePart := Decisions;                                                   386   386
+   388    .
+   389 NoTest (), Decided (ElsePart:_, Rule:_) => d (* Decided (Decisions, Rule) *) :-   383   381   387   386   375     *   385
+   390    BuildTree2 (t, ElsePart => Decisions:_);                                 386   386   389   387   389
+   391    ElsePart := Decisions;                                                   390   390
+   392    .
+   393 
+   394 PREDICATE HasInterference (Tests, Decisions)                                317   361   347   391
+   395 
+   396 
+   397   (* TestKind/TestIsType are disjoint with NilTest *) 
+   398 
+   399 _, Decided (..) :- . (* Decided interferes with anything. *)                390   389
+   400                    TestKind   (_, Path1:_, NodeTypes (_, Types1:_), _),     321   399   329     *   313     *     *     *
+                                                                                     *
+   401    Decision (_, _, TestKind   (_, Path2:_, NodeTypes (_, Types2:_), _), ..) ;     384   400     *   400     *   329     *
+                                                                                   400     *     *     *     *
+   402                    TestKind   (_, Path1:_, NodeTypes (_, Types1:_), _),     401   401   400     *   401     *   400     *
+                                                                                     *
+   403    Decision (_, _, TestIsType (_, Path2:_, NodeTypes (_, Types2:_), _), ..) ;     401   402     *   324     *   401     *
+                                                                                   402     *   401     *     *
+   404                    TestIsType (_, Path1:_, NodeTypes (_, Types1:_), _),     403   403   402     *   403     *   402     *
+                                                                                     *
+   405    Decision (_, _, TestKind   (_, Path2:_, NodeTypes (_, Types2:_), _), ..) ;     403   404     *   402     *   403     *
+                                                                                   404     *   403     *     *
+   406                    TestIsType (_, Path1:_, NodeTypes (_, Types1:_), _),     404   405   404     *   405     *   404     *
+                                                                                     *
+   407    Decision (_, _, TestIsType (_, Path2:_, NodeTypes (_, Types2:_), _), ..) :-    405   406     *   406     *   405     *
+                                                                                   406     *   405     *     *
+   408    IsSamePath (Path1, Path2);                                               333   406   407
+   409    NOT IsDisjoint (Types1, Types2);                                         361    69   406   407
+   410    .
+   411 t:_, Decision (_, ElsePart:_, ..) :- HasInterference (t, ElsePart); .       390   407   407     *   391     *   394     *
+                                                                                     *
+   412    (* Other cases can't happen. *) 
+   413 
+   414 PROCEDURE UpdateChange (Decisions, Rule)                                    347   379   394   389
+   415 
+   416 Decision (_, _, TestKind (_, Path:_, ..), _, IsUnchanged:_),                411   411     *   405     *   303     *     *
+                                                                                     *     *
+   417    Rule (HasExit := (TRUE), HasAssign := (TRUE), Statements := s:_) ;       414   222   358   112     *   108    67   416
+   418 Decision (_, _, TestIsType (_, Path:_, ..), _, IsUnchanged:_),              416   417     *   407     *   416     *     *
+                                                                                   416     *
+   419    Rule (HasExit := (TRUE), HasAssign := (TRUE), Statements := s:_) :-      417   417   417   417     *   417   417   418
+   420    IsChanged (Path, s);                                                       *   418   419
+   421    IsUnchanged := FALSE;                                                    418   222
+   422    .
+   423 
+   424 PREDICATE IsChanged (Path, Statements)                                      394   420   420   419
+   425   (*( Do Statements contain an assignment to Path? *) 
+   426 
+   427 path:_, Assignment (Object := Object:_)                                     287   419   123   288     *     *
+   428   :- Object # NIL; IsSamePath (path, Object^.Formal.Path); .                427     *   408   427     *   298   424
+   429 Path:_, Statement (_, Next:_) :- IsChanged (Path, Next); .                  428   427   151     *   362     *   424     *
+                                                                                     *
+   430 
+   431 PROCEDURE FindCases (Decisions => Path, SHORTCARD, tSet)                    414    86   414   429     *    61
+   432   (* Param 3 = 0 IMPLIES params 2 and 4 are meaningless.
+c  433      Otherwise, there is an ELSIF chain of param 3 case alternatives,
+c  434      all testing path param 2 and all having disjoint value sets.  
+c  435      Param 4 is the union value set. *) 
+   436 
+   437 Decision                                                                    418
+   438   ( ThenPart:_, ElsePart:_                                                  384   429   411     *
+   439   , TestKind                                                                416
+   440        ( _                                                                  438
+   441        , Path:_                                                             431   440
+   442        , NodeTypes                                                          407
+   443            ( TreeName (_, _, _, _, ClassCount:_, _, _)                      313   441     *     *     *     *     *     *
+                                                                                     *
+   444            , Types:_                                                        313   443
+   445            )
+   446        , _                                                                  444
+   447        )
+   448    , _                                                                      446
+   449    , _                                                                      448
+   450    ) ;
+   451 Decision                                                                    437
+   452   ( ThenPart:_, ElsePart:_                                                  438   449   438     *
+   453   , TestIsType                                                              418
+   454       ( _                                                                   452
+   455       , Path:_                                                              441   454
+   456       , NodeTypes                                                           442
+   457           ( TreeName (_, _, _, _, ClassCount:_, _, _)                       443   455     *     *     *   443     *     *
+                                                                                     *
+   458           , Types:_                                                         444   457
+   459           )
+   460       , _                                                                   458
+   461       )
+   462    , _                                                                      460
+   463    , _                                                                      462
+   464    ) 
+   465 => Path, k, s                                                               455     *   420
+   466 :-  FindCases (ThenPart => _, m:_, s1:_);                                   431   452   463     *     *    64     *
+   467     MarkCases (ThenPart, m, s1);                                             87   466   466   466
+   468     FindCases (ElsePart => Path2:_, n:_, s2:_);                             466   452   408   466    87     *    87     *
+   469     VAR k : SHORTCARD ;                                                      61   465   431
+   470     VAR  s : tSet ;                                                         469   465   431
+   471     {
+   472        IF n = 0 THEN                                                          *   468     *
+   473           k := 1;                                                           469
+   474           MakeSet (s, ClassCount);                                           63   470   457
+   475           Assign (s, Types);                                                 64   474   458
+   476        ELSIF IsSamePath (Path, Path2) AND IsDisjoint (s2, Types) THEN         *   428   465   468   257   409   468   475
+                                                                                   472
+   477           k := n + 1;                                                       473   472
+   478           s := s2;                                                          475   476
+   479           Union (s, Types);                                                  46   478   476
+   480        ELSE                                                                   *
+   481           MarkCases (ElsePart, n, s2);                                      467   468   477   478
+   482           k := 1;                                                           477
+   483           MakeSet (s, ClassCount);                                          474   479   474
+   484           Assign (s, Types);                                                475   483   479
+   485        END;                                                                  69
+   486     };
+   487    .
+   488 Decision (ThenPart:_, ElsePart:_, _, _, _) => _, 0, _ :-                    451   467   468   481     *     *     *     *
+                                                                                     *     *
+   489    FindCases (ThenPart => _, m:_, s1:_);                                    468   488   488   467     *   467     *
+   490    MarkCases (ThenPart, m, s1);                                             481   489   489   489
+   491    FindCases (ElsePart => _, n:_, s2:_);                                    489   488   489   481     *   481     *
+   492    MarkCases (ElsePart, n, s2);                                             490   491   491   491
+   493    .
+   494 Decided (ElsePart:_, _) => _, 0, _ :-                                       399   492   491     *     *     *
+   495    FindCases (ElsePart => _, n:_, s2:_);                                    491   494   494   492     *   492     *
+   496    MarkCases (ElsePart, n, s2);                                             492   495   495   495
+   497    .
+   498 NoDecision () => _, 0, _ :- .                                               381   495     *
+   499 
+   500 PROCEDURE MarkCases (Decisions, SHORTCARD, tSet)                            431   496   431   469   470
+   501 
+   502 Decision (_, _, _, Cases:_, _), n:_, s:_                                    488   498     *     *     *     *     *   496
+                                                                                     *   484     *
+   503    :- n >= ( MinCases ) ; Cases := n; ReleaseSet (s); .                     502    51   502     *    67   502
+   504 
+   505 PROCEDURE ElimDeadTests (Decisions, Path, BOOLEAN, tSet)                    500    85   500   476    61   500
+   506 
+   507 Decision (ThenPart:_, ElsePart:_, TestKind (_, Path:_, NodeTypes (          502   490   502   496     *   439     *   505
+                                                                                     *   456
+   508    TreeName (_, _, _, _, ClassCount:_, _, _), Types:_), _), _, _), _, (FALSE), _ ;      457   507     *     *     *   483
+                                                                                     *     *     *   484     *     *     *     *
+                                                                                     *   421     *
+   509 Decision (ThenPart:_, ElsePart:_, TestIsType (_, Path:_, NodeTypes (        507   507   508   507     *   453     *   507
+                                                                                     *   507
+   510    TreeName (_, _, _, _, ClassCount:_, _, _), Types:_), _), _, _), _, (FALSE), _ :-     508   509     *     *     *   508
+                                                                                     *     *     *   508     *     *     *     *
+                                                                                     *   508     *
+   511 
+   512    VAR s : tSet ;                                                           470   503   505
+   513    {  MakeSet (s, ClassCount); IF IsDeadEnd (ThenPart) THEN Assign (s, Types); END; \   483   512   510   472     *   509
+                                                                                   476   484     *   510   485
+      \};
+   514    ElimDeadTests (ElsePart, Path, (TRUE), s);                               505   509   509   419   513
+   515    ElimDeadTests (ThenPart, _, (FALSE), _);                                 514   513   510   510     *
+   516    .
+   517 
+   518 (* These patterns differ from those above only in having b:_ instead of (FALSE) and
+c  519    lots more labels. *) 
+   520 Decision (ThenPart:_, ElsePart:_, Test:TestKind (Next:_, Path:_, NodeTypes (      509   515   515   514     *   384   507
+                                                                                   429     *   514     *   509
+   521    Tree:TreeName (_, _, _, _, ClassCount:_, _, _), Types:_), Name:_), _, _), Path2:_\   270   510   520     *     *     *
+                                                                                   513     *     *     *   513     *   313     *
+                                                                                     *     *   476     *
+      \, b:_, s:_ ;                                                                  *     *   514     *
+   522 Decision (ThenPart:_, ElsePart:_, Test:TestIsType (Next:_, Path:_, NodeTypes (    520   520   521   520     *   520   509
+                                                                                   520     *   520     *   520
+   523    Tree:TreeName (_, _, _, _, ClassCount:_, _, _), Types:_), Name:_), _, _), Path2:_\   521   521   522     *     *     *
+                                                                                   521     *     *     *   521     *   521     *
+                                                                                     *     *   521     *
+      \, b:_, s:_ :-                                                               521     *   521     *
+   524 
+   525    VAR LTypes : tSet ;                                                      512     *   512
+   526    VAR s2 : tSet ;                                                          525   496   525
+   527    {
+   528       s2 := s;                                                              526   523
+   529       IF IsSamePath (Path, Path2) THEN                                      513   476   522   523   513
+   530          IF NOT IsDisjoint (Types, s) THEN                                  529   409   476   523   528   529
+   531             MakeSet (LTypes, ClassCount);                                   513   525   523
+   532             Assign (LTypes, Types);                                         513   531   530
+   533             Difference (LTypes, s);                                          45   532   530
+   534             Test := mTestIsType (Next, Path, mNodeTypes (Tree, LTypes), Name);    522    39   522   529    39   523   533
+                                                                                   523
+   535          END;                                                               513
+   536       ELSE                                                                  480
+   537          AssignEmpty (s2);                                                   44   528
+   538       END;                                                                  535
+   539       IF IsDeadEnd (ThenPart) THEN Union (s2, Types); END;                  530   513   522   530   479   537   532   538
+   540    (* 
+c  541       s2 := s;
+c  542       IF IsSamePath (Path, Path2) THEN
+c  543          IF NOT IsDisjoint (Types, s) THEN
+c  544             types := Types;
+c  545             Test := mTestIsType (Next, Path, mNodeTypes (Tree, types), Name);
+c  546             MakeSet (Types, ClassCount);
+c  547             Assign (Types, types);
+c  548             Difference (Types, s);
+c  549          END;
+c  550       ELSE
+c  551          AssignEmpty (s2);
+c  552       END;
+c  553       IF IsDeadEnd (ThenPart) THEN Union (s2, Types); END;
+c  554    *)
+   555    };
+   556    ElimDeadTests (ElsePart, Path, (TRUE), s2);                              515   522   534   514   539
+   557    ElimDeadTests (ThenPart, _, (FALSE), _);                                 556   539   523   515     *
+   558    .
+   559 Decision (ThenPart:_, ElsePart:_, _, _, _), _, b:_, s:_ :-                  522   557   557   556     *     *     *     *
+                                                                                     *   523     *   533     *
+   560    {  IF b THEN ReleaseSet (s); END; };                                     539   559   539   503   559   539
+   561    ElimDeadTests (ElsePart, _, (FALSE), _);                                 557   559   559   557     *
+   562    ElimDeadTests (ThenPart, _, (FALSE), _);                                 561   559   561   561     *
+   563    .
+   564 Decided (ElsePart:_, Rule (HasExit := HasExit:_)), _, b:_, s:_ :-           494   561   562   419   419     *     *     *
+                                                                                   560     *   560     *
+   565    {  IF b THEN ReleaseSet (s); END; };                                     560   564   560   560   564   560
+   566    {  IF NOT HasExit THEN ReportWarning (ElsePart); END; };                 565   530   564   565     *   564   565
+   567    ElimDeadTests (ElsePart, _, (FALSE), _);                                 562   566   564   562     *
+   568    .
+   569 NoDecision (), _, (TRUE), s:_ :-                                            498   567   556   565     *
+   570    ReleaseSet (s);                                                          565   569
+   571    .
+   572 
+   573 PREDICATE IsDeadEnd (Decisions)                                             424   539   505
+   574 
+   575 Decided (ElsePart:_, Rule (HasExit := HasExit:_)) :- NOT HasExit OR IsDeadEnd (ElseP\   564   567   569   564   566     *
+                                                                                     *   566     *   203   573
+      \art); .                                                                       *
+   576 
+   577 PROCEDURE ReportWarning (Decisions)                                         505   566   573
+   578 
+   579 Decided (ElsePart:_, Rule (Pos:_, ..)) :-                                   575   575   575   575     *     *
+   580    Warning ("unreachable code", Pos);                                        40   579
+   581    ReportWarning (ElsePart);                                                577   579
+   582    .
+   583 Decision (ThenPart:_, ElsePart:_, ..) :-                                    559   562   579   581     *
+   584    ReportWarning (ThenPart);                                                581   583
+   585    ReportWarning (ElsePart);                                                584   583
+   586    .
+   587 
+   588 (*
+c  589 PROCEDURE WriteTests (Tests)
+c  590 
+c  591 o:OneTest (Next, _) :- WriteTest (o); WriteTests (Next); .
+c  592 
+c  593 PROCEDURE WriteTest (OneTest)
+c  594 
+c  595 TestKind (Next, Path, TypeDesc, _) :-
+c  596    "TestKind    "; ImplMod (Path); "    "; WriteType (TypeDesc); NL .
+c  597 TestIsType (Next, Path, TypeDesc, _) :-
+c  598    "TestIsType  "; ImplMod (Path); "    "; WriteType (TypeDesc); NL .
+c  599 TestNil (Next, Path) :-
+c  600    "TestNil     "; ImplMod (Path); "    "; NL .
+c  601 TestNonlin (Next, Path, Path2, _) :-
+c  602    "TestNonlin  "; ImplMod (Path); "    "; ImplMod (Path2); NL .
+c  603 TestValue (Next, ..) :-
+c  604    "TestValue   "; NL .
+c  605 
+c  606 PROCEDURE WriteType (TypeDesc)
+c  607 
+c  608 NodeTypes (TreeName (Name, ..), Types) :-
+c  609    WriteIdent (StdOutput, Name); WriteSet (StdOutput, Types); .
+c  610 UserType (Type) :-
+c  611    WriteIdent (StdOutput, Type); .
+c  612 
+c  613 PROCEDURE WriteDecisions (Decisions, SHORTCARD) LOCAL { VAR i: SHORTCARD; }
+c  614 
+c  615 Decision (ThenPart, ElsePart, Test, _, _), n :-
+c  616    { FOR i := 1 TO n DO WriteS (StdOutput, "    "); END; };
+c  617    WriteTest (Test);
+c  618    WriteDecisions (ThenPart, n + 1);
+c  619    WriteDecisions (ElsePart, n);
+c  620    .
+c  621 Decided (ElsePart, rule), n :-
+c  622    { FOR i := 1 TO n DO WriteS (StdOutput, "    "); END; };
+c  623    WriteI (StdOutput, rule^.Rule.Line, 3); NL
+c  624    WriteDecisions (ElsePart, n);
+c  625    .
+c  626 *)
+   627 
+   628 (* End of file opt.puma *) 
+   629 
+   630 
+   631 
+   632 
+   633 
+Cross reference: 
+
+-"-
+ "unreachable code"              580 
+
+-0-
+ 0                               352   472   488   494   498 
+
+-1-
+ 1                               473   477   482 
+
+-2-
+ 2                                51 
+
+-A-
+ Adr                             125 
+ AND                             177   257   476 
+ Assign                           45    64   475   484   513   532 
+ AssignEmpty                      44   537 
+ Assignment                      123   427 
+
+-B-
+ b                               521   523   559   560   564   565 
+ BEGIN                            62 
+ Binary                          179 
+ BOOLEAN                          54    55    56    57    60    61   505 
+ BuildTree                        83   336   342 
+ BuildTree2                      340   347   353   362   370   377   386   390 
+
+-C-
+ Call                            119   174 
+ Cases                           502   503 
+ Class                           199   203   258   261   269   269   270   272 
+                                 279   279   281 
+ ClassCount                      443   457   474   483   508   510   513   521 
+                                 523   531 
+ CollectTests                     82   232   239 
+ CollectTests2                   237   242   246   247   261   271   280 
+ Compose                         172 
+ Condition                       130 
+ CONST                            51 
+ ConsType                        306   306 
+
+-D-
+ d                               347   352   353   359   369   376   381   385 
+                                 389 
+ Decided                         215   222   224   230   375   381   389   399 
+                                 494   564   575   579 
+ Decision                        212   220   228   352   358   368   384   401 
+                                 403   405   407   411   416   418   437   451 
+                                 488   502   507   509   520   522   559   583 
+ Decisions                        84    85    86    87   210   218   226   336 
+                                 336   340   341   342   344   344   347   347 
+                                 352   353   354   362   364   365   370   371 
+                                 372   377   378   379   386   387   390   391 
+                                 394   414   431   500   505   573   577 
+ decisions                        83    84 
+ DecisionsIn                     338   340 
+ DecisionsOut                    338   342 
+ Decompose                       194   252   265   275 
+ Difference                       45   533 
+
+-E-
+ ElimDeadTests                    85   505   514   515   556   557   561   562 
+                                 567 
+ ELSE                            480   536 
+ ElsePart                        220   220   224   224   358   361   368   370 
+                                 371   375   377   378   384   386   387   389 
+                                 390   391   411   411   438   452   468   481 
+                                 488   491   492   494   495   496   507   509 
+                                 514   520   522   556   559   561   564   566 
+                                 567   575   575   579   581   583   585 
+ ELSIF                           476 
+ END                              69   485   513   535   538   539   560   565 
+                                 566 
+ Expr                            110   126   155   159   159   160   162   166 
+                                 170   174   183   185   294   298 
+ Exprs                           109   162   172   175   185 
+ Extensions                      270 
+
+-F-
+ Fail                            141 
+ FALSE                            85   104   105   106   107   222   421   508 
+                                 510   515   557   561   562   567 
+ Field                           307   307 
+ FindCases                        86   431   466   468   489   491   495 
+ Formal                          188   192   194   244   252   267   287   287 
+                                 295   298   428 
+ Formals                         190   191   192   203   232   236   237   239 
+                                 242   244   247   261   272   281   295   298 
+ FROM                             36    37    38    39    40    41    43 
+
+-G-
+ GetRule                          32   226   228 
+ gHasAssign                       55   105   112   124 
+ gHasExit                         54   104   111   131   136   160   160 
+ gHasRejectOrFail                 57   107   114   137   142 
+ gHasTargetCode                   56   106   113   147 
+ GLOBAL                           34 
+ gRule                            58   339   341   354   365   372   379   381 
+
+-H-
+ HasAssign                       112   417   419 
+ HasExit                         111   222   417   419   564   564   566   575 
+                                 575   575 
+ HasInterference                 361   394   411 
+ HasRejectOrFail                 114 
+ HasTargetCode                   113 
+ HasTempos                       215 
+
+-I-
+ Idents                           37 
+ IF                              472   513   529   530   539   560   565   566 
+ ImplMod                          38 
+ IMPORT                           36    37    38    39    40    41    43    49 
+ Index                           185 
+ InForm                           82 
+ Intersection                     46    65 
+ IO                               36 
+ IsChanged                       420   424   429 
+ IsDeadEnd                       513   539   573   575 
+ IsDisjoint                       60    69   409   476   530 
+ IsElement                        47 
+ IsEmpty                          45    66 
+ IsEqual                          46   257 
+ IsNotEqual                       46   198 
+ IsSamePath                      303   308   325   329   332   333   408   428 
+                                 476   529 
+ IsSameTest                      317   360 
+ IsSameType                      310   326 
+ IsSubset                         45 
+ IsUnchanged                     416   418   421 
+
+-K-
+ k                               465   469   473   477   482 
+ Kind                            195   254   270 
+
+-L-
+ Lop                             179 
+ LTypes                          525   531   532   533   534 
+
+-M-
+ m                               466   467   489   490 
+ M2                               38 
+ MakeSet                          44    63   474   483   513   531 
+ MarkCases                        87   467   481   490   492   496   500 
+ MinCases                         51   503 
+ mNodeTypes                       39   534 
+ mTestIsType                      39   534 
+
+-N-
+ n                                86    87   468   472   477   481   491   492 
+                                 495   496   502   503   503 
+ Name                            269   279   305   305   306   306   307   307 
+                                 312   313   521   523   534 
+ NeedsMatch                       32   160   162   166   166   168   170   170 
+                                 172   174   175   179   179   183   185   185 
+ NeedsMatch2                     177   188   191   192   203 
+ NeedsNoFinale                    32   218   220   224 
+ NeedsTempo                       32   210   213 
+ Next                             88   100   115   120   127   132   138   143 
+                                 148   152   156   166   168   170   192   192 
+                                 239   342   352   353   357   362   429   429 
+                                 520   522   534 
+ NextF                           244   246 
+ NextP                           244   246 
+ NIL                             428 
+ NilTest                         207   290 
+ nNoDecision                      58    75    83 
+ nNoTest                          58    76   237 
+ NoClass                         270 
+ NoDecision                       75   352   381   498   569 
+ NodeTypes                       199   201   258   259   312   313   400   401 
+                                 402   403   404   405   406   407   442   456 
+                                 507   509   520   522 
+ NoRule                          344 
+ NOT                             361   409   530   566   575 
+ NoTest                           76   381   383   389 
+ NoTree                           39   176   205   288 
+
+-O-
+ o                               352   352 
+ Object                          176   177   199   203   205   258   261   266 
+                                 269   269   270   272   275   279   279   281 
+                                 287   287   288   427   427   428   428 
+ OneExpr                         154   170 
+ OnePattern                      190   244 
+ OneTest                         168   352   357   367   374 
+ Optimize                         31    32    72    77    88 
+ Options                          39 
+ OR                              160   166   170   175   176   179   185   191 
+                                 198   203   575 
+ OutForm                         177 
+
+-P-
+ Parents                         181 
+ Path                            266   269   275   279   283   287   290   292 
+                                 294   298   303   303   416   418   420   424 
+                                 428   429   429   431   441   455   465   476 
+                                 505   507   509   514   520   522   529   534 
+                                 556 
+ path                            283   287   427   428 
+ Path1                           306   307   308   321   324   325   328   329 
+                                 400   402   404   406   408 
+ Path11                          331   332 
+ Path12                          331   333 
+ Path2                           306   307   308   321   324   325   328   329 
+                                 401   403   405   407   408   468   476   521 
+                                 523   529 
+ Path21                          331   332 
+ Path22                          331   333 
+ Pattern                         188   191   244   247 
+ Patterns                        177   188   203   237   261   266   272   275 
+                                 281 
+ Pos                             579   580 
+ Positions                        41 
+ PostOperator                    183 
+ PREDICATE                       162   188   210   218   303   310   317   394 
+                                 424   573 
+ PreOperator                     182 
+ ProcCall                        118 
+ PROCEDURE                        60    72    91   226   232   242   336   347 
+                                 414   431   500   505   577 
+ PUBLIC                           32 
+
+-R-
+ r                               338   339 
+ Reject                          135 
+ ReleaseSet                       44    67   503   560   565   570 
+ ReportWarning                   566   577   581   584   585 
+ Result                           61    66    68 
+ RETURN                           68 
+ Rop                             179 
+ Routine                          80    98   177 
+ Routines                         77    96 
+ Rule                            103   210   212   213   215   222   226   228 
+                                 228   230   230   236   338   375   389   414 
+                                 417   419   564   575   579 
+ rule                            215   215 
+ RuleProperties                   32    81    91    96    99   100   108   109 
+                                 110   115   119   120   125   126   127   132 
+                                 138   143   148   152   155   156 
+ Rules                            81    82    83    99   232   336 
+
+-S-
+ s                                61    63    64    65    66    67   417   419 
+                                 420   465   470   474   475   478   479   483 
+                                 484   502   503   512   513   513   514   521 
+                                 523   528   530   533   559   560   564   565 
+                                 569   570 
+ s1                               60    63    64   466   467   489   490 
+ s2                               60    65    86    87   468   476   478   481 
+                                 491   492   495   496   526   528   537   539 
+                                 556 
+ Scanner                          40 
+ Sets                             43    49 
+ SHORTCARD                       431   469   500 
+ Size                             47    63 
+ Spec                             74    95 
+ Statement                       151   429 
+ Statements                      108   417   419   424 
+ StdOutput                        36 
+
+-T-
+ t                                72   347   360   361   370   377   386   390 
+                                 411   411 
+ TargetStmt                      146 
+ Test                            358   360   368   384   520   522   534 
+ TestIsType                      278   324   324   403   404   406   407   418 
+                                 453   509   522 
+ TestKind                        269   321   321   400   401   402   405   416 
+                                 439   507   520 
+ TestNil                         292   328   328 
+ TestNonlin                      286   331   331 
+ Tests                           162   238   242   242   246   247   285   287 
+                                 292   292   296   298   300   300   317   317 
+                                 340   347   394 
+ tests                           237   238 
+ TestsIn                         245   246   253   261   268   272   277   281 
+ TestsOut                        245   247   253   261   269   272   279   281 
+ TestValue                       166   298 
+ THEN                            472   476   513   529   530   539   560   565 
+                                 566 
+ ThenPart                        212   213   228   228   358   362   364   368 
+                                 384   438   452   466   467   488   489   490 
+                                 507   509   513   515   520   522   539   557 
+                                 559   562   583   584 
+ tPosition                        41 
+ TRAFO                            31 
+ Tree                             39    72    91   195   242   254   270   521 
+                                 523   534 
+ TreeName                        312   313   443   457   508   510   521   523 
+ TRUE                            124   131   136   137   142   147   215   352 
+                                 358   417   417   419   419   514   556   569 
+ tSet                             44    60    61   431   470   500   505   512 
+                                 525   526 
+ tTree                            39    58 
+ Type                            315   315 
+ TypeDesc                        199   258   269   279   287   298   310   310 
+ typeDesc                        194   195   201   252   254   259   267 
+ TypeDesc1                       321   324   326 
+ TypeDesc2                       321   324   326 
+ Types                           199   201   258   259   312   313   444   458 
+                                 475   476   479   484   508   510   513   521 
+                                 523   530   532   539 
+ Types1                          400   402   404   406   409 
+ Types2                          401   403   405   407   409 
+
+-U-
+ Union                            46   479   539 
+ UpdateChange                    341   354   365   372   379   414 
+ UserType                        195   254   315   315 
+
+-V-
+ Value                           208   294 
+ VAR                              53    61   469   470   512   525   526 
+ Var                             305   305 
+ VarDef                          205   283 
+
+-W-
+ Warning                          40   580 
+ WriteB                           36 
+ WriteI                           36 
+ WriteIdent                       37 
+ WriteNl                          36 
+ WriteS                           36 
+ WriteSet                         47 
+
+-_-
+ _                                83    85    85    86    86    86   190   194 
+                                 194   194   194   205   207   208   212   213 
+                                 215   220   220   222   224   224   228   228 
+                                 230   230   236   237   244   244   244   245 
+                                 246   247   252   252   252   252   253   261 
+                                 266   266   266   266   266   266   266   266 
+                                 266   266   267   267   267   267   268   272 
+                                 275   275   275   275   275   275   275   275 
+                                 275   275   276   277   281   283   284   285 
+                                 290   290   290   290   290   290   291   292 
+                                 294   294   294   294   294   296   300   300 
+                                 300   305   306   306   306   306   306   307 
+                                 307   307   312   312   313   313   315   321 
+                                 321   321   321   321   321   321   321   324 
+                                 324   324   324   324   324   324   324   328 
+                                 328   328   328   331   331   331   331   331 
+                                 331   331   331   338   340   342   344   352 
+                                 352   353   357   357   358   358   358   358 
+                                 362   368   368   368   368   368   370   375 
+                                 375   377   384   384   384   384   384   386 
+                                 389   389   390   399   400   400   400   400 
+                                 400   401   401   401   401   401   401   401 
+                                 402   402   402   402   402   403   403   403 
+                                 403   403   403   403   404   404   404   404 
+                                 404   405   405   405   405   405   405   405 
+                                 406   406   406   406   406   407   407   407 
+                                 407   407   407   407   411   411   411   416 
+                                 416   416   416   416   416   417   418   418 
+                                 418   418   418   418   419   427   427   429 
+                                 429   429   438   438   440   441   443   443 
+                                 443   443   443   443   443   444   446   448 
+                                 449   452   452   454   455   457   457   457 
+                                 457   457   457   457   458   460   462   463 
+                                 466   466   466   468   468   468   488   488 
+                                 488   488   488   488   488   489   489   489 
+                                 491   491   491   494   494   494   494   495 
+                                 495   495   498   498   502   502   502   502 
+                                 502   502   502   507   507   507   507   508 
+                                 508   508   508   508   508   508   508   508 
+                                 508   508   508   508   509   509   509   509 
+                                 510   510   510   510   510   510   510   510 
+                                 510   510   510   510   510   515   515   520 
+                                 520   520   520   521   521   521   521   521 
+                                 521   521   521   521   521   521   521   521 
+                                 521   522   522   522   522   523   523   523 
+                                 523   523   523   523   523   523   523   523 
+                                 523   523   523   557   557   559   559   559 
+                                 559   559   559   559   559   561   561   562 
+                                 562   564   564   564   564   564   567   567 
+                                 569   569   575   575   579   579   583   583 
+
+end cross reference, 1594 occurrences of 209 identifiers.

@@ -1,0 +1,6 @@
+DEFINITION MODULE Assertions
+; PROCEDURE Assert ( Condition : BOOLEAN ; Msg : ARRAY OF CHAR )
+; PROCEDURE CantHappen ( Msg : ARRAY OF CHAR )
+;
+END Assertions
+.

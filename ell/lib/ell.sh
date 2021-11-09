@@ -1,0 +1,1 @@
+exec LIB/ell/ell $*

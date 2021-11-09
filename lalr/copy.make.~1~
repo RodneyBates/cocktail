@@ -1,0 +1,5 @@
+DEFFILES = `ls *.md`
+MODFILES = `ls *.mi`
+check : 
+	echo DEFFILES $DEFFILES
+	echo MODFILES $MODFILES 

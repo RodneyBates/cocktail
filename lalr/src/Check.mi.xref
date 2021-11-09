@@ -1,0 +1,668 @@
+     1 (* check and repair inconsitences *)
+     2 
+     3 (* $Id: Check.mi,v 2.4 1992/08/07 15:22:49 grosch rel $ *)
+     4 
+     5 (* $Log: Check.mi,v $
+c    6  * Revision 2.4  1992/08/07  15:22:49  grosch
+c    7  * allow several scanner and parsers; extend module Errors
+c    8  *
+c    9  * Revision 2.3  1992/02/05  08:00:15  grosch
+c   10  * renamed NULL to DevNull
+c   11  *
+c   12  * Revision 2.2  1991/11/21  14:53:14  grosch
+c   13  * new version of RCS on SPARC
+c   14  *
+c   15  * Revision 2.1  91/03/19  14:19:23  grosch
+c   16  * fixed: IF Verbose THEN WriteClose (dFile); END;
+c   17  * 
+c   18  * Revision 2.0  91/03/08  18:31:37  grosch
+c   19  * turned tables into initialized arrays (in C)
+c   20  * moved mapping tokens -> strings from Errors to Parser
+c   21  * changed interface for source position
+c   22  * 
+c   23  * Revision 1.5  91/01/18  20:32:43  grosch
+c   24  * fixed resolution of reduce-reduce conflicts
+c   25  * 
+c   26  * Revision 1.4  90/06/12  16:53:43  grosch
+c   27  * renamed main program to lalr, added { } for actions, layout improvements
+c   28  * 
+c   29  * Revision 1.3  89/05/02  14:34:18  vielsack
+c   30  * new option: -v (verbose)
+c   31  * 
+c   32  * Revision 1.2  89/01/02  16:17:34  vielsack
+c   33  * fixed bug (instead of a reduce reduce conflict a read reduce conflict
+c   34  * was reported)
+c   35  * 
+c   36  * Revision 1.1  88/11/08  12:09:28  vielsack
+c   37  * report all read items in the conclusion (not only the representative)
+c   38  * 
+c   39  * Revision 1.0  88/10/04  14:35:55  vielsack
+c   40  * Initial revision
+c   41  * 
+c   42  *)
+    43 
+    44 IMPLEMENTATION MODULE Check;                                                  *     *
+    45 
+    46 FROM Automaton  IMPORT Infinite, tAss, tRep, tIndex, tProduction, ProdArrayPtr,     *     *     *     *     *     *     *
+    47                         tStateIndex, StateArrayPtr, StateIndex, tItemIndex,         *     *     *     *
+    48                         ItemArrayPtr, OperArray;                              *     *
+    49 FROM Debug      IMPORT dFile, tConflict, DebugHead, DebugState, DebugEnd, InformIgno\     *     *     *     *     *     *
+      \red,                                                                          *
+    50                         InformLowPri, InformRightAss, InformLeftAss, InformKept,          *     *     *     *
+    51                         InformConflict, NewLine;                              *     *
+    52 FROM Errors     IMPORT eInternal, eInformation, eWarning, eError, eFatal, eString,        *     *     *     *     *     *
+                                                                                     *
+    53                         eShort, eTermSet, ErrorMessageI;                      *     *     *
+    54 FROM Idents     IMPORT tIdent;                                                *     *
+    55 FROM IO         IMPORT WriteOpen, WriteClose;                                 *     *     *
+    56 FROM Sets       IMPORT tSet, IsElement, IsEmpty, Include, Exclude, Extract, Union,        *     *     *     *     *     *
+                                                                                     *     *
+    57                         Intersection, Assign,  AssignEmpty, MakeSet, ReleaseSet;          *     *     *     *     *
+    58 FROM Strings    IMPORT tString, ArrayToString;                                *     *     *
+    59 FROM SysError   IMPORT StatIsBad, SysErrorMessageI;                           *     *     *
+    60 FROM SYSTEM     IMPORT ADR;                                                   *     *
+    61 FROM Positions  IMPORT NoPosition;                                            *     *
+    62 FROM TokenTab   IMPORT MAXTerm, Terminal, Prio, TokenToSymbol, TokenError;          *     *     *     *     *     *
+    63 
+    64   CONST
+    65     eState              = 70;                                                 *
+    66     eReadRed            = 71;                                                 *
+    67     eRedRed             = 72;                                                 *
+    68     eReadRedRed         = 73;                                                 *
+    69     eRepReadRed         = 74;                                                 *
+    70     eRepRedRed          = 75;                                                 *
+    71     eRepReadRedRed      = 76;                                                 *
+    72     eARepReadRed        = 77;                                                 *
+    73     eARepRedRed         = 78;                                                 *
+    74     eARepReadRedRed     = 79;                                                 *
+    75 
+    76     DevNull     = '/dev/null';                                                *
+    77     DEBUG       = '_Debug';                                                   *
+    78 
+    79   PROCEDURE CheckForConflicts (VAR ok: BOOLEAN);                              *     *     *
+    80 
+    81   (* Pruefe ob die Zustaende Konflikte beinhalten,
+c   82      so weit moeglich werden Konflikte mit Hilfe von
+c   83      Prioritaeten und Assoziativitaeten geloest,
+c   84      falls keine Korektur moeglich ist wird das Programm mit 
+c   85      einer Fehlermeldung beendet, sonst steht ein konfliktfreier
+c   86      Automat zur Auswertung zur Verfuegung *)
+    87 
+    88     VAR
+    89       SymbolSet,                                                              *
+    90       ConflictSet,                                                            *
+    91       TempSet  : tSet;                                                        *    56
+    92       state,                                                                  *
+    93       maxState : tStateIndex;                                                 *    47
+    94       item     : tItemIndex;                                                  *    47
+    95       Error    : BOOLEAN;                                                     *     *
+    96       string   : tString;                                                     *    58
+    97     BEGIN
+    98       Error := FALSE;                                                        95     *
+    99       MakeSet (SymbolSet,MAXTerm);                                           57    89    62
+   100       MakeSet (ConflictSet,MAXTerm);                                         57    90    62
+   101       MakeSet (TempSet,MAXTerm);                                             57    91    62
+   102 
+   103       IF Verbose THEN                                                         *
+   104         dFile := WriteOpen (DEBUG);                                          49    55    77
+   105         IF StatIsBad (dFile) THEN                                            59    49
+   106           ArrayToString (DEBUG, string);                                     58    77    96
+   107           SysErrorMessageI (dFile, eError, eString, ADR (string));           59    49    52    52    60    96
+   108           dFile := WriteOpen (DevNull);                                      49    55    76
+   109           IF StatIsBad (dFile) THEN                                          59    49
+   110             ArrayToString (DevNull, string);                                 58    76    96
+   111             SysErrorMessageI (dFile, eFatal, eString, ADR (string));         59    49    52    52    60    96
+   112           END;
+   113         END;
+   114       END;
+   115 
+   116       (* fuer Debug wird in Number ein Verweis auf den zugeh. State eingetragen *)
+   117 
+   118       maxState := StateIndex;                                                93    47
+   119       FOR state := 1 TO maxState DO                                          92    93
+   120         WITH StateArrayPtr^[state] DO                                        47    92
+   121           FOR item := Items TO Items + Size - 1 DO                           94     *     *     *
+   122             WITH ItemArrayPtr^[item] DO                                      48    94
+   123               Number := state;                                                *    92
+   124             END;
+   125           END;
+   126         END;
+   127       END;
+   128 
+   129       FOR state := 1 TO maxState DO                                          92    93
+   130         WITH StateArrayPtr^[state] DO                                        47    92
+   131 
+   132           AssignEmpty (ConflictSet);                                         57    90
+   133           AssignEmpty (SymbolSet);                                           57    89
+   134 
+   135           FOR item := Items TO Items + Size - 1 DO                           94     *     *     *
+   136             WITH ItemArrayPtr^[item] DO                                      48    94
+   137               CASE Rep OF                                                     *
+   138               | TermRep :                                                     *
+   139                   IF IsElement (Read,SymbolSet) THEN                         56     *    89
+   140                     Include (ConflictSet,Read);                              56    90     *
+   141                   ELSE
+   142                     Include (SymbolSet,Read);                                56    89     *
+   143                   END;
+   144               | RedRep :                                                      *
+   145                   Assign (TempSet,Set);                                      57    91     *
+   146                   Intersection (TempSet,SymbolSet);                          57    91    89
+   147                   Union (ConflictSet,TempSet);                               56    90    91
+   148                   Union (SymbolSet,Set);                                     56    89     *
+   149               ELSE
+   150               END;
+   151             END;
+   152           END;
+   153 
+   154           IF NOT IsEmpty (ConflictSet) THEN                                  56    90
+   155             RepairConflict (state, ConflictSet);                              *    92    90
+   156             IF NOT IsEmpty (ConflictSet) THEN Error := TRUE; END;            56    90    95     *
+   157           END;
+   158         END;
+   159       END;
+   160 
+   161       ReleaseSet (TempSet);                                                  57    91
+   162       ReleaseSet (ConflictSet);                                              57    90
+   163       ReleaseSet (SymbolSet);                                                57    89
+   164       ok := NOT Error;                                                       79    95
+   165       IF Verbose THEN                                                         *
+   166         WriteClose (dFile);                                                  55    49
+   167       END;
+   168     END CheckForConflicts;                                                   79
+   169 
+   170 PROCEDURE RepairConflict (state: tStateIndex; VAR ConflictSet: tSet);         *    92    47    90    56
+   171     VAR
+   172       todo                                              : tSet;               *    56
+   173       LookAhead                                         : Terminal;           *    62
+   174       ReadRedSet, RedRedSet, ReadRedRedSet, RepReadRedSet,                    *     *     *     *
+   175       RepRedRedSet, RepReadRedRedSet, ARepReadRedSet,                         *     *     *
+   176       ARepRedRedSet, ARepReadRedRedSet                  : tSet;               *     *    56
+   177       Priority, ReducePri, ShiftPri                     : Prio;               *     *     *    62
+   178       Associativity, ReduceAss, ShiftAss                : tAss;               *     *     *    46
+   179       MinProdNo                                         : tIndex;             *    46
+   180       OnlyOpers                                         : BOOLEAN;            *     *
+   181       ReduceCount, ShiftCount, ReduceRest, ShiftRest    : CARDINAL;           *     *     *     *     *
+   182       item                                              : tItemIndex;        94    47
+   183       prod                                              : tProduction;        *    46
+   184       ConflictFree                                      : BOOLEAN;            *     *
+   185     BEGIN
+   186       MakeSet (ReadRedSet, MAXTerm);                                         57   174    62
+   187       MakeSet (RedRedSet, MAXTerm);                                          57   174    62
+   188       MakeSet (ReadRedRedSet, MAXTerm);                                      57   174    62
+   189       MakeSet (RepReadRedSet, MAXTerm);                                      57   174    62
+   190       MakeSet (RepRedRedSet, MAXTerm);                                       57   175    62
+   191       MakeSet (RepReadRedRedSet, MAXTerm);                                   57   175    62
+   192       MakeSet (ARepReadRedSet, MAXTerm);                                     57   175    62
+   193       MakeSet (ARepRedRedSet, MAXTerm);                                      57   176    62
+   194       MakeSet (ARepReadRedRedSet, MAXTerm);                                  57   176    62
+   195 
+   196       IF Verbose THEN                                                         *
+   197         DebugHead (state);                                                   49   170
+   198         DebugState (state, ConflictSet);                                     49   170   170
+   199       END;
+   200 
+   201       MakeSet (todo, MAXTerm);                                               57   172    62
+   202       Assign (todo, ConflictSet);                                            57   172   170
+   203 
+   204       WITH StateArrayPtr^[state] DO                                          47   170
+   205         WHILE NOT IsEmpty (todo) DO                                          56   172
+   206           LookAhead := Extract (todo);                                      173    56   172
+   207 
+   208           OnlyOpers := TRUE;                                                180     *
+   209           ReduceCount := 0;                                                 181
+   210           ShiftCount := 0;                                                  181
+   211           ReduceRest := 0;                                                  181
+   212           ShiftRest := 0;                                                   181
+   213           ReducePri := 0;                                                   177
+   214           ReduceAss := none;                                                178     *
+   215           ShiftPri  := 0;                                                   177
+   216           ShiftAss  := none;                                                178     *
+   217           MinProdNo := 10000;                                               179
+   218 
+   219           FOR item := Items TO Items + Size - 1 DO                          182     *     *     *
+   220             WITH ItemArrayPtr^[item] DO                                      48   182
+   221               IF (Rep = RedRep) AND IsElement (LookAhead, Set) THEN           *     *    56   173     *
+   222                 INC (ReduceCount);                                            *   181
+   223                 prod := ADR(ProdArrayPtr^[Prod]);                           183    60    46     *
+   224                 IF prod^.Pri = 0 THEN                                       183     *
+   225                   OnlyOpers := FALSE;                                       180     *
+   226                 ELSIF prod^.Pri > ReducePri THEN                            183     *   177
+   227                   ReducePri := prod^.Pri;                                   177   183     *
+   228                   ReduceAss := prod^.Ass;                                   178   183     *
+   229                 END;
+   230                 IF prod^.ProdNo < MinProdNo THEN                            183     *   179
+   231                   MinProdNo := prod^.ProdNo;                                179   183     *
+   232                 END;
+   233               ELSIF (Rep = TermRep) AND (Read = LookAhead) THEN               *     *     *   173
+   234                 INC (ShiftCount);                                             *   181
+   235                 IF OperArray [LookAhead].Pri = 0 THEN                        48   173     *
+   236                   OnlyOpers := FALSE;                                       180     *
+   237                 ELSE
+   238                   ShiftPri := OperArray [LookAhead].Pri;                    177    48   173     *
+   239                   ShiftAss := OperArray [LookAhead].Ass;                    178    48   173     *
+   240                 END;
+   241               END;
+   242             END;
+   243           END;
+   244 
+   245           IF OnlyOpers THEN                                                 180
+   246 
+   247             IF ReducePri > ShiftPri THEN                                    177   177
+   248               Priority          := ReducePri;                               177   177
+   249               Associativity     := ReduceAss;                               178   178
+   250             ELSE
+   251               Priority          := ShiftPri;                                177   177
+   252               Associativity     := ShiftAss;                                178   178
+   253             END;
+   254             
+   255             FOR item := Items TO Items + Size - 1 DO                        182     *     *     *
+   256               WITH ItemArrayPtr^[item] DO                                    48   182
+   257                 IF (Rep = RedRep) AND IsElement (LookAhead, Set) THEN         *     *    56   173     *
+   258                   prod := ADR (ProdArrayPtr^[Prod]);                        183    60    46     *
+   259                   IF (prod^.Pri < Priority) THEN        (* lower priority       *)      183     *   177
+   260                     IF Verbose THEN                                           *
+   261                       InformLowPri (item, LookAhead);   (* ignore reduce        *)       50   182   173
+   262                     END;
+   263                     Exclude (Set, LookAhead);                                56     *   173
+   264                     IF IsEmpty (Set) THEN Rep := NoRep; END;                 56     *     *     *
+   265                   ELSIF (prod^.Pri = Priority) AND      (* max. priority        *)      183     *   177
+   266                      ((Associativity = right) OR        (* right associative    *)      178     *
+   267                      (Associativity = nonassoc)) AND    (* not associative      *)      178     *
+   268                      (ShiftPri = Priority) THEN         (* same priority        *)      177   177
+   269                     IF Verbose THEN                                           *
+   270                       InformRightAss (item, LookAhead); (* ignore reduce        *)       50   182   173
+   271                     END;
+   272                     Exclude (Set, LookAhead);                                56     *   173
+   273                     IF IsEmpty (Set) THEN Rep := NoRep; END;                 56     *     *     *
+   274                   ELSE
+   275                     IF Verbose THEN                                           *
+   276                       InformKept (item, LookAhead);     (* keep reduce          *)       50   182   173
+   277                     END;
+   278                     INC (ReduceRest);                                         *   181
+   279                   END;
+   280                 ELSIF (Read = LookAhead) THEN                                 *   173
+   281                   IF (ShiftPri < Priority) THEN         (* lower priority       *)      177   177
+   282                     IF Verbose THEN                                           *
+   283                       InformLowPri (item, LookAhead);   (* ignore read          *)       50   182   173
+   284                     END;
+   285                     Rep := NoRep;                                             *     *
+   286                   ELSIF (ShiftPri = Priority) AND       (* max. priority        *)      177   177
+   287                      ((Associativity = left) OR         (* left associative     *)      178     *
+   288                      (Associativity = nonassoc)) AND    (* not associative      *)      178     *
+   289                      (ReducePri = Priority) THEN        (* same priority        *)      177   177
+   290                     IF Verbose THEN                                           *
+   291                       InformLeftAss (item, LookAhead);  (* ignore read          *)       50   182   173
+   292                     END;
+   293                     Rep := NoRep;                                             *     *
+   294                   ELSE
+   295                     IF Verbose THEN                                           *
+   296                       InformKept (item, LookAhead);     (* keep read            *);      50   182   173
+   297                     END;
+   298                     INC (ShiftRest);                                          *   181
+   299                   END;
+   300                 END;
+   301               END;
+   302             END;
+   303 
+   304           ELSE (* NOT OnlyOpers *)
+   305 
+   306             IF ShiftCount > 0 THEN      (* shift wird reduce vorgezogen *)        181
+   307 
+   308               FOR item := Items TO Items + Size - 1 DO                      182     *     *     *
+   309                 WITH ItemArrayPtr^[item] DO                                  48   182
+   310                   IF (Rep = RedRep) AND (IsElement (LookAhead, Set)) THEN     *     *    56   173     *
+   311                     IF Verbose THEN                                           *
+   312                       InformIgnored (item, LookAhead);  (* ignore reduce *)        49   182   173
+   313                     END;
+   314                     Exclude (Set, LookAhead);                                56     *   173
+   315                     IF IsEmpty (Set) THEN Rep := NoRep; END;                 56     *     *     *
+   316                   ELSIF (Read = LookAhead) THEN                               *   173
+   317                     IF Verbose THEN                                           *
+   318                       InformKept (item, LookAhead);                          50   182   173
+   319                     END;
+   320                     INC (ShiftRest);                                          *   181
+   321                   END;
+   322                 END;
+   323               END;
+   324 
+   325             ELSE        (* erstes reduce auswaehlen *)
+   326 
+   327               FOR item := Items TO Items + Size - 1 DO                      182     *     *     *
+   328                 WITH ItemArrayPtr^[item] DO                                  48   182
+   329                   IF (Rep = RedRep) AND (IsElement (LookAhead, Set)) THEN     *     *    56   173     *
+   330                     prod := ADR (ProdArrayPtr^[Prod]);                      183    60    46     *
+   331                     IF prod^.ProdNo = MinProdNo THEN                        183     *   179
+   332                       IF Verbose THEN                                         *
+   333                         InformKept (item, LookAhead);           (* keep reduce *)        50   182   173
+   334                       END;
+   335                       INC (ReduceRest);                                       *   181
+   336                     ELSE
+   337                       IF Verbose THEN                                         *
+   338                         InformIgnored (item, LookAhead);        (* ignore reduce *)      49   182   173
+   339                       END;
+   340                       Exclude (Set, LookAhead);                              56     *   173
+   341                       IF IsEmpty (Set) THEN Rep := NoRep; END;               56     *     *     *
+   342                     END;
+   343                   END;
+   344                 END;
+   345               END;
+   346             END;
+   347           END;
+   348 
+   349           ConflictFree := FALSE;                                            184     *
+   350 
+   351           IF ReduceRest > 1 THEN                                            181
+   352             IF ShiftRest > 0 THEN                                           181
+   353               IF Verbose THEN                                                 *
+   354                 InformConflict (ShRedRed);                                   51     *
+   355               END;
+   356               Include (ReadRedRedSet, LookAhead);                            56   174   173
+   357             ELSE
+   358               IF Verbose THEN                                                 *
+   359                 InformConflict (RedRed);                                     51     *
+   360               END;
+   361               Include (RedRedSet, LookAhead);                                56   174   173
+   362             END;
+   363           ELSIF ReduceRest = 1 THEN                                         181
+   364             IF ShiftRest > 0 THEN                                           181
+   365               IF Verbose THEN                                                 *
+   366                 InformConflict (ShRed);                                      51     *
+   367               END;
+   368               Include (ReadRedSet, LookAhead);                               56   174   173
+   369             ELSE (* reduce - no conflict *)
+   370               ConflictFree := TRUE;                                         184     *
+   371             END;
+   372           ELSE (* ReduceRest = 0 *)
+   373             ConflictFree := TRUE;                                           184     *
+   374           END;
+   375 
+   376           IF Verbose THEN NewLine; END;                                       *    51
+   377           IF ConflictFree THEN                                              184
+   378             Exclude (ConflictSet, LookAhead);                                56   170   173
+   379 
+   380             IF ReduceCount > 1 THEN                                         181
+   381               IF ShiftCount > 0 THEN                                        181
+   382                 IF OnlyOpers THEN                                           180
+   383                   Include (RepReadRedRedSet, LookAhead);                     56   175   173
+   384                 ELSE
+   385                   Include (ARepReadRedRedSet, LookAhead);                    56   176   173
+   386                 END;
+   387               ELSE (* ShiftCount = 0 *)
+   388                 IF OnlyOpers THEN                                           180
+   389                   Include (RepRedRedSet, LookAhead);                         56   175   173
+   390                 ELSE
+   391                   Include (ARepRedRedSet, LookAhead);                        56   176   173
+   392                 END;
+   393               END;
+   394             ELSIF ReduceCount = 1 THEN                                      181
+   395               IF ShiftCount > 0 THEN                                        181
+   396                 IF OnlyOpers THEN                                           180
+   397                   Include (RepReadRedSet, LookAhead);                        56   174   173
+   398                 ELSE
+   399                   Include (ARepReadRedSet, LookAhead);                       56   175   173
+   400                 END;
+   401               ELSE (* ShiftCount = 0 *)
+   402                 ERROR ('Check.RepairConflict: No Conflict (1)');              *
+   403               END;
+   404             ELSE (* ReduceCount = 0 *)
+   405               ERROR ('Check.RepairConflict: No Conflict (2)');                *
+   406             END;
+   407           END;
+   408         END;
+   409       END;
+   410 
+   411       ErrorMessageI (eState, eInformation, NoPosition, eShort, ADR (state));       53    65    52    61    53    60   170
+   412 
+   413       IF NOT IsEmpty (ReadRedSet) THEN                                       56   174
+   414         ErrorMessageI (eReadRed, eError, NoPosition, eTermSet, ADR (ReadRedSet));        53    66    52    61    53    60
+                                                                                   174
+   415       END;
+   416       IF NOT IsEmpty (RedRedSet) THEN                                        56   174
+   417         ErrorMessageI (eRedRed, eError, NoPosition, eTermSet, ADR (RedRedSet));    53    67    52    61    53    60   174
+   418       END;
+   419       IF NOT IsEmpty (ReadRedRedSet) THEN                                    56   174
+   420         ErrorMessageI (eReadRedRed, eError, NoPosition, eTermSet, ADR (ReadRedRedSet\    53    68    52    61    53    60
+                                                                                   174
+      \));
+   421       END;
+   422       IF NOT IsEmpty (RepReadRedSet) THEN                                    56   174
+   423         ErrorMessageI (eRepReadRed, eInformation, NoPosition, eTermSet, ADR (RepRead\    53    69    52    61    53    60
+      \RedSet));                                                                   174
+   424       END;
+   425       IF NOT IsEmpty (RepRedRedSet) THEN                                     56   175
+   426         ErrorMessageI (eRepRedRed, eInformation, NoPosition, eTermSet, ADR(RepRedRed\    53    70    52    61    53    60
+      \Set));                                                                      175
+   427       END;
+   428       IF NOT IsEmpty (RepReadRedRedSet) THEN                                 56   175
+   429         ErrorMessageI (eRepReadRedRed, eInformation, NoPosition, eTermSet, ADR(RepRe\    53    71    52    61    53    60
+      \adRedRedSet));                                                              175
+   430       END;
+   431       IF NOT IsEmpty (ARepReadRedSet) THEN                                   56   175
+   432         ErrorMessageI (eARepReadRed, eWarning, NoPosition, eTermSet, ADR(ARepReadRed\    53    72    52    61    53    60
+      \Set));                                                                      175
+   433       END;
+   434       IF NOT IsEmpty (ARepRedRedSet) THEN                                    56   176
+   435         ErrorMessageI (eARepRedRed, eWarning, NoPosition, eTermSet, ADR(ARepRedRedSe\    53    73    52    61    53    60
+      \t));                                                                        176
+   436       END;
+   437       IF NOT IsEmpty (ARepReadRedRedSet) THEN                                56   176
+   438         ErrorMessageI (eARepReadRedRed, eWarning, NoPosition, eTermSet, ADR(ARepRead\    53    74    52    61    53    60
+      \RedRedSet));                                                                176
+   439       END;
+   440 
+   441       ReleaseSet (ReadRedSet);                                               57   174
+   442       ReleaseSet (RedRedSet);                                                57   174
+   443       ReleaseSet (ReadRedRedSet);                                            57   174
+   444       ReleaseSet (RepReadRedSet);                                            57   174
+   445       ReleaseSet (RepRedRedSet);                                             57   175
+   446       ReleaseSet (RepReadRedRedSet);                                         57   175
+   447       ReleaseSet (ARepReadRedSet);                                           57   175
+   448       ReleaseSet (ARepRedRedSet);                                            57   176
+   449       ReleaseSet (ARepReadRedRedSet);                                        57   176
+   450       ReleaseSet (todo);                                                     57   172
+   451       IF Verbose THEN DebugEnd; END;                                          *    49
+   452     END RepairConflict;                                                     170
+   453 
+   454   PROCEDURE ERROR (a: ARRAY OF CHAR);                                         *     *     *
+   455     VAR s: tString;                                                           *    58
+   456     BEGIN
+   457       ArrayToString (a, s);                                                  58   454   455
+   458       ErrorMessageI (eInternal, eFatal, NoPosition, eString, ADR (s));       53    52    52    61    52    60   455
+   459     END ERROR;                                                              454
+   460 
+   461 BEGIN
+   462   Verbose := FALSE;                                                           *     *
+   463 END Check.                                                                   44
+Cross reference: * is declaration, = is assignment
+
+-A-
+ a                              454*  457 
+ ADR                             60*  107   111   223   258   330   411   414   417   420   423   426   429   432   435   438   458 
+ ARepReadRedRedSet              176*  194   385   437   438   449 
+ ARepReadRedSet                 175*  192   399   431   432   447 
+ ARepRedRedSet                  176*  193   391   434   435   448 
+ ArrayToString                   58*  106   110   457 
+ Ass                            228   239 
+ Assign                          57*  145   202 
+ AssignEmpty                     57*  132   133 
+ Associativity                  178*  249=  252=  266   267   287   288 
+ Automaton                       46*
+
+-B-
+ BOOLEAN                         79    95   180   184 
+
+-C-
+ CARDINAL                       181 
+ CHAR                           454 
+ Check                           44*  463 
+ CheckForConflicts               79*  168 
+ ConflictFree                   184*  349=  370=  373=  377 
+ ConflictSet                     90*  100   132   140   147   154   155   156   162   170*  198   202   378 
+
+-D-
+ DEBUG                           77*  104   106 
+ Debug                           49*
+ DebugEnd                        49*  451 
+ DebugHead                       49*  197 
+ DebugState                      49*  198 
+ DevNull                         76*  108   110 
+ dFile                           49*  104=  105   107   108=  109   111   166 
+
+-E-
+ eARepReadRed                    72*  432 
+ eARepReadRedRed                 74*  438 
+ eARepRedRed                     73*  435 
+ eError                          52*  107   414   417   420 
+ eFatal                          52*  111   458 
+ eInformation                    52*  411   423   426   429 
+ eInternal                       52*  458 
+ eReadRed                        66*  414 
+ eReadRedRed                     68*  420 
+ eRedRed                         67*  417 
+ eRepReadRed                     69*  423 
+ eRepReadRedRed                  71*  429 
+ eRepRedRed                      70*  426 
+ ERROR                          402   405   454*  459 
+ Error                           95*   98=  156=  164 
+ ErrorMessageI                   53*  411   414   417   420   423   426   429   432   435   438   458 
+ Errors                          52*
+ eShort                          53*  411 
+ eState                          65*  411 
+ eString                         52*  107   111   458 
+ eTermSet                        53*  414   417   420   423   426   429   432   435   438 
+ eWarning                        52*  432   435   438 
+ Exclude                         56*  263   272   314   340   378 
+ Extract                         56*  206 
+
+-F-
+ FALSE                           98   225   236   349   462 
+
+-I-
+ Idents                          54*
+ IMPLEMENTATION                  44*
+ INC                            222   234   278   298   320   335 
+ Include                         56*  140   142   356   361   368   383   385   389   391   397   399 
+ Infinite                        46*
+ InformConflict                  51*  354   359   366 
+ InformIgnored                   49*  312   338 
+ InformKept                      50*  276   296   318   333 
+ InformLeftAss                   50*  291 
+ InformLowPri                    50*  261   283 
+ InformRightAss                  50*  270 
+ Intersection                    57*  146 
+ IO                              55*
+ IsElement                       56*  139   221   257   310   329 
+ IsEmpty                         56*  154   156   205   264   273   315   341   413   416   419   422   425   428   431   434   437 
+ item                            94*  121=  122   135=  136   182*  219=  220   255=  256   261   270   276   283   291   296   308=
+                                309   312   318   327=  328   333   338 
+ ItemArrayPtr                    48*  122   136   220   256   309   328 
+ Items                          121   121   135   135   219   219   255   255   308   308   327   327 
+
+-L-
+ left                           287 
+ LookAhead                      173*  206=  221   233   235   238   239   257   261   263   270   272   276   280   283   291   296 
+                                310   312   314   316   318   329   333   338   340   356   361   368   378   383   385   389   391 
+                                397   399 
+
+-M-
+ MakeSet                         57*   99   100   101   186   187   188   189   190   191   192   193   194   201 
+ maxState                        93*  118=  119   129 
+ MAXTerm                         62*   99   100   101   186   187   188   189   190   191   192   193   194   201 
+ MinProdNo                      179*  217=  230   231=  331 
+
+-N-
+ NewLine                         51*  376 
+ nonassoc                       267   288 
+ none                           214   216 
+ NoPosition                      61*  411   414   417   420   423   426   429   432   435   438   458 
+ NoRep                          264   273   285   293   315   341 
+ Number                         123=
+
+-O-
+ ok                              79*  164=
+ OnlyOpers                      180*  208=  225=  236=  245   382   388   396 
+ OperArray                       48*  235   238   239 
+
+-P-
+ Positions                       61*
+ Pri                            224   226   227   235   238   259   265 
+ Prio                            62*  177 
+ Priority                       177*  248=  251=  259   265   268   281   286   289 
+ Prod                           223   258   330 
+ prod                           183*  223=  224   226   227   228   230   231   258=  259   265   330=  331 
+ ProdArrayPtr                    46*  223   258   330 
+ ProdNo                         230   231   331 
+
+-R-
+ Read                           139   140   142   233   280   316 
+ ReadRedRedSet                  174*  188   356   419   420   443 
+ ReadRedSet                     174*  186   368   413   414   441 
+ RedRed                         359 
+ RedRedSet                      174*  187   361   416   417   442 
+ RedRep                         144   221   257   310   329 
+ ReduceAss                      178*  214=  228=  249 
+ ReduceCount                    181*  209=  222   380   394 
+ ReducePri                      177*  213=  226   227=  247   248   289 
+ ReduceRest                     181*  211=  278   335   351   363 
+ ReleaseSet                      57*  161   162   163   441   442   443   444   445   446   447   448   449   450 
+ Rep                            137   221   233   257   264=  273=  285=  293=  310   315=  329   341=
+ RepairConflict                 155   170*  452 
+ RepReadRedRedSet               175*  191   383   428   429   446 
+ RepReadRedSet                  174*  189   397   422   423   444 
+ RepRedRedSet                   175*  190   389   425   426   445 
+ right                          266 
+
+-S-
+ s                              455*  457   458 
+ Set                            145   148   221   257   263   264   272   273   310   314   315   329   340   341 
+ Sets                            56*
+ ShiftAss                       178*  216=  239=  252 
+ ShiftCount                     181*  210=  234   306   381   395 
+ ShiftPri                       177*  215=  238=  247   251   268   281   286 
+ ShiftRest                      181*  212=  298   320   352   364 
+ ShRed                          366 
+ ShRedRed                       354 
+ Size                           121   135   219   255   308   327 
+ state                           92*  119=  120   123   129=  130   155   170*  197   198   204   411 
+ StateArrayPtr                   47*  120   130   204 
+ StateIndex                      47*  118 
+ StatIsBad                       59*  105   109 
+ string                          96*  106   107   110   111 
+ Strings                         58*
+ SymbolSet                       89*   99   133   139   142   146   148   163 
+ SysError                        59*
+ SysErrorMessageI                59*  107   111 
+ SYSTEM                          60*
+
+-T-
+ tAss                            46*  178 
+ tConflict                       49*
+ TempSet                         91*  101   145   146   147   161 
+ Terminal                        62*  173 
+ TermRep                        138   233 
+ tIdent                          54*
+ tIndex                          46*  179 
+ tItemIndex                      47*   94   182 
+ todo                           172*  201   202   205   206   450 
+ TokenError                      62*
+ TokenTab                        62*
+ TokenToSymbol                   62*
+ tProduction                     46*  183 
+ tRep                            46*
+ TRUE                           156   208   370   373 
+ tSet                            56*   91   170   172   176 
+ tStateIndex                     47*   93   170 
+ tString                         58*   96   455 
+
+-U-
+ Union                           56*  147   148 
+
+-V-
+ Verbose                        103   165   196   260   269   275   282   290   295   311   317   332   337   353   358   365   376 
+                                451   462=
+
+-W-
+ WriteClose                      55*  166 
+ WriteOpen                       55*  104   108 
+
+end cross reference, 722 occurrences of 150 identifiers.

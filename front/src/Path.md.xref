@@ -1,0 +1,33 @@
+     1 (* add path to file name *)
+     2 
+     3 (* $Id: Path.md,v 1.1 1991/11/21 14:47:50 grosch rel $ *)
+     4 
+     5 (* $Log: Path.md,v $
+c    6  * Revision 1.1  1991/11/21  14:47:50  grosch
+c    7  * new version of RCS on SPARC
+c    8  *
+c    9  * Revision 1.0  88/10/04  14:27:05  vielsack
+c   10  * Initial revision
+c   11  * 
+c   12  *)
+    13 
+    14 DEFINITION MODULE Path;                                                       *
+    15 
+    16 PROCEDURE InsertPath (VAR a: ARRAY OF CHAR);                                  *     *     *
+    17 
+    18 END Path.                                                                    14
+Cross reference: * is declaration, = is assignment
+
+-A-
+ a                               16*
+
+-C-
+ CHAR                            16 
+
+-I-
+ InsertPath                      16*
+
+-P-
+ Path                            14*   18*
+
+end cross reference, 5 occurrences of 4 identifiers.

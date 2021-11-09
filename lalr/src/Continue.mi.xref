@@ -1,0 +1,237 @@
+     1 (* compute continuation for error recovery *)
+     2 
+     3 (* $Id: Continue.mi,v 1.3 1991/11/21 14:53:14 grosch rel $ *)
+     4 
+     5 (* $Log: Continue.mi,v $
+c    6  * Revision 1.3  1991/11/21  14:53:14  grosch
+c    7  * new version of RCS on SPARC
+c    8  *
+c    9  * Revision 1.2  91/01/18  20:33:16  grosch
+c   10  * fixed problem with Continuation
+c   11  * 
+c   12  * Revision 1.1  90/06/12  16:53:51  grosch
+c   13  * renamed main program to lalr, added { } for actions, layout improvements
+c   14  * 
+c   15  * Revision 1.0  88/10/04  14:36:02  vielsack
+c   16  * Initial revision
+c   17  * 
+c   18  *)
+    19 
+    20 IMPLEMENTATION MODULE Continue;                                               *     *
+    21 
+    22 FROM Automaton  IMPORT tIndex, Infinite, tProduction, tProdIndex, ProdArrayPtr,     *     *     *     *     *     *
+    23                         ProdIndex, NextProdIndex, tStateKind, tStateIndex,          *     *     *     *
+    24                         StateArrayPtr, StateIndex, tRep, tItemIndex, ItemArrayPtr, I\     *     *     *     *     *
+      \temIndex;                                                                     *
+    25 FROM DynArray   IMPORT MakeArray;                                             *     *
+    26 FROM Gen        IMPORT ElmtSize, Continuation, ContinuationCount, LastReadState;          *     *     *     *     *
+    27 FROM Sets       IMPORT Select;                                                *     *
+    28 FROM SYSTEM     IMPORT ADR, TSIZE;                                            *     *     *
+    29 FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, NonTerm\     *     *     *     *     *     *
+      \inal;                                                                         *
+    30 
+    31   PROCEDURE MakeContinuation;                                                 *
+    32     VAR
+    33       state, maxState : tStateIndex;                                          *     *    23
+    34       MinProdNo : tIndex;                                                     *    22
+    35       i : tIndex;                                                             *    22
+    36       item, BestItem : tItemIndex;                                            *     *    24
+    37       prod : tProduction;                                                     *    22
+    38     BEGIN
+    39       ContinuationCount := LastReadState+1;                                  26    26
+    40       MakeArray (Continuation,ContinuationCount,ElmtSize);                   25    26    26    26
+    41       Continuation^[0] := 0;                                                 26
+    42 
+    43       (* Betrachte alle Zustaende *)
+    44 
+    45       maxState := StateIndex;                                                33    24
+    46       FOR state := 1 TO maxState DO                                          33    33
+    47       WITH StateArrayPtr^[state] DO                                          24    33
+    48         IF Kind = sRead THEN    (* Read Zustaende *)                          *     *
+    49           MinProdNo := Infinite;                                             34    22
+    50           item := Items;                                                     36     *
+    51           LOOP
+    52             IF item >= Items + Size THEN EXIT; END;                          36     *     *
+    53             WITH ItemArrayPtr^[item] DO                                      24    36
+    54             
+    55               (* Nur Terminaluebergaenge und Reduktionen *)
+    56 
+    57               IF (ItemArrayPtr^[RepNo].Rep = TermRep) OR                     24     *     *     *
+    58                  (ItemArrayPtr^[RepNo].Rep = RedRep) THEN                    24     *     *     *
+    59                 prod := ADR (ProdArrayPtr^[Prod]);                           37    28    22     *
+    60                 WITH prod^ DO                                                37
+    61                   IF ProdNo < MinProdNo THEN                                  *    34
+    62                     MinProdNo := ProdNo;                                     34     *
+    63                     BestItem := RepNo;                                       36     *
+    64                     EXIT;
+    65                   END;
+    66                 END;
+    67               END;
+    68             END;
+    69             INC (item);                                                       *    36
+    70           END;
+    71 
+    72           WITH ItemArrayPtr^[BestItem] DO                                    24    36
+    73             IF Rep = TermRep THEN                                             *     *
+    74               Continuation^[NewNumber] := Read;                              26     *     *
+    75             ELSE        (* Waehle ein beliebiges Element aus *)
+    76               Continuation^[NewNumber] := Select (Set);                      26     *    27     *
+    77             END;
+    78           END;
+    79         END;
+    80       END;
+    81       END;
+    82     END MakeContinuation;                                                    31
+    83 
+    84   PROCEDURE ValueNonterms;                                                    *
+    85     VAR
+    86       voc : Vocabulary;                                                       *    29
+    87       prod : tProduction;                                                    37    22
+    88       index,maxIndex : tProdIndex;                                            *     *    22
+    89       success : BOOLEAN;                                                      *     *
+    90       value : tIndex;                                                         *    22
+    91       i : tIndex;                                                            35    22
+    92     BEGIN
+    93       FOR voc := MINNonTerm TO MAXNonTerm DO (* initialisieren *)            86    29    29
+    94         Value[voc] := Infinite;                                               *    86    22
+    95       END;
+    96       FOR voc := MINTerm TO MAXTerm DO                                       86    29    29
+    97         Value[voc] := 1;                                                      *    86
+    98       END;
+    99       maxIndex := ProdIndex;                                                 88    23
+   100 
+   101       REPEAT 
+   102         success := FALSE;                                                    89     *
+   103         index := 0;                                                          88
+   104         WHILE index < maxIndex DO                                            88    88
+   105           prod := ADR(ProdArrayPtr^[index]);                                 87    28    22    88
+   106           value := 0;                                                        90
+   107           WITH prod^ DO                                                      87
+   108             FOR i := 1 TO Len DO                                             91     *
+   109               voc := Right[i];                                               86     *    91
+   110               IF (value = Infinite) OR (Value[voc] = Infinite) THEN          90    22     *    86    22
+   111                 value := Infinite;                                           90    22
+   112               ELSE
+   113                 INC (value,Value[voc]);                                       *    90     *    86
+   114               END;
+   115             END;
+   116             IF Value [Left] > value THEN                                      *     *    90
+   117               Value [Left] := value;                                          *     *    90
+   118               success := TRUE;                                               89     *
+   119             END;
+   120           END;
+   121           index := NextProdIndex(index);                                     88    23    88
+   122         END;
+   123       UNTIL NOT success;                                                     89
+   124     END ValueNonterms;                                                       84
+   125 
+   126 END Continue.                                                                20
+Cross reference: * is declaration, = is assignment
+
+-A-
+ ADR                             28*   59   105 
+ Automaton                       22*
+
+-B-
+ BestItem                        36*   63=   72 
+ BOOLEAN                         89 
+
+-C-
+ Continuation                    26*   40    41=   74=   76=
+ ContinuationCount               26*   39=   40 
+ Continue                        20*  126 
+
+-D-
+ DynArray                        25*
+
+-E-
+ ElmtSize                        26*   40 
+
+-F-
+ FALSE                          102 
+
+-G-
+ Gen                             26*
+
+-I-
+ i                               35*   91*  108=  109 
+ IMPLEMENTATION                  20*
+ INC                             69   113 
+ index                           88*  103=  104   105   121=  121 
+ Infinite                        22*   49    94   110   110   111 
+ item                            36*   50=   52    53    69 
+ ItemArrayPtr                    24*   53    57    58    72 
+ ItemIndex                       24*
+ Items                           50    52 
+
+-K-
+ Kind                            48 
+
+-L-
+ LastReadState                   26*   39 
+ Left                           116   117 
+ Len                            108 
+
+-M-
+ MakeArray                       25*   40 
+ MakeContinuation                31*   82 
+ maxIndex                        88*   99=  104 
+ MAXNonTerm                      29*   93 
+ maxState                        33*   45=   46 
+ MAXTerm                         29*   96 
+ MINNonTerm                      29*   93 
+ MinProdNo                       34*   49=   61    62=
+ MINTerm                         29*   96 
+
+-N-
+ NewNumber                       74    76 
+ NextProdIndex                   23*  121 
+ NonTerminal                     29*
+
+-P-
+ Prod                            59 
+ prod                            37*   59=   60    87*  105=  107 
+ ProdArrayPtr                    22*   59   105 
+ ProdIndex                       23*   99 
+ ProdNo                          61    62 
+
+-R-
+ Read                            74 
+ RedRep                          58 
+ Rep                             57    58    73 
+ RepNo                           57    58    63 
+ Right                          109 
+
+-S-
+ Select                          27*   76 
+ Set                             76 
+ Sets                            27*
+ Size                            52 
+ sRead                           48 
+ state                           33*   46=   47 
+ StateArrayPtr                   24*   47 
+ StateIndex                      24*   45 
+ success                         89*  102=  118=  123 
+ SYSTEM                          28*
+
+-T-
+ TermRep                         57    73 
+ tIndex                          22*   34    35    90    91 
+ tItemIndex                      24*   36 
+ TokenTab                        29*
+ tProdIndex                      22*   88 
+ tProduction                     22*   37    87 
+ tRep                            24*
+ TRUE                           118 
+ TSIZE                           28*
+ tStateIndex                     23*   33 
+ tStateKind                      23*
+
+-V-
+ Value                           94=   97=  110   113   116   117=
+ value                           90*  106=  110   111=  113   116   117 
+ ValueNonterms                   84*  124 
+ voc                             86*   93=   94    96=   97   109=  110   113 
+ Vocabulary                      29*   86 
+
+end cross reference, 175 occurrences of 72 identifiers.

@@ -1,0 +1,57 @@
+INSTALLLIB	= $(INSTALLGMD)/lib
+INSTALLBIN	= $(INSTALLGMD)/bin
+
+INCLUDE = .
+
+PLIB    = bnf.cat bnf.syn
+PLIBD = $(patsubst %,../lib/%,$(PLIB)) 
+
+MC	= mocka_mtc
+MLIB	= ../../reuse/gen
+FRONT	= ../../front/gen
+MOCKAFLAGS	= -noindex -norange
+MOCKALIBS = -d $(FRONT) -d $(MLIB)
+
+DEFSMC	= ArgCheck.md MakeBNF.md
+MODSMC	= ArgCheck.mi bnf.mi MakeBNF.mi
+MODULAGENS    =
+GENS    =
+
+
+DEFS = ArgCheck.md MakeBNF.md
+IMPS = ArgCheck.mi bnf.mi MakeBNF.mi
+MODULASOURCES = $(DEFS) $(IMPS) 
+OTHERSOURCES = 
+SOURCES = $(MODULESOURCES) $(OTHERSOURCES) 
+
+
+EXE     = bnf
+
+bnf:	$(MC)
+
+include $(INCLUDE)/make.include
+
+install_mocka:
+
+#install_modula:	bnf ../lib/bnf.sh $(PLIBD) $(INSTALLLIB)/lalr
+#	if test $(INSTALLLIB) = $(INSTALLBIN); then echo error: INSTALLBIN = INSTALLLIB; false; else true; fi
+#	sed 's;LIB;$(INSTALLLIB);' < ../lib/bnf.sh > $(INSTALLBIN)/bnf
+#	chmod a+rx $(INSTALLBIN)/bnf
+#	cp -p $(PLIBD) $(INSTALLLIB)/lalr
+#	install -c -s -m 755 bnf $(INSTALLLIB)/lalr
+
+# installation directories
+
+$(INSTALLLIB)/lalr:	$(INSTALLLIB)
+	sh -c "if test ! -d $(INSTALLLIB)/lalr; then mkdir $(INSTALLLIB)/lalr; else true; fi"
+
+clean:
+	rm -f core *.[dimor] *.def *.mod *.sym ERRORS LISTING _Debug *.bak
+
+
+
+
+
+
+
+

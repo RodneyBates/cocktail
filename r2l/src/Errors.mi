@@ -1,0 +1,105 @@
+(* $Id: Errors.mi,v 1.3 91/02/13 11:34:31 grosch rel Locker: grosch $ *)
+
+(* $Log:	Errors.mi,v $
+ *)
+
+(* Ich, Doktor Josef Grosch, Informatiker, Dec. 1990 *)
+
+IMPLEMENTATION MODULE Errors;
+
+FROM SYSTEM	IMPORT ADDRESS;
+FROM IO		IMPORT tFile, StdError, WriteC, WriteNl, WriteS, WriteI,
+		       WriteLong, WriteB, WriteR, CloseIO;
+FROM Sets	IMPORT tSet, IsElement, Size;
+FROM Strings	IMPORT tString;
+FROM Positions	IMPORT tPosition, WritePosition;
+
+IMPORT Strings;
+
+CONST
+   IdentUndefined	= 10	;
+   ImproperUse		= 11	;
+   IdentDefBefore	= 12	;
+   BraceMissing		= 13	;
+   UnclosedComment	= 14	;
+   PatternNoMatch	= 15	;
+
+PROCEDURE ErrorMessage	(ErrorCode, ErrorClass: CARDINAL; Position: tPosition);
+   BEGIN
+      ErrorMessageI (ErrorCode, ErrorClass, Position, None, NIL);
+   END ErrorMessage;
+
+PROCEDURE ErrorMessageI (ErrorCode, ErrorClass: CARDINAL; Position: tPosition;
+			 InfoClass: CARDINAL; Info: ADDRESS);
+   BEGIN
+      WriteErrorMessage (ErrorCode, ErrorClass, Position);
+      WriteInfo (InfoClass, Info);
+      WriteNl (StdError);
+      IF ErrorClass = Fatal THEN CloseIO; HALT; END;
+   END ErrorMessageI;
+
+PROCEDURE WriteErrorMessage (ErrorCode, ErrorClass: CARDINAL; Position: tPosition);
+   BEGIN
+      WritePosition (StdError, Position); WriteS (StdError, ": ");
+
+      CASE ErrorClass OF
+      | Fatal		: WriteS (StdError, "Fatal       ");
+      | Restriction	: WriteS (StdError, "Restriction ");
+      | Error		: WriteS (StdError, "Error       ");
+      | Warning		: WriteS (StdError, "Warning     ");
+      | Repair		: WriteS (StdError, "Repair      ");
+      | Note		: WriteS (StdError, "Note        ");
+      | Information	: WriteS (StdError, "Information ");
+      ELSE		  WriteS (StdError, "Error class: ");
+			  WriteI (StdError, ErrorClass, 0);
+      END;
+
+      CASE ErrorCode OF
+      | NoText		:
+      | SyntaxError	: WriteS (StdError, "syntax error"	);
+      | ExpectedTokens	: WriteS (StdError, "expected tokens"	);
+      | RestartPoint	: WriteS (StdError, "restart point"	);
+      | TokenInserted	: WriteS (StdError, "token inserted "	);
+      | WrongParseTable	: WriteS (StdError, "parse table mismatch"	);
+      | OpenParseTable	: WriteS (StdError, "cannot open parse table"	);
+      | ReadParseTable	: WriteS (StdError, "cannot read parse table"	);
+      | IdentUndefined	: WriteS (StdError, "identifier undefined"	);
+      | ImproperUse	: WriteS (StdError, "improper use of identifier");
+      | IdentDefBefore	: WriteS (StdError, "identifier already defined");
+      | BraceMissing	: WriteS (StdError, "closing '}' missing"	);
+      | UnclosedComment	: WriteS (StdError, "unclosed comment"		);
+      | PatternNoMatch	: WriteS (StdError, "pattern will never match"	);
+      ELSE		  WriteS (StdError, " error code: ");
+			  WriteI (StdError, ErrorCode, 0);
+      END;
+   
+   END WriteErrorMessage;
+
+PROCEDURE WriteInfo (InfoClass: CARDINAL; Info: ADDRESS);
+   VAR
+      PtrToInteger	: POINTER TO INTEGER;
+      PtrToShort	: POINTER TO SHORTCARD;
+      PtrToLong		: POINTER TO LONGINT;
+      PtrToReal		: POINTER TO REAL;
+      PtrToBoolean	: POINTER TO BOOLEAN;
+      PtrToCharacter	: POINTER TO CHAR;
+      PtrToString	: POINTER TO tString;
+      PtrToArray	: POINTER TO ARRAY [0..1023] OF CHAR;
+      PtrToSet		: POINTER TO tSet;
+   BEGIN
+      IF InfoClass = None THEN RETURN END;
+      WriteS (StdError, ": ");
+      CASE InfoClass OF
+      | Integer		: PtrToInteger	:= Info; WriteI (StdError, PtrToInteger^, 0);
+      | Short		: PtrToShort	:= Info; WriteI (StdError, PtrToShort^, 0);
+      | Long		: PtrToLong	:= Info; WriteLong (StdError, PtrToLong^, 0);
+      | Real		: PtrToReal	:= Info; WriteR (StdError, PtrToReal^, 1, 10, 1);
+      | Boolean		: PtrToBoolean	:= Info; WriteB (StdError, PtrToBoolean^);
+      | Character	: PtrToCharacter:= Info; WriteC (StdError, PtrToCharacter^);
+      | String		: PtrToString	:= Info; Strings.WriteS (StdError, PtrToString^);
+      | Array		: PtrToArray	:= Info; WriteS (StdError, PtrToArray^);
+      ELSE WriteS (StdError, "info class: "); WriteI (StdError, InfoClass, 0);
+      END;
+   END WriteInfo;
+
+END Errors.

@@ -1,0 +1,121 @@
+     1 MODULE @Drv;                                                                  *
+     2 
+     3 FROM @  IMPORT BeginScanner, GetToken, EofToken, CloseScanner, ScanTabName;         *     *     *     *     *
+     4 FROM IO         IMPORT CloseIO;                                               *     *
+     5 FROM System     IMPORT GetArgCount, GetArgument, Exit;                        *     *     *     *
+     6 FROM Strings    IMPORT tString, AssignEmpty, Assign, Append, Concatenate,     *     *     *     *     *     *
+     7                         ReadL, WriteL, ArrayToString, StringToArray;          *     *     *     *
+     8 
+     9 VAR
+    10    Token        : INTEGER;                                                    *     *
+    11    Argument     : ARRAY [0..255] OF CHAR;                                     *     *
+    12    Lib          ,                                                             *
+    13    String       ,                                                             *
+    14    PathS        : tString;                                                    *     6
+    15    i, j, n      : SHORTCARD;                                                  *     *     *     *
+    16    ch           : CHAR;                                                       *     *
+    17 
+    18 BEGIN
+    19    AssignEmpty (Lib);                                                         6    12
+    20    n := GetArgCount () - 1;                                                  15     5
+    21 
+    22    FOR i := 1 TO n DO                                                        15    15
+    23       GetArgument (i, Argument);                                              5    15    11
+    24       IF Argument [0] = '-' THEN                                             11
+    25          IF Argument [1] = 'l' THEN                                          11
+    26             AssignEmpty (Lib);                                                6    12
+    27             j := 2;                                                          15
+    28             LOOP
+    29                ch := Argument [j];                                           16    11    15
+    30                IF ch = 0C THEN EXIT; END;                                    16
+    31                Append (Lib, ch);                                              6    12    16
+    32                INC (j);                                                       *    15
+    33             END;
+    34             Append (Lib, '/');                                                6    12
+    35             DEC (n);                                                          *    15
+    36          END;
+    37       END;
+    38    END;
+    39 
+    40    ArrayToString        (ScanTabName, String);  (* name of scanner table *)         7     3    13
+    41    Assign               (PathS, Lib);                                         6    14    12
+    42    Concatenate          (PathS, String);                                      6    14    13
+    43    Append               (PathS, 0C);                                          6    14
+    44    StringToArray        (PathS, ScanTabName);                                 7    14     3
+    45    BeginScanner;                                                              3
+    46    REPEAT
+    47       Token := GetToken ();                                                  10     3
+    48    UNTIL Token = EofToken;                                                   10     3
+    49    CloseScanner;                                                              3
+    50    CloseIO;                                                                   4
+    51    Exit (0);                                                                  5
+    52 END @Drv.                                                                     1
+Cross reference: * is declaration, = is assignment
+
+-A-
+ Append                           6*   31    34    43 
+ Argument                        11*   23    24    25    29 
+ ArrayToString                    7*   40 
+ Assign                           6*   41 
+ AssignEmpty                      6*   19    26 
+
+-B-
+ BeginScanner                     3*   45 
+
+-C-
+ ch                              16*   29=   30    31 
+ CHAR                            11    16 
+ CloseIO                          4*   50 
+ CloseScanner                     3*   49 
+ Concatenate                      6*   42 
+
+-D-
+ DEC                             35 
+ Drv                              1*   52 
+
+-E-
+ EofToken                         3*   48 
+ Exit                             5*   51 
+
+-G-
+ GetArgCount                      5*   20 
+ GetArgument                      5*   23 
+ GetToken                         3*   47 
+
+-I-
+ i                               15*   22=   23 
+ INC                             32 
+ INTEGER                         10 
+ IO                               4*
+
+-J-
+ j                               15*   27=   29    32 
+
+-L-
+ Lib                             12*   19    26    31    34    41 
+
+-N-
+ n                               15*   20=   22    35 
+
+-P-
+ PathS                           14*   41    42    43    44 
+
+-R-
+ ReadL                            7*
+
+-S-
+ ScanTabName                      3*   40    44 
+ SHORTCARD                       15 
+ String                          13*   40    42 
+ Strings                          6*
+ StringToArray                    7*   44 
+ System                           5*
+
+-T-
+ Token                           10*   47=   48 
+ tString                          6*   14 
+
+-W-
+ WriteL                           7*
+
+end cross reference, 86 occurrences of 36 identifiers.

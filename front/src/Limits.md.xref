@@ -1,0 +1,34 @@
+     1 (* limits of standard data types *)
+     2 
+     3 (* $Id: Limits.md,v 1.1 1991/11/21 14:47:50 grosch rel $ *)
+     4 
+     5 (* $Log: Limits.md,v $
+c    6  * Revision 1.1  1991/11/21  14:47:50  grosch
+c    7  * new version of RCS on SPARC
+c    8  *
+c    9  * Revision 1.0  88/10/04  14:26:46  vielsack
+c   10  * Initial revision
+c   11  * 
+c   12  *)
+    13 
+    14 DEFINITION MODULE Limits;                                                     *
+    15 
+    16 CONST
+    17     MaxCard = 4294967295;                                                     *
+    18     MaxShortCard = 65535;                                                     *
+    19     MaxInt  = 2147483647;                                                     *
+    20     MinInt  = -2147483648;                                                    *
+    21 
+    22 END Limits.                                                                  14
+Cross reference: * is declaration, = is assignment
+
+-L-
+ Limits                          14*   22*
+
+-M-
+ MaxCard                         17*
+ MaxInt                          19*
+ MaxShortCard                    18*
+ MinInt                          20*
+
+end cross reference, 6 occurrences of 5 identifiers.

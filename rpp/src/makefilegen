@@ -1,0 +1,56 @@
+ifndef INSTALLGMD
+  INSTALLGMD=/usr/local
+endif
+export INSTALLGMD
+
+INSTALLBIN	= $(INSTALLGMD)/bin
+INSTALLLIB	= $(INSTALLGMD)/lib
+
+BIN = ../../bintobuildwith
+REX = $(BIN)/rex
+
+MAKEINCLUDE = .
+MC      = mocka_mtc
+MOCKAFLAGS = 
+MOCKALIBS = -d ../../reuse/gen
+
+MODULAGENS    = Scanner.md Scanner.mi 
+OTHERGENS     = Scanner.Tab 
+GENS          = $(MODULAGENS) $(OTHERGENS)
+
+MODULASOURCES = rpp.mi
+
+OTHERSOURCES = rpp.rex 
+
+SOURCES = $(MODULASOURCES) $(OTHERSOURCES)
+
+EXE     = rpp
+
+include $(MAKEINCLUDE)/make.include
+
+# Generated sources:
+
+Scanner.md Scanner.mi Scanner.Tab:	../src/rpp.rex
+	$(REX) -d ../src/rpp.rex;
+
+install_mocka:
+
+install_modula:
+
+#install_modula:	rpp rpp.sh Scanner.Tab $(INSTALLLIB)/rpp
+#	if test $(INSTALLLIB) = $(INSTALLBIN); then echo error: INSTALLBIN = INSTALLLIB; false; else true; fi
+#	sed 's;LIB;$(INSTALLLIB);g' < rpp.sh > $(INSTALLBIN)/rpp
+#	chmod a+rx $(INSTALLBIN)/rpp
+#	install -c -s -m 755 rpp $(INSTALLLIB)/rpp
+#	install -c -m 644 Scanner.Tab $(INSTALLLIB)/rpp
+
+# installation directories
+
+#$(INSTALLLIB)/rpp:	$(INSTALLLIB)
+#	sh -c "if test ! -d $(INSTALLLIB)/rpp; then mkdir $(INSTALLLIB)/rpp; else true; fi"
+
+clean:
+	rm -f *.[dimor] rpp $(GENS)
+
+CLEAN:	clean
+	rm -f S*.m? Scanner.Tab

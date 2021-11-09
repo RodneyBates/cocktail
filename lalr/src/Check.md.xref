@@ -1,0 +1,49 @@
+     1 (* check and repair inconsitences *)
+     2 
+     3 (* $Id: Check.md,v 1.3 1991/11/21 14:53:14 grosch rel $ *)
+     4 
+     5 (* $Log: Check.md,v $
+c    6  * Revision 1.3  1991/11/21  14:53:14  grosch
+c    7  * new version of RCS on SPARC
+c    8  *
+c    9  * Revision 1.2  90/06/12  16:53:42  grosch
+c   10  * renamed main program to lalr, added { } for actions, layout improvements
+c   11  * 
+c   12  * Revision 1.1  89/05/02  14:34:00  vielsack
+c   13  * new option: -v (verbose)
+c   14  * 
+c   15  * Revision 1.0  88/10/04  14:35:54  vielsack
+c   16  * Initial revision
+c   17  * 
+c   18  *)
+    19 
+    20 DEFINITION MODULE Check;                                                      *
+    21 
+    22   VAR Verbose: BOOLEAN;                                                       *     *
+    23 
+    24   PROCEDURE CheckForConflicts (VAR ok: BOOLEAN);                              *     *     *
+    25 
+    26   (* Pruefe ob die Zustaende Konflikte beinhalten,
+c   27      so weit moeglich werden Konflikte mit Hilfe von
+c   28      Prioritaeten und Assoziativitaeten geloest,
+c   29      falls keine Korektur moeglich ist wird ok auf FALSE gesetzt
+c   30      einer Fehlermeldung beendet, sonst steht ein konfliktfreier
+c   31      Automat zur Auswertung zur Verfuegung *)
+    32 
+    33 END Check.                                                                   20
+Cross reference: * is declaration, = is assignment
+
+-B-
+ BOOLEAN                         22    24 
+
+-C-
+ Check                           20*   33*
+ CheckForConflicts               24*
+
+-O-
+ ok                              24*
+
+-V-
+ Verbose                         22*
+
+end cross reference, 7 occurrences of 5 identifiers.

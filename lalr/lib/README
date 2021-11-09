@@ -1,0 +1,9 @@
+Skeletons used by Lalr
+======================
+
+The skeletons must be installed in the same Directory (LIB) as
+the generator lalr itself.
+
+to install the skeletons use:
+
+	make install LIB=..

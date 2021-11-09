@@ -1,0 +1,5 @@
+ABIN=`abspath $0`
+ADIR=`dirname $ABIN`
+LIB=`abspath $ADIR/../../lalr/lib`
+echo 1>&2 "running bnf from $LIB"
+exec $LIB/bnf $*

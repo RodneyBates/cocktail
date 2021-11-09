@@ -1,0 +1,550 @@
+
+(* Ich, Doktor Josef Grosch, Informatiker, April 1991 *)
+(* Modified Rodney M. Bates 
+      Feb 96 to generate Ada code. (-A switch)
+      Feb 96 to allow too few positional patterns (-g switch)  
+      7-96   Allow a label alone (i.e. which matched anything) in a pattern  
+             to be followed by ( ':' | ':>' ) [ '_' ]. 
+             Also add a switch (-u) to require the ( ':' | ':>' ) . 
+      Oct 96 Add -j switch to help message.  This makes puma recognize
+             unqualified names of children and attributes of a node
+             matched by a decompose pattern.  
+      Dec 96 Add -4 switch to write post-semantics data structure to 
+             std output. 
+             Add -5 switch to write post-optimized data structure to 
+             std output. 
+*) 
+
+MODULE puma;
+
+FROM System     IMPORT GetArgCount, GetArgument, System, Exit;
+FROM Memory     IMPORT MemoryUsed;
+FROM IO         IMPORT StdOutput, StdError, WriteOpen, WriteClose, CloseIO,
+                        WriteI, WriteS, WriteNl,
+                        tFile, ReadOpen, ReadClose, EndOfFile, ReadNl;
+FROM Strings    IMPORT tString, AssignEmpty, Assign, Append, Concatenate,
+                        ReadL, WriteL, ArrayToString, StringToArray;
+FROM Idents     IMPORT tIdent, MakeIdent, GetString, WriteIdent;
+FROM Sets       IMPORT tSet, MakeSet, ReleaseSet, Include, Exclude, IsEmpty,
+                        Extract, Complement, Union, IsElement;
+FROM Errors     IMPORT StoreMessages, WriteMessages;
+FROM Scanner    IMPORT ScanTabName, BeginFile, ErrorI;
+FROM Parser     IMPORT Parser, ParsTabName;
+FROM Tree       IMPORT NoTree, tTree, TreeRoot, HeapUsed, Options, SourceFile, f,
+                        WI, mNoClass, TreeName, ErrorCount, Class, Child, Attribute, 
+                        ActionPart, NoClass, Test, Dummy, ForallClasses, ForallAttributes,
+                        QueryTree, WriteTree;
+FROM Tree2      IMPORT GetTree2;
+FROM Semantics  IMPORT Semantics, TypeCount, TypeNames, UserTypes, RemoveTreeTypes;
+FROM Optimize   IMPORT Optimize, RuleProperties;
+FROM Mod        IMPORT DefMod, ImplMod, MacroMod;
+FROM Ada        IMPORT PackSpec , PackBody , MacroAda ; 
+FROM C          IMPORT DefC, ImplC, MacroC;
+
+CONST
+   DefExtMc     = ".md" ;       (* file extensions for Modula (mc)      *)
+   ImpExtMc     = ".mi" ;
+   LisExtMc     = ".imp";
+
+   DefExtAda    = ".ads";       (* file extensions for Ada      *)
+   ImpExtAda    = ".adb";
+
+   DefExtC      = ".h"  ;       (* file extensions for C                *)
+   ImpExtC      = ".c"  ;
+
+VAR
+   PumaLib      ,
+   TrafoFile    ,
+   String       ,
+   PathS        : tString;
+   Argument     ,
+   PathA        : ARRAY [0..255] OF CHAR;
+   i, j, n      : SHORTCARD;
+   ch           : CHAR;
+   Node         : tTree;
+
+PROCEDURE SmartOpen (FileName: tString): tFile;
+   VAR PathS: tString;
+   BEGIN
+      IF IsElement (ORD ('7'), Options) THEN
+         ArrayToString  ("yy", PathS);
+         Concatenate    (PathS, FileName);
+         Append         (PathS, 0C);
+         StringToArray  (PathS, PathA);
+      ELSE
+         Append         (FileName, 0C);
+         StringToArray  (FileName, PathA);
+      END;
+      RETURN WriteOpen  (PathA);
+   END SmartOpen;
+
+PROCEDURE SmartClose (FileName: tString; f: tFile);
+   VAR PathS: tString;
+   BEGIN
+      WriteClose        (f);
+      IF IsElement (ORD ('7'), Options) THEN
+         ArrayToString  ("gmdupd ", PathS);
+         Concatenate    (PathS, FileName);
+         ArrayToString  (" yy", String);
+         Concatenate    (PathS, String);
+         Concatenate    (PathS, FileName);
+         Append         (PathS, 0C);
+         StringToArray  (PathS, PathA);
+         n := System    (PathA);
+      END;
+   END SmartClose;
+
+PROCEDURE GenerateMacros;
+   VAR TypeTabFile      : tFile;
+   VAR s                : tString;
+   VAR i                : tIdent;
+   VAR j                : INTEGER;
+   BEGIN
+   IF IsElement (ORD ('c'), Options) THEN
+      ArrayToString     ("TypeTab.c", String);  (* name of type table for C *)
+   ELSIF IsElement (ORD ('A'), Options) THEN
+      ArrayToString     ("TypeTab.a", String);  (* name of type table for C *)
+   ELSE
+      ArrayToString     ("TypeTab.m", String);  (* name of type table for Modula *)
+   END;
+      Assign            (PathS, PumaLib);
+      Concatenate       (PathS, String);
+      Append            (PathS, 0C);
+      StringToArray     (PathS, PathA);
+      TypeTabFile := ReadOpen (PathA);
+
+      ArrayToString     ("yy" , PathS);         (* name of macro file *)
+      GetString         (TreeRoot^.Spec.TrafoName, String);
+      Concatenate       (PathS, String);
+      ArrayToString     (".w", String);
+      Concatenate       (PathS, String);
+      Append            (PathS, 0C);
+      StringToArray     (PathS, PathA);
+      f := WriteOpen (PathA);
+
+      WHILE NOT EndOfFile (TypeTabFile) DO
+         ReadL (TypeTabFile, s);
+         i := MakeIdent (s);
+         IF (i <= TypeCount) AND IsElement (i, TypeNames) THEN
+            Exclude (TypeNames, i);
+            WriteS (f, "# ifndef begin"); WI (i); WriteNl (f);
+            ReadL (TypeTabFile, s); WriteL (f, s);
+            WriteS (f, "# endif"); WriteNl (f);
+            FOR j := 2 TO 7 DO ReadNl (TypeTabFile); END;
+            WriteS (f, "# ifndef equal"); WI (i); WriteNl (f);
+            ReadL (TypeTabFile, s); WriteL (f, s);
+            WriteS (f, "# endif"); WriteNl (f);
+         ELSE
+            FOR j := 1 TO 8 DO ReadNl (TypeTabFile); END;
+         END;
+      END;
+      ReadClose (TypeTabFile);
+      RemoveTreeTypes (TreeRoot);
+
+      WHILE NOT IsEmpty (TypeNames) DO
+         i := Extract (TypeNames);
+         Include (UserTypes, i);
+   IF IsElement (ORD ('c'), Options) THEN
+         WriteS (f, "# ifndef begin"); WI (i); WriteNl (f);
+         WriteS (f, "# define begin"); WI (i); WriteS (f, "(a)"); WriteNl (f);
+         WriteS (f, "# endif"); WriteNl (f);
+         WriteS (f, "# ifndef equal"); WI (i); WriteNl (f);
+         WriteS (f, "# define equal"); WI (i); WriteS (f, "(a, b)       memcmp ((char *) & a, (char *) & b, sizeof (a)) == 0"); WriteNl (f);
+         WriteS (f, "# endif"); WriteNl (f);
+   ELSIF IsElement (ORD ('A'), Options) THEN
+         WriteS (f, "# ifndef begin"); WI (i); WriteNl (f);
+         WriteS (f, "# define begin"); WI (i); WriteS (f, "(a)"); WriteNl (f);
+         WriteS (f, "# endif"); WriteNl (f);
+         WriteS (f, "# ifndef equal"); WI (i); WriteNl (f);
+         WriteS (f, "# define equal"); WI (i); WriteS (f, "(a, b) ( a ) = ( b ) "); WriteNl (f);
+         WriteS (f, "# endif"); WriteNl (f);
+   ELSE
+         WriteS (f, "# ifndef begin"); WI (i); WriteNl (f);
+         WriteS (f, "# define begin"); WI (i); WriteS (f, "(a)"); WriteNl (f);
+         WriteS (f, "# endif"); WriteNl (f);
+         WriteS (f, "# ifndef equal"); WI (i); WriteNl (f);
+         WriteS (f, "# define equal"); WI (i); WriteS (f, "(a, b)       yyIsEqual (a, b)"); WriteNl (f);
+         WriteS (f, "# endif"); WriteNl (f);
+   END;
+      END;
+
+   IF IsElement (ORD ('c'), Options) THEN
+      MacroC (TreeRoot);
+   ELSIF IsElement (ORD ('A'), Options) THEN
+      MacroAda (TreeRoot);
+   ELSE
+      MacroMod (TreeRoot);
+   END;
+
+      WriteClose (f);
+   END GenerateMacros;
+
+VAR IndentLevel: INTEGER;
+
+PROCEDURE WriteClass (t: tTree);
+   VAR i: INTEGER;
+   BEGIN
+      CASE t^.Kind OF
+      | Class   : WITH t^.Class DO
+            FOR i := 1 TO IndentLevel DO
+               WriteS   (StdOutput, "   ");
+            END;
+            WriteIdent  (StdOutput, Name);
+            WriteS      (StdOutput, "   =");
+            WriteClass  (Attributes);
+            IF Extensions^.Kind # NoClass THEN
+               WriteS   (StdOutput, " <");
+               WriteNl  (StdOutput);
+               INC (IndentLevel);
+               WriteClass (Extensions);
+               DEC (IndentLevel);
+               FOR i := 1 TO IndentLevel DO
+                  WriteS (StdOutput, "   ");
+               END;
+               WriteS   (StdOutput, ">");
+            END;
+            WriteS      (StdOutput, " .");
+            WriteNl     (StdOutput);
+            WriteClass  (Next);
+         END;
+      | Child   : WITH t^.Child DO
+            WriteS      (StdOutput, " ");
+            WriteIdent  (StdOutput, Name);
+            WriteS      (StdOutput, ": ");
+            WriteIdent  (StdOutput, Type);
+            WriteClass  (Next);
+         END;
+      | Attribute       : WITH t^.Attribute DO
+         IF ({Test, Dummy} * Properties) = {} THEN
+            WriteS      (StdOutput, " [");
+            WriteIdent  (StdOutput, Name);
+            WriteS      (StdOutput, ": ");
+            WriteIdent  (StdOutput, Type);
+            WriteS      (StdOutput, "]");
+         END;
+            WriteClass  (Next);
+         END;
+      | ActionPart      : WITH t^.ActionPart DO
+            WriteClass  (Next);
+         END;
+      ELSE
+      END;
+   END WriteClass;
+
+VAR IsFirst: BOOLEAN;
+
+PROCEDURE WritePattern (t: tTree);
+   BEGIN
+      CASE t^.Kind OF
+      | Class   : WITH t^.Class DO
+            WriteIdent  (StdOutput, Name);
+            WriteS      (StdOutput, " (");
+            IsFirst := TRUE;
+            ForallAttributes (t, WritePattern);
+            WriteS      (StdOutput, ")");
+            WriteNl     (StdOutput);
+         END;
+      | Child   : WITH t^.Child DO
+            IF IsFirst THEN
+               IsFirst := FALSE;
+            ELSE
+               WriteS   (StdOutput, ", ");
+            END;
+            WriteIdent  (StdOutput, Name);
+            WriteS      (StdOutput, ":");
+            WriteIdent  (StdOutput, Type);
+         END;
+      | Attribute       : WITH t^.Attribute DO
+         IF ({Test, Dummy} * Properties) = {} THEN
+            IF IsFirst THEN
+               IsFirst := FALSE;
+            ELSE
+               WriteS   (StdOutput, ", ");
+            END;
+            WriteIdent  (StdOutput, Name);
+         END;
+         END;
+      ELSE
+      END;
+   END WritePattern;
+
+BEGIN
+   IndentLevel := 0;
+   AssignEmpty (PumaLib);
+   SourceFile [0] := 0C;
+   n := GetArgCount () - 1;
+
+   FOR i := 1 TO n DO
+      GetArgument (i, Argument);
+      IF Argument [0] = '-' THEN 
+         IF Argument [1] = 'l' THEN 
+            AssignEmpty (PumaLib);
+            j := 2;
+            LOOP
+               ch := Argument [j];
+               IF ch = 0C THEN EXIT; END;
+               Append (PumaLib, ch);
+               INC (j);
+            END;
+            Append (PumaLib, '/');
+            DEC (n);
+         ELSE
+            j := 0;
+            LOOP
+               INC (j);
+               ch := Argument [j];
+               IF ch = 0C THEN
+                  EXIT;
+               ELSIF ch = '?' THEN
+                  Include (Options, ORD ('h'));
+               ELSIF ch = 'c' THEN
+                  Include (Options, ORD ('c'));
+                  Exclude (Options, ORD ('A'));
+               ELSIF ch = 'A' THEN
+                  Include (Options, ORD ('A'));
+                  Exclude (Options, ORD ('c'));
+               ELSE
+                  Include (Options, ORD (ch));
+               END;
+            END;
+         END;
+      ELSIF Argument [0] = '?' THEN 
+         Include (Options, ORD ('h'));
+      ELSE
+         j := 0;
+         REPEAT
+            ch := Argument [j];
+            SourceFile [j] := ch;
+            INC (j);
+         UNTIL ch = 0C;
+         DEC (n);
+      END;
+   END;
+
+   IF n < 1 THEN                                (* {} -> a              *)
+      Include (Options, ORD ('a'));
+   END;
+
+   IF IsElement (ORD ('a'), Options) THEN       (* a -> {d, i}          *)
+      Include (Options, ORD ('d'));
+      Include (Options, ORD ('i'));
+   END;
+
+   IF IsElement (ORD ('h'), Options) THEN
+      Exclude (Options, ORD ('h'));
+      f := StdOutput;
+      WriteNl (f);
+      WriteS (f, "usage: puma [-options] [-ldir] [file]"); WriteNl (f);
+      WriteNl (f);
+      WriteS (f, " a generate all, same as -di (default)"); WriteNl (f);
+      WriteS (f, " d generate definition     module"); WriteNl (f);
+      WriteS (f, " i generate implementation module"); WriteNl (f);
+      WriteS (f, " s suppress warnings"); WriteNl (f);
+      WriteS (f, " m use procedure MakeTREE to construct nodes (default is inline code)"); WriteNl (f);
+      WriteS (f, " p allow node constructors without parentheses"); WriteNl (f);
+      WriteS (f, " f signal a runtime error if none of the rules of a procedure matches"); WriteNl (f);
+      WriteS (f, " k allow non-linear patterns"); WriteNl (f);
+      WriteS (f, " n check parameters for NoTREE (NIL) and treat as failure (tg compatibility)"); WriteNl (f);
+      WriteS (f, " w surround actions by WITH statements (Modula2), or DECLARE"); WriteNl (f);
+      WriteS (f, "   blocks with renames (Ada) (tg compatibility)"); WriteNl (f);
+      WriteS (f, " e treat undefined names as error"); WriteNl (f);
+      WriteS (f, " v treat undefined names as warning"); WriteNl (f);
+      WriteS (f, " b suppress optimization of multiple IFs into CASE statements"); WriteNl (f);
+      WriteS (f, " o list undefined names on standard output"); WriteNl (f);
+      WriteS (f, " t print tree definitions"); WriteNl (f);
+      WriteS (f, " r print patterns"); WriteNl (f);
+      WriteS (f, " q browse internal data structure"); WriteNl (f);
+      WriteS (f, " g allow too few positional patterns in a rule"); WriteNl (f);
+      WriteS (f, " u require ':' or ':>' after label"); WriteNl (f);
+      WriteS (f, " 3 write puma internal data structure to std output, before semantics."); WriteNl (f);
+      WriteS (f, " 4 write puma internal data structure to std output, after semantics."); WriteNl (f);
+      WriteS (f, " 5 write puma internal data structure to std output, after optimize/RuleProperties."); WriteNl (f);
+      WriteS (f, " 6 generate # line directives"); WriteNl (f);
+      WriteS (f, " 7 touch output files only if necessary"); WriteNl (f);
+      WriteS (f, " 8 report storage consumption"); WriteNl (f);
+      WriteS (f, " A generate Ada code (default is Modula-2)"); WriteNl (f);
+      WriteS (f, " c generate C code (default is Modula-2)"); WriteNl (f);
+      WriteS (f, " K keep macro file and cpp input"); WriteNl (f);
+      WriteS (f, " j recognize unqualified names of children of decompose patterns"); WriteNl (f);
+      WriteS (f, " h print help information"); WriteNl (f);
+      WriteS (f, " -ldir specify the directory dir where puma finds its tables"); WriteNl (f);
+      WriteNl (f);
+   END;
+
+   IF IsEmpty (Options) THEN CloseIO; HALT; END;
+
+      ArrayToString     (ScanTabName, String);  (* name of scanner table *)
+      Assign            (PathS, PumaLib);
+      Concatenate       (PathS, String);
+      Append            (PathS, 0C);
+      StringToArray     (PathS, ScanTabName);
+
+      ArrayToString     (ParsTabName, String);  (* name of parser table *)
+      Assign            (PathS, PumaLib);
+      Concatenate       (PathS, String);
+      Append            (PathS, 0C);
+      StringToArray     (PathS, ParsTabName);
+
+      StoreMessages (TRUE);
+      IF SourceFile [0] # 0C THEN BeginFile (SourceFile); END;
+      INC (ErrorCount, Parser ());
+
+      Node := TreeRoot^.Spec.TreeNames;
+      WHILE Node^.Kind = TreeName DO
+         GetString      (Node^.TreeName.Name, PathS);
+         ArrayToString  (".TS", String);
+         Concatenate    (PathS, String);
+         Append         (PathS, 0C);
+         StringToArray  (PathS, PathA);
+         f := ReadOpen  (PathA);
+         IF f >= 0 THEN
+            ReadL (f, String); Node^.TreeName.Name := MakeIdent (String);
+            Node^.TreeName.Classes := GetTree2 (f);
+            ReadClose   (f);
+   IF IsElement (ORD ('t'), Options) THEN
+            WriteS (StdOutput, "Tree Definition: "); WriteIdent (StdOutput, Node^.TreeName.Name);
+            WriteNl (StdOutput);
+            WriteS (StdOutput, "----------------"); WriteNl (StdOutput);
+            WriteNl (StdOutput);
+            WriteClass (Node^.TreeName.Classes);
+            WriteNl (StdOutput);
+   END;
+   IF IsElement (ORD ('r'), Options) THEN
+            WriteS (StdOutput, "Patterns: "); WriteIdent (StdOutput, Node^.TreeName.Name);
+            WriteNl (StdOutput);
+            WriteS (StdOutput, "---------"); WriteNl (StdOutput);
+            WriteNl (StdOutput);
+            ForallClasses (Node^.TreeName.Classes, WritePattern);
+            WriteNl (StdOutput);
+   END;
+         ELSE
+            Node^.TreeName.Classes := mNoClass ();
+            ErrorI ("cannot read view file", Node^.TreeName.Pos, Node^.TreeName.Name);
+         END;
+         Node := Node^.TreeName.Next;
+      END;
+   IF IsElement (ORD ('3'), Options) THEN
+      WriteS ( StdOutput, "puma data structure, before semantics:");
+      WriteNl (StdOutput);
+      WriteTree         (StdOutput,TreeRoot);
+      WriteS ( StdOutput, "End puma data structure.");
+      WriteNl (StdOutput);
+   END;
+
+      Semantics (TreeRoot);
+   IF IsElement (ORD ('4'), Options) THEN
+      WriteS ( StdOutput, "puma data structure, after semantics:");
+      WriteNl (StdOutput);
+      WriteTree         (StdOutput,TreeRoot);
+      WriteS ( StdOutput, "End puma data structure.");
+      WriteNl (StdOutput);
+   END;
+
+   IF IsElement (ORD ('b'), Options) THEN
+      RuleProperties    (TreeRoot);
+   ELSE
+      Optimize          (TreeRoot);
+   END;
+
+      WriteMessages (StdError);
+
+   IF IsElement (ORD ('q'), Options) THEN
+      QueryTree         (TreeRoot);
+   END;
+
+   IF IsElement (ORD ('5'), Options) THEN
+      WriteS 
+        ( StdOutput, "puma data structure, after optimize/RuleProperties:");
+      WriteNl (StdOutput);
+      WriteTree         (StdOutput,TreeRoot);
+      WriteS ( StdOutput, "End puma data structure.");
+      WriteNl (StdOutput);
+   END;
+
+      IF ErrorCount > 0 THEN CloseIO; Exit (1); END;
+      GenerateMacros;
+
+   IF IsElement (ORD ('d'), Options) THEN
+      GetString         (TreeRoot^.Spec.TrafoName, PathS);
+   IF IsElement (ORD ('c'), Options) THEN
+      ArrayToString     (DefExtC , String);
+   ELSIF IsElement (ORD ('A'), Options) THEN
+      ArrayToString     (DefExtAda , String);
+   ELSE
+      ArrayToString     (DefExtMc, String);
+   END;
+      Concatenate       (PathS, String);
+      f := SmartOpen    (PathS);
+   IF IsElement (ORD ('c'), Options) THEN
+      DefC              (TreeRoot);
+   ELSIF IsElement (ORD ('A'), Options) THEN
+      PackSpec          (TreeRoot);
+   ELSE
+      DefMod            (TreeRoot);
+   END;
+      SmartClose        (PathS, f);
+   END;
+
+   IF IsElement (ORD ('i'), Options) THEN
+      GetString         (TreeRoot^.Spec.TrafoName, PathS);
+   IF IsElement (ORD ('c'), Options) THEN
+      ArrayToString     (ImpExtC , String);
+   ELSIF IsElement (ORD ('A'), Options) THEN
+      ArrayToString     (ImpExtAda , String);
+   ELSE
+      ArrayToString     (ImpExtMc, String);
+   END;
+      Concatenate       (PathS, String);
+      Assign            (TrafoFile, PathS);
+      f := SmartOpen    (PathS);
+   IF IsElement (ORD ('c'), Options) THEN
+      ImplC             (TreeRoot);
+   ELSIF IsElement (ORD ('A'), Options) THEN
+      PackBody            (TreeRoot);
+   ELSE
+      ImplMod           (TreeRoot);
+   END;
+      SmartClose        (PathS, f);
+
+   IF NOT IsElement (ORD ('c'), Options) THEN 
+      IF IsElement ( ORD ( 'K' ) , Options ) 
+      THEN
+        ArrayToString ( "cp -p " , PathS ) ; 
+        Concatenate ( PathS , TrafoFile ) ; 
+        ArrayToString ( " " , String ) ; 
+        Concatenate ( PathS , String ) ; 
+        Concatenate ( PathS , TrafoFile ) ; 
+        ArrayToString ( ".precpp" , String ) ; 
+        Concatenate ( PathS , String ) ; 
+        StringToArray     (PathS, PathA);
+        n := System       (PathA);
+      END (* IF *) ;  
+      ArrayToString     ("gmdcpp ", PathS);             (* call cpp *)
+      Concatenate       (PathS, TrafoFile);
+      Append            (PathS, 0C);
+      StringToArray     (PathS, PathA);
+      n := System       (PathA);
+
+   IF NOT IsElement ( ORD ( 'K' ) , Options ) 
+   THEN
+      ArrayToString     ("gmdrm yy" , PathS);           (* name of macro file *)
+      GetString         (TreeRoot^.Spec.TrafoName, String);
+      Concatenate       (PathS, String);
+      ArrayToString     (".w", String);
+      Concatenate       (PathS, String);
+      Append            (PathS, 0C);
+      StringToArray     (PathS, PathA);
+      n := System       (PathA);
+   END; 
+   END;
+   END;
+
+   IF IsElement (ORD ('8'), Options) THEN
+      WriteNl (StdError);
+      WriteS  (StdError, "Memory"); WriteI (StdError, MemoryUsed, 8);
+      WriteS  (StdError, "  Heap"); WriteI (StdError, HeapUsed  , 8);
+      WriteNl (StdError);
+   END;
+   CloseIO; Exit (0);
+END puma.
+

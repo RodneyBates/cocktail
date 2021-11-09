@@ -1,0 +1,118 @@
+# Makefile for mpp/mtc RMB 10/93.
+
+INSTALLLIB	= $(INSTALLGMD)/lib
+INSTALLBIN	= $(INSTALLGMD)/bin
+
+INCLUDE = .
+
+REUSE   = ../../reuse
+COMMON  = ../../common
+
+REUSEMTC = $(REUSE)/mtc
+COMMONMTC = $(COMMON)/mtc
+
+EXE     = mpp
+
+CC	= cc
+ 
+OPT     = -O0 -g
+
+BIN = ../../bintobuildwith
+MTC = $(BIN)/mtc
+
+                # C libraries
+CLIBS	= $(REUSEMTC)/libreuse.a $(COMMONMTC)/libcommon.a
+
+                # options for cc
+CFLAGS	= -w -I$(REUSEMTC) -I$(COMMONMTC) $(OPT)
+
+                # options for mtc
+M2FLAGS	= -c -d$(REUSEMTC) -d$(COMMONMTC)
+
+SYSTEM_	= SYSTEM_.o
+
+SYSTEM  = $(CLIBS)
+
+#include $(INCLUDE)/make.include
+
+cleancompile: cleanmtc
+	rm -f *.o $(EXE)
+
+compile: $(EXE)
+
+mtc_only : sources
+
+install:	mpp ../lib/mpp.sh ../gen/Parser.Tab $(INSTALLLIB)/mpp
+	if test $(INSTALLLIB) = $(INSTALLBIN); then echo error: INSTALLINSTALLBIN = INSTALLLIB; false; else true; fi
+	sed 's;LIB;$(INSTALLLIB);' < ../lib/mpp.sh > $(INSTALLBIN)/mpp
+	chmod a+rx $(INSTALLBIN)/mpp
+	install -c -s -m 755 mpp $(INSTALLLIB)/mpp
+	install -c -m 644 ../gen/Parser.Tab $(INSTALLLIB)/mpp
+
+# installation directories
+
+$(INSTALLLIB)/mpp:	$(INSTALLLIB)
+	sh -c "if test ! -d $(INSTALLLIB)/mpp; then mkdir $(INSTALLLIB)/mpp; else true; fi"
+
+$(INSTALLLIB):	
+	sh -c "if test ! -d $(INSTALLLIB); then mkdir $(INSTALLLIB); else true; fi"
+
+$(INSTALLBIN):	
+	sh -c "if test ! -d $(INSTALLBIN); then mkdir $(INSTALLBIN); else true; fi"
+
+all	:
+
+# HEAD
+
+sources	: Parser.h
+
+sources	: Parser.c
+Parser.o	: Parser.c Parser.h
+Parser.o	: Scanner.h
+Parser.o	: Scanner.h
+Parser.o	: Table.h
+
+sources	: Scanner.h
+
+sources	: Scanner.c
+Scanner.o	: Scanner.c Scanner.h
+
+sources	: Table.h
+
+sources	: Table.c
+Table.o	: Table.c Table.h
+
+sources	: mpp.c
+all	: mpp
+mpp.o	: mpp.c
+mpp.o	: Parser.h
+
+#SYSTEM_.o	: SYSTEM_.c SYSTEM_.h
+
+mpp	: $(SYSTEM)	\
+	mpp.o	\
+	Parser.o	\
+	Table.o	\
+	Scanner.o	\
+;	$(CC) $(CFLAGS) -o mpp $(SYSTEM)	\
+	mpp.o	\
+	Parser.o	\
+	Table.o	\
+	Scanner.o	\
+	$(CLIBS)
+
+# TAIL
+
+clean	:
+	rm -f core *.o
+
+.SUFFIXES: .md .mi .h .c .o
+
+.mi.c:
+	$(MTC) $(M2FLAGS) $*.mi;
+
+.md.h:
+	$(MTC) $(M2FLAGS) $*.md;
+
+.c.o:
+	$(CC) $(CFLAGS) -c $*.c

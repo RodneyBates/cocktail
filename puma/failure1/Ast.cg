@@ -1,0 +1,44 @@
+
+(* ***************** (C) Copyright Notice **************)
+(*-----------------------------------------------------*)
+(* (C) Copyright Boeing Company, 1996. ----------------*)
+(*     All rights reserved.            ----------------*)
+(*-----------------------------------------------------*)
+
+(* This file was mechanically generated from an        *)
+(* abstract syntax specification.                      *)
+
+(* File Ast.cg                                      *)
+
+TREE Ast VIEW Ast 
+
+  SPECWITH 
+    { 
+    } (* End of SPECWITH *) 
+
+  IMPORT 
+    { 
+    } (* End of IMPORT *) 
+
+  EXPORT 
+    { 
+    } (* End of EXPORT *) 
+
+MODULE Skeleton 
+
+  PROPERTY INPUT 
+
+  RULE 
+
+    AstNode 
+      = < AstNodeKindNull = . 
+          AstNodeKindLast = . 
+          AstNodeKindGen 
+            = < 
+              > . 
+        > . 
+
+END Skeleton 
+
+(* End of file Ast.cg *)
+

@@ -1,0 +1,1322 @@
+(* $Id: Parser.mi,v 2.8 1992/08/12 06:54:05 grosch rel $ *)
+
+IMPLEMENTATION MODULE Parser;
+
+IMPORT SYSTEM, Scanner, Positions, Errors, Strings, DynArray, Sets, System;
+
+(* line 4 "/tmp/lalr21012" *)
+(* line 3 cg.lalr *)
+
+
+FROM StringMem	IMPORT GetString;
+FROM Strings	IMPORT tString, SubString, Length, ArrayToString, IntToString, Concatenate;
+FROM Idents	IMPORT tIdent, NoIdent, MakeIdent;
+FROM Texts	IMPORT MakeText;
+FROM Scanner	IMPORT BeginScanner, tScanAttribute, Attribute;
+FROM Positions	IMPORT NoPosition;
+
+IMPORT Idents;
+
+FROM Tree	IMPORT
+   iInteger	, Reverse	, MakeTree	, Input		,
+   Output	, Synthesized	, Inherited	, String	,
+   Nonterminal	, Terminal	, Explicit	, HasSelector	,
+   Thread	, Virtual	, Stack		, Demand	,
+   Funct	, Ignore	, Abstract	, nNoAction	,
+   nNoProp	, nNoAttribute	, nNoClass	, nNoDecl	,
+   nNoDesignator, nNoLayout	, nNoModule	, nNoName	,
+   nNoPrec	, NoTree	, tTree		, TreeRoot	, ViewName	,
+   SubUnit	, mAg		, mClass	, mChild	,
+   mAttribute	, mActionPart	, mLeftAssoc	, mRightAssoc	,
+   mNonAssoc	, mAssign	, mCopy		, mTargetCode	,
+   mOrder	, mCheck	, mDesignator	, mIdent	, mRemote	,
+   mAny		, mAnys		, mLayoutAny	, mModule	,
+   mDecl	, mName		, mProp		, mSelect	,
+   ReverseTree	, BeginTree	, Codes		, CloseTree	;
+
+TYPE
+   tParsAttribute = RECORD
+      CASE : INTEGER OF
+      | 1: Scan		: Scanner.tScanAttribute;
+           Properties	: BITSET;
+      | 2: Tree		: tTree;
+	   Ident	: tIdent;
+      END;
+   END;
+
+VAR
+   Properties, InitProperties	: BITSET;
+   String1, String2		: tString;
+   ClassCount			: INTEGER;
+   i				: CARDINAL;
+   ClassIdent, ModuleIdent	: tIdent;
+   ParserName, TreeName, EvalName: tIdent;
+
+PROCEDURE mCodes (): tTree;
+   VAR t: tTree;
+   BEGIN
+      t := MakeTree (Codes);
+      WITH t^.Codes DO
+	 MakeText (Export);
+	 MakeText (Import);
+	 MakeText (Global);
+	 MakeText (Local);
+	 MakeText (Begin);
+	 MakeText (Close);
+	 ExportLine := NoPosition;
+	 ImportLine := NoPosition;
+	 GlobalLine := NoPosition;
+	 LocalLine  := NoPosition;
+	 BeginLine  := NoPosition;
+	 CloseLine  := NoPosition;
+      END;
+      RETURN t;
+   END mCodes;
+
+PROCEDURE UpdateName (VAR Name: tIdent; Ident: tIdent);
+   BEGIN
+      IF Name = NoIdent THEN Name := Ident; END
+   END UpdateName;
+
+
+CONST
+   yyInitStackSize	= 100;
+   yyNoState		= 0;
+
+   yyFirstTerminal		= 0;
+   yyLastTerminal		= 78;
+   yyFirstSymbol		= 0;
+   yyLastSymbol		= 119;
+   yyTableMax		= 1165;
+   yyNTableMax		= 244;
+   yyFirstReadState		= 1;
+   yyLastReadState		= 184;
+   yyFirstReadTermState		= 185;
+   yyLastReadTermState		= 235;
+   yyLastReadNontermState		= 241;
+   yyFirstReduceState		= 242;
+   yyLastReduceState		= 364;
+   yyStartState		= 1;
+   yyStopState		= 242;
+
+   yyFirstFinalState	= yyFirstReadTermState;
+   yyLastState		= yyLastReduceState;
+
+TYPE
+   yyTableElmt		= SHORTCARD;
+   yyTCombRange		= yyTableElmt [0 .. yyTableMax];
+   yyNCombRange		= yyTableElmt [yyLastTerminal + 1 .. yyNTableMax];
+   yyStateRange		= yyTableElmt [0 .. yyLastState];
+   yyReadRange		= yyTableElmt [yyFirstReadState .. yyLastReadState];
+   yyReadReduceRange	= yyTableElmt [yyFirstReadTermState ..yyLastReadNontermState];
+   yyReduceRange	= yyTableElmt [yyFirstReduceState .. yyLastReduceState];
+   yySymbolRange	= yyTableElmt [yyFirstSymbol .. yyLastSymbol];
+   yyTCombType		= RECORD Check, Next: yyStateRange; END;
+   yyNCombType		= yyStateRange;
+   yyTCombTypePtr	= POINTER TO yyTCombType;
+   yyNCombTypePtr	= POINTER TO yyNCombType;
+   yyStackPtrType	= yyTableElmt [ MIN(yyTableElmt) .. MAX (yyTableElmt) ];
+   yyStackType		= POINTER TO ARRAY yyStackPtrType OF yyStateRange;
+   yyAttributeStackType	= POINTER TO ARRAY yyStackPtrType OF tParsAttribute;
+
+VAR
+   yyTBasePtr		: ARRAY yyTableElmt [0 .. yyLastReadState]	OF yyTCombTypePtr;
+   yyNBasePtr		: ARRAY yyTableElmt [0 .. yyLastReadState]	OF yyNCombTypePtr;
+   yyDefault		: ARRAY yyTableElmt [0 .. yyLastReadState]	OF yyReadRange	;
+   yyTComb		: ARRAY yyTCombRange		OF yyTCombType	;
+   yyNComb		: ARRAY yyNCombRange		OF yyNCombType	;
+   yyLength		: ARRAY yyReduceRange		OF yyTableElmt	;
+   yyLeftHandSide	: ARRAY yyReduceRange		OF yySymbolRange;
+   yyContinuation	: ARRAY yyTableElmt [0 .. yyLastReadState]	OF yySymbolRange;
+   yyFinalToProd	: ARRAY yyReadReduceRange	OF yyReduceRange;
+   yyIsInitialized	: BOOLEAN;
+   yyTableFile		: System.tFile;
+
+PROCEDURE TokenName (Token: SHORTCARD; VAR Name: ARRAY OF CHAR);
+   PROCEDURE Copy (Source: ARRAY OF CHAR; VAR Target: ARRAY OF CHAR);
+      VAR i, j: CARDINAL;
+      BEGIN
+	 IF HIGH (Source) < HIGH (Target)
+	 THEN j := HIGH (Source); ELSE j := HIGH (Target); END;
+	 FOR i := 0 TO j DO Target [i] := Source [i]; END;
+	 IF HIGH (Target) > j THEN Target [j + 1] := CHR (0); END;
+      END Copy;
+   BEGIN
+      CASE Token OF
+      | 0: Copy ("_EndOfFile", Name);
+      | 1: Copy ("Ident", Name);
+      | 2: Copy ("Integer", Name);
+      | 3: Copy ("String", Name);
+      | 4: Copy ("TargetCode", Name);
+      | 5: Copy ("Code", Name);
+      | 6: Copy ("FUNCTION", Name);
+      | 7: Copy ("WhiteSpace", Name);
+      | 10: Copy ("BEGIN", Name);
+      | 11: Copy ("CLOSE", Name);
+      | 12: Copy ("DECLARE", Name);
+      | 13: Copy ("END", Name);
+      | 14: Copy ("EVAL", Name);
+      | 15: Copy ("EXPORT", Name);
+      | 16: Copy ("GLOBAL", Name);
+      | 17: Copy ("VIRTUAL", Name);
+      | 18: Copy ("LOCAL", Name);
+      | 19: Copy ("MODULE", Name);
+      | 20: Copy ("STACK", Name);
+      | 21: Copy ("REVERSE", Name);
+      | 22: Copy ('RULE', Name);
+      | 23: Copy ("TREE", Name);
+      | 24: Copy ("AFTER", Name);
+      | 25: Copy ("BEFORE", Name);
+      | 26: Copy ("CHECK", Name);
+      | 27: Copy ("THREAD", Name);
+      | 28: Copy ("DEMAND", Name);
+      | 30: Copy ("IMPORT", Name);
+      | 31: Copy ("INPUT", Name);
+      | 32: Copy ("OUTPUT", Name);
+      | 33: Copy ("SYNTHESIZED", Name);
+      | 34: Copy ("INHERITED", Name);
+      | 35: Copy ("PARSER", Name);
+      | 36: Copy ('PREC', Name);
+      | 37: Copy ('LEFT', Name);
+      | 38: Copy ('RIGHT', Name);
+      | 39: Copy ('NONE', Name);
+      | 40: Copy ('(', Name);
+      | 41: Copy (')', Name);
+      | 42: Copy ('[', Name);
+      | 43: Copy (']', Name);
+      | 44: Copy ('{', Name);
+      | 45: Copy ('}', Name);
+      | 46: Copy (',', Name);
+      | 47: Copy (';', Name);
+      | 48: Copy ('.', Name);
+      | 49: Copy (':', Name);
+      | 50: Copy ('=', Name);
+      | 52: Copy (':=', Name);
+      | 57: Copy ('<', Name);
+      | 58: Copy ('>', Name);
+      | 59: Copy ('->', Name);
+      | 60: Copy (':-', Name);
+      | 61: Copy ('=>', Name);
+      | 62: Copy ('<-', Name);
+      | 70: Copy ("PROPERTY", Name);
+      | 71: Copy ("FOR", Name);
+      | 72: Copy ("IGNORE", Name);
+      | 74: Copy ("SELECT", Name);
+      | 75: Copy ("SUBUNIT", Name);
+      | 76: Copy ("REMOTE", Name);
+      | 77: Copy ("SCANNER", Name);
+      | 78: Copy ("VIEW", Name);
+      END;
+   END TokenName;
+
+PROCEDURE Parser (): CARDINAL;
+
+   VAR
+      yyState		: yyStateRange;
+      yyTerminal	: yySymbolRange;
+      yyNonterminal	: yySymbolRange;	(* left-hand side symbol *)
+      yyStackPtr	: yyStackPtrType;
+      yyStateStackSize	: LONGINT;
+      yyAttrStackSize	: LONGINT;
+      yyShortStackSize	: yyStackPtrType;
+      yyStateStack	: yyStackType;
+      yyAttributeStack	: yyAttributeStackType;
+      yySynAttribute	: tParsAttribute;	(* synthesized attribute *)
+     yyRepairAttribute : Scanner.tScanAttribute;
+      yyRepairToken	: yySymbolRange;
+      yyTCombPtr	: yyTCombTypePtr;
+      yyNCombPtr	: yyNCombTypePtr;
+      yyIsRepairing	: BOOLEAN;
+      yyErrorCount	: CARDINAL;
+      yyTokenString	: ARRAY [0..127] OF CHAR;
+   BEGIN
+ BeginParser;
+      yyState		:= yyStartState;
+ yyTerminal	:= VAL ( yySymbolRange,Scanner.GetToken ());
+      yyStateStackSize	:= yyInitStackSize;
+      yyAttrStackSize	:= yyInitStackSize;
+      DynArray.MakeArray (yyStateStack, yyStateStackSize, SYSTEM.TSIZE (yyStateRange));
+      DynArray.MakeArray (yyAttributeStack, yyAttrStackSize, SYSTEM.TSIZE (tParsAttribute));
+      yyShortStackSize	:= VAL ( yyStackPtrType , yyStateStackSize ) - 1;
+      yyStackPtr	:= 0;
+      yyErrorCount	:= 0;
+      yyIsRepairing	:= FALSE;
+
+      LOOP
+	 IF yyStackPtr >= yyShortStackSize THEN
+	    DynArray.ExtendArray (yyStateStack, yyStateStackSize, SYSTEM.TSIZE (yyStateRange));
+	    DynArray.ExtendArray (yyAttributeStack, yyAttrStackSize, SYSTEM.TSIZE (tParsAttribute));
+	    yyShortStackSize := VAL ( yyStackPtrType , yyStateStackSize ) - 1;
+	 END;
+	 yyStateStack^ [yyStackPtr] := yyState;
+
+	 LOOP	(* SPEC State := Next (State, Terminal); terminal transition *)
+	    yyTCombPtr := yyTCombTypePtr 
+			    ( LONGCARD ( yyTBasePtr [yyState] ) 
+			      + VAL ( LONGCARD , yyTerminal ) 
+				* SYSTEM.TSIZE (yyTCombType)
+			    );
+	    IF yyTCombPtr^.Check = yyState THEN
+	       yyState := yyTCombPtr^.Next;
+	       EXIT;
+	    END;
+	    yyState := yyDefault [yyState];
+
+	    IF yyState = yyNoState THEN			(* syntax error *)
+	       yyState := yyStateStack^ [yyStackPtr];
+	       IF yyIsRepairing THEN			(* repair *)
+		  yyRepairToken := yyContinuation [yyState];
+		  yyState := Next (yyState, yyRepairToken);
+		  IF yyState <= yyLastReadTermState THEN (* read or read terminal reduce ? *)
+	     Scanner.ErrorAttribute (VAL(INTEGER,yyRepairToken), yyRepairAttribute);
+		     TokenName (yyRepairToken, yyTokenString);
+		     Errors.ErrorMessageI (Errors.TokenInserted, Errors.Repair,
+		Scanner.Attribute.Position, Errors.Array, SYSTEM.ADR (yyTokenString));
+		     IF yyState >= yyFirstFinalState THEN (* avoid second push *)
+			yyState := yyFinalToProd [yyState];
+		     END;
+		     INC (yyStackPtr);
+		     yyAttributeStack^ [yyStackPtr].Scan := yyRepairAttribute;
+		     yyStateStack^     [yyStackPtr] := yyState;
+		  END;
+		  IF yyState >= yyFirstFinalState THEN	(* final state ? *)
+		    EXIT;
+		  END;
+	       ELSE					(* report and recover *)
+		  INC (yyErrorCount);
+		  ErrorRecovery (yyTerminal, yyStateStack, yyStateStackSize, yyStackPtr);
+		  yyIsRepairing := TRUE;
+	       END;
+	    END;
+	 END;
+
+	 IF yyState >= yyFirstFinalState THEN		(* final state ? *)
+	    IF yyState <= yyLastReadTermState THEN	(* read terminal reduce ? *)
+	       INC (yyStackPtr);
+       yyAttributeStack^ [yyStackPtr].Scan := Scanner.Attribute;
+       yyTerminal := VAL( yySymbolRange , Scanner.GetToken () );
+	       yyIsRepairing := FALSE;
+	    END;
+
+	    LOOP					(* reduce *)
+CASE yyState OF
+  | 242: (* _0000_ : Cg _EndOfFile .*)
+  DynArray.ReleaseArray (yyStateStack, yyStateStackSize, SYSTEM.TSIZE (yyTableElmt));
+  DynArray.ReleaseArray (yyAttributeStack, yyAttrStackSize, SYSTEM.TSIZE (tParsAttribute));
+  RETURN yyErrorCount;
+
+  | 243: (* Cg : ScannerName ParserCodes TreeCodes EvalCodes PrecPart PropPart DeclPart RulePart Modules .*)
+  DEC (yyStackPtr, 9); yyNonterminal := 88;
+(* line 158 "/tmp/lalr21012" *)
+  (* line 158 cg.lalr *)
+   TreeRoot := mAg (NoIdent, yyAttributeStack^[yyStackPtr+1].Ident, ParserName, yyAttributeStack^[yyStackPtr+2].Tree, TreeName, yyAttributeStack^[yyStackPtr+3].Tree, EvalName, yyAttributeStack^[yyStackPtr+4].Tree, yyAttributeStack^[yyStackPtr+5].Tree, yyAttributeStack^[yyStackPtr+6].Tree, yyAttributeStack^[yyStackPtr+7].Tree, yyAttributeStack^[yyStackPtr+8].Tree, ReverseTree (yyAttributeStack^[yyStackPtr+9].Tree)); 
+  | 244: (* Cg : MODULE Ident Cg_1 ScannerName ParserCodes TreeCodes EvalCodes PrecPart PropPart DeclPart RulePart END Ident Modules .*)
+  DEC (yyStackPtr, 14); yyNonterminal := 88;
+(* line 160 "/tmp/lalr21012" *)
+  (* line 162 cg.lalr *)
+   TreeRoot := mAg (yyAttributeStack^[yyStackPtr+2].Scan.Ident, yyAttributeStack^[yyStackPtr+4].Ident, ParserName, yyAttributeStack^[yyStackPtr+5].Tree, TreeName, yyAttributeStack^[yyStackPtr+6].Tree, EvalName, yyAttributeStack^[yyStackPtr+7].Tree, yyAttributeStack^[yyStackPtr+8].Tree, yyAttributeStack^[yyStackPtr+9].Tree, yyAttributeStack^[yyStackPtr+10].Tree, yyAttributeStack^[yyStackPtr+11].Tree, ReverseTree (yyAttributeStack^[yyStackPtr+14].Tree)); 
+  | 245: (* Cg_1 : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 89;
+(* line 162 "/tmp/lalr21012" *)
+  (* line 160 cg.lalr *)
+   ModuleIdent := yyAttributeStack^[yyStackPtr+0].Scan.Ident; 
+  | 246: (* ScannerName : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 79;
+(* line 165 "/tmp/lalr21012" *)
+  (* line 165 cg.lalr *)
+   yySynAttribute.Ident := NoIdent; 
+  | 247: (* ScannerName : SCANNER .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 79;
+(* line 168 "/tmp/lalr21012" *)
+  (* line 167 cg.lalr *)
+   ArrayToString ("Scanner", String1);
+  	  yySynAttribute.Ident := MakeIdent (String1); 
+  | 248,236: (* ScannerName : SCANNER Name0 .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 79;
+(* line 172 "/tmp/lalr21012" *)
+  (* line 170 cg.lalr *)
+   yySynAttribute.Ident := yyAttributeStack^[yyStackPtr+2].Scan.Ident; 
+  | 249: (* ParserCodes : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 80;
+(* line 175 "/tmp/lalr21012" *)
+  (* line 173 cg.lalr *)
+   yySynAttribute.Tree := mCodes (); 
+  | 250: (* ParserCodes : PARSER Codes .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 80;
+(* line 177 "/tmp/lalr21012" *)
+  (* line 175 cg.lalr *)
+   yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+2].Tree; 
+  | 251: (* ParserCodes : PARSER Name0 Codes .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 80;
+(* line 179 "/tmp/lalr21012" *)
+  (* line 177 cg.lalr *)
+   yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+3].Tree; UpdateName (ParserName, yyAttributeStack^[yyStackPtr+2].Scan.Ident); 
+  | 252: (* TreeCodes : SubUnit .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 81;
+(* line 182 "/tmp/lalr21012" *)
+  (* line 180 cg.lalr *)
+   yySynAttribute.Tree := mCodes (); 
+  | 253: (* TreeCodes : TREE SubUnit Codes .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 81;
+(* line 184 "/tmp/lalr21012" *)
+  (* line 182 cg.lalr *)
+   yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+3].Tree; 
+  | 254: (* TreeCodes : TREE Name0 SubUnit Codes .*)
+  DEC (yyStackPtr, 4); yyNonterminal := 81;
+(* line 186 "/tmp/lalr21012" *)
+  (* line 184 cg.lalr *)
+   yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+4].Tree; UpdateName (TreeName, yyAttributeStack^[yyStackPtr+2].Scan.Ident); 
+  | 255: (* EvalCodes : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 82;
+(* line 189 "/tmp/lalr21012" *)
+  (* line 187 cg.lalr *)
+   yySynAttribute.Tree := mCodes (); 
+  | 256: (* EvalCodes : EVAL Codes .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 82;
+(* line 191 "/tmp/lalr21012" *)
+  (* line 189 cg.lalr *)
+   yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+2].Tree; 
+  | 257: (* EvalCodes : EVAL Name0 Codes .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 82;
+(* line 193 "/tmp/lalr21012" *)
+  (* line 191 cg.lalr *)
+   yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+3].Tree; UpdateName (EvalName, yyAttributeStack^[yyStackPtr+2].Scan.Ident); 
+  | 258: (* Codes : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 91;
+(* line 196 "/tmp/lalr21012" *)
+  (* line 194 cg.lalr *)
+   yySynAttribute.Tree := mCodes (); 
+  | 259,189: (* Codes : Codes EXPORT TargetCode .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 91;
+(* line 199 "/tmp/lalr21012" *)
+  (* line 196 cg.lalr *)
+   yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+1].Tree;
+  	  yySynAttribute.Tree^.Codes.Export	    := yyAttributeStack^[yyStackPtr+3].Scan.Text;
+  	  yySynAttribute.Tree^.Codes.ExportLine := yyAttributeStack^[yyStackPtr+3].Scan.Position; 
+  | 260,192: (* Codes : Codes IMPORT TargetCode .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 91;
+(* line 205 "/tmp/lalr21012" *)
+  (* line 200 cg.lalr *)
+   yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+1].Tree;
+  	  yySynAttribute.Tree^.Codes.Import     := yyAttributeStack^[yyStackPtr+3].Scan.Text;
+  	  yySynAttribute.Tree^.Codes.ImportLine := yyAttributeStack^[yyStackPtr+3].Scan.Position; 
+  | 261,190: (* Codes : Codes GLOBAL TargetCode .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 91;
+(* line 211 "/tmp/lalr21012" *)
+  (* line 204 cg.lalr *)
+   yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+1].Tree;
+  	  yySynAttribute.Tree^.Codes.Global     := yyAttributeStack^[yyStackPtr+3].Scan.Text;
+  	  yySynAttribute.Tree^.Codes.GlobalLine := yyAttributeStack^[yyStackPtr+3].Scan.Position; 
+  | 262,191: (* Codes : Codes LOCAL TargetCode .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 91;
+(* line 217 "/tmp/lalr21012" *)
+  (* line 208 cg.lalr *)
+   yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+1].Tree;
+  	  yySynAttribute.Tree^.Codes.Local      := yyAttributeStack^[yyStackPtr+3].Scan.Text;
+  	  yySynAttribute.Tree^.Codes.LocalLine  := yyAttributeStack^[yyStackPtr+3].Scan.Position; 
+  | 263,187: (* Codes : Codes BEGIN TargetCode .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 91;
+(* line 223 "/tmp/lalr21012" *)
+  (* line 212 cg.lalr *)
+   yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+1].Tree;
+  	  yySynAttribute.Tree^.Codes.Begin      := yyAttributeStack^[yyStackPtr+3].Scan.Text;
+  	  yySynAttribute.Tree^.Codes.BeginLine  := yyAttributeStack^[yyStackPtr+3].Scan.Position; 
+  | 264,188: (* Codes : Codes CLOSE TargetCode .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 91;
+(* line 229 "/tmp/lalr21012" *)
+  (* line 216 cg.lalr *)
+   yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+1].Tree;
+  	  yySynAttribute.Tree^.Codes.Close      := yyAttributeStack^[yyStackPtr+3].Scan.Text;
+  	  yySynAttribute.Tree^.Codes.CloseLine  := yyAttributeStack^[yyStackPtr+3].Scan.Position; 
+  | 265: (* SubUnit : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 92;
+
+  | 266,237: (* SubUnit : SubUnit SUBUNIT Name0 .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 92;
+(* line 236 "/tmp/lalr21012" *)
+  (* line 222 cg.lalr *)
+   UpdateName (SubUnit, yyAttributeStack^[yyStackPtr+3].Scan.Ident); 
+  | 267,238: (* SubUnit : SubUnit VIEW Name0 .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 92;
+(* line 238 "/tmp/lalr21012" *)
+  (* line 224 cg.lalr *)
+   UpdateName (ViewName, yyAttributeStack^[yyStackPtr+3].Scan.Ident); 
+  | 268: (* PrecPart : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 83;
+(* line 241 "/tmp/lalr21012" *)
+  (* line 227 cg.lalr *)
+   yySynAttribute.Tree := nNoPrec; 
+  | 269: (* PrecPart : 'PREC' Precs .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 83;
+(* line 243 "/tmp/lalr21012" *)
+  (* line 229 cg.lalr *)
+   yySynAttribute.Tree := ReverseTree (yyAttributeStack^[yyStackPtr+2].Tree); 
+  | 270: (* Precs : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 93;
+(* line 246 "/tmp/lalr21012" *)
+  (* line 232 cg.lalr *)
+   yySynAttribute.Tree := nNoPrec; 
+  | 271: (* Precs : Precs 'LEFT' Names .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 93;
+(* line 248 "/tmp/lalr21012" *)
+  (* line 234 cg.lalr *)
+   yySynAttribute.Tree := mLeftAssoc  (ReverseTree (yyAttributeStack^[yyStackPtr+3].Tree), yyAttributeStack^[yyStackPtr+1].Tree); 
+  | 272: (* Precs : Precs 'RIGHT' Names .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 93;
+(* line 250 "/tmp/lalr21012" *)
+  (* line 236 cg.lalr *)
+   yySynAttribute.Tree := mRightAssoc (ReverseTree (yyAttributeStack^[yyStackPtr+3].Tree), yyAttributeStack^[yyStackPtr+1].Tree); 
+  | 273: (* Precs : Precs 'NONE' Names .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 93;
+(* line 252 "/tmp/lalr21012" *)
+  (* line 238 cg.lalr *)
+   yySynAttribute.Tree := mNonAssoc   (ReverseTree (yyAttributeStack^[yyStackPtr+3].Tree), yyAttributeStack^[yyStackPtr+1].Tree); 
+  | 274: (* PropPart : Props .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 84;
+(* line 255 "/tmp/lalr21012" *)
+  (* line 242 cg.lalr *)
+   yySynAttribute.Tree := ReverseTree (yyAttributeStack^[yyStackPtr+1].Tree); 
+  | 275: (* Props : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 95;
+(* line 258 "/tmp/lalr21012" *)
+  (* line 245 cg.lalr *)
+   yySynAttribute.Tree := nNoProp; 
+  | 276: (* Props : Props PROPERTY Properties .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 95;
+(* line 261 "/tmp/lalr21012" *)
+  (* line 247 cg.lalr *)
+   yySynAttribute.Tree := mProp (yyAttributeStack^[yyStackPtr+3].Properties, mName (ModuleIdent, NoPosition, nNoName), yyAttributeStack^[yyStackPtr+1].Tree);
+  	  InitProperties := {}; 
+  | 277: (* Props : Props PROPERTY Properties FOR Names .*)
+  DEC (yyStackPtr, 5); yyNonterminal := 95;
+(* line 266 "/tmp/lalr21012" *)
+  (* line 250 cg.lalr *)
+   yySynAttribute.Tree := mProp (yyAttributeStack^[yyStackPtr+3].Properties, ReverseTree (yyAttributeStack^[yyStackPtr+5].Tree), yyAttributeStack^[yyStackPtr+1].Tree);
+  	  InitProperties := {}; 
+  | 278: (* Props : Props SELECT Names .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 95;
+(* line 271 "/tmp/lalr21012" *)
+  (* line 253 cg.lalr *)
+   yySynAttribute.Tree := mSelect (ReverseTree (yyAttributeStack^[yyStackPtr+3].Tree), yyAttributeStack^[yyStackPtr+1].Tree);
+  	  InitProperties := {}; 
+  | 279: (* DeclPart : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 85;
+(* line 276 "/tmp/lalr21012" *)
+  (* line 257 cg.lalr *)
+   yySynAttribute.Tree := nNoDecl; 
+  | 280: (* DeclPart : DECLARE Decls .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 85;
+(* line 278 "/tmp/lalr21012" *)
+  (* line 259 cg.lalr *)
+   yySynAttribute.Tree := ReverseTree (yyAttributeStack^[yyStackPtr+2].Tree); 
+  | 281: (* Decls : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 97;
+(* line 281 "/tmp/lalr21012" *)
+  (* line 262 cg.lalr *)
+   yySynAttribute.Tree := nNoDecl; 
+  | 282,227: (* Decls : Decls Names '=' Decls_1 AttrDecls '.' .*)
+  DEC (yyStackPtr, 6); yyNonterminal := 97;
+(* line 283 "/tmp/lalr21012" *)
+  (* line 266 cg.lalr *)
+   yySynAttribute.Tree := mDecl (ReverseTree (yyAttributeStack^[yyStackPtr+2].Tree), ReverseTree (yyAttributeStack^[yyStackPtr+5].Tree), {Nonterminal, Explicit}, yyAttributeStack^[yyStackPtr+1].Tree); 
+  | 283,225: (* Decls : Decls Names ':' Decls_2 AttrDecls '.' .*)
+  DEC (yyStackPtr, 6); yyNonterminal := 97;
+(* line 285 "/tmp/lalr21012" *)
+  (* line 270 cg.lalr *)
+   yySynAttribute.Tree := mDecl (ReverseTree (yyAttributeStack^[yyStackPtr+2].Tree), ReverseTree (yyAttributeStack^[yyStackPtr+5].Tree), {Terminal, Explicit}, yyAttributeStack^[yyStackPtr+1].Tree); 
+  | 284: (* Decls_2 : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 100;
+(* line 287 "/tmp/lalr21012" *)
+  (* line 268 cg.lalr *)
+   Properties := InitProperties; 
+  | 285: (* Decls_1 : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 98;
+(* line 289 "/tmp/lalr21012" *)
+  (* line 264 cg.lalr *)
+   Properties := InitProperties; 
+  | 286: (* Names : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 94;
+(* line 292 "/tmp/lalr21012" *)
+  (* line 273 cg.lalr *)
+   yySynAttribute.Tree := nNoName; 
+  | 287,239: (* Names : Names Name1 .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 94;
+(* line 294 "/tmp/lalr21012" *)
+  (* line 275 cg.lalr *)
+   yySynAttribute.Tree := mName (yyAttributeStack^[yyStackPtr+2].Scan.Ident, yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+1].Tree); 
+  | 288,195: (* Names : Names ',' .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 94;
+(* line 296 "/tmp/lalr21012" *)
+  (* line 277 cg.lalr *)
+   yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+1].Tree; 
+  | 289: (* RulePart : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 86;
+(* line 299 "/tmp/lalr21012" *)
+  (* line 280 cg.lalr *)
+   yySynAttribute.Tree := nNoClass; 
+  | 290: (* RulePart : 'RULE' Types .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 86;
+(* line 301 "/tmp/lalr21012" *)
+  (* line 282 cg.lalr *)
+   yySynAttribute.Tree := ReverseTree (yyAttributeStack^[yyStackPtr+2].Tree); 
+  | 291: (* Types : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 102;
+(* line 304 "/tmp/lalr21012" *)
+  (* line 285 cg.lalr *)
+   yySynAttribute.Tree := nNoClass; 
+  | 292,230: (* Types : Types BaseTypes '=' Types_1 AttrDecls Prec Extensions '.' .*)
+  DEC (yyStackPtr, 8); yyNonterminal := 102;
+(* line 307 "/tmp/lalr21012" *)
+  (* line 290 cg.lalr *)
+   INC (ClassCount); IntToString (ClassCount, String2); ArrayToString ("yy", String1);
+  	  Concatenate (String1, String2); ClassIdent := MakeIdent (String1);
+  	  yySynAttribute.Tree := mClass (ClassIdent, {Nonterminal, Explicit}, ReverseTree (yyAttributeStack^[yyStackPtr+5].Tree),
+  	  yyAttributeStack^[yyStackPtr+7].Tree, yyAttributeStack^[yyStackPtr+1].Tree, ClassIdent, yyAttributeStack^[yyStackPtr+3].Scan.Position, 0, yyAttributeStack^[yyStackPtr+6].Scan.Ident, yyAttributeStack^[yyStackPtr+2].Tree); 
+  | 293,233: (* Types : Types Name1 BaseTypes '=' Types_2 AttrDecls Prec Extensions '.' .*)
+  DEC (yyStackPtr, 9); yyNonterminal := 102;
+(* line 314 "/tmp/lalr21012" *)
+  (* line 298 cg.lalr *)
+   yySynAttribute.Tree := mClass (yyAttributeStack^[yyStackPtr+2].Scan.Ident, {Nonterminal, Explicit} + yyAttributeStack^[yyStackPtr+2].Properties,
+  	     ReverseTree (yyAttributeStack^[yyStackPtr+6].Tree), yyAttributeStack^[yyStackPtr+8].Tree, yyAttributeStack^[yyStackPtr+1].Tree, yyAttributeStack^[yyStackPtr+2].Scan.Ident, yyAttributeStack^[yyStackPtr+2].Scan.Position, 0,
+  	     yyAttributeStack^[yyStackPtr+7].Scan.Ident, yyAttributeStack^[yyStackPtr+3].Tree); 
+  | 294,232: (* Types : Types Name1 BaseTypes ':' Types_3 TokenCode TypeProperties AttrDecls Prec Extensions '.' .*)
+  DEC (yyStackPtr, 11); yyNonterminal := 102;
+(* line 320 "/tmp/lalr21012" *)
+  (* line 305 cg.lalr *)
+   yySynAttribute.Tree := mClass (yyAttributeStack^[yyStackPtr+2].Scan.Ident, {Terminal, Explicit} + yyAttributeStack^[yyStackPtr+2].Properties + yyAttributeStack^[yyStackPtr+7].Properties,
+  	     ReverseTree (yyAttributeStack^[yyStackPtr+8].Tree), yyAttributeStack^[yyStackPtr+10].Tree, yyAttributeStack^[yyStackPtr+1].Tree, yyAttributeStack^[yyStackPtr+2].Scan.Ident, yyAttributeStack^[yyStackPtr+2].Scan.Position,
+  	     yyAttributeStack^[yyStackPtr+6].Scan.Integer, yyAttributeStack^[yyStackPtr+9].Scan.Ident, yyAttributeStack^[yyStackPtr+3].Tree); 
+  | 295,231: (* Types : Types Name1 Ident BaseTypes ':' Types_4 TokenCode TypeProperties AttrDecls Prec Extensions '.' .*)
+  DEC (yyStackPtr, 12); yyNonterminal := 102;
+(* line 326 "/tmp/lalr21012" *)
+  (* line 312 cg.lalr *)
+   yySynAttribute.Tree := mClass (yyAttributeStack^[yyStackPtr+2].Scan.Ident, {Terminal, Explicit, HasSelector} + yyAttributeStack^[yyStackPtr+2].Properties + yyAttributeStack^[yyStackPtr+8].Properties,
+  	     ReverseTree (yyAttributeStack^[yyStackPtr+9].Tree), yyAttributeStack^[yyStackPtr+11].Tree, yyAttributeStack^[yyStackPtr+1].Tree, yyAttributeStack^[yyStackPtr+3].Scan.Ident, yyAttributeStack^[yyStackPtr+2].Scan.Position,
+  	     yyAttributeStack^[yyStackPtr+7].Scan.Integer, yyAttributeStack^[yyStackPtr+10].Scan.Ident, yyAttributeStack^[yyStackPtr+4].Tree); 
+  | 296,234: (* Types : Types Name1 BaseTypes ':=' Types_5 AttrDecls Prec Extensions '.' .*)
+  DEC (yyStackPtr, 9); yyNonterminal := 102;
+(* line 332 "/tmp/lalr21012" *)
+  (* line 319 cg.lalr *)
+   yySynAttribute.Tree := mClass (yyAttributeStack^[yyStackPtr+2].Scan.Ident, {Abstract, Explicit} + yyAttributeStack^[yyStackPtr+2].Properties,
+  	     ReverseTree (yyAttributeStack^[yyStackPtr+6].Tree), yyAttributeStack^[yyStackPtr+8].Tree, yyAttributeStack^[yyStackPtr+1].Tree, yyAttributeStack^[yyStackPtr+2].Scan.Ident, yyAttributeStack^[yyStackPtr+2].Scan.Position, 0,
+  	     yyAttributeStack^[yyStackPtr+7].Scan.Ident, yyAttributeStack^[yyStackPtr+3].Tree); 
+  | 297: (* Types_5 : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 112;
+(* line 337 "/tmp/lalr21012" *)
+  (* line 317 cg.lalr *)
+   Properties := InitProperties; 
+  | 298: (* Types_4 : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 111;
+(* line 339 "/tmp/lalr21012" *)
+  (* line 310 cg.lalr *)
+   Properties := InitProperties; 
+  | 299: (* Types_3 : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 108;
+(* line 341 "/tmp/lalr21012" *)
+  (* line 303 cg.lalr *)
+   Properties := InitProperties; 
+  | 300: (* Types_2 : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 107;
+(* line 343 "/tmp/lalr21012" *)
+  (* line 296 cg.lalr *)
+   Properties := InitProperties; 
+  | 301: (* Types_1 : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 104;
+(* line 345 "/tmp/lalr21012" *)
+  (* line 288 cg.lalr *)
+   Properties := InitProperties; 
+  | 302: (* BaseTypes : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 103;
+(* line 348 "/tmp/lalr21012" *)
+  (* line 324 cg.lalr *)
+   yySynAttribute.Tree := nNoName; 
+  | 303: (* BaseTypes : '<-' Names .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 103;
+(* line 350 "/tmp/lalr21012" *)
+  (* line 326 cg.lalr *)
+   yySynAttribute.Tree := ReverseTree (yyAttributeStack^[yyStackPtr+2].Tree); 
+  | 304: (* TokenCode : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 109;
+(* line 353 "/tmp/lalr21012" *)
+  (* line 329 cg.lalr *)
+   yySynAttribute.Scan.Integer := 0; 
+  | 305,228: (* TokenCode : Integer .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 109;
+(* line 355 "/tmp/lalr21012" *)
+  (* line 331 cg.lalr *)
+   yySynAttribute.Scan.Integer := yyAttributeStack^[yyStackPtr+1].Scan.Integer; 
+  | 306: (* Prec : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 105;
+(* line 358 "/tmp/lalr21012" *)
+  (* line 334 cg.lalr *)
+   yySynAttribute.Scan.Ident := NoIdent; 
+  | 307,241: (* Prec : 'PREC' Name1 .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 105;
+(* line 360 "/tmp/lalr21012" *)
+  (* line 336 cg.lalr *)
+   yySynAttribute.Scan.Ident := yyAttributeStack^[yyStackPtr+2].Scan.Ident; 
+  | 308: (* Extensions : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 106;
+(* line 363 "/tmp/lalr21012" *)
+  (* line 339 cg.lalr *)
+   yySynAttribute.Tree := nNoClass; 
+  | 309,229: (* Extensions : '<' Types '>' .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 106;
+(* line 365 "/tmp/lalr21012" *)
+  (* line 341 cg.lalr *)
+   yySynAttribute.Tree := ReverseTree (yyAttributeStack^[yyStackPtr+2].Tree); 
+  | 310: (* AttrDecls : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 99;
+(* line 368 "/tmp/lalr21012" *)
+  (* line 344 cg.lalr *)
+   yySynAttribute.Tree := nNoAttribute; 
+  | 311,226: (* AttrDecls : AttrDecls '->' .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 99;
+(* line 370 "/tmp/lalr21012" *)
+  (* line 346 cg.lalr *)
+   yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+1].Tree; Properties := {}; 
+  | 312,210: (* AttrDecls : AttrDecls '[' Name1 Properties ']' .*)
+  DEC (yyStackPtr, 5); yyNonterminal := 99;
+(* line 373 "/tmp/lalr21012" *)
+  (* line 348 cg.lalr *)
+   IF Thread IN yyAttributeStack^[yyStackPtr+4].Properties THEN
+  	     Idents.GetString (yyAttributeStack^[yyStackPtr+3].Scan.Ident, String1);
+  	     ArrayToString ("In", String2);
+  	     Concatenate (String1, String2);
+  	     yySynAttribute.Tree := mAttribute (yyAttributeStack^[yyStackPtr+1].Tree, MakeIdent (String1), iInteger, Properties + yyAttributeStack^[yyStackPtr+4].Properties + {Inherited}, yyAttributeStack^[yyStackPtr+3].Scan.Position);
+  	     Idents.GetString (yyAttributeStack^[yyStackPtr+3].Scan.Ident, String1);
+  	     ArrayToString ("Out", String2);
+  	     Concatenate (String1, String2);
+  	     yySynAttribute.Tree := mAttribute (yySynAttribute.Tree, MakeIdent (String1), iInteger, Properties + yyAttributeStack^[yyStackPtr+4].Properties + {Synthesized}, yyAttributeStack^[yyStackPtr+3].Scan.Position);
+  	  ELSE
+  	     yySynAttribute.Tree := mAttribute (yyAttributeStack^[yyStackPtr+1].Tree, yyAttributeStack^[yyStackPtr+3].Scan.Ident, iInteger, Properties + yyAttributeStack^[yyStackPtr+4].Properties, yyAttributeStack^[yyStackPtr+3].Scan.Position);
+  	  END;
+  	
+  | 313,209: (* AttrDecls : AttrDecls '[' Name1 ':' Name1 Properties ']' .*)
+  DEC (yyStackPtr, 7); yyNonterminal := 99;
+(* line 389 "/tmp/lalr21012" *)
+  (* line 362 cg.lalr *)
+   IF Thread IN yyAttributeStack^[yyStackPtr+6].Properties THEN
+  	     Idents.GetString (yyAttributeStack^[yyStackPtr+3].Scan.Ident, String1);
+  	     ArrayToString ("In", String2);
+  	     Concatenate (String1, String2);
+  	     yySynAttribute.Tree := mAttribute (yyAttributeStack^[yyStackPtr+1].Tree, MakeIdent (String1), yyAttributeStack^[yyStackPtr+5].Scan.Ident, Properties + yyAttributeStack^[yyStackPtr+6].Properties + {Inherited}, yyAttributeStack^[yyStackPtr+3].Scan.Position);
+  	     Idents.GetString (yyAttributeStack^[yyStackPtr+3].Scan.Ident, String1);
+  	     ArrayToString ("Out", String2);
+  	     Concatenate (String1, String2);
+  	     yySynAttribute.Tree := mAttribute (yySynAttribute.Tree, MakeIdent (String1), yyAttributeStack^[yyStackPtr+5].Scan.Ident, Properties + yyAttributeStack^[yyStackPtr+6].Properties + {Synthesized}, yyAttributeStack^[yyStackPtr+3].Scan.Position);
+  	  ELSE
+  	     yySynAttribute.Tree := mAttribute (yyAttributeStack^[yyStackPtr+1].Tree, yyAttributeStack^[yyStackPtr+3].Scan.Ident, yyAttributeStack^[yyStackPtr+5].Scan.Ident, Properties + yyAttributeStack^[yyStackPtr+6].Properties, yyAttributeStack^[yyStackPtr+3].Scan.Position);
+  	  END;
+  	
+  | 314,208: (* AttrDecls : AttrDecls '(' Name1 Properties ')' .*)
+  DEC (yyStackPtr, 5); yyNonterminal := 99;
+(* line 404 "/tmp/lalr21012" *)
+  (* line 376 cg.lalr *)
+   yySynAttribute.Tree := mChild (yyAttributeStack^[yyStackPtr+1].Tree, yyAttributeStack^[yyStackPtr+3].Scan.Ident, yyAttributeStack^[yyStackPtr+3].Scan.Ident, Properties + yyAttributeStack^[yyStackPtr+4].Properties, yyAttributeStack^[yyStackPtr+3].Scan.Position); 
+  | 315,206: (* AttrDecls : AttrDecls '(' Name1 ':' Name1 Properties ')' .*)
+  DEC (yyStackPtr, 7); yyNonterminal := 99;
+(* line 406 "/tmp/lalr21012" *)
+  (* line 378 cg.lalr *)
+   yySynAttribute.Tree := mChild (yyAttributeStack^[yyStackPtr+1].Tree, yyAttributeStack^[yyStackPtr+3].Scan.Ident, yyAttributeStack^[yyStackPtr+5].Scan.Ident, Properties + yyAttributeStack^[yyStackPtr+6].Properties, yyAttributeStack^[yyStackPtr+3].Scan.Position); 
+  | 316: (* AttrDecls : AttrDecls Name1 Properties .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 99;
+(* line 408 "/tmp/lalr21012" *)
+  (* line 380 cg.lalr *)
+   yySynAttribute.Tree := mChild (yyAttributeStack^[yyStackPtr+1].Tree, yyAttributeStack^[yyStackPtr+2].Scan.Ident, yyAttributeStack^[yyStackPtr+2].Scan.Ident, Properties + yyAttributeStack^[yyStackPtr+3].Properties, yyAttributeStack^[yyStackPtr+2].Scan.Position); 
+  | 317: (* AttrDecls : AttrDecls Name1 ':' Name1 Properties .*)
+  DEC (yyStackPtr, 5); yyNonterminal := 99;
+(* line 410 "/tmp/lalr21012" *)
+  (* line 382 cg.lalr *)
+   yySynAttribute.Tree := mChild (yyAttributeStack^[yyStackPtr+1].Tree, yyAttributeStack^[yyStackPtr+2].Scan.Ident, yyAttributeStack^[yyStackPtr+4].Scan.Ident, Properties + yyAttributeStack^[yyStackPtr+5].Properties, yyAttributeStack^[yyStackPtr+2].Scan.Position); 
+  | 318,217: (* AttrDecls : AttrDecls '{' Actions '}' .*)
+  DEC (yyStackPtr, 4); yyNonterminal := 99;
+(* line 412 "/tmp/lalr21012" *)
+  (* line 384 cg.lalr *)
+   yySynAttribute.Tree := mActionPart (yyAttributeStack^[yyStackPtr+1].Tree, ReverseTree (yyAttributeStack^[yyStackPtr+3].Tree)); 
+  | 319: (* TypeProperties : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 110;
+(* line 415 "/tmp/lalr21012" *)
+  (* line 387 cg.lalr *)
+   yySynAttribute.Properties := {}; 
+  | 320: (* Properties : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 96;
+(* line 418 "/tmp/lalr21012" *)
+  (* line 390 cg.lalr *)
+   yySynAttribute.Properties := {}; 
+  | 321,199: (* Properties : Properties REVERSE .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 96;
+(* line 420 "/tmp/lalr21012" *)
+  (* line 392 cg.lalr *)
+   yySynAttribute.Properties := yyAttributeStack^[yyStackPtr+1].Properties + {Reverse	}; 
+  | 322,202: (* Properties : Properties INPUT .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 96;
+(* line 422 "/tmp/lalr21012" *)
+  (* line 394 cg.lalr *)
+   yySynAttribute.Properties := yyAttributeStack^[yyStackPtr+1].Properties + {Input	}; 
+  | 323,203: (* Properties : Properties OUTPUT .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 96;
+(* line 424 "/tmp/lalr21012" *)
+  (* line 396 cg.lalr *)
+   yySynAttribute.Properties := yyAttributeStack^[yyStackPtr+1].Properties + {Output	}; 
+  | 324,204: (* Properties : Properties SYNTHESIZED .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 96;
+(* line 426 "/tmp/lalr21012" *)
+  (* line 398 cg.lalr *)
+   yySynAttribute.Properties := yyAttributeStack^[yyStackPtr+1].Properties + {Synthesized	}; 
+  | 325,205: (* Properties : Properties INHERITED .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 96;
+(* line 428 "/tmp/lalr21012" *)
+  (* line 400 cg.lalr *)
+   yySynAttribute.Properties := yyAttributeStack^[yyStackPtr+1].Properties + {Inherited	}; 
+  | 326,200: (* Properties : Properties THREAD .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 96;
+(* line 430 "/tmp/lalr21012" *)
+  (* line 402 cg.lalr *)
+   yySynAttribute.Properties := yyAttributeStack^[yyStackPtr+1].Properties + {Thread	}; 
+  | 327,197: (* Properties : Properties VIRTUAL .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 96;
+(* line 432 "/tmp/lalr21012" *)
+  (* line 404 cg.lalr *)
+   yySynAttribute.Properties := yyAttributeStack^[yyStackPtr+1].Properties + {Virtual	}; 
+  | 328,198: (* Properties : Properties STACK .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 96;
+(* line 434 "/tmp/lalr21012" *)
+  (* line 406 cg.lalr *)
+   yySynAttribute.Properties := yyAttributeStack^[yyStackPtr+1].Properties + {Stack	}; 
+  | 329,201: (* Properties : Properties DEMAND .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 96;
+(* line 436 "/tmp/lalr21012" *)
+  (* line 408 cg.lalr *)
+   yySynAttribute.Properties := yyAttributeStack^[yyStackPtr+1].Properties + {Demand	}; 
+  | 330,196: (* Properties : Properties FUNCTION .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 96;
+(* line 438 "/tmp/lalr21012" *)
+  (* line 410 cg.lalr *)
+   yySynAttribute.Properties := yyAttributeStack^[yyStackPtr+1].Properties + {Funct	}; 
+  | 331,207: (* Properties : Properties IGNORE .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 96;
+(* line 440 "/tmp/lalr21012" *)
+  (* line 412 cg.lalr *)
+   yySynAttribute.Properties := yyAttributeStack^[yyStackPtr+1].Properties + {Ignore	}; 
+  | 332: (* Actions : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 113;
+(* line 443 "/tmp/lalr21012" *)
+  (* line 415 cg.lalr *)
+   yySynAttribute.Tree := nNoAction; 
+  | 333,222: (* Actions : Actions Exprs ':=' Exprs ';' .*)
+  DEC (yyStackPtr, 5); yyNonterminal := 113;
+(* line 445 "/tmp/lalr21012" *)
+  (* line 417 cg.lalr *)
+   yySynAttribute.Tree := mAssign (yyAttributeStack^[yyStackPtr+1].Tree, yyAttributeStack^[yyStackPtr+3].Scan.Position, ReverseTree (yyAttributeStack^[yyStackPtr+2].Tree), ReverseTree (yyAttributeStack^[yyStackPtr+4].Tree)); 
+  | 334,223: (* Actions : Actions Exprs ':-' Exprs ';' .*)
+  DEC (yyStackPtr, 5); yyNonterminal := 113;
+(* line 447 "/tmp/lalr21012" *)
+  (* line 419 cg.lalr *)
+   yySynAttribute.Tree := mCopy (yyAttributeStack^[yyStackPtr+1].Tree, yyAttributeStack^[yyStackPtr+3].Scan.Position, ReverseTree (yyAttributeStack^[yyStackPtr+2].Tree), ReverseTree (yyAttributeStack^[yyStackPtr+4].Tree)); 
+  | 335,221: (* Actions : Actions Exprs ':=' Exprs '{' Exprs '}' Exprs ';' .*)
+  DEC (yyStackPtr, 9); yyNonterminal := 113;
+(* line 449 "/tmp/lalr21012" *)
+  (* line 421 cg.lalr *)
+   yySynAttribute.Tree := mTargetCode (yyAttributeStack^[yyStackPtr+1].Tree, yyAttributeStack^[yyStackPtr+3].Scan.Position, ReverseTree (yyAttributeStack^[yyStackPtr+2].Tree), ReverseTree (yyAttributeStack^[yyStackPtr+6].Tree)); 
+  | 336,218: (* Actions : Actions Exprs AFTER Exprs ';' .*)
+  DEC (yyStackPtr, 5); yyNonterminal := 113;
+(* line 451 "/tmp/lalr21012" *)
+  (* line 423 cg.lalr *)
+   yySynAttribute.Tree := mOrder (yyAttributeStack^[yyStackPtr+1].Tree, NoPosition, ReverseTree (yyAttributeStack^[yyStackPtr+2].Tree), ReverseTree (yyAttributeStack^[yyStackPtr+4].Tree)); 
+  | 337,219: (* Actions : Actions Exprs BEFORE Exprs ';' .*)
+  DEC (yyStackPtr, 5); yyNonterminal := 113;
+(* line 453 "/tmp/lalr21012" *)
+  (* line 425 cg.lalr *)
+   yySynAttribute.Tree := mOrder (yyAttributeStack^[yyStackPtr+1].Tree, NoPosition, ReverseTree (yyAttributeStack^[yyStackPtr+4].Tree), ReverseTree (yyAttributeStack^[yyStackPtr+2].Tree)); 
+  | 338,224: (* Actions : Actions Checks ';' .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 113;
+(* line 455 "/tmp/lalr21012" *)
+  (* line 427 cg.lalr *)
+   yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+2].Tree; yySynAttribute.Tree^.Check.Next := yyAttributeStack^[yyStackPtr+1].Tree; 
+  | 339,220: (* Actions : Actions Exprs ';' .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 113;
+(* line 457 "/tmp/lalr21012" *)
+  (* line 429 cg.lalr *)
+   yySynAttribute.Tree := mTargetCode (yyAttributeStack^[yyStackPtr+1].Tree, Attribute.Position, nNoDesignator, ReverseTree (yyAttributeStack^[yyStackPtr+2].Tree)); 
+  | 340: (* Actions : Actions Exprs .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 113;
+(* line 459 "/tmp/lalr21012" *)
+  (* line 431 cg.lalr *)
+   yySynAttribute.Tree := mTargetCode (yyAttributeStack^[yyStackPtr+1].Tree, Attribute.Position, nNoDesignator, ReverseTree (yyAttributeStack^[yyStackPtr+2].Tree)); 
+  | 341: (* Checks : Check .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 115;
+(* line 462 "/tmp/lalr21012" *)
+  (* line 434 cg.lalr *)
+   yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+1].Tree; 
+  | 342,240: (* Checks : Check Checks .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 115;
+(* line 464 "/tmp/lalr21012" *)
+  (* line 436 cg.lalr *)
+   yySynAttribute.Tree := yyAttributeStack^[yyStackPtr+1].Tree; yySynAttribute.Tree^.Check.Actions := yyAttributeStack^[yyStackPtr+2].Tree; 
+  | 343: (* Check : '=>' Exprs .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 116;
+(* line 467 "/tmp/lalr21012" *)
+  (* line 440 cg.lalr *)
+   yySynAttribute.Tree := mCheck (nNoAction, NoPosition, NoTree, ReverseTree (yyAttributeStack^[yyStackPtr+2].Tree), nNoAction); 
+  | 344: (* Check : '=>' Exprs '{' Exprs '}' Space .*)
+  DEC (yyStackPtr, 6); yyNonterminal := 116;
+(* line 469 "/tmp/lalr21012" *)
+  (* line 442 cg.lalr *)
+   yySynAttribute.Tree := mCheck (nNoAction, NoPosition, NoTree, ReverseTree (yyAttributeStack^[yyStackPtr+4].Tree), nNoAction); 
+  | 345: (* Check : CHECK Exprs .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 116;
+(* line 471 "/tmp/lalr21012" *)
+  (* line 444 cg.lalr *)
+   yySynAttribute.Tree := mCheck (nNoAction, yyAttributeStack^[yyStackPtr+1].Scan.Position, ReverseTree (yyAttributeStack^[yyStackPtr+2].Tree), NoTree, nNoAction); 
+  | 346: (* Check : CHECK Exprs '=>' Exprs .*)
+  DEC (yyStackPtr, 4); yyNonterminal := 116;
+(* line 473 "/tmp/lalr21012" *)
+  (* line 446 cg.lalr *)
+   yySynAttribute.Tree := mCheck (nNoAction, yyAttributeStack^[yyStackPtr+1].Scan.Position, ReverseTree (yyAttributeStack^[yyStackPtr+2].Tree), ReverseTree (yyAttributeStack^[yyStackPtr+4].Tree), nNoAction); 
+  | 347: (* Check : CHECK Exprs '=>' Exprs '{' Exprs '}' Space .*)
+  DEC (yyStackPtr, 8); yyNonterminal := 116;
+(* line 475 "/tmp/lalr21012" *)
+  (* line 448 cg.lalr *)
+   yySynAttribute.Tree := mCheck (nNoAction, yyAttributeStack^[yyStackPtr+1].Scan.Position, ReverseTree (yyAttributeStack^[yyStackPtr+2].Tree), ReverseTree (yyAttributeStack^[yyStackPtr+6].Tree), nNoAction); 
+  | 348: (* Exprs : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 114;
+(* line 478 "/tmp/lalr21012" *)
+  (* line 451 cg.lalr *)
+   yySynAttribute.Tree := nNoDesignator; 
+  | 349,216: (* Exprs : Exprs Name1 Space ':' Space Ident .*)
+  DEC (yyStackPtr, 6); yyNonterminal := 114;
+(* line 480 "/tmp/lalr21012" *)
+  (* line 453 cg.lalr *)
+   yySynAttribute.Tree := mDesignator (yyAttributeStack^[yyStackPtr+2].Scan.Ident, yyAttributeStack^[yyStackPtr+6].Scan.Ident, yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+1].Tree); 
+  | 350: (* Exprs : Exprs Name1 Space ':' Space .*)
+  DEC (yyStackPtr, 5); yyNonterminal := 114;
+(* line 483 "/tmp/lalr21012" *)
+  (* line 455 cg.lalr *)
+   yySynAttribute.Tree := mIdent (yyAttributeStack^[yyStackPtr+2].Scan.Ident, yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+1].Tree);
+  	  yySynAttribute.Tree := mAnys (ReverseTree (yyAttributeStack^[yyStackPtr+3].Tree), yySynAttribute.Tree);
+  	  yySynAttribute.Tree := mAny (yyAttributeStack^[yyStackPtr+4].Scan.StringRef, yySynAttribute.Tree);
+  	  yySynAttribute.Tree := mAnys (ReverseTree (yyAttributeStack^[yyStackPtr+5].Tree), yySynAttribute.Tree); 
+  | 351: (* Exprs : Exprs Name1 Space .*)
+  DEC (yyStackPtr, 3); yyNonterminal := 114;
+(* line 490 "/tmp/lalr21012" *)
+  (* line 460 cg.lalr *)
+   yySynAttribute.Tree := mIdent (yyAttributeStack^[yyStackPtr+2].Scan.Ident, yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+1].Tree);
+  	  yySynAttribute.Tree := mAnys (ReverseTree (yyAttributeStack^[yyStackPtr+3].Tree), yySynAttribute.Tree); 
+  | 352,213: (* Exprs : Exprs ':' .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 114;
+(* line 494 "/tmp/lalr21012" *)
+  (* line 463 cg.lalr *)
+   yySynAttribute.Tree := mAny (yyAttributeStack^[yyStackPtr+2].Scan.StringRef, yyAttributeStack^[yyStackPtr+1].Tree); 
+  | 353,215: (* Exprs : Exprs REMOTE Exprs '=>' Space Ident Space ':' Space Ident .*)
+  DEC (yyStackPtr, 10); yyNonterminal := 114;
+(* line 496 "/tmp/lalr21012" *)
+  (* line 465 cg.lalr *)
+   yySynAttribute.Tree := mRemote (ReverseTree (yyAttributeStack^[yyStackPtr+3].Tree), yyAttributeStack^[yyStackPtr+6].Scan.Ident, yyAttributeStack^[yyStackPtr+10].Scan.Ident, yyAttributeStack^[yyStackPtr+10].Scan.Position, yyAttributeStack^[yyStackPtr+1].Tree); 
+  | 354,211: (* Exprs : Exprs Code .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 114;
+(* line 498 "/tmp/lalr21012" *)
+  (* line 467 cg.lalr *)
+   yySynAttribute.Tree := mAny (yyAttributeStack^[yyStackPtr+2].Scan.StringRef, yyAttributeStack^[yyStackPtr+1].Tree); 
+  | 355,212: (* Exprs : Exprs WhiteSpace .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 114;
+(* line 500 "/tmp/lalr21012" *)
+  (* line 469 cg.lalr *)
+   yySynAttribute.Tree := mAny (yyAttributeStack^[yyStackPtr+2].Scan.StringRef, yyAttributeStack^[yyStackPtr+1].Tree); 
+  | 356: (* Modules : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 87;
+(* line 503 "/tmp/lalr21012" *)
+  (* line 472 cg.lalr *)
+   yySynAttribute.Tree := nNoModule; 
+  | 357,235: (* Modules : Modules MODULE Ident Modules_1 ParserCodes TreeCodes EvalCodes PropPart DeclPart RulePart END Ident .*)
+  DEC (yyStackPtr, 12); yyNonterminal := 87;
+(* line 505 "/tmp/lalr21012" *)
+  (* line 476 cg.lalr *)
+   yySynAttribute.Tree := mModule (yyAttributeStack^[yyStackPtr+3].Scan.Ident, yyAttributeStack^[yyStackPtr+5].Tree, yyAttributeStack^[yyStackPtr+6].Tree, yyAttributeStack^[yyStackPtr+7].Tree, yyAttributeStack^[yyStackPtr+8].Tree, yyAttributeStack^[yyStackPtr+9].Tree, yyAttributeStack^[yyStackPtr+10].Tree, yyAttributeStack^[yyStackPtr+1].Tree); 
+  | 358: (* Modules_1 : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 118;
+(* line 507 "/tmp/lalr21012" *)
+  (* line 474 cg.lalr *)
+   ModuleIdent := yyAttributeStack^[yyStackPtr+0].Scan.Ident; 
+  | 359,185: (* Name0 : Ident .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 90;
+(* line 510 "/tmp/lalr21012" *)
+  (* line 480 cg.lalr *)
+   yySynAttribute.Scan := yyAttributeStack^[yyStackPtr+1].Scan; 
+  | 360,186: (* Name0 : String .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 90;
+(* line 513 "/tmp/lalr21012" *)
+  (* line 482 cg.lalr *)
+   yySynAttribute.Scan := yyAttributeStack^[yyStackPtr+1].Scan; GetString (yyAttributeStack^[yyStackPtr+1].Scan.StringRef, String1);
+  	  SubString (String1, 2, Length (String1) - 1, String2);
+  	  yySynAttribute.Scan.Ident := MakeIdent (String2); 
+  | 361,193: (* Name1 : Ident .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 101;
+(* line 520 "/tmp/lalr21012" *)
+  (* line 488 cg.lalr *)
+   yySynAttribute.Scan := yyAttributeStack^[yyStackPtr+1].Scan;
+  	  yySynAttribute.Properties := {}; 
+  | 362,194: (* Name1 : String .*)
+  DEC (yyStackPtr, 1); yyNonterminal := 101;
+(* line 525 "/tmp/lalr21012" *)
+  (* line 491 cg.lalr *)
+   yySynAttribute.Scan := yyAttributeStack^[yyStackPtr+1].Scan; GetString (yyAttributeStack^[yyStackPtr+1].Scan.StringRef, String1);
+  	  yySynAttribute.Scan.Ident := MakeIdent (String1);
+  	  yySynAttribute.Properties := {String}; 
+  | 363: (* Space : .*)
+  DEC (yyStackPtr, 0); yyNonterminal := 117;
+(* line 531 "/tmp/lalr21012" *)
+  (* line 496 cg.lalr *)
+   yySynAttribute.Tree := nNoLayout; 
+  | 364,214: (* Space : Space WhiteSpace .*)
+  DEC (yyStackPtr, 2); yyNonterminal := 117;
+(* line 533 "/tmp/lalr21012" *)
+  (* line 498 cg.lalr *)
+   yySynAttribute.Tree := mLayoutAny (yyAttributeStack^[yyStackPtr+2].Scan.StringRef, yyAttributeStack^[yyStackPtr+1].Tree); 
+END;
+	       (* SPEC State := Next (Top (), Nonterminal); nonterminal transition *)
+	       yyNCombPtr 
+                 := yyNCombTypePtr 
+                      ( LONGCARD (yyNBasePtr [yyStateStack^ [yyStackPtr]])
+			+ VAL ( LONGCARD, yyNonterminal )
+                          * SYSTEM.TSIZE (yyNCombType)
+                      );
+	       yyState := yyNCombPtr^;
+	       INC (yyStackPtr);
+	       yyAttributeStack^ [yyStackPtr] := yySynAttribute;
+	       IF yyState < yyFirstFinalState THEN EXIT END; (* read nonterminal ? *)
+	    END;
+
+	 ELSE						(* read *)
+	    INC (yyStackPtr);
+    yyAttributeStack^ [yyStackPtr].Scan := Scanner.Attribute;
+    yyTerminal := VAL(yySymbolRange,Scanner.GetToken ());
+	    yyIsRepairing := FALSE;
+	 END;
+      END;
+   END Parser;
+
+PROCEDURE ErrorRecovery (
+      VAR Terminal	: yySymbolRange ;
+	  StateStack	: yyStackType	;
+	  StackSize	: LONGINT	;
+	  StackPtr	: yyStackPtrType);
+   VAR
+      TokensSkipped	: BOOLEAN;
+      ContinueSet	: Sets.tSet;
+      RestartSet	: Sets.tSet;
+      Token		: yySymbolRange;
+      TokenArray	: ARRAY [0..127] OF CHAR;
+      TokenString	: Strings.tString;
+      ContinueString	: Strings.tString;
+   BEGIN
+   (* 1. report the error *)
+ Errors.ErrorMessage (Errors.SyntaxError, Errors.Error, Scanner.Attribute.Position);
+
+   (* 2. report the set of expected terminal symbols *)
+      Sets.MakeSet (ContinueSet, yyLastTerminal);
+      ComputeContinuation (StateStack, StackSize, StackPtr, ContinueSet);
+      Strings.AssignEmpty (ContinueString);
+      FOR Token := VAL(yySymbolRange,Sets.Minimum (ContinueSet)) TO VAL(yySymbolRange,Sets.Maximum (ContinueSet)) DO
+	 IF Sets.IsElement (VAL(Sets.tElement,Token), ContinueSet) THEN
+	    TokenName (Token, TokenArray);
+	    Strings.ArrayToString (TokenArray, TokenString);
+	    IF (Strings.Length (ContinueString) + Strings.Length (TokenString) + 1 <= Strings.cMaxStrLength) THEN
+	       Strings.Concatenate (ContinueString, TokenString);
+	       Strings.Append (ContinueString, ' ');
+	    END;
+	 END;
+      END;
+      Errors.ErrorMessageI (Errors.ExpectedTokens, Errors.Information,
+ Scanner.Attribute.Position, Errors.String, SYSTEM.ADR (ContinueString));
+      Sets.ReleaseSet (ContinueSet);
+
+   (* 3. compute the set of terminal symbols for restart of the parse *)
+      Sets.MakeSet (RestartSet, yyLastTerminal);
+      ComputeRestartPoints (StateStack, StackSize, StackPtr, RestartSet);
+
+   (* 4. skip terminal symbols until a restart point is reached *)
+      TokensSkipped := FALSE;
+      WHILE NOT Sets.IsElement (VAL(Sets.tElement,Terminal), RestartSet) DO
+ Terminal := VAL(yySymbolRange,Scanner.GetToken ());
+	 TokensSkipped := TRUE;
+      END;
+      Sets.ReleaseSet (RestartSet);
+
+   (* 5. report the restart point *)
+      IF TokensSkipped THEN
+ Errors.ErrorMessage (Errors.RestartPoint, Errors.Information, Scanner.Attribute.Position);
+      END;
+   END ErrorRecovery;
+
+(*
+   compute the set of terminal symbols that can be accepted (read)
+   in a given stack configuration (eventually after reduce actions)
+*)
+
+PROCEDURE ComputeContinuation (
+	  Stack		: yyStackType	;
+	  StackSize	: LONGINT	;
+	  StackPtr	: yyStackPtrType;
+      VAR ContinueSet	: Sets.tSet	);
+   VAR Terminal		: yySymbolRange;
+   BEGIN
+      Sets.AssignEmpty (ContinueSet);
+      FOR Terminal := yyFirstTerminal TO yyLastTerminal DO
+	 IF IsContinuation (Terminal, Stack, StackSize, StackPtr) THEN
+	    Sets.Include (ContinueSet, VAL(Sets.tElement,Terminal));
+	 END;
+      END;
+   END ComputeContinuation;
+
+(*
+   check whether a given terminal symbol can be accepted (read)
+   in a certain stack configuration (eventually after reduce actions)
+*)
+
+PROCEDURE IsContinuation (
+      Terminal		: yySymbolRange ;
+      ParseStack	: yyStackType	;
+      StackSize		: LONGINT	;
+      StackPtr		: yyStackPtrType): BOOLEAN;
+   VAR
+      State		: yyStackPtrType;
+      Nonterminal	: yySymbolRange;
+      Stack		: yyStackType;
+   BEGIN
+      DynArray.MakeArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));
+      FOR State := 0 TO StackPtr DO
+	 Stack^ [State] := ParseStack^ [State];
+      END;
+      State := Stack^ [StackPtr];
+      LOOP
+	 Stack^ [StackPtr] := State;
+	 State := Next (State, Terminal);
+	 IF State = yyNoState THEN
+	    DynArray.ReleaseArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));
+	    RETURN FALSE;
+	 END;
+	 IF State <= yyLastReadTermState THEN		(* read or read terminal reduce ? *)
+	    DynArray.ReleaseArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));
+	    RETURN TRUE;
+	 END;
+
+	 LOOP						(* reduce *)
+	    IF State =	yyStopState THEN
+	       DynArray.ReleaseArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));
+	       RETURN TRUE;
+	    ELSE 
+	       DEC (StackPtr, yyLength [State]);
+	       Nonterminal := yyLeftHandSide [State];
+	    END;
+
+	    State := Next (Stack^ [StackPtr], Nonterminal);
+	    IF StackPtr >= VAL ( yyStackPtrType , StackSize ) THEN
+	       DynArray.ExtendArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));
+	    END;
+	    INC (StackPtr);
+	    IF State < yyFirstFinalState THEN EXIT; END; (* read nonterminal ? *)
+	    State := yyFinalToProd [State];		(* read nonterminal reduce *)
+	 END;
+      END;
+   END IsContinuation;
+
+(*
+   compute a set of terminal symbols that can be used to restart
+   parsing in a given stack configuration. we simulate parsing until
+   end of file using a suffix program synthesized by the function
+   Continuation. All symbols acceptable in the states reached during
+   the simulation can be used to restart parsing.
+*)
+
+PROCEDURE ComputeRestartPoints (
+	  ParseStack	: yyStackType	;
+	  StackSize	: LONGINT	;
+	  StackPtr	: yyStackPtrType;
+      VAR RestartSet	: Sets.tSet	);
+   VAR
+      Stack		: yyStackType;
+      State		: yyStackPtrType;
+      Nonterminal	: yySymbolRange;
+      ContinueSet	: Sets.tSet;
+   BEGIN
+      DynArray.MakeArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));
+      FOR State := 0 TO StackPtr DO
+	 Stack^ [State] := ParseStack^ [State];
+      END;
+      Sets.MakeSet (ContinueSet, yyLastTerminal);
+      Sets.AssignEmpty (RestartSet);
+      State := Stack^ [StackPtr];
+
+      LOOP
+	 IF StackPtr >= VAL ( yyStackPtrType , StackSize ) THEN
+	    DynArray.ExtendArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));
+	 END;
+	 Stack^ [StackPtr] := State;
+	 ComputeContinuation (Stack, StackSize, StackPtr, ContinueSet);
+	 Sets.Union (RestartSet, ContinueSet);
+	 State := Next (State, yyContinuation [State]);
+
+	 IF State >= yyFirstFinalState THEN		(* final state ? *)
+	    IF State <= yyLastReadTermState THEN	(* read terminal reduce ? *)
+	       INC (StackPtr);
+	       State := yyFinalToProd [State];
+	    END;
+
+	    LOOP					(* reduce *)
+	       IF State = yyStopState THEN
+		  DynArray.ReleaseArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));
+		  Sets.ReleaseSet (ContinueSet);
+		  RETURN;
+	       ELSE 
+		  DEC (StackPtr, yyLength [State]);
+		  Nonterminal := yyLeftHandSide [State];
+	       END;
+
+	       State := Next (Stack^ [StackPtr], Nonterminal);
+	       INC (StackPtr);
+	       IF State < yyFirstFinalState THEN EXIT; END; (* read nonterminal ? *)
+	       State := yyFinalToProd [State];		(* read nonterminal reduce *)
+	    END;
+	 ELSE						(* read *)
+	    INC (StackPtr);
+	 END;
+      END;
+   END ComputeRestartPoints;
+
+(* access the parse table:   Next : State x Symbol -> State *)
+
+PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange;
+   VAR
+      TCombPtr		: yyTCombTypePtr;
+      NCombPtr		: yyNCombTypePtr;
+   BEGIN
+      IF Symbol <= yyLastTerminal THEN
+	 LOOP
+	    TCombPtr 
+              := yyTCombTypePtr 
+                   ( LONGCARD (yyTBasePtr [State]) 
+	             + VAL ( LONGCARD , Symbol )
+                       * SYSTEM.TSIZE (yyTCombType)
+                   );
+	    IF TCombPtr^.Check # State THEN
+	       State := yyDefault [State];
+	       IF State = yyNoState THEN RETURN yyNoState; END;
+	    ELSE
+	       RETURN TCombPtr^.Next;
+	    END;
+	 END;
+      ELSE
+	NCombPtr 
+          := yyNCombTypePtr 
+               ( LONGCARD (yyNBasePtr [State]) 
+		 + VAL ( LONGCARD , Symbol )
+                   * SYSTEM.TSIZE (yyNCombType)
+               );
+	RETURN NCombPtr^;
+      END;
+   END Next;
+
+PROCEDURE yyGetTables;
+   VAR
+      BlockSize, j, n	: CARDINAL;
+      State	: yyStateRange;
+      TBase	: ARRAY yyTableElmt[0 .. yyLastReadState] OF yyTCombRange;
+      NBase	: ARRAY yyTableElmt[0 .. yyLastReadState] OF yyNCombRange;
+   BEGIN
+      BlockSize := 64000 DIV SYSTEM.TSIZE (yyTCombType);
+      yyTableFile := System.OpenInput (ParsTabName);
+      yyErrorCheck (Errors.OpenParseTable, yyTableFile);
+      IF 
+	 (yyGetTable (SYSTEM.ADR (TBase		)) DIV SYSTEM.TSIZE (yyTCombRange ) - 1
+	    # yyLastReadState) OR
+	 (yyGetTable (SYSTEM.ADR (NBase		)) DIV SYSTEM.TSIZE (yyNCombRange ) - 1
+	    # yyLastReadState) OR
+	 (yyGetTable (SYSTEM.ADR (yyDefault	)) DIV SYSTEM.TSIZE (yyReadRange  ) - 1
+	    # yyLastReadState) OR
+	 (yyGetTable (SYSTEM.ADR (yyNComb	)) DIV SYSTEM.TSIZE (yyNCombType  )
+	    # yyNTableMax - yyLastTerminal) OR
+	 (yyGetTable (SYSTEM.ADR (yyLength	)) DIV SYSTEM.TSIZE (yyTableElmt  ) - 1
+	    # yyLastReduceState - yyFirstReduceState) OR
+	 (yyGetTable (SYSTEM.ADR (yyLeftHandSide)) DIV SYSTEM.TSIZE (yySymbolRange) - 1
+	    # yyLastReduceState - yyFirstReduceState) OR
+	 (yyGetTable (SYSTEM.ADR (yyContinuation)) DIV SYSTEM.TSIZE (yySymbolRange) - 1
+	    # yyLastReadState) OR
+	 (yyGetTable (SYSTEM.ADR (yyFinalToProd )) DIV SYSTEM.TSIZE (yyReduceRange) - 1
+	    # yyLastReadNontermState - yyFirstReadTermState)
+      THEN
+	 Errors.ErrorMessage (Errors.WrongParseTable, Errors.Fatal, Positions.NoPosition);
+      END;
+      n := 0;
+      j := 0;
+      WHILE j <= yyTableMax DO
+	 INC (n, yyGetTable (SYSTEM.ADR (yyTComb [VAL(yyStateRange,j)])) DIV SYSTEM.TSIZE (yyTCombType));
+	 INC (j, BlockSize);
+      END;
+      IF n # yyTableMax + 1 THEN 
+	 Errors.ErrorMessage (Errors.WrongParseTable, Errors.Fatal, Positions.NoPosition);
+      END;
+      System.Close (yyTableFile);
+
+      FOR State := 1 TO yyLastReadState DO
+	 yyTBasePtr [State] := SYSTEM.ADR (yyTComb [TBase [State]]);
+      END;
+      FOR State := 1 TO yyLastReadState DO
+	 yyNBasePtr [State] := SYSTEM.ADR (yyNComb [NBase [State]]);
+      END;
+   END yyGetTables;
+
+PROCEDURE yyGetTable (Address: SYSTEM.ADDRESS): CARDINAL;
+   VAR
+      N		: INTEGER;
+      Length	: yyTableElmt;
+      LongLength : CARDINAL;
+   BEGIN
+      N := System.Read (yyTableFile, SYSTEM.ADR (Length), SYSTEM.TSIZE (yyTableElmt));
+      yyErrorCheck (Errors.ReadParseTable, N);
+      LongLength := VAL ( CARDINAL , Length );
+      N := System.Read (yyTableFile, Address, LongLength);
+      yyErrorCheck (Errors.ReadParseTable, N);
+      RETURN LongLength;
+   END yyGetTable;
+
+PROCEDURE yyErrorCheck (ErrorCode: INTEGER; Info: INTEGER);
+   VAR ErrNo: INTEGER;
+   BEGIN
+     IF Info < 0 THEN
+	ErrNo := System.ErrNum ();
+	Errors.ErrorMessageI (ErrorCode, Errors.Fatal, Positions.NoPosition,
+	   Errors.Integer, SYSTEM.ADR (ErrNo));
+     END;
+   END yyErrorCheck;
+
+PROCEDURE BeginParser;
+   BEGIN
+(* line 79 "/tmp/lalr21012" *)
+(* line 76 cg.lalr *)
+
+   BeginScanner;
+   ClassCount	  := 0;
+   InitProperties := {Input};
+   ModuleIdent	  := NoIdent;
+   SubUnit	  := NoIdent;
+   ViewName	  := NoIdent;
+   ParserName	  := NoIdent;
+   TreeName	  := NoIdent;
+   EvalName	  := NoIdent;
+
+      IF NOT yyIsInitialized THEN
+	 yyIsInitialized := TRUE;
+	 yyGetTables;
+      END;
+   END BeginParser;
+
+PROCEDURE CloseParser;
+   BEGIN
+
+   END CloseParser;
+
+BEGIN
+    yyIsInitialized := FALSE;
+    ParsTabName := 'Parser.Tab';
+END Parser.

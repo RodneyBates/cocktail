@@ -1,0 +1,515 @@
+
+/* Ich, Doktor Josef Grosch, Informatiker, 20.3.1989 */
+/* Rodney M. Bates Feb 96. Added SPECWITH and BODYWITH sections. */
+/* RMB Jun 96 Added Modula-2 style comments (* ... *) , including
+              nesting thereof.  
+   RMB Oct 96 Changed to scan comments inside target code properly.
+              (previously, a quote inside a comment inside target
+               code gave a spurious "unclosed string" message.) 
+*/ 
+
+EXPORT  {
+FROM StringMem	IMPORT tStringRef;
+FROM Idents	IMPORT tIdent	;
+FROM Texts	IMPORT tText	;
+FROM Positions	IMPORT tPosition;
+
+TYPE
+yyIdent = RECORD Ident: tIdent; 
+END;
+yyOperator = RECORD Ident: tIdent; 
+END;
+yyIncOperator = RECORD Ident: tIdent; 
+END;
+yyTargetBlock = RECORD Text: tText; 
+END;
+yyString = RECORD StringRef: tStringRef; 
+END;
+yyNumber = RECORD StringRef: tStringRef; 
+END;
+yyTargetCode = RECORD StringRef: tStringRef; 
+END;
+yyWhiteSpace = RECORD StringRef: tStringRef; 
+END;
+(* '::' *) yy9 = RECORD StringRef: tStringRef; 
+END;
+
+tScanAttribute = RECORD
+Position: tPosition;
+CASE : SHORTCARD OF
+| 1: Ident: yyIdent;
+| 2: Operator: yyOperator;
+| 3: IncOperator: yyIncOperator;
+| 4: TargetBlock: yyTargetBlock;
+| 5: String: yyString;
+| 6: Number: yyNumber;
+| 7: TargetCode: yyTargetCode;
+| 8: WhiteSpace: yyWhiteSpace;
+| 9: (* '::' *) yy9: yy9;
+END; END;
+
+PROCEDURE ErrorAttribute (Token: INTEGER; VAR pAttribute: tScanAttribute);
+
+
+PROCEDURE Error		(Text: ARRAY OF CHAR; Position: tPosition);
+PROCEDURE ErrorI	(Text: ARRAY OF CHAR; Position: tPosition; Ident: tIdent);
+PROCEDURE Warning	(Text: ARRAY OF CHAR; Position: tPosition);
+PROCEDURE WarningI	(Text: ARRAY OF CHAR; Position: tPosition; Ident: tIdent);
+}
+
+GLOBAL  {
+FROM SYSTEM	IMPORT ADR;
+FROM StringMem	IMPORT PutString;
+FROM Strings	IMPORT tString, Concatenate, Char, SubString,
+			AssignEmpty, Length, WriteL;
+FROM Idents	IMPORT tIdent, MakeIdent, NoIdent, GetStringRef;
+FROM Texts	IMPORT MakeText, Append;
+FROM Sets	IMPORT IsElement;
+FROM Tree	IMPORT Options, ErrorCount;
+FROM Positions	IMPORT tPosition;
+
+IMPORT Errors;
+
+VAR BraceNestingLevel , CommentNestingLevel : INTEGER; 
+VAR CommentPos, StringPos, TargetPos : tPosition;
+VAR InsideTarget : BOOLEAN ; 
+
+PROCEDURE ErrorAttribute (Token: INTEGER; VAR pAttribute: tScanAttribute);
+BEGIN
+ pAttribute.Position := Attribute.Position;
+ CASE Token OF
+ | (* Ident *) 1: 
+ pAttribute.Ident.Ident	:= NoIdent	;
+ ;
+ | (* Operator *) 2: 
+ pAttribute.Operator.Ident	:= NoIdent	;
+ ;
+ | (* IncOperator *) 3: 
+ pAttribute.IncOperator.Ident	:= NoIdent	;
+ ;
+ | (* TargetBlock *) 4: 
+ MakeText (pAttribute.TargetBlock.Text); ;
+ ;
+ | (* String *) 5: 
+ pAttribute.String.StringRef	:= GetStringRef (NoIdent);
+ ;
+ | (* Number *) 6: 
+ pAttribute.Number.StringRef	:= GetStringRef (NoIdent);
+ ;
+ | (* TargetCode *) 7: 
+ pAttribute.TargetCode.StringRef	:= GetStringRef (NoIdent);
+ ;
+ | (* WhiteSpace *) 8: 
+ pAttribute.WhiteSpace.StringRef	:= GetStringRef (NoIdent);
+ ;
+ | (* '::' *) 9: 
+ pAttribute.yy9.StringRef	:= GetStringRef (NoIdent);
+ ;
+ ELSE
+ END;
+END ErrorAttribute;
+
+
+PROCEDURE Error (Text: ARRAY OF CHAR; Position: tPosition);
+   BEGIN
+      Errors.Message (Text, Errors.Error, Position);
+      INC (ErrorCount);
+   END Error;
+
+PROCEDURE ErrorI (Text: ARRAY OF CHAR; Position: tPosition; Ident: tIdent);
+   BEGIN
+      Errors.MessageI (Text, Errors.Error, Position, Errors.Ident, ADR (Ident));
+      INC (ErrorCount);
+   END ErrorI;
+
+PROCEDURE Warning (Text: ARRAY OF CHAR; Position: tPosition);
+   BEGIN
+      IF NOT IsElement (ORD ('s'), Options) THEN
+	 Errors.Message (Text, Errors.Warning, Position);
+      END;
+   END Warning;
+
+PROCEDURE WarningI (Text: ARRAY OF CHAR; Position: tPosition; Ident: tIdent);
+   BEGIN
+      IF NOT IsElement (ORD ('s'), Options) THEN
+	 Errors.MessageI (Text, Errors.Warning, Position, Errors.Ident, ADR (Ident));
+      END;
+   END WarningI;
+}
+
+LOCAL	
+  { VAR Word, String, TargetCode: tString; 
+
+    PROCEDURE AccumComment ( ) ; 
+    BEGIN
+      IF InsideTarget AND ( BraceNestingLevel > 0 )
+      THEN 
+        GetWord (Word);
+        Concatenate (TargetCode, Word);
+      END (* IF *) 
+    END AccumComment; 
+
+  }
+
+BEGIN	
+  { BraceNestingLevel := 0; CommentNestingLevel := 0; InsideTarget := FALSE }
+
+DEFAULT	
+  { GetWord (Word);
+    Errors.MessageI 
+      ( "illegal character", Errors.Error
+      , Attribute.Position, Errors.String, ADR (Word)
+      );
+  }
+
+EOF     {
+   CASE yyStartState OF
+   | CComment , M2Comment : Error ("unclosed comment", CommentPos);
+     IF InsideTarget
+     THEN Error ("unclosed target code", TargetPos);
+     END (* IF *) 
+   | expr	,
+     targetcode	: Error ("unclosed target code", TargetPos);
+   | CStr1, CStr2,
+     Str1, Str2	: Error ("unclosed string", StringPos);
+     IF InsideTarget
+     THEN Error ("unclosed target code", TargetPos);
+     END (* IF *) 
+   ELSE
+   END;
+   BraceNestingLevel := 0; 
+   CommentNestingLevel := 0; 
+}
+
+DEFINE  letter  =   {A-Z a-z _}	.
+        digit   =   {0-9}	.
+	CCmtCh  = - {*\t\n}	.
+	M2CmtCh  = - {*(\t\n}	.
+	StrCh1	= - {'\t\n}	.
+	StrCh2	= - {"\t\n}	.
+	CStrCh1	= - {'\t\n\\}	.
+	CStrCh2	= - {"\t\n\\}	.
+	code	= - {\\\t\n{\}'"(/} .
+	anyExpr	= - {\\\t\n{\}'":\ a-zA-Z} .
+
+START	CComment , M2Comment, Str1, Str2, CStr1, CStr2, targetcode, expr
+
+RULE
+
+#targetcode#	"{"	: {
+			   IF BraceNestingLevel = 0 THEN
+			      MakeText (Attribute.TargetBlock.Text);
+			      AssignEmpty (TargetCode);
+			      TargetPos := Attribute.Position;
+                              InsideTarget := TRUE; 
+			   ELSE
+			      GetWord (Word);
+			      Concatenate (TargetCode, Word);
+			   END;
+			   INC (BraceNestingLevel);
+			}
+
+#targetcode#	"}"	:- {
+			   DEC (BraceNestingLevel);
+			   IF BraceNestingLevel = 0 THEN
+			      yyStart (STD);
+                              InsideTarget := FALSE; 
+			      Append (Attribute.TargetBlock.Text, TargetCode);
+			      Attribute.Position := TargetPos;
+			      RETURN 4;
+			   ELSE
+			      GetWord (Word);
+			      Concatenate (TargetCode, Word);
+			   END;
+			}
+
+#targetcode#	code +	| "/" | "(" 
+                        :- {
+			   IF BraceNestingLevel > 0 THEN
+			      GetWord (Word);
+			      Concatenate (TargetCode, Word);
+			   END;
+			}
+
+#targetcode#	\t	:- {
+			   IF BraceNestingLevel > 0 THEN
+			      Strings.Append (TargetCode, 11C);
+			   END;
+			   yyTab;
+			}
+
+#targetcode#	\n	:- {
+			   IF BraceNestingLevel > 0 THEN
+			      Append (Attribute.TargetBlock.Text, TargetCode);
+			      AssignEmpty (TargetCode);
+			   END;
+			   yyEol (0);
+			}
+
+#targetcode#	\\ ANY	:- {
+			   IF BraceNestingLevel > 0 THEN
+			      GetWord (Word);
+			      Strings.Append (TargetCode, Char (Word, 2));
+			   END;
+			}
+
+#targetcode#	\\	:- {
+			   IF BraceNestingLevel > 0 THEN
+			      Strings.Append (TargetCode, '\');
+			   END;
+			}
+
+#STD, expr, targetcode#  
+             "(*"  :- { AccumComment ( );
+                        CommentNestingLevel := 1; 
+                        CommentPos := Attribute.Position; 
+                        yyStart (M2Comment);
+                      }
+
+#M2Comment#  "(*"  :- { INC (CommentNestingLevel); AccumComment ( ); }
+#M2Comment#  "*)"  :- { AccumComment ( ); DEC (CommentNestingLevel); 
+		        IF CommentNestingLevel = 0 THEN yyPrevious; END;
+                      }
+#M2Comment#  "(" | "*" | M2CmtCh + :- { AccumComment ( ); }
+
+#STD, expr, targetcode# 
+           "/*"   :  { AccumComment ( ); 
+                       yyStart (CComment); 
+                       CommentPos := Attribute.Position;
+                     }
+#CComment# "*/"	   :- { AccumComment ( ); yyPrevious;}
+#CComment# "*" | CCmtCh + :- { AccumComment ( ); }
+
+
+
+
+#M2Comment, CComment#	
+              \t     :- {
+			   IF InsideTarget AND ( BraceNestingLevel > 0 ) 
+                           THEN
+			      Strings.Append (TargetCode, 11C);
+			   END;
+			   yyTab;
+			}
+
+#M2Comment, CComment#	
+              \n     :- {
+			   IF InsideTarget AND ( BraceNestingLevel > 0 ) 
+                           THEN
+			      Append (Attribute.TargetBlock.Text, TargetCode);
+			      AssignEmpty (TargetCode);
+			   END;
+			   yyEol (0);
+			}
+
+
+
+
+#STD# \f | \r		:- {}
+
+#STD# (digit + "." digit * | digit * "." digit +) ({Ee} {+\-} ? digit +) ? | digit +
+			:  {GetWord (Word);
+	                    Attribute.Number.StringRef := PutString (Word);
+			    RETURN 6;}
+
+#STD, expr, targetcode# ' :{GetWord (String);
+			    StringPos := Attribute.Position;
+			    IF IsElement (ORD ('c'), Options)
+			    THEN yyStart (CStr1);
+			    ELSE yyStart (Str1);
+			    END;}
+
+#STD, expr, targetcode# \":{GetWord (String);
+			    StringPos := Attribute.Position;
+			    IF IsElement (ORD ('c'), Options)
+			    THEN yyStart (CStr2);
+			    ELSE yyStart (Str2);
+			    END;}
+
+#Str1#	StrCh1 +	,
+#Str2#	StrCh2 +	,
+#CStr1#	CStrCh1 + | \\ ANY ? ,
+#CStr2#	CStrCh2 + | \\ ANY ? :- {GetWord (Word); Concatenate (String, Word);}
+
+#CStr1#	\\ \n		,
+#CStr2#	\\ \n		:- {GetWord (Word); Concatenate (String, Word); yyEol (0);}
+
+#Str1, CStr1# '		,
+#Str2, CStr2# \"	:- {Strings.Append (String, Char (String, 1));
+			    yyPrevious;
+			    IF yyStartState = targetcode THEN
+			       Concatenate (TargetCode, String);
+			    ELSE
+			       Attribute.String.StringRef := PutString (String);
+			       RETURN 5;
+			    END;}
+
+#Str1, Str2, CStr1, CStr2# \t :- {Strings.Append (String, 11C); yyTab;}
+
+#Str1, Str2, CStr1, CStr2# \n :- {Error ("unclosed string", Attribute.Position);
+			    Strings.Append (String, Char (String, 1));
+			    yyEol (0); yyPrevious;
+			    IF yyStartState = targetcode THEN
+			       Concatenate (TargetCode, String);
+			    ELSE
+			       Attribute.String.StringRef := PutString (String);
+			       RETURN 5;
+			    END;}
+
+#STD# "::"		: {RETURN 9			;}
+
+#STD# "{"		: {IF BraceNestingLevel = 0 
+                           THEN TargetPos := Attribute.Position; 
+                           END;
+			   yyStart (expr); INC (BraceNestingLevel); RETURN 37;}
+
+#expr# anyExpr *	: {GetWord (Word);
+			   Attribute.TargetCode.StringRef := PutString (Word);
+			   RETURN 7		;}
+
+#expr# "{"		: {INC (BraceNestingLevel);
+			   GetWord (Word);
+			   Attribute.TargetCode.StringRef := PutString (Word);
+			   RETURN 7		;}
+
+#expr# "}"		: {DEC (BraceNestingLevel);
+			   IF BraceNestingLevel = 0 THEN
+			      yyStart (STD);
+			      RETURN 38;
+			   ELSE
+			      GetWord (Word);
+			      Attribute.TargetCode.StringRef := PutString (Word);
+			      RETURN 7;
+			   END				;}
+
+#expr# ":"		: {GetWord (Word);
+			   Attribute.TargetCode.StringRef := PutString (Word);
+			   RETURN 7		;}
+
+#expr# "::"		: {GetWord (Word);
+			   Attribute.yy9.StringRef := PutString (Word);
+			   RETURN 9			;}
+
+#expr# " " +		: {GetWord (Word);
+			   Attribute.WhiteSpace.StringRef := PutString (Word);
+			   RETURN 8		;}
+
+#expr# \n		: {GetWord (Word);
+			   Attribute.WhiteSpace.StringRef := PutString (Word);
+			   yyEol (0);
+			   RETURN 8		;}
+
+#expr# \t		: {GetWord (Word);
+			   Attribute.WhiteSpace.StringRef := PutString (Word);
+			   yyTab;
+			   RETURN 8		;}
+
+#expr# \\ ANY		: {GetWord (Word);
+			   SubString (Word, 2, 2, String);
+			   Attribute.TargetCode.StringRef 
+                             := PutString (String);
+			   RETURN 7		;}
+
+#expr# \\		: {GetWord (Word);
+			   Attribute.TargetCode.StringRef := PutString (Word);
+			   RETURN 7		;}
+
+#STD# SPECWITH  	: {yyStart (targetcode); RETURN 16;}
+#STD# BODYWITH  	: {yyStart (targetcode); RETURN 17;}
+#STD# BEGIN		: {yyStart (targetcode); RETURN 21;}
+#STD# CLOSE		: {yyStart (targetcode); RETURN 22;}
+#STD# EXPORT		: {yyStart (targetcode); RETURN 18;}
+#STD# GLOBAL		: {yyStart (targetcode); RETURN 20;}
+#STD# IMPORT		: {yyStart (targetcode); RETURN 19;}
+#STD# LOCAL		: {yyStart (targetcode); RETURN 32;}
+
+#STD# 
+  "!"
+| "!="
+| "#"
+| "%"
+| "&"
+| "&&"
+| "*"
+| "+"
+| "-"
+| "/"
+| "<"
+| "<<"
+| "<="
+| "<>"
+| "="
+| "=="
+| ">"
+| ">="
+| ">>"
+| "|"
+| "||"
+| "~"
+| AND
+| DIV
+| IN
+| MOD
+| \NOT
+| OR
+			: {GetWord (Word);
+	                   Attribute.Operator.Ident := MakeIdent (Word);
+			   RETURN 2		;}
+
+#STD# "++" | "--"	: {GetWord (Word);
+	                   Attribute.IncOperator.Ident := MakeIdent (Word);
+			   RETURN 3		;}
+
+#STD# \\ - {\ \t\n} +	: {GetWord (Word);
+			   SubString (Word, 2, Length (Word), String);
+	                   Attribute.Operator.Ident := MakeIdent (String);
+			   RETURN 2		;}
+
+ #STD#TRAFO	: { RETURN 10; }
+ #STD#TREE	: { RETURN 11; }
+ #STD#\,	: { RETURN 12; }
+ #STD#PUBLIC	: { RETURN 13; }
+ #STD#EXTERN	: { RETURN 14; }
+ #STD#\;	: { RETURN 15; }
+ #STD#SPECWITH	: { RETURN 16; }
+ #STD#BODYWITH	: { RETURN 17; }
+ #STD#EXPORT	: { RETURN 18; }
+ #STD#IMPORT	: { RETURN 19; }
+ #STD#GLOBAL	: { RETURN 20; }
+ #STD#BEGIN	: { RETURN 21; }
+ #STD#CLOSE	: { RETURN 22; }
+ #STD#PROCEDURE	: { RETURN 23; }
+ #STD#\(	: { RETURN 24; }
+ #STD#REF	: { RETURN 25; }
+ #STD#\:	: { RETURN 26; }
+ #STD#\.	: { RETURN 27; }
+ #STD#\[	: { RETURN 28; }
+ #STD#\]	: { RETURN 29; }
+ #STD#\=\>	: { RETURN 30; }
+ #STD#\)	: { RETURN 31; }
+ #STD#LOCAL	: { RETURN 32; }
+ #STD#\.\.	: { RETURN 33; }
+ #STD#\:\>	: { RETURN 34; }
+ #STD#_	: { RETURN 35; }
+ #STD#NIL	: { RETURN 36; }
+ #STD#\{	: { RETURN 37; }
+ #STD#\}	: { RETURN 38; }
+ #STD#\-\>	: { RETURN 39; }
+ #STD#\^	: { RETURN 40; }
+ #STD#\:\=	: { RETURN 41; }
+ #STD#\?	: { RETURN 42; }
+ #STD#REJECT	: { RETURN 43; }
+ #STD#FAIL	: { RETURN 44; }
+ #STD#NL	: { RETURN 45; }
+ #STD#RETURN	: { RETURN 46; }
+ #STD#FUNCTION	: { RETURN 47; }
+ #STD#PREDICATE	: { RETURN 48; }
+
+
+#STD# "..."		: {RETURN 33			;}
+#STD# ":-"		: {RETURN 42			;}
+
+#STD, expr# letter (letter | digit) *
+			: {GetWord (Word);
+	                   Attribute.Ident.Ident := MakeIdent (Word);
+			   RETURN 1			;}

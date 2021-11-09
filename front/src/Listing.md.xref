@@ -1,0 +1,82 @@
+     1 (* error listing *)
+     2 
+     3 (* $Id: Listing.md,v 1.2 1991/11/21 14:47:50 grosch rel $ *)
+     4 
+     5 (* $Log: Listing.md,v $
+c    6  * Revision 1.2  1991/11/21  14:47:50  grosch
+c    7  * new version of RCS on SPARC
+c    8  *
+c    9  * Revision 1.1  90/06/11  18:45:02  grosch
+c   10  * layout improvements
+c   11  * 
+c   12  * Revision 1.0  88/10/04  14:26:48  vielsack
+c   13  * Initial revision
+c   14  * 
+c   15  *)
+    16 
+    17 DEFINITION MODULE Listing;                                                    *
+    18 
+    19 FROM    IO              IMPORT  tFile;                                        *     *
+    20 FROM    SYSTEM          IMPORT  ADDRESS;                                      *     *
+    21 
+    22 TYPE tListMode = (NoListing, Listing);                                        *     *    17
+    23 
+    24 VAR
+    25   SourceFile : tFile;                                                         *    19
+    26   ListFile   : tFile;                                                         *    19
+    27   ListMode   : tListMode;                                                     *    22
+    28 
+    29 PROCEDURE PutError (Code,Class,Line,Column,InfoClass: CARDINAL; Info: ADDRESS);     *     *     *     *     *     *     *
+                                                                                     *    20
+    30 PROCEDURE HasError (): BOOLEAN;                                               *     *
+    31 PROCEDURE GetError (VAR Code,Class,Line,Column,InfoClass: CARDINAL; VAR Info: ADDRES\     *    29    29    29    29    29
+                                                                                     *    29
+      \S);                                                                          20
+    32 
+    33 END Listing.                                                                 22
+Cross reference: * is declaration, = is assignment
+
+-A-
+ ADDRESS                         20*   29    31 
+
+-B-
+ BOOLEAN                         30 
+
+-C-
+ CARDINAL                        29    31 
+ Class                           29*   31*
+ Code                            29*   31*
+ Column                          29*   31*
+
+-G-
+ GetError                        31*
+
+-H-
+ HasError                        30*
+
+-I-
+ Info                            29*   31*
+ InfoClass                       29*   31*
+ IO                              19*
+
+-L-
+ Line                            29*   31*
+ ListFile                        26*
+ Listing                         17*   22*   33*
+ ListMode                        27*
+
+-N-
+ NoListing                       22*
+
+-P-
+ PutError                        29*
+
+-S-
+ SourceFile                      25*
+ SYSTEM                          20*
+
+-T-
+ tFile                           19*   25    26 
+ tListMode                       22*   27 
+
+end cross reference, 35 occurrences of 21 identifiers.

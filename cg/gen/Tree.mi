@@ -1,0 +1,2415 @@
+IMPLEMENTATION MODULE Tree;
+
+
+
+IMPORT SYSTEM, System, General, Memory, DynArray, IO, Layout, StringMem, Strings, Idents, Texts, Sets, Positions;
+(* line 194 "" *)
+
+
+FROM SYSTEM     IMPORT ADR, ADDRESS, TSIZE;
+FROM DynArray   IMPORT MakeArray;
+FROM IO         IMPORT tFile, StdOutput, ReadI, WriteS, WriteI, WriteC, WriteNl;
+FROM Strings    IMPORT tString, ArrayToString, Concatenate, Length, Char;
+FROM StringMem  IMPORT tStringRef, WriteString;
+FROM Idents     IMPORT tIdent, NoIdent, GetString, WriteIdent, MakeIdent, MaxIdent;
+FROM Texts      IMPORT tText, MakeText;
+FROM Sets       IMPORT tSet, Include, IsElement, MakeSet;
+FROM Relations  IMPORT tRelation, IsRelated, MakeRelation;
+FROM Positions  IMPORT tPosition;
+
+IMPORT Relations, Errors;
+
+
+
+
+
+
+
+CONST Backslash = 134C ; (* This code goes through cpp (via cg), as well as into
+                            a modula-2 compiler.  cpp chokes on 
+                            quote-backslash-quote. *)  
+
+VAR IdentToClassPtr     : POINTER TO ARRAY [0..1000000] OF tTree;
+VAR IdentToClassSize    : LONGINT;
+VAR sIdentToClassSize   : tIdent;
+
+PROCEDURE InitIdentifyClass (t: tTree);
+   VAR i: INTEGER;
+   BEGIN
+      IdentToClassSize := MaxIdent () + 1;
+      sIdentToClassSize := IdentToClassSize;
+      MakeArray (IdentToClassPtr, IdentToClassSize, TSIZE (tTree));
+      FOR i := 0 TO IdentToClassSize - 1 DO
+         IdentToClassPtr^ [i] := NoTree;
+      END;
+      ForallClasses (t, InitIdentifyClass2);
+   END InitIdentifyClass;
+
+PROCEDURE InitIdentifyClass2 (t: tTree);
+   BEGIN
+      IdentToClassPtr^ [t^.Class.Name] := t;
+   END InitIdentifyClass2;
+
+PROCEDURE IdentifyClass (t: tTree; Ident: tIdent): tTree;
+   BEGIN
+      IF Ident < sIdentToClassSize THEN RETURN IdentToClassPtr^ [Ident]; END;
+      RETURN NoTree;
+   END IdentifyClass;
+
+(* Return Attribute node for attribute "Ident" of class "t" *) 
+PROCEDURE IdentifyAttribute (t: tTree; Ident: tIdent): tTree;
+   VAR attribute        : tTree;
+   BEGIN
+      LOOP
+         CASE t^.Kind OF
+         | Class:
+               attribute := IdentifyAttribute (t^.Class.BaseClass, Ident);
+               IF attribute # NoTree THEN RETURN attribute; END;
+               t := t^.Class.Attributes;
+                        (* RETURN IdentifyAttribute (t^.Class.Attributes, Ident); *)
+         | Child:
+               IF t^.Child.Name = Ident THEN RETURN t; END;
+               t := t^.Child.Next;
+                        (* RETURN IdentifyAttribute (t^.Child.Next, Ident); *)
+         | Attribute:
+               IF t^.Attribute.Name = Ident THEN RETURN t; END;
+               t := t^.Attribute.Next;
+                        (* RETURN IdentifyAttribute (t^.Attribute.Next, Ident); *)
+         | ActionPart:
+               t := t^.ActionPart.Next;
+                        (* RETURN IdentifyAttribute (t^.ActionPart.Next, Ident); *)
+         ELSE
+               RETURN NoTree;
+         END;
+      END;
+   END IdentifyAttribute;
+
+PROCEDURE ForallClasses (t: tTree; Proc: ProcOfT);
+   BEGIN
+      WHILE t^.Kind = Class DO
+         Proc (t);
+         ForallClasses (t^.Class.Extensions, Proc);
+         t := t^.Class.Next;            (* ForallClasses (t^.Class.Next, Proc); *)
+      END;
+   END ForallClasses;
+
+PROCEDURE ForallClassesExtensionsFirst (t: tTree; Proc: ProcOfT);
+   BEGIN
+      WHILE t^.Kind = Class DO
+         ForallClassesExtensionsFirst (t^.Class.Extensions, Proc);
+         Proc (t);
+         t := t^.Class.Next;            (* ForallClassesExtensionsFirst (t^.Class.Next, Proc); *)
+      END;
+   END ForallClassesExtensionsFirst ;
+
+(* R.M.B. *)
+PROCEDURE ForallClassesPreAndPost (t: tTree; PreProc, PostProc : ProcOfT);
+   BEGIN
+      WHILE t^.Kind = Class DO
+         PreProc (t);
+         ForallClassesPreAndPost (t^.Class.Extensions, PreProc, PostProc);
+         PostProc (t);
+         t := t^.Class.Next;
+      END;
+   END ForallClassesPreAndPost;
+(* R.M.B. end *)
+
+PROCEDURE ForallAttributes (t: tTree; Proc: ProcOfT);
+   BEGIN
+      LOOP
+         CASE t^.Kind OF
+         | Class:
+               ForallAttributes (t^.Class.BaseClass, Proc);
+               t := t^.Class.Attributes; (* ForallAttributes (t^.Class.Attributes, Proc); *)
+         | Child:
+               Proc (t);
+               t := t^.Child.Next;      (* ForallAttributes (t^.Child.Next, Proc); *)
+         | Attribute:
+               Proc (t);
+               t := t^.Attribute.Next;  (* ForallAttributes (t^.Attribute.Next, Proc); *)
+         | ActionPart:
+               Proc (t);
+               t := t^.ActionPart.Next; (* ForallAttributes (t^.ActionPart.Next, Proc); *)
+         ELSE
+               RETURN;
+         END;
+      END;
+   END ForallAttributes;
+
+PROCEDURE Error (ErrorCode: INTEGER; Pos: tPosition);
+   BEGIN
+      Errors.ErrorMessage (ErrorCode, Errors.Error, Pos);
+      INC (ErrorCount);
+   END Error;
+
+PROCEDURE Warning (ErrorCode: INTEGER; Pos: tPosition);
+   BEGIN
+      Errors.ErrorMessage (ErrorCode, Errors.Warning, Pos);
+   END Warning;
+
+PROCEDURE Information (ErrorCode: INTEGER; Pos: tPosition);
+   BEGIN
+      Errors.ErrorMessage (ErrorCode, Errors.Information, Pos);
+   END Information;
+
+PROCEDURE ErrorI (ErrorCode: INTEGER; Pos: tPosition; iClass: INTEGER; iPtr: ADDRESS);
+   BEGIN
+      Errors.ErrorMessageI (ErrorCode, Errors.Error, Pos, iClass, iPtr);
+      INC (ErrorCount);
+   END ErrorI;
+
+PROCEDURE WarningI (ErrorCode: INTEGER; Pos: tPosition; iClass: INTEGER; iPtr: ADDRESS);
+   BEGIN
+      Errors.ErrorMessageI (ErrorCode, Errors.Warning, Pos, iClass, iPtr);
+   END WarningI;
+
+PROCEDURE InformationI (ErrorCode: INTEGER; Pos: tPosition; iClass: INTEGER; iPtr: ADDRESS);
+   BEGIN
+      Errors.ErrorMessageI (ErrorCode, Errors.Information, Pos, iClass, iPtr);
+   END InformationI;
+
+PROCEDURE WI (i: tIdent); BEGIN WriteIdent (f, i); END WI;
+
+PROCEDURE WE (i: tIdent);
+   VAR s: tString; Ch: CHAR; j: SHORTCARD;
+   BEGIN
+      GetString (i, s);
+      FOR j := 1 TO Length (s) DO
+         Ch := Char (s, j);
+         IF (Ch = '{') OR (Ch = '}') OR (Ch = Backslash) 
+         THEN WriteC (f, Backslash); 
+         END;
+         WriteC (f, Ch);
+      END;
+   END WE;
+
+PROCEDURE WN (n: INTEGER); BEGIN WriteI (f, n, 0); END WN;
+
+(* line 501 "" *)
+
+
+VAR
+   DummySet     : tSet;
+   DummyRelation: tRelation;
+
+
+
+
+
+
+
+
+
+
+
+(* IF NOT Test *)
+
+
+(* *)
+(* IF Test 
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+*)
+
+PROCEDURE BeginTree2;
+   VAR Word     : tString;
+   BEGIN
+      WITH TreeRoot^.Ag DO
+         IF ParserName = NoIdent THEN
+            ArrayToString ("Parser"     , Word); ParserName     := MakeIdent (Word);
+         END;
+         IF TreeName = NoIdent THEN
+            ArrayToString ("Tree"       , Word); TreeName       := MakeIdent (Word);
+         END;
+         IF EvalName = NoIdent THEN
+            ArrayToString ("Eval"       , Word); EvalName       := MakeIdent (Word);
+         END;
+         IF ViewName = NoIdent THEN ViewName := TreeName; END;
+         GetString (TreeName, ModuleName);
+         iMain := TreeName;
+      END;
+      ArrayToString ("t" , Word); Concatenate (Word, ModuleName); itTree  := MakeIdent (Word);
+      ArrayToString ("No", Word); Concatenate (Word, ModuleName); iNoTree := MakeIdent (Word);
+      ArrayToString ("Position"         , Word); iPosition      := MakeIdent (Word);
+      ArrayToString ("tPosition"        , Word); itPosition     := MakeIdent (Word);
+
+      IF SubUnit = NoIdent THEN
+         iModule := iMain;
+      ELSE
+         iModule := SubUnit;
+         Include (Options, ORD ('<'));
+      END;
+   END BeginTree2;
+
+PROCEDURE IdentifyModule (t: tTree; Ident: tIdent): tTree;
+   VAR module   : tTree;
+   BEGIN
+      IF t^.Kind = Module THEN
+         IF t^.Module.Name = Ident THEN RETURN t; END;
+         RETURN IdentifyModule (t^.Module.Next, Ident);
+      ELSE
+         RETURN NoTree;
+      END;
+   END IdentifyModule;
+
+PROCEDURE WriteInstance (i: tInstance);
+   BEGIN
+      WITH i DO
+         WriteS  (StdOutput, " ");
+         WriteName (i);
+         WriteS  (StdOutput, "  ");
+         WriteI  (StdOutput, Attribute^.Child.Partition, 0);
+         WriteS  (StdOutput, " ");
+         WriteAttrProperties (StdOutput, Properties + Attribute^.Child.Properties);
+         WriteNl (StdOutput);
+      END;
+   END WriteInstance;
+
+PROCEDURE WriteName (i: tInstance);
+   BEGIN
+      WITH i DO
+         IF (Selector # NoTree) AND (Right IN Properties) THEN
+            WriteIdent (StdOutput, Selector^.Child.Name);
+            WriteS     (StdOutput, ":");
+         END;
+
+         IF Attribute # NoTree THEN
+            WriteIdent (StdOutput, Attribute^.Child.Name);
+         END;
+      END;
+   END WriteName;
+
+PROCEDURE WriteAttrProperties (f: tFile; Properties: tAttrProperties);
+   BEGIN
+      IF Virtual        IN Properties THEN WriteS (f, "Virtual "        ); END;
+      IF Computed       IN Properties THEN WriteS (f, "Computed "       ); END;
+      IF Reverse        IN Properties THEN WriteS (f, "Reverse "        ); END;
+      IF Write          IN Properties THEN WriteS (f, "Write "  ); END;
+      IF Read           IN Properties THEN WriteS (f, "Read "   ); END;
+      IF Inherited      IN Properties THEN WriteS (f, "Inherited "      ); END;
+      IF Synthesized    IN Properties THEN WriteS (f, "Synthesized "    ); END;
+      IF Input          IN Properties THEN WriteS (f, "Input "  ); END;
+      IF Output         IN Properties THEN WriteS (f, "Output " ); END;
+      IF Tree           IN Properties THEN WriteS (f, "Tree "   ); END;
+      IF Parameter      IN Properties THEN WriteS (f, "Parameter "      ); END;
+      IF Stack          IN Properties THEN WriteS (f, "Stack "  ); END;
+      IF Variable       IN Properties THEN WriteS (f, "Variable "       ); END;
+      IF Demand         IN Properties THEN WriteS (f, "Demand " ); END;
+      IF Funct          IN Properties THEN WriteS (f, "Function "       ); END;
+      IF Ignore         IN Properties THEN WriteS (f, "Ignore " ); END;
+      IF Thread         IN Properties THEN WriteS (f, "Thread " ); END;
+      IF Test           IN Properties THEN WriteS (f, "Test "   ); END;
+      IF Left           IN Properties THEN WriteS (f, "Left "   ); END;
+      IF Right          IN Properties THEN WriteS (f, "Right "  ); END;
+      IF CopyDef        IN Properties THEN WriteS (f, "CopyDef "        ); END;
+      IF CopyUse        IN Properties THEN WriteS (f, "CopyUse "        ); END;
+      IF NonBaseComp    IN Properties THEN WriteS (f, "NonBaseComp "    ); END;
+      IF MultInhComp    IN Properties THEN WriteS (f, "MultInhComp "    ); END;
+      IF First          IN Properties THEN WriteS (f, "First "  ); END;
+      IF Dummy          IN Properties THEN WriteS (f, "Dummy "  ); END;
+      IF Def            IN Properties THEN WriteS (f, "Def "    ); END;
+      IF Use            IN Properties THEN WriteS (f, "Use "    ); END;
+      IF ChildUse       IN Properties THEN WriteS (f, "ChildUse "       ); END;
+      IF ParentUse      IN Properties THEN WriteS (f, "ParentUse "      ); END;
+      IF Generated      IN Properties THEN WriteS (f, "Generated "      ); END;
+   END WriteAttrProperties;
+
+PROCEDURE WriteClassProperties (f: tFile; Properties: tClassProperties);
+   BEGIN
+      IF Top            IN Properties THEN WriteS (f, "Top "    ); END;
+      IF Intermediate   IN Properties THEN WriteS (f, "Intermediate "   ); END;
+      IF Low            IN Properties THEN WriteS (f, "Low "    ); END;
+      IF Referenced     IN Properties THEN WriteS (f, "Referenced "     ); END;
+      IF Reachable      IN Properties THEN WriteS (f, "Reachable "      ); END;
+      IF Nonterminal    IN Properties THEN WriteS (f, "Nonterminal "    ); END;
+      IF Terminal       IN Properties THEN WriteS (f, "Terminal "       ); END;
+      IF Explicit       IN Properties THEN WriteS (f, "Explicit "       ); END;
+      IF Implicit       IN Properties THEN WriteS (f, "Implicit "       ); END;
+      IF Trace          IN Properties THEN WriteS (f, "Trace "  ); END;
+      IF String         IN Properties THEN WriteS (f, "String " ); END;
+      IF HasSelector    IN Properties THEN WriteS (f, "HasSelector "    ); END;
+      IF HasChildren    IN Properties THEN WriteS (f, "HasChildren "    ); END;
+      IF HasAttributes  IN Properties THEN WriteS (f, "HasAttributes "  ); END;
+      IF HasActions     IN Properties THEN WriteS (f, "HasActions "     ); END;
+      IF Abstract       IN Properties THEN WriteS (f, "Abstract "       ); END;
+      IF Mark           IN Properties THEN WriteS (f, "Mark "   ); END;
+      IF HasOutput      IN Properties THEN WriteS (f, "HasOutput "      ); END;
+   END WriteClassProperties;
+
+PROCEDURE WriteDependencies (t: tTree; r: tRelation; s: tSet);
+   VAR i, j, k, count   : SHORTCARD;
+   BEGIN
+      IF (t = NoTree) 
+      OR (VAL(SHORTCARD,r.Max1) # t^.Class.InstCount) THEN RETURN; END;
+(* ^Give Max1 an abstract access function *) 
+      WriteIdent (StdOutput, t^.Class.Name);
+      WriteS (StdOutput, "      ");
+      WriteClassProperties (StdOutput, t^.Class.Properties);
+      WriteNl (StdOutput);
+      WriteNl (StdOutput);
+      FOR i := 1 TO t^.Class.InstCount DO
+         IF IsElement (i, s) AND NOT (Dummy IN t^.Class.Instance^ [i].Properties) THEN
+            WriteName (t^.Class.Instance^ [i]);
+            WriteS    (StdOutput, "     :");
+            count := 0;
+            k := 0;
+            FOR j := 1 TO t^.Class.InstCount DO
+               IF IsElement (j, s) AND IsRelated (i, j, r) THEN
+                  IF count = 5 THEN
+                     WriteNl (StdOutput);
+                     WriteS  (StdOutput, "      ");
+                     count := 0;
+                  END;
+                  WriteS    (StdOutput, " ");
+                  WriteName (t^.Class.Instance^ [j]);
+                  INC (count);
+                  INC (k);
+               END;
+            END;
+            WriteS (StdOutput, " (");
+            WriteI (StdOutput, k, 0);
+            WriteS (StdOutput, ")");
+            WriteNl (StdOutput);
+         END;
+      END;
+      WriteNl (StdOutput);
+   END WriteDependencies;
+
+PROCEDURE WriteCyclics          (t: tTree; s: tSet);
+   VAR i, count : SHORTCARD;
+   BEGIN
+      count := 0;
+      FOR i := 1 TO t^.Class.InstCount DO
+         IF IsElement (i, s) THEN
+            IF count = 5 THEN
+               WriteNl (StdOutput);
+               count := 0;
+            END;
+            WriteName (t^.Class.Instance^ [i]);
+            WriteS    (StdOutput, " ");
+            INC (count);
+         END;
+      END;
+      WriteNl (StdOutput);
+   END WriteCyclics;
+
+PROCEDURE WriteClass (t: tTree);
+   VAR i        : SHORTCARD;
+   BEGIN
+      CASE t^.Kind OF
+      | Class   : WITH t^.Class DO
+            WriteIdent  (StdOutput, Name);
+            WriteS      (StdOutput, " =");
+            WriteNl     (StdOutput);
+            ForallAttributes (t, WriteClass);
+            WriteNl     (StdOutput);
+            FOR i := 1 TO InstCount DO
+               WITH Instance^ [i] DO
+                  IF Action # ADR (Action) THEN
+                     IF Test IN Properties THEN
+                        WriteName (Instance^ [i]);
+                        WriteS  (StdOutput, ":");
+                     END;
+                     WriteS     (StdOutput, "   {");
+                     WriteClass (Action);
+                     WriteS     (StdOutput, "}");
+                     WriteNl    (StdOutput);
+                  END;
+               END;
+            END;
+            WriteS      (StdOutput, ".");
+            WriteNl     (StdOutput);
+         END;
+      | Child   : WITH t^.Child DO
+            WriteS      (StdOutput, "   ");
+            WriteIdent  (StdOutput, Name);
+            WriteS      (StdOutput, ": ");
+            WriteIdent  (StdOutput, Type);
+            WriteNl     (StdOutput);
+         END;
+      | Attribute       : WITH t^.Attribute DO
+            WriteS      (StdOutput, "   [");
+            WriteIdent  (StdOutput, Name);
+            WriteS      (StdOutput, ": ");
+            WriteIdent  (StdOutput, Type);
+            WriteS      (StdOutput, "]");
+            WriteNl     (StdOutput);
+         END;
+      | Assign  : WITH t^.Assign DO
+            WriteClass  (Results);
+            WriteS      (StdOutput, ":=");
+            WriteClass  (Arguments);
+            WriteS      (StdOutput, ";");
+         END;
+      | Copy    : WITH t^.Copy DO
+            WriteClass  (Results);
+            WriteS      (StdOutput, " :- ");
+            WriteClass  (Arguments);
+            WriteS      (StdOutput, ";");
+         END;
+      | TargetCode      : WITH t^.TargetCode DO
+            IF Results^.Kind # NoDesignator THEN
+               WriteClass (Results);
+               WriteS     (StdOutput, ":= {");
+               WriteClass (Code);
+               WriteS     (StdOutput, "};");
+            END;
+         END;
+      | Order   : WITH t^.Order DO
+            WriteClass  (Results);
+            WriteS      (StdOutput, " AFTER ");
+            WriteClass  (Arguments);
+            WriteS      (StdOutput, ";");
+         END;
+      | Check   : WITH t^.Check DO
+            IF Condition # NoTree THEN
+               WriteS     (StdOutput, "CHECK ");
+               WriteClass (Condition);
+            END;
+            IF Statement # NoTree THEN
+               WriteS     (StdOutput, " ==> { ");
+               WriteClass (Statement);
+               WriteS     (StdOutput, "}");
+            END;
+            WriteClass  (Actions);
+            WriteS      (StdOutput, ";");
+         END;
+      | Designator      : WITH t^.Designator DO
+            WriteIdent  (StdOutput, Selector);
+            WriteS      (StdOutput, ":");
+            WriteIdent  (StdOutput, Attribute);
+            WriteClass  (Next);
+         END;
+      | Ident   : WITH t^.Ident DO
+            WriteIdent  (StdOutput, Attribute);
+            WriteClass  (Next);
+         END;
+      | Remote  : WITH t^.Remote DO
+            WriteS      (StdOutput, "REMOTE ");
+            WriteClass  (Designators);
+            WriteS      (StdOutput, "==>");
+            WriteIdent  (StdOutput, Type);
+            WriteS      (StdOutput, ":");
+            WriteIdent  (StdOutput, Attribute);
+            WriteClass  (Next);
+         END;
+      | Any     : WITH t^.Any DO
+            WriteString (StdOutput, Code);
+            WriteClass  (Next);
+         END;
+      | Anys    : WITH t^.Anys DO
+            WriteClass  (Layouts);
+            WriteClass  (Next);
+         END;
+      | LayoutAny       : WITH t^.LayoutAny DO
+            WriteString (StdOutput, Code);
+            WriteClass  (Next);
+         END;
+      ELSE
+      END;
+   END WriteClass;
+
+(* line 912 "" *)
+
+PROCEDURE HasItem (t: tTree; Item: SHORTCARD): BOOLEAN;
+   BEGIN
+      CASE t^.Kind OF
+      | Class:
+         RETURN HasItem (t^.Class.BaseClass, Item) OR HasItem (t^.Class.Attributes, Item);
+      | NoClass, NoAttribute:
+         RETURN FALSE;
+      ELSE
+         RETURN (t^.AttrOrAction.Item = Item) OR HasItem (t^.AttrOrAction.Next, Item);
+      END;
+   END HasItem;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CONST yyBlockSize = 20480;
+
+TYPE
+ yytBlockPtr   = POINTER TO yytBlock;
+ yytBlock      = RECORD
+                    yyBlock    : ARRAY [1..yyBlockSize] OF CHAR;
+                    yySuccessor: yytBlockPtr;
+                 END;
+
+VAR yyBlockList        : yytBlockPtr;
+VAR yyMaxSize, yyi     : SHORTCARD;
+VAR yyTypeRange        : ARRAY [0..138] OF SHORTCARD;
+
+PROCEDURE yyAlloc (): tTree;
+ VAR yyBlockPtr        : yytBlockPtr;
+ BEGIN
+  yyBlockPtr   := yyBlockList;
+  yyBlockList  := Memory.Alloc (SYSTEM.TSIZE (yytBlock));
+  yyBlockList^.yySuccessor := yyBlockPtr;
+  yyPoolFreePtr        := SYSTEM.ADR (yyBlockList^.yyBlock);
+  yyPoolMaxPtr := yyPoolFreePtr + yyBlockSize - yyMaxSize + 1;
+  INC (HeapUsed, yyBlockSize);
+  RETURN yyPoolFreePtr;
+ END yyAlloc;
+
+PROCEDURE MakeTree (yyKind: SHORTCARD): tTree;
+ VAR yyByteCount       : LONGINT;
+ VAR yyt       : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [yyKind] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := yyKind;
+  RETURN yyt;
+ END MakeTree;
+
+PROCEDURE IsType (yyTree: tTree; yyKind: SHORTCARD): BOOLEAN;
+ BEGIN
+  RETURN (yyTree # NoTree) AND (yyKind <= yyTree^.Kind) AND (yyTree^.Kind <= yyTypeRange [yyKind]);
+ END IsType;
+
+
+PROCEDURE mClasses (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Classes] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Classes;
+  RETURN yyt;
+ END mClasses;
+
+PROCEDURE mNoClass (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [NoClass] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := NoClass;
+  RETURN yyt;
+ END mNoClass;
+
+PROCEDURE mClass (pName: tIdent; pProperties: tClassProperties; pAttributes: tTree; pExtensions: tTree; pNext: tTree; pSelector: tIdent; pPos: tPosition; pCode: SHORTCARD; pPrec: tIdent; pNames: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Class] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Class;
+  WITH yyt^.Class DO
+   Name := pName;
+   Properties := pProperties;
+   Attributes := pAttributes;
+   Extensions := pExtensions;
+   Next := pNext;
+    BaseClass  := NoTree; 
+   Selector := pSelector;
+   Pos := pPos;
+   Code := pCode;
+   Prec := pPrec;
+   Names := pNames;
+    
+    
+    
+    DP  := DummyRelation; 
+    SNC  := DummyRelation; 
+    DNC  := DummyRelation; 
+    OAG  := DummyRelation; 
+    Part  := DummyRelation; 
+    
+    
+    Users  := DummySet; 
+    Generated  := 0; 
+    
+    
+    
+    
+  END;
+  RETURN yyt;
+ END mClass;
+
+PROCEDURE mAttributes (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Attributes] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Attributes;
+  RETURN yyt;
+ END mAttributes;
+
+PROCEDURE mNoAttribute (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [NoAttribute] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := NoAttribute;
+  RETURN yyt;
+ END mNoAttribute;
+
+PROCEDURE mAttrOrAction (pNext: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [AttrOrAction] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := AttrOrAction;
+  WITH yyt^.AttrOrAction DO
+   Next := pNext;
+    
+  END;
+  RETURN yyt;
+ END mAttrOrAction;
+
+PROCEDURE mChild (pNext: tTree; pName: tIdent; pType: tIdent; pProperties: tAttrProperties; pPos: tPosition): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Child] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Child;
+  WITH yyt^.Child DO
+   Next := pNext;
+    
+   Name := pName;
+   Type := pType;
+   Properties := pProperties;
+   Pos := pPos;
+    
+    Partition  := 9999; 
+    Usage  := {}; 
+    
+    
+    
+    
+    
+  END;
+  RETURN yyt;
+ END mChild;
+
+PROCEDURE mAttribute (pNext: tTree; pName: tIdent; pType: tIdent; pProperties: tAttrProperties; pPos: tPosition): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Attribute] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Attribute;
+  WITH yyt^.Attribute DO
+   Next := pNext;
+    
+   Name := pName;
+   Type := pType;
+   Properties := pProperties;
+   Pos := pPos;
+    
+    Partition  := 9999; 
+    Usage  := {}; 
+  END;
+  RETURN yyt;
+ END mAttribute;
+
+PROCEDURE mActionPart (pNext: tTree; pActions: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [ActionPart] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := ActionPart;
+  WITH yyt^.ActionPart DO
+   Next := pNext;
+    
+   Actions := pActions;
+    
+    
+    Properties  := {}; 
+  END;
+  RETURN yyt;
+ END mActionPart;
+
+PROCEDURE mCodes (pExport: tText; pImport: tText; pGlobal: tText; pSpecWith: tText; pBodyWith: tText; pLocal: tText; pBegin: tText; pClose: tText; pExportLine: tPosition; pImportLine: tPosition; pGlobalLine: tPosition; pSpecWithLine: tPosition; pBodyWithLine: tPosition; pLocalLine: tPosition; pBeginLine: tPosition; pCloseLine: tPosition): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Codes] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Codes;
+  WITH yyt^.Codes DO
+   Export := pExport;
+   Import := pImport;
+   Global := pGlobal;
+   SpecWith := pSpecWith;
+   BodyWith := pBodyWith;
+   Local := pLocal;
+   Begin := pBegin;
+   Close := pClose;
+   ExportLine := pExportLine;
+   ImportLine := pImportLine;
+   GlobalLine := pGlobalLine;
+   SpecWithLine := pSpecWithLine;
+   BodyWithLine := pBodyWithLine;
+   LocalLine := pLocalLine;
+   BeginLine := pBeginLine;
+   CloseLine := pCloseLine;
+  END;
+  RETURN yyt;
+ END mCodes;
+
+PROCEDURE mDesignators (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Designators] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Designators;
+  RETURN yyt;
+ END mDesignators;
+
+PROCEDURE mNoDesignator (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [NoDesignator] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := NoDesignator;
+  RETURN yyt;
+ END mNoDesignator;
+
+PROCEDURE mDesignator (pSelector: tIdent; pAttribute: tIdent; pPos: tPosition; pAttributePos: tPosition; pNext: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Designator] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Designator;
+  WITH yyt^.Designator DO
+   Selector := pSelector;
+   Attribute := pAttribute;
+   Pos := pPos;
+   AttributePos := pAttributePos;
+   Next := pNext;
+  END;
+  RETURN yyt;
+ END mDesignator;
+
+PROCEDURE mIdent (pAttribute: tIdent; pPos: tPosition; pNext: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Ident] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Ident;
+  WITH yyt^.Ident DO
+   Attribute := pAttribute;
+   Pos := pPos;
+   Next := pNext;
+  END;
+  RETURN yyt;
+ END mIdent;
+
+PROCEDURE mRemote (pDesignators: tTree; pType: tIdent; pAttribute: tIdent; pPos: tPosition; pNext: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Remote] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Remote;
+  WITH yyt^.Remote DO
+   Designators := pDesignators;
+   Type := pType;
+   Attribute := pAttribute;
+   Pos := pPos;
+   Next := pNext;
+  END;
+  RETURN yyt;
+ END mRemote;
+
+PROCEDURE mAny (pCode: tStringRef; pNext: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Any] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Any;
+  WITH yyt^.Any DO
+   Code := pCode;
+   Next := pNext;
+  END;
+  RETURN yyt;
+ END mAny;
+
+PROCEDURE mAnys (pLayouts: tTree; pNext: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Anys] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Anys;
+  WITH yyt^.Anys DO
+   Layouts := pLayouts;
+   Next := pNext;
+  END;
+  RETURN yyt;
+ END mAnys;
+
+PROCEDURE mLayouts (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Layouts] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Layouts;
+  RETURN yyt;
+ END mLayouts;
+
+PROCEDURE mNoLayout (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [NoLayout] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := NoLayout;
+  RETURN yyt;
+ END mNoLayout;
+
+PROCEDURE mLayoutAny (pCode: tStringRef; pNext: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [LayoutAny] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := LayoutAny;
+  WITH yyt^.LayoutAny DO
+   Code := pCode;
+   Next := pNext;
+  END;
+  RETURN yyt;
+ END mLayoutAny;
+
+PROCEDURE mNames (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Names] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Names;
+  RETURN yyt;
+ END mNames;
+
+PROCEDURE mNoName (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [NoName] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := NoName;
+  RETURN yyt;
+ END mNoName;
+
+PROCEDURE mName (pName: tIdent; pPos: tPosition; pNext: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Name] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Name;
+  WITH yyt^.Name DO
+   Name := pName;
+   Pos := pPos;
+   Next := pNext;
+  END;
+  RETURN yyt;
+ END mName;
+
+PROCEDURE mAg (pName: tIdent; pScannerName: tIdent; pParserName: tIdent; pParserCodes: tTree; pTreeName: tIdent; pTreeCodes: tTree; pEvalName: tIdent; pEvalCodes: tTree; pPrecs: tTree; pProps: tTree; pDecls: tTree; pClasses: tTree; pModules: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Ag] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Ag;
+  WITH yyt^.Ag DO
+   Name := pName;
+   ScannerName := pScannerName;
+   ParserName := pParserName;
+   ParserCodes := pParserCodes;
+   TreeName := pTreeName;
+   TreeCodes := pTreeCodes;
+   EvalName := pEvalName;
+   EvalCodes := pEvalCodes;
+   Precs := pPrecs;
+   Props := pProps;
+   Decls := pDecls;
+   Classes := pClasses;
+   Modules := pModules;
+    Properties  := {}; 
+  END;
+  RETURN yyt;
+ END mAg;
+
+PROCEDURE mPrecs (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Precs] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Precs;
+  RETURN yyt;
+ END mPrecs;
+
+PROCEDURE mNoPrec (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [NoPrec] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := NoPrec;
+  RETURN yyt;
+ END mNoPrec;
+
+PROCEDURE mPrec (pNames: tTree; pNext: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Prec] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Prec;
+  WITH yyt^.Prec DO
+   Names := pNames;
+   Next := pNext;
+  END;
+  RETURN yyt;
+ END mPrec;
+
+PROCEDURE mLeftAssoc (pNames: tTree; pNext: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [LeftAssoc] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := LeftAssoc;
+  WITH yyt^.LeftAssoc DO
+   Names := pNames;
+   Next := pNext;
+  END;
+  RETURN yyt;
+ END mLeftAssoc;
+
+PROCEDURE mRightAssoc (pNames: tTree; pNext: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [RightAssoc] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := RightAssoc;
+  WITH yyt^.RightAssoc DO
+   Names := pNames;
+   Next := pNext;
+  END;
+  RETURN yyt;
+ END mRightAssoc;
+
+PROCEDURE mNonAssoc (pNames: tTree; pNext: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [NonAssoc] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := NonAssoc;
+  WITH yyt^.NonAssoc DO
+   Names := pNames;
+   Next := pNext;
+  END;
+  RETURN yyt;
+ END mNonAssoc;
+
+PROCEDURE mActions (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Actions] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Actions;
+  RETURN yyt;
+ END mActions;
+
+PROCEDURE mNoAction (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [NoAction] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := NoAction;
+  RETURN yyt;
+ END mNoAction;
+
+PROCEDURE mAction (pNext: tTree; pPos: tPosition): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Action] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Action;
+  WITH yyt^.Action DO
+   Next := pNext;
+   Pos := pPos;
+  END;
+  RETURN yyt;
+ END mAction;
+
+PROCEDURE mAssign (pNext: tTree; pPos: tPosition; pResults: tTree; pArguments: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Assign] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Assign;
+  WITH yyt^.Assign DO
+   Next := pNext;
+   Pos := pPos;
+   Results := pResults;
+   Arguments := pArguments;
+  END;
+  RETURN yyt;
+ END mAssign;
+
+PROCEDURE mCopy (pNext: tTree; pPos: tPosition; pResults: tTree; pArguments: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Copy] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Copy;
+  WITH yyt^.Copy DO
+   Next := pNext;
+   Pos := pPos;
+   Results := pResults;
+   Arguments := pArguments;
+  END;
+  RETURN yyt;
+ END mCopy;
+
+PROCEDURE mTargetCode (pNext: tTree; pPos: tPosition; pResults: tTree; pCode: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [TargetCode] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := TargetCode;
+  WITH yyt^.TargetCode DO
+   Next := pNext;
+   Pos := pPos;
+   Results := pResults;
+   Code := pCode;
+  END;
+  RETURN yyt;
+ END mTargetCode;
+
+PROCEDURE mOrder (pNext: tTree; pPos: tPosition; pResults: tTree; pArguments: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Order] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Order;
+  WITH yyt^.Order DO
+   Next := pNext;
+   Pos := pPos;
+   Results := pResults;
+   Arguments := pArguments;
+  END;
+  RETURN yyt;
+ END mOrder;
+
+PROCEDURE mCheck (pNext: tTree; pPos: tPosition; pCondition: tTree; pStatement: tTree; pActions: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Check] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Check;
+  WITH yyt^.Check DO
+   Next := pNext;
+   Pos := pPos;
+   Condition := pCondition;
+   Statement := pStatement;
+   Actions := pActions;
+    Results  := NoTree; 
+  END;
+  RETURN yyt;
+ END mCheck;
+
+PROCEDURE mModules (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Modules] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Modules;
+  RETURN yyt;
+ END mModules;
+
+PROCEDURE mNoModule (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [NoModule] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := NoModule;
+  RETURN yyt;
+ END mNoModule;
+
+PROCEDURE mModule (pName: tIdent; pParserCodes: tTree; pTreeCodes: tTree; pEvalCodes: tTree; pProps: tTree; pDecls: tTree; pClasses: tTree; pNext: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Module] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Module;
+  WITH yyt^.Module DO
+   Name := pName;
+   ParserCodes := pParserCodes;
+   TreeCodes := pTreeCodes;
+   EvalCodes := pEvalCodes;
+   Props := pProps;
+   Decls := pDecls;
+   Classes := pClasses;
+   Next := pNext;
+    Properties  := {}; 
+  END;
+  RETURN yyt;
+ END mModule;
+
+PROCEDURE mProps (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Props] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Props;
+  RETURN yyt;
+ END mProps;
+
+PROCEDURE mNoProp (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [NoProp] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := NoProp;
+  RETURN yyt;
+ END mNoProp;
+
+PROCEDURE mProp (pProperties: BITSET; pNames: tTree; pNext: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Prop] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Prop;
+  WITH yyt^.Prop DO
+   Properties := pProperties;
+   Names := pNames;
+   Next := pNext;
+  END;
+  RETURN yyt;
+ END mProp;
+
+PROCEDURE mSelect (pNames: tTree; pNext: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Select] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Select;
+  WITH yyt^.Select DO
+   Names := pNames;
+   Next := pNext;
+  END;
+  RETURN yyt;
+ END mSelect;
+
+PROCEDURE mDecls (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Decls] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Decls;
+  RETURN yyt;
+ END mDecls;
+
+PROCEDURE mNoDecl (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [NoDecl] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := NoDecl;
+  RETURN yyt;
+ END mNoDecl;
+
+PROCEDURE mDecl (pNames: tTree; pAttributes: tTree; pProperties: tClassProperties; pNext: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Decl] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Decl;
+  WITH yyt^.Decl DO
+   Names := pNames;
+   Attributes := pAttributes;
+   Properties := pProperties;
+   Next := pNext;
+  END;
+  RETURN yyt;
+ END mDecl;
+
+TYPE yyPtrtTree        = POINTER TO tTree;
+
+VAR yyf        : IO.tFile;
+VAR yyLabel    : SHORTCARD;
+VAR yyKind     : SHORTCARD;
+VAR yyc        : CHAR;
+VAR yys        : Strings.tString;
+
+PROCEDURE yyWriteNl; BEGIN IO.WriteNl (yyf); END yyWriteNl;
+
+PROCEDURE yyWriteSelector (yys: ARRAY OF CHAR);
+ BEGIN IO.WriteS (yyf, yys); Layout.WriteSpaces (yyf, 15 - INTEGER (HIGH (yys))); IO.WriteS (yyf, ' = '); END yyWriteSelector;
+
+PROCEDURE yyWriteHex (VAR yyx: ARRAY OF SYSTEM.BYTE);
+ VAR yyi       : INTEGER;
+ BEGIN
+  FOR yyi := 0 TO INTEGER (HIGH (yyx)) DO
+   IO.WriteN (yyf, ORD (CHAR (yyx [yyi])), 2, 16);
+   IO.WriteC (yyf, ' ');
+  END;
+ END yyWriteHex;
+
+PROCEDURE yyWriteAdr (yyt: tTree);
+ BEGIN
+  IF yyt = NoTree THEN
+   IO.WriteS (yyf, 'NoTree');
+  ELSE
+   yyWriteHex (yyt);
+  END;
+  yyWriteNl;
+ END yyWriteAdr;
+
+PROCEDURE yyyWriteNodeClass (yyt: tTree);
+ BEGIN
+  yyWriteSelector ('Name'); Idents.WriteIdent (yyf,  yyt^.Class.Name );  yyWriteNl;
+  yyWriteSelector ('Properties'); WriteClassProperties(yyf,  yyt^.Class.Properties );  yyWriteNl;
+  yyWriteSelector ('Attributes'); yyWriteAdr (yyt^.Class.Attributes);
+  yyWriteSelector ('Extensions'); yyWriteAdr (yyt^.Class.Extensions);
+  yyWriteSelector ('Next'); yyWriteAdr (yyt^.Class.Next);
+  yyWriteSelector ('BaseClass'); yyWriteAdr (yyt^.Class.BaseClass);
+  yyWriteSelector ('Selector'); Idents.WriteIdent (yyf,  yyt^.Class.Selector );  yyWriteNl;
+  yyWriteSelector ('Pos'); Positions.WritePosition (yyf,  yyt^.Class.Pos );  yyWriteNl;
+  yyWriteSelector ('Code'); IO.WriteI (yyf,  yyt^.Class.Code , 0);  yyWriteNl;
+  yyWriteSelector ('Prec'); Idents.WriteIdent (yyf,  yyt^.Class.Prec );  yyWriteNl;
+  yyWriteSelector ('Names'); yyWriteAdr (yyt^.Class.Names);
+  yyWriteSelector ('AttrCount'); IO.WriteI (yyf,  yyt^.Class.AttrCount , 0);  yyWriteNl;
+  yyWriteSelector ('InstCount'); IO.WriteI (yyf,  yyt^.Class.InstCount , 0);  yyWriteNl;
+  yyWriteSelector ('Instance'); yyWriteHex ( yyt^.Class.Instance );  yyWriteNl;
+  yyWriteSelector ('DP'); Relations.WriteRelation (yyf,  yyt^.Class.DP );  yyWriteNl;
+  yyWriteSelector ('SNC'); Relations.WriteRelation (yyf,  yyt^.Class.SNC );  yyWriteNl;
+  yyWriteSelector ('DNC'); Relations.WriteRelation (yyf,  yyt^.Class.DNC );  yyWriteNl;
+  yyWriteSelector ('OAG'); Relations.WriteRelation (yyf,  yyt^.Class.OAG );  yyWriteNl;
+  yyWriteSelector ('Part'); Relations.WriteRelation (yyf,  yyt^.Class.Part );  yyWriteNl;
+  yyWriteSelector ('Index'); IO.WriteI (yyf,  yyt^.Class.Index , 0);  yyWriteNl;
+  yyWriteSelector ('Visits'); IO.WriteI (yyf,  yyt^.Class.Visits , 0);  yyWriteNl;
+  yyWriteSelector ('Users'); Sets.WriteSet (yyf,  yyt^.Class.Users );  yyWriteNl;
+  yyWriteSelector ('Generated'); IO.WriteI (yyf,  yyt^.Class.Generated , 0);  yyWriteNl;
+  yyWriteSelector ('BitCount'); IO.WriteI (yyf,  yyt^.Class.BitCount , 0);  yyWriteNl;
+  yyWriteSelector ('BitIndex'); yyWriteHex ( yyt^.Class.BitIndex );  yyWriteNl;
+  yyWriteSelector ('D'); yyWriteHex ( yyt^.Class.D );  yyWriteNl;
+  yyWriteSelector ('ClassChildCount'); IO.WriteI (yyf,  yyt^.Class.ClassChildCount , 0);  yyWriteNl;
+ END yyyWriteNodeClass;
+
+PROCEDURE yyyWriteNodeAttrOrAction (yyt: tTree);
+ BEGIN
+  yyWriteSelector ('Next'); yyWriteAdr (yyt^.AttrOrAction.Next);
+  yyWriteSelector ('Item'); IO.WriteI (yyf,  yyt^.AttrOrAction.Item , 0);  yyWriteNl;
+ END yyyWriteNodeAttrOrAction;
+
+PROCEDURE yyyWriteNodeChild (yyt: tTree);
+ BEGIN
+  yyyWriteNodeAttrOrAction (yyt); 
+  yyWriteSelector ('Name'); Idents.WriteIdent (yyf,  yyt^.Child.Name );  yyWriteNl;
+  yyWriteSelector ('Type'); Idents.WriteIdent (yyf,  yyt^.Child.Type );  yyWriteNl;
+  yyWriteSelector ('Properties'); WriteAttrProperties(yyf,  yyt^.Child.Properties );  yyWriteNl;
+  yyWriteSelector ('Pos'); Positions.WritePosition (yyf,  yyt^.Child.Pos );  yyWriteNl;
+  yyWriteSelector ('AttrIndex'); IO.WriteI (yyf,  yyt^.Child.AttrIndex , 0);  yyWriteNl;
+  yyWriteSelector ('Partition'); WriteI (yyf,  yyt^.Child.Partition , 0);  yyWriteNl;
+  yyWriteSelector ('Usage'); yyWriteHex ( yyt^.Child.Usage );  yyWriteNl;
+  yyWriteSelector ('InstOffset'); IO.WriteI (yyf,  yyt^.Child.InstOffset , 0);  yyWriteNl;
+  yyWriteSelector ('Class'); yyWriteHex ( yyt^.Child.Class );  yyWriteNl;
+  yyWriteSelector ('ParsIndex'); IO.WriteI (yyf,  yyt^.Child.ParsIndex , 0);  yyWriteNl;
+  yyWriteSelector ('BitOffset'); IO.WriteI (yyf,  yyt^.Child.BitOffset , 0);  yyWriteNl;
+  yyWriteSelector ('ChildIndex'); IO.WriteI (yyf,  yyt^.Child.ChildIndex , 0);  yyWriteNl;
+ END yyyWriteNodeChild;
+
+PROCEDURE yyyWriteNodeAttribute (yyt: tTree);
+ BEGIN
+  yyyWriteNodeAttrOrAction (yyt); 
+  yyWriteSelector ('Name'); Idents.WriteIdent (yyf,  yyt^.Attribute.Name );  yyWriteNl;
+  yyWriteSelector ('Type'); Idents.WriteIdent (yyf,  yyt^.Attribute.Type );  yyWriteNl;
+  yyWriteSelector ('Properties'); WriteAttrProperties(yyf,  yyt^.Attribute.Properties );  yyWriteNl;
+  yyWriteSelector ('Pos'); Positions.WritePosition (yyf,  yyt^.Attribute.Pos );  yyWriteNl;
+  yyWriteSelector ('AttrIndex'); IO.WriteI (yyf,  yyt^.Attribute.AttrIndex , 0);  yyWriteNl;
+  yyWriteSelector ('Partition'); WriteI (yyf,  yyt^.Attribute.Partition , 0);  yyWriteNl;
+  yyWriteSelector ('Usage'); yyWriteHex ( yyt^.Attribute.Usage );  yyWriteNl;
+ END yyyWriteNodeAttribute;
+
+PROCEDURE yyyWriteNodeActionPart (yyt: tTree);
+ BEGIN
+  yyyWriteNodeAttrOrAction (yyt); 
+  yyWriteSelector ('Actions'); yyWriteAdr (yyt^.ActionPart.Actions);
+  yyWriteSelector ('Name'); IO.WriteI (yyf,  yyt^.ActionPart.Name , 0);  yyWriteNl;
+  yyWriteSelector ('ParsIndex'); IO.WriteI (yyf,  yyt^.ActionPart.ParsIndex , 0);  yyWriteNl;
+  yyWriteSelector ('Properties'); yyWriteHex ( yyt^.ActionPart.Properties );  yyWriteNl;
+ END yyyWriteNodeActionPart;
+
+PROCEDURE yyyWriteNodeCodes (yyt: tTree);
+ BEGIN
+  yyWriteSelector ('Export'); Texts.WriteText (yyf,  yyt^.Codes.Export );  yyWriteNl;
+  yyWriteSelector ('Import'); Texts.WriteText (yyf,  yyt^.Codes.Import );  yyWriteNl;
+  yyWriteSelector ('Global'); Texts.WriteText (yyf,  yyt^.Codes.Global );  yyWriteNl;
+  yyWriteSelector ('SpecWith'); Texts.WriteText (yyf,  yyt^.Codes.SpecWith );  yyWriteNl;
+  yyWriteSelector ('BodyWith'); Texts.WriteText (yyf,  yyt^.Codes.BodyWith );  yyWriteNl;
+  yyWriteSelector ('Local'); Texts.WriteText (yyf,  yyt^.Codes.Local );  yyWriteNl;
+  yyWriteSelector ('Begin'); Texts.WriteText (yyf,  yyt^.Codes.Begin );  yyWriteNl;
+  yyWriteSelector ('Close'); Texts.WriteText (yyf,  yyt^.Codes.Close );  yyWriteNl;
+  yyWriteSelector ('ExportLine'); Positions.WritePosition (yyf,  yyt^.Codes.ExportLine );  yyWriteNl;
+  yyWriteSelector ('ImportLine'); Positions.WritePosition (yyf,  yyt^.Codes.ImportLine );  yyWriteNl;
+  yyWriteSelector ('GlobalLine'); Positions.WritePosition (yyf,  yyt^.Codes.GlobalLine );  yyWriteNl;
+  yyWriteSelector ('SpecWithLine'); Positions.WritePosition (yyf,  yyt^.Codes.SpecWithLine );  yyWriteNl;
+  yyWriteSelector ('BodyWithLine'); Positions.WritePosition (yyf,  yyt^.Codes.BodyWithLine );  yyWriteNl;
+  yyWriteSelector ('LocalLine'); Positions.WritePosition (yyf,  yyt^.Codes.LocalLine );  yyWriteNl;
+  yyWriteSelector ('BeginLine'); Positions.WritePosition (yyf,  yyt^.Codes.BeginLine );  yyWriteNl;
+  yyWriteSelector ('CloseLine'); Positions.WritePosition (yyf,  yyt^.Codes.CloseLine );  yyWriteNl;
+ END yyyWriteNodeCodes;
+
+PROCEDURE yyyWriteNodeDesignator (yyt: tTree);
+ BEGIN
+  yyWriteSelector ('Selector'); Idents.WriteIdent (yyf,  yyt^.Designator.Selector );  yyWriteNl;
+  yyWriteSelector ('Attribute'); Idents.WriteIdent (yyf,  yyt^.Designator.Attribute );  yyWriteNl;
+  yyWriteSelector ('Pos'); Positions.WritePosition (yyf,  yyt^.Designator.Pos );  yyWriteNl;
+  yyWriteSelector ('AttributePos'); Positions.WritePosition (yyf,  yyt^.Designator.AttributePos );  yyWriteNl;
+  yyWriteSelector ('Next'); yyWriteAdr (yyt^.Designator.Next);
+ END yyyWriteNodeDesignator;
+
+PROCEDURE yyyWriteNodeIdent (yyt: tTree);
+ BEGIN
+  yyWriteSelector ('Attribute'); Idents.WriteIdent (yyf,  yyt^.Ident.Attribute );  yyWriteNl;
+  yyWriteSelector ('Pos'); Positions.WritePosition (yyf,  yyt^.Ident.Pos );  yyWriteNl;
+  yyWriteSelector ('Next'); yyWriteAdr (yyt^.Ident.Next);
+ END yyyWriteNodeIdent;
+
+PROCEDURE yyyWriteNodeRemote (yyt: tTree);
+ BEGIN
+  yyWriteSelector ('Designators'); yyWriteAdr (yyt^.Remote.Designators);
+  yyWriteSelector ('Type'); Idents.WriteIdent (yyf,  yyt^.Remote.Type );  yyWriteNl;
+  yyWriteSelector ('Attribute'); Idents.WriteIdent (yyf,  yyt^.Remote.Attribute );  yyWriteNl;
+  yyWriteSelector ('Pos'); Positions.WritePosition (yyf,  yyt^.Remote.Pos );  yyWriteNl;
+  yyWriteSelector ('Next'); yyWriteAdr (yyt^.Remote.Next);
+ END yyyWriteNodeRemote;
+
+PROCEDURE yyyWriteNodeAny (yyt: tTree);
+ BEGIN
+  yyWriteSelector ('Code'); StringMem.WriteString (yyf,  yyt^.Any.Code );  yyWriteNl;
+  yyWriteSelector ('Next'); yyWriteAdr (yyt^.Any.Next);
+ END yyyWriteNodeAny;
+
+PROCEDURE yyyWriteNodeAnys (yyt: tTree);
+ BEGIN
+  yyWriteSelector ('Layouts'); yyWriteAdr (yyt^.Anys.Layouts);
+  yyWriteSelector ('Next'); yyWriteAdr (yyt^.Anys.Next);
+ END yyyWriteNodeAnys;
+
+PROCEDURE yyyWriteNodeLayoutAny (yyt: tTree);
+ BEGIN
+  yyWriteSelector ('Code'); StringMem.WriteString (yyf,  yyt^.LayoutAny.Code );  yyWriteNl;
+  yyWriteSelector ('Next'); yyWriteAdr (yyt^.LayoutAny.Next);
+ END yyyWriteNodeLayoutAny;
+
+PROCEDURE yyyWriteNodeName (yyt: tTree);
+ BEGIN
+  yyWriteSelector ('Name'); Idents.WriteIdent (yyf,  yyt^.Name.Name );  yyWriteNl;
+  yyWriteSelector ('Pos'); Positions.WritePosition (yyf,  yyt^.Name.Pos );  yyWriteNl;
+  yyWriteSelector ('Next'); yyWriteAdr (yyt^.Name.Next);
+ END yyyWriteNodeName;
+
+PROCEDURE yyyWriteNodeAg (yyt: tTree);
+ BEGIN
+  yyWriteSelector ('Name'); Idents.WriteIdent (yyf,  yyt^.Ag.Name );  yyWriteNl;
+  yyWriteSelector ('ScannerName'); Idents.WriteIdent (yyf,  yyt^.Ag.ScannerName );  yyWriteNl;
+  yyWriteSelector ('ParserName'); Idents.WriteIdent (yyf,  yyt^.Ag.ParserName );  yyWriteNl;
+  yyWriteSelector ('ParserCodes'); yyWriteAdr (yyt^.Ag.ParserCodes);
+  yyWriteSelector ('TreeName'); Idents.WriteIdent (yyf,  yyt^.Ag.TreeName );  yyWriteNl;
+  yyWriteSelector ('TreeCodes'); yyWriteAdr (yyt^.Ag.TreeCodes);
+  yyWriteSelector ('EvalName'); Idents.WriteIdent (yyf,  yyt^.Ag.EvalName );  yyWriteNl;
+  yyWriteSelector ('EvalCodes'); yyWriteAdr (yyt^.Ag.EvalCodes);
+  yyWriteSelector ('Precs'); yyWriteAdr (yyt^.Ag.Precs);
+  yyWriteSelector ('Props'); yyWriteAdr (yyt^.Ag.Props);
+  yyWriteSelector ('Decls'); yyWriteAdr (yyt^.Ag.Decls);
+  yyWriteSelector ('Classes'); yyWriteAdr (yyt^.Ag.Classes);
+  yyWriteSelector ('Modules'); yyWriteAdr (yyt^.Ag.Modules);
+  yyWriteSelector ('Properties'); yyWriteHex ( yyt^.Ag.Properties );  yyWriteNl;
+ END yyyWriteNodeAg;
+
+PROCEDURE yyyWriteNodePrec (yyt: tTree);
+ BEGIN
+  yyWriteSelector ('Names'); yyWriteAdr (yyt^.Prec.Names);
+  yyWriteSelector ('Next'); yyWriteAdr (yyt^.Prec.Next);
+ END yyyWriteNodePrec;
+
+PROCEDURE yyyWriteNodeLeftAssoc (yyt: tTree);
+ BEGIN
+  yyyWriteNodePrec (yyt); 
+ END yyyWriteNodeLeftAssoc;
+
+PROCEDURE yyyWriteNodeRightAssoc (yyt: tTree);
+ BEGIN
+  yyyWriteNodePrec (yyt); 
+ END yyyWriteNodeRightAssoc;
+
+PROCEDURE yyyWriteNodeNonAssoc (yyt: tTree);
+ BEGIN
+  yyyWriteNodePrec (yyt); 
+ END yyyWriteNodeNonAssoc;
+
+PROCEDURE yyyWriteNodeAction (yyt: tTree);
+ BEGIN
+  yyWriteSelector ('Next'); yyWriteAdr (yyt^.Action.Next);
+  yyWriteSelector ('Pos'); Positions.WritePosition (yyf,  yyt^.Action.Pos );  yyWriteNl;
+ END yyyWriteNodeAction;
+
+PROCEDURE yyyWriteNodeAssign (yyt: tTree);
+ BEGIN
+  yyyWriteNodeAction (yyt); 
+  yyWriteSelector ('Results'); yyWriteAdr (yyt^.Assign.Results);
+  yyWriteSelector ('Arguments'); yyWriteAdr (yyt^.Assign.Arguments);
+ END yyyWriteNodeAssign;
+
+PROCEDURE yyyWriteNodeCopy (yyt: tTree);
+ BEGIN
+  yyyWriteNodeAction (yyt); 
+  yyWriteSelector ('Results'); yyWriteAdr (yyt^.Copy.Results);
+  yyWriteSelector ('Arguments'); yyWriteAdr (yyt^.Copy.Arguments);
+ END yyyWriteNodeCopy;
+
+PROCEDURE yyyWriteNodeTargetCode (yyt: tTree);
+ BEGIN
+  yyyWriteNodeAction (yyt); 
+  yyWriteSelector ('Results'); yyWriteAdr (yyt^.TargetCode.Results);
+  yyWriteSelector ('Code'); yyWriteAdr (yyt^.TargetCode.Code);
+ END yyyWriteNodeTargetCode;
+
+PROCEDURE yyyWriteNodeOrder (yyt: tTree);
+ BEGIN
+  yyyWriteNodeAction (yyt); 
+  yyWriteSelector ('Results'); yyWriteAdr (yyt^.Order.Results);
+  yyWriteSelector ('Arguments'); yyWriteAdr (yyt^.Order.Arguments);
+ END yyyWriteNodeOrder;
+
+PROCEDURE yyyWriteNodeCheck (yyt: tTree);
+ BEGIN
+  yyyWriteNodeAction (yyt); 
+  yyWriteSelector ('Condition'); yyWriteAdr (yyt^.Check.Condition);
+  yyWriteSelector ('Statement'); yyWriteAdr (yyt^.Check.Statement);
+  yyWriteSelector ('Actions'); yyWriteAdr (yyt^.Check.Actions);
+  yyWriteSelector ('Results'); yyWriteAdr (yyt^.Check.Results);
+ END yyyWriteNodeCheck;
+
+PROCEDURE yyyWriteNodeModule (yyt: tTree);
+ BEGIN
+  yyWriteSelector ('Name'); Idents.WriteIdent (yyf,  yyt^.Module.Name );  yyWriteNl;
+  yyWriteSelector ('ParserCodes'); yyWriteAdr (yyt^.Module.ParserCodes);
+  yyWriteSelector ('TreeCodes'); yyWriteAdr (yyt^.Module.TreeCodes);
+  yyWriteSelector ('EvalCodes'); yyWriteAdr (yyt^.Module.EvalCodes);
+  yyWriteSelector ('Props'); yyWriteAdr (yyt^.Module.Props);
+  yyWriteSelector ('Decls'); yyWriteAdr (yyt^.Module.Decls);
+  yyWriteSelector ('Classes'); yyWriteAdr (yyt^.Module.Classes);
+  yyWriteSelector ('Next'); yyWriteAdr (yyt^.Module.Next);
+  yyWriteSelector ('Properties'); yyWriteHex ( yyt^.Module.Properties );  yyWriteNl;
+ END yyyWriteNodeModule;
+
+PROCEDURE yyyWriteNodeProp (yyt: tTree);
+ BEGIN
+  yyWriteSelector ('Properties'); yyWriteHex ( yyt^.Prop.Properties );  yyWriteNl;
+  yyWriteSelector ('Names'); yyWriteAdr (yyt^.Prop.Names);
+  yyWriteSelector ('Next'); yyWriteAdr (yyt^.Prop.Next);
+ END yyyWriteNodeProp;
+
+PROCEDURE yyyWriteNodeSelect (yyt: tTree);
+ BEGIN
+  yyWriteSelector ('Names'); yyWriteAdr (yyt^.Select.Names);
+  yyWriteSelector ('Next'); yyWriteAdr (yyt^.Select.Next);
+ END yyyWriteNodeSelect;
+
+PROCEDURE yyyWriteNodeDecl (yyt: tTree);
+ BEGIN
+  yyWriteSelector ('Names'); yyWriteAdr (yyt^.Decl.Names);
+  yyWriteSelector ('Attributes'); yyWriteAdr (yyt^.Decl.Attributes);
+  yyWriteSelector ('Properties'); WriteClassProperties(yyf,  yyt^.Decl.Properties );  yyWriteNl;
+  yyWriteSelector ('Next'); yyWriteAdr (yyt^.Decl.Next);
+ END yyyWriteNodeDecl;
+
+PROCEDURE WriteTreeNode (yyyf: IO.tFile; yyt: tTree);
+ BEGIN
+  yyf := yyyf;
+  IF yyt = NoTree THEN
+   IO.WriteS (yyf, 'NoTree'); yyWriteNl; RETURN;
+  END;
+
+  CASE yyt^.Kind OF
+| Classes: IO.WriteS (yyf, 'Classes'); yyWriteNl;
+| NoClass: IO.WriteS (yyf, 'NoClass'); yyWriteNl;
+| Class: IO.WriteS (yyf, 'Class'); yyWriteNl; yyyWriteNodeClass (yyt);
+| Attributes: IO.WriteS (yyf, 'Attributes'); yyWriteNl;
+| NoAttribute: IO.WriteS (yyf, 'NoAttribute'); yyWriteNl;
+| AttrOrAction: IO.WriteS (yyf, 'AttrOrAction'); yyWriteNl; yyyWriteNodeAttrOrAction (yyt);
+| Child: IO.WriteS (yyf, 'Child'); yyWriteNl; yyyWriteNodeChild (yyt);
+| Attribute: IO.WriteS (yyf, 'Attribute'); yyWriteNl; yyyWriteNodeAttribute (yyt);
+| ActionPart: IO.WriteS (yyf, 'ActionPart'); yyWriteNl; yyyWriteNodeActionPart (yyt);
+| Codes: IO.WriteS (yyf, 'Codes'); yyWriteNl; yyyWriteNodeCodes (yyt);
+| Designators: IO.WriteS (yyf, 'Designators'); yyWriteNl;
+| NoDesignator: IO.WriteS (yyf, 'NoDesignator'); yyWriteNl;
+| Designator: IO.WriteS (yyf, 'Designator'); yyWriteNl; yyyWriteNodeDesignator (yyt);
+| Ident: IO.WriteS (yyf, 'Ident'); yyWriteNl; yyyWriteNodeIdent (yyt);
+| Remote: IO.WriteS (yyf, 'Remote'); yyWriteNl; yyyWriteNodeRemote (yyt);
+| Any: IO.WriteS (yyf, 'Any'); yyWriteNl; yyyWriteNodeAny (yyt);
+| Anys: IO.WriteS (yyf, 'Anys'); yyWriteNl; yyyWriteNodeAnys (yyt);
+| Layouts: IO.WriteS (yyf, 'Layouts'); yyWriteNl;
+| NoLayout: IO.WriteS (yyf, 'NoLayout'); yyWriteNl;
+| LayoutAny: IO.WriteS (yyf, 'LayoutAny'); yyWriteNl; yyyWriteNodeLayoutAny (yyt);
+| Names: IO.WriteS (yyf, 'Names'); yyWriteNl;
+| NoName: IO.WriteS (yyf, 'NoName'); yyWriteNl;
+| Name: IO.WriteS (yyf, 'Name'); yyWriteNl; yyyWriteNodeName (yyt);
+| Ag: IO.WriteS (yyf, 'Ag'); yyWriteNl; yyyWriteNodeAg (yyt);
+| Precs: IO.WriteS (yyf, 'Precs'); yyWriteNl;
+| NoPrec: IO.WriteS (yyf, 'NoPrec'); yyWriteNl;
+| Prec: IO.WriteS (yyf, 'Prec'); yyWriteNl; yyyWriteNodePrec (yyt);
+| LeftAssoc: IO.WriteS (yyf, 'LeftAssoc'); yyWriteNl; yyyWriteNodeLeftAssoc (yyt);
+| RightAssoc: IO.WriteS (yyf, 'RightAssoc'); yyWriteNl; yyyWriteNodeRightAssoc (yyt);
+| NonAssoc: IO.WriteS (yyf, 'NonAssoc'); yyWriteNl; yyyWriteNodeNonAssoc (yyt);
+| Actions: IO.WriteS (yyf, 'Actions'); yyWriteNl;
+| NoAction: IO.WriteS (yyf, 'NoAction'); yyWriteNl;
+| Action: IO.WriteS (yyf, 'Action'); yyWriteNl; yyyWriteNodeAction (yyt);
+| Assign: IO.WriteS (yyf, 'Assign'); yyWriteNl; yyyWriteNodeAssign (yyt);
+| Copy: IO.WriteS (yyf, 'Copy'); yyWriteNl; yyyWriteNodeCopy (yyt);
+| TargetCode: IO.WriteS (yyf, 'TargetCode'); yyWriteNl; yyyWriteNodeTargetCode (yyt);
+| Order: IO.WriteS (yyf, 'Order'); yyWriteNl; yyyWriteNodeOrder (yyt);
+| Check: IO.WriteS (yyf, 'Check'); yyWriteNl; yyyWriteNodeCheck (yyt);
+| Modules: IO.WriteS (yyf, 'Modules'); yyWriteNl;
+| NoModule: IO.WriteS (yyf, 'NoModule'); yyWriteNl;
+| Module: IO.WriteS (yyf, 'Module'); yyWriteNl; yyyWriteNodeModule (yyt);
+| Props: IO.WriteS (yyf, 'Props'); yyWriteNl;
+| NoProp: IO.WriteS (yyf, 'NoProp'); yyWriteNl;
+| Prop: IO.WriteS (yyf, 'Prop'); yyWriteNl; yyyWriteNodeProp (yyt);
+| Select: IO.WriteS (yyf, 'Select'); yyWriteNl; yyyWriteNodeSelect (yyt);
+| Decls: IO.WriteS (yyf, 'Decls'); yyWriteNl;
+| NoDecl: IO.WriteS (yyf, 'NoDecl'); yyWriteNl;
+| Decl: IO.WriteS (yyf, 'Decl'); yyWriteNl; yyyWriteNodeDecl (yyt);
+  ELSE
+  END;
+ END WriteTreeNode;
+
+CONST yyNil    = 374C;
+CONST yyNoLabel        = 375C;
+CONST yyLabelDef       = 376C;
+CONST yyLabelUse       = 377C;
+
+PROCEDURE ReverseTree (yyOld: tTree): tTree;
+ VAR yyNew, yyNext, yyTail     : tTree;
+ BEGIN
+  yyNew        := yyOld;
+  yyTail       := yyOld;
+  LOOP
+   CASE yyOld^.Kind OF
+| Class: yyNext := yyOld^.Class.Next; yyOld^.Class.Next := yyNew;
+| AttrOrAction: yyNext := yyOld^.AttrOrAction.Next; yyOld^.AttrOrAction.Next := yyNew;
+| Child: yyNext := yyOld^.Child.Next; yyOld^.Child.Next := yyNew;
+| Attribute: yyNext := yyOld^.Attribute.Next; yyOld^.Attribute.Next := yyNew;
+| ActionPart: yyNext := yyOld^.ActionPart.Next; yyOld^.ActionPart.Next := yyNew;
+| Designator: yyNext := yyOld^.Designator.Next; yyOld^.Designator.Next := yyNew;
+| Ident: yyNext := yyOld^.Ident.Next; yyOld^.Ident.Next := yyNew;
+| Remote: yyNext := yyOld^.Remote.Next; yyOld^.Remote.Next := yyNew;
+| Any: yyNext := yyOld^.Any.Next; yyOld^.Any.Next := yyNew;
+| Anys: yyNext := yyOld^.Anys.Next; yyOld^.Anys.Next := yyNew;
+| LayoutAny: yyNext := yyOld^.LayoutAny.Next; yyOld^.LayoutAny.Next := yyNew;
+| Name: yyNext := yyOld^.Name.Next; yyOld^.Name.Next := yyNew;
+| Prec: yyNext := yyOld^.Prec.Next; yyOld^.Prec.Next := yyNew;
+| LeftAssoc: yyNext := yyOld^.LeftAssoc.Next; yyOld^.LeftAssoc.Next := yyNew;
+| RightAssoc: yyNext := yyOld^.RightAssoc.Next; yyOld^.RightAssoc.Next := yyNew;
+| NonAssoc: yyNext := yyOld^.NonAssoc.Next; yyOld^.NonAssoc.Next := yyNew;
+| Action: yyNext := yyOld^.Action.Next; yyOld^.Action.Next := yyNew;
+| Assign: yyNext := yyOld^.Assign.Next; yyOld^.Assign.Next := yyNew;
+| Copy: yyNext := yyOld^.Copy.Next; yyOld^.Copy.Next := yyNew;
+| TargetCode: yyNext := yyOld^.TargetCode.Next; yyOld^.TargetCode.Next := yyNew;
+| Order: yyNext := yyOld^.Order.Next; yyOld^.Order.Next := yyNew;
+| Check: yyNext := yyOld^.Check.Next; yyOld^.Check.Next := yyNew;
+| Module: yyNext := yyOld^.Module.Next; yyOld^.Module.Next := yyNew;
+| Prop: yyNext := yyOld^.Prop.Next; yyOld^.Prop.Next := yyNew;
+| Select: yyNext := yyOld^.Select.Next; yyOld^.Select.Next := yyNew;
+| Decl: yyNext := yyOld^.Decl.Next; yyOld^.Decl.Next := yyNew;
+   ELSE EXIT;
+   END;
+   yyNew       := yyOld;
+   yyOld       := yyNext;
+  END;
+  CASE yyTail^.Kind OF
+| Class: yyTail^.Class.Next := yyOld;
+| AttrOrAction: yyTail^.AttrOrAction.Next := yyOld;
+| Child: yyTail^.Child.Next := yyOld;
+| Attribute: yyTail^.Attribute.Next := yyOld;
+| ActionPart: yyTail^.ActionPart.Next := yyOld;
+| Designator: yyTail^.Designator.Next := yyOld;
+| Ident: yyTail^.Ident.Next := yyOld;
+| Remote: yyTail^.Remote.Next := yyOld;
+| Any: yyTail^.Any.Next := yyOld;
+| Anys: yyTail^.Anys.Next := yyOld;
+| LayoutAny: yyTail^.LayoutAny.Next := yyOld;
+| Name: yyTail^.Name.Next := yyOld;
+| Prec: yyTail^.Prec.Next := yyOld;
+| LeftAssoc: yyTail^.LeftAssoc.Next := yyOld;
+| RightAssoc: yyTail^.RightAssoc.Next := yyOld;
+| NonAssoc: yyTail^.NonAssoc.Next := yyOld;
+| Action: yyTail^.Action.Next := yyOld;
+| Assign: yyTail^.Assign.Next := yyOld;
+| Copy: yyTail^.Copy.Next := yyOld;
+| TargetCode: yyTail^.TargetCode.Next := yyOld;
+| Order: yyTail^.Order.Next := yyOld;
+| Check: yyTail^.Check.Next := yyOld;
+| Module: yyTail^.Module.Next := yyOld;
+| Prop: yyTail^.Prop.Next := yyOld;
+| Select: yyTail^.Select.Next := yyOld;
+| Decl: yyTail^.Decl.Next := yyOld;
+  ELSE
+  END;
+  RETURN yyNew;
+ END ReverseTree;
+
+CONST yyyWrite = 1; yyyRead = 2; yyyQuit = 3;
+
+VAR yyString   : ARRAY [0..31] OF CHAR;
+VAR yyLength   : INTEGER;
+VAR yyCh       : CHAR;
+VAR yyState    : INTEGER;
+
+PROCEDURE yyyIsEqual (yya: ARRAY OF CHAR): BOOLEAN;
+ VAR yyi       : INTEGER;
+ BEGIN
+  IF (yyLength >= 0) AND (yyString [yyLength] = ' ') THEN
+   IF yyLength - 1 # INTEGER (HIGH (yya)) THEN RETURN FALSE; END;
+   FOR yyi := 0 TO yyLength - 1 DO
+    IF yyString [yyi] # yya [yyi] THEN RETURN FALSE; END;
+   END;
+  ELSE
+   IF yyLength > INTEGER (HIGH (yya)) THEN RETURN FALSE; END;
+   FOR yyi := 0 TO yyLength DO
+    IF yyString [yyi] # yya [yyi] THEN RETURN FALSE; END;
+   END;
+  END;
+  RETURN TRUE;
+ END yyyIsEqual;
+
+PROCEDURE QueryTree (yyt: tTree);
+ BEGIN
+  yyState := yyyWrite;
+  LOOP
+   CASE yyState OF
+   | yyyQuit   : RETURN;
+   | yyyWrite  : WriteTreeNode (IO.StdOutput, yyt); yyState := yyyRead;
+   | yyyRead   : IO.WriteS (IO.StdOutput, '? '); yyLength := -1; yyCh := IO.ReadC (IO.StdInput);
+    WHILE yyCh # 12C DO INC (yyLength); yyString [yyLength] := yyCh; yyCh := IO.ReadC (IO.StdInput); END;
+    IF    yyyIsEqual ('parent') THEN yyState := yyyWrite; RETURN;
+    ELSIF yyyIsEqual ('quit'  ) THEN yyState := yyyQuit ; RETURN;
+    ELSIF yyt # NoTree THEN
+     CASE yyt^.Kind OF
+| Class: IF FALSE THEN
+ELSIF yyyIsEqual ('Attributes') THEN QueryTree (yyt^.Class.Attributes);
+ELSIF yyyIsEqual ('Extensions') THEN QueryTree (yyt^.Class.Extensions);
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.Class.Next);
+ELSIF yyyIsEqual ('BaseClass') THEN QueryTree (yyt^.Class.BaseClass);
+ELSIF yyyIsEqual ('Names') THEN QueryTree (yyt^.Class.Names);
+END;
+| AttrOrAction: IF FALSE THEN
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.AttrOrAction.Next);
+END;
+| Child: IF FALSE THEN
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.Child.Next);
+END;
+| Attribute: IF FALSE THEN
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.Attribute.Next);
+END;
+| ActionPart: IF FALSE THEN
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.ActionPart.Next);
+ELSIF yyyIsEqual ('Actions') THEN QueryTree (yyt^.ActionPart.Actions);
+END;
+| Designator: IF FALSE THEN
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.Designator.Next);
+END;
+| Ident: IF FALSE THEN
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.Ident.Next);
+END;
+| Remote: IF FALSE THEN
+ELSIF yyyIsEqual ('Designators') THEN QueryTree (yyt^.Remote.Designators);
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.Remote.Next);
+END;
+| Any: IF FALSE THEN
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.Any.Next);
+END;
+| Anys: IF FALSE THEN
+ELSIF yyyIsEqual ('Layouts') THEN QueryTree (yyt^.Anys.Layouts);
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.Anys.Next);
+END;
+| LayoutAny: IF FALSE THEN
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.LayoutAny.Next);
+END;
+| Name: IF FALSE THEN
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.Name.Next);
+END;
+| Ag: IF FALSE THEN
+ELSIF yyyIsEqual ('ParserCodes') THEN QueryTree (yyt^.Ag.ParserCodes);
+ELSIF yyyIsEqual ('TreeCodes') THEN QueryTree (yyt^.Ag.TreeCodes);
+ELSIF yyyIsEqual ('EvalCodes') THEN QueryTree (yyt^.Ag.EvalCodes);
+ELSIF yyyIsEqual ('Precs') THEN QueryTree (yyt^.Ag.Precs);
+ELSIF yyyIsEqual ('Props') THEN QueryTree (yyt^.Ag.Props);
+ELSIF yyyIsEqual ('Decls') THEN QueryTree (yyt^.Ag.Decls);
+ELSIF yyyIsEqual ('Classes') THEN QueryTree (yyt^.Ag.Classes);
+ELSIF yyyIsEqual ('Modules') THEN QueryTree (yyt^.Ag.Modules);
+END;
+| Prec: IF FALSE THEN
+ELSIF yyyIsEqual ('Names') THEN QueryTree (yyt^.Prec.Names);
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.Prec.Next);
+END;
+| LeftAssoc: IF FALSE THEN
+ELSIF yyyIsEqual ('Names') THEN QueryTree (yyt^.LeftAssoc.Names);
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.LeftAssoc.Next);
+END;
+| RightAssoc: IF FALSE THEN
+ELSIF yyyIsEqual ('Names') THEN QueryTree (yyt^.RightAssoc.Names);
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.RightAssoc.Next);
+END;
+| NonAssoc: IF FALSE THEN
+ELSIF yyyIsEqual ('Names') THEN QueryTree (yyt^.NonAssoc.Names);
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.NonAssoc.Next);
+END;
+| Action: IF FALSE THEN
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.Action.Next);
+END;
+| Assign: IF FALSE THEN
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.Assign.Next);
+ELSIF yyyIsEqual ('Results') THEN QueryTree (yyt^.Assign.Results);
+ELSIF yyyIsEqual ('Arguments') THEN QueryTree (yyt^.Assign.Arguments);
+END;
+| Copy: IF FALSE THEN
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.Copy.Next);
+ELSIF yyyIsEqual ('Results') THEN QueryTree (yyt^.Copy.Results);
+ELSIF yyyIsEqual ('Arguments') THEN QueryTree (yyt^.Copy.Arguments);
+END;
+| TargetCode: IF FALSE THEN
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.TargetCode.Next);
+ELSIF yyyIsEqual ('Results') THEN QueryTree (yyt^.TargetCode.Results);
+ELSIF yyyIsEqual ('Code') THEN QueryTree (yyt^.TargetCode.Code);
+END;
+| Order: IF FALSE THEN
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.Order.Next);
+ELSIF yyyIsEqual ('Results') THEN QueryTree (yyt^.Order.Results);
+ELSIF yyyIsEqual ('Arguments') THEN QueryTree (yyt^.Order.Arguments);
+END;
+| Check: IF FALSE THEN
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.Check.Next);
+ELSIF yyyIsEqual ('Condition') THEN QueryTree (yyt^.Check.Condition);
+ELSIF yyyIsEqual ('Statement') THEN QueryTree (yyt^.Check.Statement);
+ELSIF yyyIsEqual ('Actions') THEN QueryTree (yyt^.Check.Actions);
+ELSIF yyyIsEqual ('Results') THEN QueryTree (yyt^.Check.Results);
+END;
+| Module: IF FALSE THEN
+ELSIF yyyIsEqual ('ParserCodes') THEN QueryTree (yyt^.Module.ParserCodes);
+ELSIF yyyIsEqual ('TreeCodes') THEN QueryTree (yyt^.Module.TreeCodes);
+ELSIF yyyIsEqual ('EvalCodes') THEN QueryTree (yyt^.Module.EvalCodes);
+ELSIF yyyIsEqual ('Props') THEN QueryTree (yyt^.Module.Props);
+ELSIF yyyIsEqual ('Decls') THEN QueryTree (yyt^.Module.Decls);
+ELSIF yyyIsEqual ('Classes') THEN QueryTree (yyt^.Module.Classes);
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.Module.Next);
+END;
+| Prop: IF FALSE THEN
+ELSIF yyyIsEqual ('Names') THEN QueryTree (yyt^.Prop.Names);
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.Prop.Next);
+END;
+| Select: IF FALSE THEN
+ELSIF yyyIsEqual ('Names') THEN QueryTree (yyt^.Select.Names);
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.Select.Next);
+END;
+| Decl: IF FALSE THEN
+ELSIF yyyIsEqual ('Names') THEN QueryTree (yyt^.Decl.Names);
+ELSIF yyyIsEqual ('Attributes') THEN QueryTree (yyt^.Decl.Attributes);
+ELSIF yyyIsEqual ('Next') THEN QueryTree (yyt^.Decl.Next);
+END;
+     ELSE
+     END;
+    END;
+   END;
+  END;
+ END QueryTree;
+
+PROCEDURE BeginTree;
+ BEGIN
+(* line 376 "" *)
+
+   ErrorCount := 0;
+   MakeSet (Options, 127);
+   NoCodeAttr  := {Test, Dummy, Virtual, Parameter};
+   NoCodeClass := {Ignore, Abstract};
+
+(* line 839 "" *)
+
+   MakeSet      (DummySet, 0);
+   MakeRelation (DummyRelation, 0, 0);
+
+   nNoAction    := mNoAction    (); 
+   nNoAttribute := mNoAttribute (); 
+   nNoClass     := mNoClass     (); 
+   nNoDecl      := mNoDecl      (); 
+   nNoDesignator:= mNoDesignator();
+   nNoLayout    := mNoLayout    (); 
+   nNoModule    := mNoModule    (); 
+   nNoName      := mNoName      (); 
+   nNoPrec      := mNoPrec      (); 
+   nNoProp      := mNoProp      (); 
+
+ END BeginTree;
+
+PROCEDURE CloseTree;
+ BEGIN
+ END CloseTree;
+
+PROCEDURE xxExit;
+ BEGIN
+  IO.CloseIO; System.Exit (1);
+ END xxExit;
+
+BEGIN
+ yyBlockList   := NIL;
+ yyPoolFreePtr := NIL;
+ yyPoolMaxPtr  := NIL;
+ HeapUsed      := 0;
+ yyExit        := xxExit;
+ yyNodeSize [Classes] := SYSTEM.TSIZE (yClasses);
+ yyNodeSize [NoClass] := SYSTEM.TSIZE (yNoClass);
+ yyNodeSize [Class] := SYSTEM.TSIZE (yClass);
+ yyNodeSize [Attributes] := SYSTEM.TSIZE (yAttributes);
+ yyNodeSize [NoAttribute] := SYSTEM.TSIZE (yNoAttribute);
+ yyNodeSize [AttrOrAction] := SYSTEM.TSIZE (yAttrOrAction);
+ yyNodeSize [Child] := SYSTEM.TSIZE (yChild);
+ yyNodeSize [Attribute] := SYSTEM.TSIZE (yAttribute);
+ yyNodeSize [ActionPart] := SYSTEM.TSIZE (yActionPart);
+ yyNodeSize [Codes] := SYSTEM.TSIZE (yCodes);
+ yyNodeSize [Designators] := SYSTEM.TSIZE (yDesignators);
+ yyNodeSize [NoDesignator] := SYSTEM.TSIZE (yNoDesignator);
+ yyNodeSize [Designator] := SYSTEM.TSIZE (yDesignator);
+ yyNodeSize [Ident] := SYSTEM.TSIZE (yIdent);
+ yyNodeSize [Remote] := SYSTEM.TSIZE (yRemote);
+ yyNodeSize [Any] := SYSTEM.TSIZE (yAny);
+ yyNodeSize [Anys] := SYSTEM.TSIZE (yAnys);
+ yyNodeSize [Layouts] := SYSTEM.TSIZE (yLayouts);
+ yyNodeSize [NoLayout] := SYSTEM.TSIZE (yNoLayout);
+ yyNodeSize [LayoutAny] := SYSTEM.TSIZE (yLayoutAny);
+ yyNodeSize [Names] := SYSTEM.TSIZE (yNames);
+ yyNodeSize [NoName] := SYSTEM.TSIZE (yNoName);
+ yyNodeSize [Name] := SYSTEM.TSIZE (yName);
+ yyNodeSize [Ag] := SYSTEM.TSIZE (yAg);
+ yyNodeSize [Precs] := SYSTEM.TSIZE (yPrecs);
+ yyNodeSize [NoPrec] := SYSTEM.TSIZE (yNoPrec);
+ yyNodeSize [Prec] := SYSTEM.TSIZE (yPrec);
+ yyNodeSize [LeftAssoc] := SYSTEM.TSIZE (yLeftAssoc);
+ yyNodeSize [RightAssoc] := SYSTEM.TSIZE (yRightAssoc);
+ yyNodeSize [NonAssoc] := SYSTEM.TSIZE (yNonAssoc);
+ yyNodeSize [Actions] := SYSTEM.TSIZE (yActions);
+ yyNodeSize [NoAction] := SYSTEM.TSIZE (yNoAction);
+ yyNodeSize [Action] := SYSTEM.TSIZE (yAction);
+ yyNodeSize [Assign] := SYSTEM.TSIZE (yAssign);
+ yyNodeSize [Copy] := SYSTEM.TSIZE (yCopy);
+ yyNodeSize [TargetCode] := SYSTEM.TSIZE (yTargetCode);
+ yyNodeSize [Order] := SYSTEM.TSIZE (yOrder);
+ yyNodeSize [Check] := SYSTEM.TSIZE (yCheck);
+ yyNodeSize [Modules] := SYSTEM.TSIZE (yModules);
+ yyNodeSize [NoModule] := SYSTEM.TSIZE (yNoModule);
+ yyNodeSize [Module] := SYSTEM.TSIZE (yModule);
+ yyNodeSize [Props] := SYSTEM.TSIZE (yProps);
+ yyNodeSize [NoProp] := SYSTEM.TSIZE (yNoProp);
+ yyNodeSize [Prop] := SYSTEM.TSIZE (yProp);
+ yyNodeSize [Select] := SYSTEM.TSIZE (ySelect);
+ yyNodeSize [Decls] := SYSTEM.TSIZE (yDecls);
+ yyNodeSize [NoDecl] := SYSTEM.TSIZE (yNoDecl);
+ yyNodeSize [Decl] := SYSTEM.TSIZE (yDecl);
+ yyMaxSize     := 0;
+ FOR yyi := 1 TO 138 DO
+  yyNodeSize [yyi] := LONGINT (BITSET (yyNodeSize [yyi] + CARDINAL (General.MaxAlign) - 1) * General.AlignMasks [General.MaxAlign]);
+  yyMaxSize := General.Max (yyNodeSize [yyi], yyMaxSize);
+ END;
+ yyTypeRange [Classes] := Class;
+ yyTypeRange [NoClass] := NoClass;
+ yyTypeRange [Class] := Class;
+ yyTypeRange [Attributes] := ActionPart;
+ yyTypeRange [NoAttribute] := NoAttribute;
+ yyTypeRange [AttrOrAction] := ActionPart;
+ yyTypeRange [Child] := Child;
+ yyTypeRange [Attribute] := Attribute;
+ yyTypeRange [ActionPart] := ActionPart;
+ yyTypeRange [Codes] := Codes;
+ yyTypeRange [Designators] := Anys;
+ yyTypeRange [NoDesignator] := NoDesignator;
+ yyTypeRange [Designator] := Designator;
+ yyTypeRange [Ident] := Ident;
+ yyTypeRange [Remote] := Remote;
+ yyTypeRange [Any] := Any;
+ yyTypeRange [Anys] := Anys;
+ yyTypeRange [Layouts] := LayoutAny;
+ yyTypeRange [NoLayout] := NoLayout;
+ yyTypeRange [LayoutAny] := LayoutAny;
+ yyTypeRange [Names] := Name;
+ yyTypeRange [NoName] := NoName;
+ yyTypeRange [Name] := Name;
+ yyTypeRange [Ag] := Ag;
+ yyTypeRange [Precs] := NonAssoc;
+ yyTypeRange [NoPrec] := NoPrec;
+ yyTypeRange [Prec] := NonAssoc;
+ yyTypeRange [LeftAssoc] := LeftAssoc;
+ yyTypeRange [RightAssoc] := RightAssoc;
+ yyTypeRange [NonAssoc] := NonAssoc;
+ yyTypeRange [Actions] := Check;
+ yyTypeRange [NoAction] := NoAction;
+ yyTypeRange [Action] := Check;
+ yyTypeRange [Assign] := Assign;
+ yyTypeRange [Copy] := Copy;
+ yyTypeRange [TargetCode] := TargetCode;
+ yyTypeRange [Order] := Order;
+ yyTypeRange [Check] := Check;
+ yyTypeRange [Modules] := Module;
+ yyTypeRange [NoModule] := NoModule;
+ yyTypeRange [Module] := Module;
+ yyTypeRange [Props] := Select;
+ yyTypeRange [NoProp] := NoProp;
+ yyTypeRange [Prop] := Prop;
+ yyTypeRange [Select] := Select;
+ yyTypeRange [Decls] := Decl;
+ yyTypeRange [NoDecl] := NoDecl;
+ yyTypeRange [Decl] := Decl;
+ BeginTree;
+END Tree.

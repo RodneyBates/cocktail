@@ -1,0 +1,3937 @@
+ 
+(* File: Semantics.puma.  
+   Static semantics for Zbra compiler. 
+   Rodney M. Bates April 2000  
+ 
+   Change Log:  
+   2000-04-10  Rodney M. Bates Start initial coding.  
+ 
+*) 
+  
+  
+ 
+TRAFO Semantics  
+ 
+TREE Ast 
+ 
+EXTERN PositionTyp Cant_Be  
+ 
+BODYWITH  
+  { WITH AstTypes ;  
+    WITH SemUtils ;  
+    WITH StaticArith ;  
+ 
+    WITH Zassert ; 
+    WITH Strings ;  
+ 
+    PRAGMA Normalize_Scalars ;  
+  }  
+ 
+GLOBAL  
+  { SUBTYPE PositionTyp IS AstTypes . PositionTyp ;  
+    SUBTYPE OpCodeTyp IS AstTypes . OpCodeTyp ;  
+    SUBTYPE ConstructKindTyp IS AstTypes . ConstructKindTyp ;  
+    SUBTYPE StaticIntValueTyp IS AstTypes . StaticIntValueTyp ;  
+    SUBTYPE StaticRealValueTyp IS AstTypes . StaticRealValueTyp ;  
+    SUBTYPE StaticStringValueTyp IS AstTypes . StaticRealValueTyp ;  
+    StringSpace : Strings . Space_Index := Strings . Create_String_Space ;  
+ 
+    (* FIX: provide:  
+       TokenText ( Node )  
+       HaveEqualTokenTexts ( Node , Node )  
+    *)  
+  }  
+ 
+BEGIN { }  
+ 
+CLOSE { }  
+ 
+(* Misc. tree traversal utilities: *)  
+ 
+FUNCTION ConstructKindOfDefOcc 
+  ( DefOcc : AsIdentDef ) : ConstructKindTyp  
+ 
+  AsIdentDef ( Decl := [ AsTypeDecl, ] ( ) )  
+  ; AsIdentDef ( Decl := AsIncompleteTypeDecl ( ) )  
+  ; AsIdentDef ( Decl := AsSubypeDecl ( ) ) 
+    RETURN AstTypes . ConsType ; .  
+ 
+(* ... etc ... *)  
+ 
+(* END ConstructKindOfDefOcc *)  
+ 
+FUNCTION GetDecl ( [ AsDeclRef, AsIdentDef ] ) : [ AsDecl, ]  
+ 
+  [ AsExpandedName , AsIdentRef ] ( )  
+    RETURN GetDecl ( DefOcc ) ; .  
+ 
+  AsIdentDef ( ) RETURN Decl ; .  
+ 
+(* END GetDecl *)  
+ 
+(* Type analysis utilities: *)  
+ 
+FUNCTION ExprType ( Expr : [ AsExpr, ] ) : [ AsSubypeName, ]  
+
+(* FIX: Provide this. *) 
+
+  _ RETURN NIL ; . 
+ 
+(* END ExprType *)  
+ 
+FUNCTION SubtypeNameOfArrayIndex ( Index : [ AsList, , AsDiscrRangeNode ] )  
+: [ AsSubypeName, ]  
+ 
+  AsListElem ( ) RETURN SubtypeNameOfArrayIndex ( Index :: Child ) ; .  
+ 
+  AsDiscrRangeNode ( ) RETURN Index :: RangeType ; .  
+ 
+  _ :- Zassert . Cant_Be  
+        ( "Semantics.SubtypeNameOfArrayIndex, not AsDiscrRangeNode" ) ; .  
+ 
+(* END SubtypeNameOfArrayIndex *)  
+ 
+PROCEDURE GetDiscrRangeOfSubtypeName  
+  ( SubtypeName : [ AsSubtypeName, ] => DiscrRange : AsDiscrRangeNode )  
+ 
+(* FIX: Provide this. *)  
+ 
+(* END GetDiscrRangeOfSubtypeName *)  
+ 
+PROCEDURE GetSubypeDefOfSubtypeName  
+  ( SubtypeName : [ AsSubtypeName ] => SubypeDef : [ AsSubypeDef, ] )  
+ 
+(* FIX: Provide this. *)  
+ 
+(* END GetSubypeDefOfSubtypeName *)  
+ 
+PROCEDURE GetTypeDefOfSubtypeName  
+  ( SubtypeName : [ AsSubtypeName, ] => TypeDef : [ AsTypeDef, ] )  
+ 
+(* FIX: Provide this. *)  
+ 
+(* END GetTypeDefOfSubtypeName *)  
+ 
+(* Unneded? *)  
+PROCEDURE GetDesignatedType  
+  ( Node : [ AsSubtypeName, ] => [ AsSubtypeName, ] )  
+ 
+  _ :- GetTypeDef ( Node => LTypeDef : [ AsAccessObjectType, ] ) ;  
+    RETURN LTypeDef :: DesignatedType ;  
+    .  
+ 
+  _ :- GetTypeDef ( Node => LTypeDef : [ AsAccessObjectType, ] ) ;  
+       ErrorPos  
+         ( Node :: Position  
+         , "Deference applied to non-access type declared at " 
+         , LTypeDef :: Position  
+         ) ;  
+    .  
+ 
+(* END GetDesignatedType *)  
+ 
+PREDICATE IsUnconstrainedArraySubtypeName ( Arg : Ast )  
+ 
+(* FIX: Complete this. *)  
+  AsUnconstrainedArrayDef ( ) :- .  
+ 
+(* END IsUnconstrainedArraySubtypename *)  
+ 
+(* Declarations: *)  
+ 
+PROCEDURE CheckDecl  
+  ( Node : [ AsList, , AsIdentDef ]  
+  ; FDecl : [ AsDecl, ]  
+  ; Context : [ AsScope, ]  
+  )  
+(* Check that this declaration is not an illegal redeclaration 
+   in Context. Also set the Decl lind of all identifiers to FDecl. 
+   Not for program units, which can be "redeclared" 
+   as completions.  
+*)  
+ 
+  NIL :- .  
+ 
+  AsListElem ( )  
+    :- CheckDecl ( Child , FDecl , Context ) ;  
+       CheckDecl ( Next , FDecl , Context ) ;  
+    . 
+ 
+  (* If Context is a compilation unit, look in its WITH clauses. *)  
+  AsIdentDef ( )  
+  , _  
+  , [ AsCompilationDecl, ] ( ContainingScope := AsCompilationUnit ( ) )  
+    :- Decl := FDecl ;  
+       VAR LRedeclNode : AsIdentDef ;  
+       LRedeclNode  
+         := LookupInDeclsList ( ContextClauses , Node , Node ) ;  
+       ErrorPos  
+         ( Node :: SimpleName :: Position  
+         , "Redeclaration of WITHed identifier at % "  
+         , RedeclNode :: Position  
+         ) ;  
+    .  
+  
+  (* If Context is a subprogram, look in its formals list. *)  
+  AsIdentDef ( )  
+  , _  
+  , [ AsProcSpec , AsFuncSpec , AsProcBody , AsFuncBody ] ( ) 
+    :- Decl := FDecl ;  
+       VAR LRedeclNode : AsIdentDef ;  
+       LRedeclNode  
+         := LookupInDeclsList ( Context . Formals , Node , Node ) ;  
+       ErrorPos  
+         ( Node :: SimpleName :: Position  
+         , "Redeclaration of formal at % "  
+         , RedeclNode :: Position  
+         ) ;  
+    .  
+ 
+  (* Look in decls list of context. *)  
+  AsIdentDef ( ) , [ AsScope, ] ( ) 
+    :- Decl := FDecl ;  
+       VAR LRedeclNode : AsIdentDef ;  
+       LRedeclNode := LookupInDeclsList ( Context . Decls , Node , Node ) ;  
+       ErrorPos  
+         ( Node :: Position  
+         , "Redeclaration of identifier at % "  
+         , RedeclNode :: Position  
+         ) ;  
+    .  
+ 
+  _ ( ) :- .  
+ 
+(* END CheckDecl *)  
+ 
+PROCEDURE CheckEndName  
+  ( FirstName : AsIdentDef  
+  ; EndName : AsIdentRef  
+  )  
+ 
+  NIL , NIL :- .  
+ 
+  NIL , _  
+    :- Error  
+         ( EndName :: Position  
+         , "Block has name at end but not at beginning."  
+         ) ;  
+    .  
+ 
+  _ ( )   
+    :- ( HaveEqualTokenTexts ( FirstName , EndName ) ;  .  
+ 
+  _ ( )  
+    :- ErrorPos  
+         ( EndName :: Position  
+         , "End identifier disagrees with starting identifier at " 
+         , FirstName  
+         ) ;  
+    .  
+ 
+(* END CheckEndName *)  
+ 
+FUNCTION PriorUnitOfBody  
+  ( Body : [ AsScope, ] )  
+: [ AsPackSpec , AsProcSpec , AsFuncSpec ] 
+(* Return the PriorUnit field of a body. *)  
+ 
+  [ AsPackBody , AsProcBody , AsFuncBody ] ( ) RETURN PriorUnit ; .  
+ 
+  _ :- { Zassert . Cant_Be ( "PriorUnitOfBody, not a body." ) ; } ; .  
+ 
+(* END PriorUnitOfBody *)  
+ 
+PROCEDURE CheckNoRefInFormalsRecurse  
+  ( Node : [ AsList, AsFormal, AsTypeMark, ]  
+  ; Formals : [ AsList, ]  
+  ) 
+ 
+  NIL :- .  
+ 
+  AsIdentRef ( )  
+    :- VAR LDecl : AsIdentDef ;  
+       LDecl := LookupInDeclsList ( Node , Formals , NIL )  
+       ( HaveEqualTokenTexts ( LDecl , Node ) ) ;  
+       ErrorPos 
+         ( Node :: Position  
+         , "Reference in formals list to identifier declared at " 
+         , LDecl :: Position  
+         ) ; 
+    . 
+ 
+  AsIdentRef ( ) :- .  
+ 
+  [ AsListElem , AsExpr, AsFormal, , AsTypeMark, , AsConstraint, 
+  , AsDiscrRange,  
+  ] ( )  
+    :- FOR Node CHILD  
+         ( CheckNoRefInFormalsRecurse ( CHILD , Formals ) ) ;  
+       END ;  
+    .  
+ 
+(* END CheckNoRefInFormalsRecurse *)  
+ 
+PROCEDURE CheckNoRefInFormalsList  
+  ( Formals : [ AsList, ] )  
+(* Check that no reference in the formals list is to 
+   an identifier declared there. *)  
+ 
+  _ :- CheckNoRefInFormalsRecurse ( Formals , Formals ) ; .  
+ 
+(* END CheckNoRefInFormalsList *)  
+ 
+PREDICATE CheckConformance  
+  ( Left : [ AsList, , AsFormal, , AsTypeMark, ]  
+  ; Right : [ AsList, , AsFormal, , AsTypeMark, ]  
+  )  
+(* Check two profiles for conformance.  
+   Predicate result TRUE means continue checking. *)  
+(* FIX: Possibly.  This routine implements stricter  
+   but simpler-to-implement Ada 83 conformance.  
+   If we change to do Ada95 conformance, will have to 
+   be sure to do regular semantics on both profiles 
+   before doing conformance check. *)  
+ 
+  NIL , NIL :- .  
+ 
+  AsIdentRef ( ) , AsIdentRef ( )  
+    :- ( HaveEqualTokenTexts ( Left , Right ) ) ; . 
+ 
+  AsIntLit ( ) , AsIntLit ( )  
+    :- ( HaveEqualIntValues ( Left , Right ) ) ; . 
+ 
+  AsRealLit ( ) , AsRealLit ( )  
+    :- ( HaveEqualRealValues ( Left , Right ) ) ; . 
+ 
+  AsStringLit ( ) , AsStringLit ( )  
+    :- ( HaveEqualStringValues ( Left , Right ) ) ; . 
+ 
+  AsCharLit ( ) , AsCharLit ( )  
+    :- ( HaveEqualCharValues ( Left , Right ) ) ; . 
+ 
+  AsStaticIdent ( ) , AsStaticIdent ( )  
+    :- ( Left :: StaticIdent = Right :: StaticIdent ) ; .  
+ 
+  [ AsListElem , AsExpr, , AsFormal, , AsTypeMark, , AsConstraint, 
+  , AsDiscrRange,  
+  ] ( )  
+  , _  
+    :- ( { Left . ALL . Kind = Right . ALL . Kind } ) ; 
+(* 
+       FOR Left CHILD  
+         ( CheckConformance ( Left :: CHILD , Right :: CHILD ) ) ;  
+       END ;  
+*) 
+    .  
+ 
+  _  
+    :- ErrorPos 
+         ( Right :: Position  
+         , " fails to conform with prior profile at " 
+         , Left :: Position  
+         ) ;  
+       REJECT ;  
+    .  
+ 
+(* END CheckConformance *)  
+ 
+PROCEDURE CheckCompletion  
+  ( PriorUnit : [ AsPackSpec , AsProcSpec , AsFuncSpec ]  
+  ; LaterUnit : [ AsPackBody , AsProcBody , AsFuncBody ]  
+  )  
+(* Check that LaterUnit is a valid completion of PriorUnit.  
+   If so, set their LaterUnit and PriorUnit links fields. *)  
+ 
+  AsPackSpec ( ) , AsPackBody ( )  
+    :- PriorUnit :: LaterUnit := LaterUnit ;  
+       LaterUnit :: PriorUnit := PriorUnit ;  
+    .  
+ 
+  AsProcSpec ( ) , AsProcBody ( )  
+    :- PriorUnit :: LaterUnit := LaterUnit ;  
+       LaterUnit :: PriorUnit := PriorUnit ;  
+       CheckConformace ( PriorUnit :: Formals , LaterUnit :: Formals ) ;  
+    .  
+ 
+  AsFuncSpec ( ) , AsFuncBody ( )  
+    :- PriorUnit :: LaterUnit := LaterUnit ;  
+       LaterUnit :: PriorUnit := PriorUnit ;  
+       CheckConformace ( PriorUnit :: Formals , LaterUnit :: Formals ) ;  
+       CheckConformace  
+         ( PriorUnit :: ResultType , LaterUnit :: ResultType ) ;  
+    .  
+ 
+  _ , _  
+    :- ErrorPos  
+         ( Node :: SimpleName :: Position  
+         , "Redeclaration of identifier at % "  
+         , LaterUnit :: Position  
+         ) ;  
+    .  
+ 
+(* END CheckCompletion *)  
+ 
+PROCEDURE FindCompletion 
+  ( Node : [ AsPackBody , AsProcBody , AsFuncBody , AsTypeDeclFull ] 
+  ; Context : [ AsScope, ] 
+  )  
+(* Find the declaration Body is a completion of. 
+   If found, do appropriate semantic processing. *)  
+ 
+  (* See if this is a library unit completion. *)  
+ 
+  [ AsPackBody , AsProcBody , AsFuncBody ]  
+    ( ContainingScope := AsCompilationUnit ( ) )  
+    :- VAR LPriorDecl : [ AsPackSpec , AsProcSpec , AsFuncSpec ] ;  
+(* FIX: 
+       LPriorDecl  
+         := SemUtils . Closure :: PriorCompilation :: CompilationUnit 
+            :: Decl ;  
+*) 
+       CheckCompletion ( LPriorNode , Node ) ;  
+    .  
+ 
+  (* Look for a spec earlier in the same scope. *)  
+  [ AsProcBody , AsFuncBody , AsFullTypeDecl ] ( )  
+    :- VAR LPriorIdent : AsIdentDef ;  
+       LPriorIdent  
+         := LookupInSingleScope ( SimpleName , Context , Node ) ;  
+       CheckCompletion ( LPriorIdent :: Decl , Node ) ;  
+    .  
+ 
+  (* Look in spec of package whose body we are in. *)  
+  [ AsProcBody , AsFuncBody , AsFullTypeDecl ] ( )  
+    :- VAR LPriorIdent : AsIdentDef ;  
+       LPriorIdent := LookupInSingleScope  
+         ( SimpleName , PriorUnitOfBody ( Context ) , Node ) ; 
+       CheckCompletion ( LPriorIdent :: Decl , Node ) ;  
+    .  
+ 
+  _ :- (* There is no prior declaration of this ident. *) .  
+ 
+(* END FindCompletion *)  
+ 
+PROCEDURE CompilationElemsFound  
+  ( Node : [ AsList, AsCompilation ] )  
+(* We already found one compilation unit in a list. 
+   Now check the remainder of the list for more. *)  
+ 
+  NIL :- .  
+ 
+  AsListElem ( ) 
+    :- CompilationElemsFound ( Child ) ;  
+       CompilationElemsFound ( Next ) ; . 
+ 
+  AsCompilationUnit ( )  
+    :- Error 
+         ( Node :: Position  
+         , "Multiple compilation units in one source file."  
+         ) ; .  
+ 
+(* END CompilationElemsFound *)  
+ 
+FUNCTION CompilationElems  
+  ( Node : [ AsList, AsCompilation ] )  
+: AsCompilationUnit  
+(* Return the CompilationUnit node in the Elems list of  
+   Compilation.  Emit an error if there is more than 
+   one CompilationUnit in the list. *)  
+ 
+  NIL RETURN NIL ; .  
+ 
+  AsListElem ( Child := AsCompilationUnit )  
+    :- CompilationElemsFound ( Next ) ;  
+    RETURN Child ;  
+    .  
+ 
+  AsListElem ( )  
+    RETURN CompilationElems ( Next ) ; .  
+ 
+(* END CompilationElems *)  
+ 
+PROCEDURE ExceptionChoiceList  
+  ( Node : [ AsList, , AsExpandedName , AsOTHERS ]  
+  , Context : [ AsScope, ]  
+  )  
+ 
+  NIL :- .  
+ 
+  (* OTHERS, as last item in list: *)  
+  AsListElem ( Child := AsOTHERS ( ) , Next := NIL )  
+    :- .  
+ 
+  AsListElem ( )  
+    :- ExceptionChoiceList ( Child , Context ) ;  
+       ExceptionChoiceList ( Next , Context ) ;  
+    . 
+ 
+  (* OTHERS, not at end of list: *)  
+  AsOTHERS ( )  
+    :- Error 
+         ( Node :: Position  
+         , "OTHERS is not the last choice in the list." 
+         ) ; .  
+ 
+  [ AsExpandedName, ] ( )  
+    :- Expression ( Node , Context ) ; .  
+ 
+(* END ExceptionChoiceList *)  
+ 
+PROCEDURE Recurse  
+  ( Node : Ast  
+  , Context : [ AsScope, ]  
+  )  
+(* Context uses AsListElem nodes, since they have exactly 
+   the fields needed, to build a linked cactus stack,  
+   allocating new nodes in this identifier resolution  
+   phase.  They will be abandoned when no longer needed.  
+*)  
+ 
+  AsCompilation ( )  
+    :- Node :: CompilationUnit := CompilationElems ( Node ) ; .  
+ 
+  AsCompilationUnit ( Decl := [ AsCompilationDecl, ] ( ) ) 
+    :- Decl :: ContainingScope := Node ; .  
+ 
+  AsPackSpec ( .. ) 
+    :- ContainingScope := Context ;  
+       SimpleName :: Decl := Node ;  
+       CheckEndName ( SimpleName , EndLabel ) ;  
+       Recurse ( Decls , Node ) ; .  
+ 
+  AsProcSpec ( .. )  
+    :- ContainingScope := Context ;  
+       SimpleName :: Decl := Node ;  
+       CheckNoRefInFormalsList ( Formals ) ;  
+       Recurse ( Formals , Context ) ;  
+    .  
+ 
+  AsFuncSpec ( .. )  
+    :- ContainingScope := Context ;  
+       SimpleName :: Decl := Node ;  
+       CheckNoRefInFormalsList ( Formals ) ;  
+       Recurse ( Formals , Context ) ;  
+       Recurse ( ResultType , Context ) ;  
+    .  
+ 
+  AsPackBody ( .. )  
+    :- ContainingScope := Context ;  
+       SimpleName :: Decl := Node ;  
+       CheckEndName ( SimpleName , EndLabel ) ;  
+       FindCompletion ( Node , Context ) ;  
+       Recurse ( Decls , Node ) ;  
+       Recurse ( Stmts , Node ) ;  
+       Recurse ( Handlers , Node ) ;  
+    .  
+ 
+  AsProcBody ( .. ) 
+    :- ContainingScope := Context ;  
+       SimpleName :: Decl := Node ;  
+       CheckEndName ( SimpleName , EndLabel ) ;  
+       CheckNoRefInFormalsList ( Formals ) ;  
+       FindCompletion ( Node , Context ) ;  
+       Recurse ( Formals , Context ) ;  
+       Recurse ( Decls , Node ) ;  
+       Recurse ( Stmts , Node ) ;  
+       Recurse ( Handlers , Node ) ;  
+    .  
+ 
+  AsFuncBody ( .. ) 
+    :- ContainingScope := Context ;  
+       SimpleName :: Decl := Node ;  
+       CheckEndName ( SimpleName , EndLabel ) ;  
+       CheckNoRefInFormalsList ( Formals ) ;  
+       FindCompletion ( Node , Context ) ;  
+       Recurse ( Formals , Context ) ;  
+       Recurse ( ResultType , Context ) ;  
+       Recurse ( Decls , Node ) ;  
+       Recurse ( Stmts , Node ) ;  
+       Recurse ( Handlers , Node ) ;  
+    .  
+ 
+  AsTypeDeclFull ( .. )  
+    :- SimpleName :: Decl := Node ;  
+       FindCompletion ( Node , Context ) ;  
+    .   
+ 
+  AsBlockStmt ( .. )  
+    :- ContainingScope := Context ;  
+       CheckEndName ( SimpleName , EndLabel ) ;  
+       Recurse ( Decls , Node ) ;  
+       Recurse ( Stmts , Node ) ;  
+       Recurse ( Handlers , Node ) ;  
+    .  
+ 
+  AsTypeDeclFull ( TYPEType := AsEnumTypeDef ( ) , .. )  
+    :- SimpleName :: Decl := Node ;  
+       CheckDecl ( SimpleName , Node , Context ) ;  
+       CheckDecl ( EnumLits , Node , Context ) ;  
+    .  
+  
+  AsTypeDeclFull ( TYPEType := AsAccessProcTypeDef ( ) , .. )  
+    :- SimpleName :: Decl := Node ;  
+       CheckNoRefInFormalsList ( Formals ) ;  
+       Recurse ( Formals , Context ) ;  
+    .  
+ 
+  AsTypeDeclFull ( TYPEType := AsAccessFuncTypeDef ( ) , .. )  
+    :- SimpleName :: Decl := Node ;  
+       CheckNoRefInFormalsList ( Formals ) ;  
+       Recurse ( Formals , Context ) ;  
+       Recurse ( ResultType , Context ) ;  
+    .  
+ 
+  AsExceptionHandler ( .. )  
+    :- ExceptionChoiceList ( Choices , Context ) ;  
+       Recurse ( Stmts , Context ) ;  
+    .  
+ 
+(* Eventually, try to eliminate the FAIL in these two cases: *)  
+  [ AsSingleNameDecl, ] ( .. )  
+    :- CheckDecl ( SimpleName , Node , Context ) ;  
+       FAIL ; (* Force fall through to next rule. *)  
+    . 
+ 
+  [ AsMultipleNameDecl, ] ( .. )  
+    :- CheckDecl ( SimpleNames , Node , Context ) ;  
+       FAIL ; (* Force fall through to next rule. *)  
+    . 
+ 
+  (* Things know to be illegal, because they should be 
+     handled elsewhere: *)  
+  [ AsStaticIdent , AsIdentDef , AsDeferredIdent , AsCompletionIdent  
+  , AsEnumTypeDef , AsAccessSubprogramTypeDef, , AsOTHERS , AsExpr,  
+  ] 
+    ( )  
+    :- Zassert . Cant_Be  
+         ( "Semantics.Recurse, bad Ast node kind: " 
+           & Ast . NodeKindImage ( Node :: Kind )  
+         ) ;
+    .   
+ 
+  (* For everything else, just recurse on children: *)  
+  _  
+   :- (* FIX: Add this construct to puma:
+      FOR Node CHILD  
+        Recurse ( CHILD , Context ) ;  
+      END ; *) 
+   .  
+ 
+(* END Recurse *)  
+ 
+(* Ranges etc.: *)  
+ 
+PROCEDURE DiscrRange  
+  ( Node : [ AsDiscrRange, ]  
+  ; ExpectedSubtypeName : [ AsSubtypeName, ]  
+  ; Context : [ AsScope, ]  
+  => Result : AsDiscrRangeNode  
+  )  
+ 
+(* Some callers have an expected type.  One also checks type 
+   after DiscrRange returns.  Review this redundancy. *)  
+(* FIX: Complete this: *)  
+ 
+  AsDotDot ( .. )  
+   :- Expr ( Left , LBaseType ) ;  
+      Expr ( Right , LBaseType ) ;  
+   . 
+ 
+  AsSubtypeIndicationConstrained ( .. ) :- .   
+ 
+(* END DiscrRange *)  
+ 
+(* Actual-formal parameter correspondence: *)  
+ 
+FUNCTION Formals ( [ AsFuncSpec , AsFuncBody , AsProcSpec , AsProcBody ] ) 
+: [ AsList, ]  
+ 
+  _ RETURN Formals ; .  
+ 
+(* END Formals *)  
+ 
+FUNCTION ResultSubtypeName ( [ AsFuncSpec , AsFuncBody ] ) 
+: [ AsSubtypeName, ]  
+ 
+  _ RETURN GetDecl ( ResultType ) ; .  
+ 
+(* END ResultSubtypeName *)  
+ 
+(* Names: *)  
+ 
+FUNCTION SelectedComponent  
+  ( Node : AsSelectedComponent ) : [ AsName, ]  
+ 
+  (* Expanded Name *)  
+  AsSelectedComponent 
+    ( Prefix := [ AsIdentRef , AsSelectedComponent ]  
+        ( DefOcc := AsIdentDef  
+            ( Decl := [ AsScope, ] ( Decls := LocalDecls : ) )  
+        )  
+    , Selector := LSelector : _  
+    )  
+  :- LSelector :: DefOcc  
+       := LookupInDeclsList ( LSelector , LocalDecls , NIL ) ;  
+     LSelector :: StaticValue := StaticValueOfDecl ( LSelector :: DefOcc ) ;  
+  RETURN  
+    { mAsExpandedName  
+        ( Position => Node :: Position  
+        , Prefix => Node :: Prefix  
+        , Selector => LSelector  
+        , DefOcc => LSelector :: DefOcc  
+        , StaticValue => LSelector :: StaticValue  
+        , ConstructKind  
+            => ConstructKindOfDefOcc ( Node :: Selector :: DefOcc )  
+        ) ;  
+     } ;  
+  .  
+ 
+  (* Selection *)  
+  AsSelectedComponent  
+    ( Prefix := [ AsExpr, ] ( ) )  
+  :- GetSubtypeNameOfValue ( Node :: Prefix => LPrefixSubtypeName : ) ; 
+     GetTypeDefOfSubtypeName  
+       ( LPrefixSubtypeName => LTypeDef : AsRecordTypeDef ( ) ) ;  
+     Node :: Selector :: DefOcc  
+       := LookupInDeclsList ( Selector , Components , NIL ) ;  
+  RETURN 
+    { mAsSelection 
+        ( Position => Node :: Position 
+        , ExprType => Node :: Selector :: DefOcc  
+        , Prefix => Node :: Prefix  
+        , Selector => Node :: Selector  
+        ) ;  
+    } ;  
+  .  
+ 
+  (* Otherwise, it is an error. *)  
+  _  
+    :- { Error  
+           ( Node :: Position  
+           , "Prefix of selected component is neither a scope nor an " 
+             & "expression with record type." 
+           ) ;  
+    .  
+ 
+(* END SelectedComponent *)  
+ 
+PROCEDURE CheckTypeConversion  
+  ( Conversion : AsExplicitTypeConversion )  
+(* Check that this is a legal type conversion combination *)  
+ 
+_ :- Warning  
+       ( Conversion :: Position  
+       , "Semantics.CheckTypeConversion not implemented."  
+       ) ;  
+ 
+(* END CheckTypeConversion *)  
+ 
+FUNCTION TypeConversionExpr  
+  ( IndexedComponent : AsIndexedComponent  
+  ; Args : [ AsList, ] ) : [ AsExpr, ]  
+  )  
+: [ AsExpr, ]  
+(* Verify that child Args of IndexedComponent is a list of 
+   exactly one expression and return that expression.  
+*)  
+ 
+  Args := NIL  
+    :- Error  
+         ( IndexedComponent :: Position  
+         , "Type conversion requires a single expression as argument."  
+         ) ;  
+    RETURN NIL ;  
+    . 
+ 
+  Args := AsListElem ( Child := [ AsExpr, ] ( ) , Next := NIL )  
+    RETURN Child ; .  
+ 
+  Args := AsListElem ( Next := NIL )  
+    :- Error  
+         ( Child :: Position  
+         , "Argument of type conversion must be an expression."  
+         ) ;  
+    RETURN NIL ;  
+    .  
+ 
+  _  
+    :- Error 
+         ( IndexedComponent :: Position  
+         , "Type conversion must have only a single argument."  
+         ) ;  
+    :- RETURN NIL ; . 
+ 
+(* END TypeConversionExpr *)  
+ 
+FUNCTION LookupNamedAssocElem  
+  ( IdentDef : AsIdentDef  
+  , Assoc : [ AsList, ]  
+  )  
+: AsListElem (* Whose Child is AsNamedComponentAssoc *)  
+(* Look in Assoc for a named association of identifier IdentDef *)  
+ 
+  Assoc := NIL :- FAIL ; .  
+ 
+  Assoc := AsListElem  
+    ( Child := AsNamedComponentAssoc  
+        ( Choices := AsListElem ( Child := LRefedIdent : AsIdentRef ( ) )  
+    )  
+    :- ( HaveEqualTokenTexts ( LRefedIdent , IdentDef ) ) ;  
+    RETURN Assoc ; .  
+ 
+  Assoc := AsListElem ( )  
+    RETURN LookupNamedAssocElem ( IdentDef , Assoc :: Next ) ; . 
+ 
+(* END LookupNamedAssocElem *)  
+ 
+FUNCTION NamedAssocOfElem ( Elem : AsListElem ) : AsNamedComponentAssoc  
+ 
+  AsListElem ( Child := AsNamedComponentAssoc ( ) )  
+    RETURN Child ; .  
+ 
+(* END NamedAssocOfElem *)  
+ 
+FUNCTION IdentOfNamedAssoc  
+  ( NamedAssoc : AsNamedComponentAssoc ) : AsIdentRef  
+ 
+  AsNamedComponentAssoc  
+    ( Choices := AsListElem ( Child := LResult : AsIdentRef ( ) ) )  
+  RETURN LChild ;  
+  .  
+ 
+(* END IdentOfNamedAssoc *)  
+ 
+PROCEDURE CheckDuplicateAssoc  
+  ( IdentDef : AsIdentDef  
+  ; MatchingAssoc : AsListElem  
+  )  
+(* Check for a duplicate association, using IdentDef. *) 
+ 
+  MatchingAssoc := AsListElem  
+    ( Child := LFirstAssoc : [ AsAggregateArg, ] ( ) )  
+    :- VAR LDuplicate : AsNamedComponentAssoc ;  
+       LDuplicate  
+         := IdentOfNamedAssoc  
+              ( NamedAssocOfElem  
+                  ( LookupNamedAssocElem  
+                      ( IdentDef , MatchingAssoc :: Next )  
+                  )  
+              ) ; 
+       ErrorPos 
+         ( LDuplicate :: IdentDef :: Position  
+         , "This identifier was already associated at "  
+         , LFirstAssoc :: Position  
+         ) ; 
+    .  
+ 
+  _ :- . (* Always succeed *)  
+  
+(* END CheckDuplicateAssoc *)  
+ 
+FUNCTION NormalizedAssocs  
+  ( Decls : [ AsList, ] (* of AsVarDecl or AsFormal *)  
+  ; IdentDefs : [ AsList, ] (* of AsIdentDef *)  
+    (* ^Nonrecursive calls must pass NIL here. *)  
+  ; Assocs : [ AsList, , AsAggregateArg, ]  
+  ; ParentNode : [ AsIndexedComponent , AsRawAggregate ]  
+  )  
+: [ AsList, ] (* of AsNormalizedAssoc *) 
+(* This routine handles both record aggregate associations and 
+   actual parameter list associations.  In the latter case, Decls 
+   and IdentDefs are for the formals list and Assocs is the 
+   actuals list. Zbra restricts both these cases to  
+   have only a single identifier in a named association, (and 
+   thus no OTHERS).  Zbra also disallows default values for 
+   record components, so those will just not occur when handling 
+   a record aggregate.  
+ 
+   NormalizedAssocs makes a linear pass over the formals/components.  
+   It also traverses the positional prefix of Assocs in parallel. 
+*)  
+ 
+  (* Ignore a NULL component of a record type: *)  
+  Decls := AsListElem ( Child := AsComponentNull ( ) )  
+    RETURN 
+      NormalizedAssocs 
+        ( Decls :: Next , IdentDefs , Assocs , ParentNode ) ; .  
+  
+  (* Descend from a decl into its identifier list: *)  
+  Decls := AsListElem ( Child := [ AsVarDecl, , AsFormal, ] ( ) )  
+  , IdentDefs := NIL  
+    RETURN 
+       NormalizedAssocs 
+         ( Decls :: Next  
+         , Decls :: Child :: SimpleNames  
+         , Assocs  
+         , ParentNode  
+         ) ;  
+    .  
+ 
+  (* No more components/formals: *)  
+  Decls := NIL , IdentDefs := NIL  
+    RETURN NIL ; .  
+ 
+  (* A positionally associated component/formal: *)  
+  IdentDefs := AsListElem  
+    ( Child := LIdentDef : AsIdentDef ( ) )  
+  , Assocs := AsListElem ( Child := LAssoc : [ AsExpr, ] ( ) )  
+    :- CheckDuplicateAssoc ( LIdentDef , Assocs ) ;  
+    RETURN  
+      { mAsListElem  
+          ( Child  
+            => mAsNormalizedAssocExplicit  
+                 ( Position => LAssoc :: Position  
+                 , DeclIdent => LIdentDef  
+                 , Value => LAssoc  
+                 )  
+          , Next  
+            => NormalizedAssocs  
+                 ( Decls , IdentDefs :: Next , Assocs :: Next , ParentNode ) 
+          )  
+      } ; 
+    .  
+  
+  (* A named association: *)  
+  IdentDefs := AsListElem  
+    ( Child := LIdentDef : AsIdentDef ( ) )  
+  , Assocs := AsListElem ( Child := AsNamedComponentAssoc ( ) ) 
+    (* Assocs is not necessarily the matching association.  It is 
+       the first of the named associations in the associations list, 
+       because we never consume it. *)  
+    :- VAR LAssocElem : AsListElem ; 
+       VAR LAssoc : AsNamedComponentAssoc ;  
+       LAssocElem := LookupNamedAssocElem ( LIdentDef , Assocs ) ;  
+       (* LAssocElem is the first matching one. LookupNamedAssocElem will 
+          FAIL if not found. *) 
+       LAssoc := NamedAssocOfElem ( LAssocElem ) ;  
+       CheckDuplicateAssoc ( LIdentDef , LAssocElem ) ;  
+    RETURN  
+      { mAsListElem  
+          ( Child  
+            => mAsNormalizedAssocExplicit  
+                 ( Position => LAssoc :: Position  
+                 , DeclIdent => LIdentDef  
+                 , Value => LAssoc :: Value  
+                 )  
+          , Next  
+            => NormalizedAssocs  
+                 ( Decls , IdentDefs :: Next , Assocs , ParentNode )  
+          )  
+      } ;  
+ 
+  (* A defaulted parameter: *)  
+  IdentDefs := AsListElem  
+    ( Child := LIdentDef : AsIdentDef  
+        ( Decl := [ AsFormal, ]  
+            ( Value := LValue : [ AsExpr, ] ( ) )  
+        )  
+    )  
+    RETURN  
+      { mAsListElem  
+          ( Child  
+            => mAsNormalizedAssocDefault 
+                 ( Position => IdentDefs :: Position  
+                 , FormalName=> LIdentDef  
+                 )  
+          , Next  
+            => NormalizedAssocs  
+                 ( Decls , IdentDefs :: Next , Assocs , ParentNode )  
+          )  
+      } ; .  
+ 
+  (* Unassociated component/formal. *)  
+  IdentDefs := AsListElem  
+    ( Child := LIdentDef : AsIdentDef ( ) )  
+   :- ErrorPos 
+         ( ParentNode :: Position 
+         , "No association for component or formal declared at " 
+         , LIdentDef :: Position 
+         ) ; 
+    RETURN NormalizedAssocs 
+             ( Decls , IdentDefs :: Next , Assocs , ParentNode ) ;  
+    .  
+ 
+  _ :- Zassert . Cant_Be 
+         ( " Semantics.NormalizedAssocs, bad case." ) ; .  
+ 
+(* END NormalizedAssocs *)  
+ 
+PROCEDURE CheckSubscripts  
+  ( Index : AsIndexedComponent  
+  ; IndexTypes : [ AsList, ] (* Of AsSubtypeName *)  
+  ; Subscripts : [ AsList, ] (* Of AsExpr *)  
+  )  
+ 
+  IndexTypes := NIL ; Subscripts := NIL : - .  
+ 
+  IndexTypes := NIL ; Subscripts := AsListElem ( )  
+    :- Error 
+         ( Subscripts :: Child :: Position  
+         , "Too many subscripts. "  
+         ) ;  
+  
+  Subscripts := NIL ; IndexTypes := AsListElem ( )  
+    :- Error 
+         ( Index :: Position  
+         , "Not enough subscripts. "  
+         ) ;  
+ 
+  IndexTypes := AsListElem ( ) ; Subscripts := AsListElem ( )  
+    :- Expr ( Subscripts :: Child , IndexTypes :: Child ) ; .  
+(* Is IndexTypes :: Child right to pass to Expr, or do we need to 
+   do something about constraints, etc.? *)  
+  
+(* END CheckSubscripts *)  
+ 
+FUNCTION Slice  
+  ( Index : AsIndexedComponent  
+  ; ArraySubtypeName : [ AsSubtypeName, ]  
+  ; Arguments : AsListElem (* Known non-empty *)  
+  ; IndexTypes : AsListElem (* Child is AsSubtypeName *)  
+  ; Context : [ AsScope, ]  
+  )  
+: [ AsSlice ]  
+ 
+  IndexTypes := _ RETURN NIL ; .  
+ 
+  Arguments := AsListElem ( Next := AsListElem ( Child := LNextAssoc : ) )  
+    :- Error 
+         ( LNextAssoc :: Position  
+         , "Slice has more than one dimension." 
+         ) ; 
+       FAIL ; (* Continue with the slice. *)  
+    .  
+  
+  IndexTypes := AsListElem ( Next := AsListElem ( ) )  
+    :- Error 
+         ( Index :: Position  
+         , "Slice applied to multi-dimensional array." 
+         ) ; 
+       FAIL ; (* Continue with the slice. *)  
+    .  
+  
+  Arguments := AsListElem ( ) 
+   :- GetTypeDefOfSubtypeName ( IndexTypes  , LIndexBaseTypeDef : ) ;  
+      DiscrRange ( Child , LIndexBaseTypeDef , Context => LRangeNode : ) ;  
+   RETURN { mAsSlice 
+              ( Position => Index :: Position  
+              , ExprType => ArraySubtypeName  
+              , Slice => LRangeNode  
+              )  
+          } .  
+ 
+(* END Slice *)  
+ 
+FUNCTION SubscriptOrSlice  
+  ( Index : AsIndexedComponent  
+  ; ArraySubtypeName : [ AsSubtypeName, ]  
+  ; Arguments : [ AsList, ]  
+  ; Context : [ AsScope, ]  
+  )  
+: [ AsSubscript , AsSlice ]  
+ 
+  Arguments := AsListElem ( Child := [ AsDiscrRange, ] ( ) ) 
+    RETURN Slice  
+      ( Index  
+      , ArraySubtypeName  
+      , Arguments  
+      , IndexSubtypeNamesOf ( ArraySubtypeName )  
+      , Context  
+      ) ; .  
+ 
+  _ :- CheckSubscripts 
+         ( Index  
+         , IndexSubtypeNamesOf ( ArraySubtypeName )  
+         , Arguments  
+         ) ;  
+    RETURN  
+      { mAsSubscript  
+          ( Position => Index :: Position  
+          , ExprType => ArraySubtypeName  
+          , ArrayName => Prefix  
+          , Subcripts => Arguments  
+          )  
+      } ;  
+    .  
+ 
+(* END SubscriptOrSlice *)  
+ 
+PROCEDURE SemActuals  
+  ( Actuals : [ AsList, , AsNormalizedAssoc, ] ; Context : [ AsScope, ] )  
+ 
+  (* Done: *)  
+  NIL :- .  
+ 
+  (* List element: *)  
+  AsListElem ( )  
+    :- SemActuals ( Actuals :: Child , Context ) ;  
+       SemActuals ( Actuals :: Next , Context ) ;  
+    .  
+ 
+  (* Skip defaulted parameters: *)  
+  AsNormalizedAssocDefault ( ) :- .  
+ 
+  AsNormalizedAssocExplicit ( )  
+    :- GetSubtypeNameOfValue ( Actuals :: DeclIdent => LSubtypeName : )  
+       Actuals :: Value := ConvertStaticValue  
+         ( Expr ( Actuals :: Value , Context )  
+         , LSubtypeValue  
+         ) ;  
+    .  
+ 
+(* END SemActuals *)  
+ 
+FUNCTION SubprogramCall 
+  ( Node : AsIndexedComponent  
+  ; Arguments : [ AsList, ] (* Of AsAggregateArg *)  
+  ; Formals : [ AsList, ] (* Of AsFormal <= AsDecl *)  
+  ; ResultType : [ AsSubtypeName, ]  
+  ; Context : [ AsScope, ]  
+  )  
+: [ AsFuncCall , AsProcCall , AsError ]  
+ 
+  (* Try PrecheckAssocList: *)  
+  _ :- VAR LNormalizedActuals : [ AsList, ] ;  
+       VAR LCall : [ AsFuncCall , AsProcCall ] ;  
+       PrecheckAssocList ( Node :: Arguments , Formals ) ;  
+       (* If PrecheckAssocList finds any errors, it will fail. *)  
+       LNormalizedActuals 
+         := NormalizedAssocs  
+              ( Formals  
+              , NIL  
+              , Node :: Arguments  
+              , Node  
+              ) ; 
+       SemActuals ( LNormalizedActuals , Context ) ;  
+       { IF ResultType = NIL  
+         THEN  
+           LCall :=  
+             mAsProcCall  
+               ( Position => Node : Position  
+               , Prefix => Node : Prefix  
+               , Actuals => Node : Arguments 
+               , NormalizedActuals => LNormalizeActuals  
+               ) ;  
+         ELSE  
+           LCall :=  
+             mAsFuncCall  
+               ( Position => Node : Position  
+               , Prefix => Node : Prefix  
+               , Actuals => Node : Arguments 
+               , NormalizedActuals => LNormalizeActuals  
+               , ExprType => ResultType  
+               ) ;  
+         END IF ;  
+       } ;  
+    RETURN LCall ; 
+    .  
+ 
+  (* PrecheckAssocList failed: *)  
+  _ RETURN mAsError ; .  
+ 
+(* END SubprogramCall *)  
+ 
+FUNCTION StaticValueOf ( Node : tAst ) : [ AsStaticValue, ]  
+ 
+  NIL RETURN NIL ; .  
+ 
+  [ AsNodeWithStaticValue, ] ( )  
+  RETURN Node :: StaticValue ; . 
+ 
+  _ RETURN NIL ; .  
+ 
+(* END StaticValueOf *)  
+ 
+FUNCTION IndexSubtypeNamesOf ( SubtypeName : [ AsSubtypeName, ]  
+  : [ AsList, ] (* Of AsSubtypeName *)  
+ 
+(* FIX: provide this. *)  
+ 
+(* END IndexSubtypeNamesOf *)  
+ 
+PROCEDURE GetArraySubtypeName  
+  ( Prefix : [ AsPrefix, ] => Result : [ AsSubtypeName, ] )  
+  (* FAIL if not an array type. *)  
+ 
+(* FIX: Write this. *)  
+ 
+(* END GetArraySubtypeName *)  
+ 
+FUNCTION IndexedComponent  
+  ( Node : AsIndexedComponent )  
+  ; Context : [ AsScope, ]  
+  )  
+: [ AsName, ]  
+(* PRE: Node :: Prefix has been semanticized. *)  
+ 
+  (* Type conversion: *)  
+  AsIndexedComponent  
+    ( Prefix := [ AsIdentRef , AsExpandedName ]  
+        ( DefOcc := AsIdentDef  
+            ( Decl := TypeDecl : [ AsTypeDecl, , AsSubtypeDecl ] ( ) )  
+        )  
+    )  
+    :- VAR LConversion : AsExplicitTypeConv ;  
+       VAR LOperand : AsExpr ;  
+       LOperand := TypeConversionExpr ( Node , Args )  
+       LConversion  
+         := { mAsExplicitTypeConversion  
+                ( Position => Node :: Position  
+                , ExprType => TypeDecl  
+                , TargetType => Prefix  
+                , Operand => LOperand  
+                , StaticValue => StaticValueOf ( LOperand )  
+                )  
+            } ;  
+       CheckTypeConversion ( LConversion ) ;  
+    RETURN LConversion ;  
+    .  
+ 
+  (* Subscript or slice: *)  
+  AsIndexedComponent ( Prefix := [ AsExpr, ] )  
+    :- GetArraySubtypeName ( Prefix => LArraySubtypeName : ) ;  
+    RETURN SubscriptOrSlice 
+             ( Node , LArraySubtypeName , Arguments , Context ) ;  
+    .  
+ 
+  (* Function call, on declared function: *)  
+  AsIndexedComponent  
+    ( Prefix := [ AsIdentRef , AsExpandedName ]  
+        ( DefOcc := FuncName : AsIdentDef  
+            ( Decl := FuncDecl : [ AsFuncSpec , AsFuncBody ]  
+                ( Formals := LFormals : )  
+            )  
+        )  
+    )  
+  (* Or on dereferenced function: *)  
+  ; AsIndexedComponent  
+      ( Prefix := AsFuncDeref  
+          ( Formals := LFormals , ResultType := LResultType )  
+      )  
+    RETURN  
+      SubprogramCall  
+        ( Node  
+        , Arguments  
+        , LFormals  
+        , ResultSubtypeName ( FuncDecl )  
+        , Context  
+        ) ;  
+    .  
+ 
+  (* Invalid: *)  
+  AsIndexedComponent ( )  
+   :- Error  
+        ( Node :: Position  
+        , "Index can only be applied to a type, function, " 
+          & "or a value of array type. " 
+        ) ;  
+   RETURN NIL ;  
+   .  
+ 
+(* END IndexedComponent *)  
+ 
+FUNCTION Deref 
+  ( DerefNode : AsDeref  
+  ; AccessTypeDef : [ AsTupeDef, ]  
+  )  
+: [ AsName, ]  
+ 
+  AccessTypeDef := NIL  
+    :- Error 
+         ( DerefNode :: Position  
+         , "Deference of a non-value." 
+         ) ; .  
+ 
+  AccessTypeDef := [ AsAccessObjectTypeDef, ] ( )  
+    RETURN { mAsDerefObject 
+               ( Position => DerefNode :: Position  
+               , ExprType => AccessTypeDef :: DesignatedType  
+               , Pointer => DerefNode :: Pointer  
+               )  
+           } ;  
+ 
+  AccessTypeDef := AsAccessFuncTypeDef ( ) 
+    RETURN { mAsDerefFunc  
+               ( Position => DerefNode :: Position  
+               , Pointer => DerefNode :: Pointer  
+               , ResultType => AccessTypeDef :: ResultType  
+               , Formals => AccessTypeDef :: Formals  
+               )  
+           } ; .  
+  
+  AccessTypeDef := AsAccessProcTypeDef ( ) 
+    RETURN { mAsDerefProc  
+               ( Position => DerefNode :: Position  
+               , Pointer => DerefNode :: Pointer  
+               , Formals => AccessTypeDef :: Formals  
+               )  
+           } ; .  
+ 
+  _ :- Error  
+         ( DerefNode :: Position  
+         , "Dereference of non-access type." 
+         ) ;  
+    RETURN DerefNode ;  
+    .  
+  
+(* END Deref *)  
+ 
+FUNCTION Name  
+  ( Node : [ AsName, ] ; Context : [ AsScope, ] )  
+: [ AsName, ]  
+(* Name can change Node to something different. *)  
+ 
+  AsIdentRef ( )  
+    :- Node :: DefOcc := LookupInContext ( Node , Context , Node ) ;  
+       Node :: StaticValue := StaticValueOfDecl ( Node :: DefOcc ) ;  
+       Node :: ConstructKind := ConstructKindOfDecl ( Node :: DefOcc ) ; 
+    RETURN Node ;  
+    .  
+ 
+  AsSelectedComponent ( )  
+    :- Name ( Prefix , Context ) ; 
+    RETURN SelectedComponent ( Node ) ;  
+           (* Abandon AsSelectedComponent node to garbage. *)  
+    .  
+ 
+  AsIndexedComponent ( )  
+    :- Name ( Prefix , Context ) ; 
+    RETURN IndexedComponent ( Node , Context ) ;  
+           (* Abandon AsSelectedComponent node to garbage. *)  
+    .  
+ 
+  AsDeref ( )  
+    :- Expr ( Pointer , NIL ) ; 
+       GetSubtypeNameOfValue ( Pointer => LPointerSubtypeName : )  
+       GetTypeDefOfSubtypeName  
+         ( LPointerSubtypeName => LPointerTypeDef : ) ;  
+    RETURN Deref ( Node , BaseTypeDef ( LPointerType )  ) ;  
+    .  
+ 
+  AsAttribute ( )  
+    :- Warning  
+         ( Node :: Position , "Attribute checking not implemented." ) ;  
+(* FIX: complete this *) 
+    RETURN Node ;  
+    .  
+ 
+(* END Name *)  
+ 
+(* Utilities concerning types: *)  
+ 
+PROCEDURE GetSubtypeNameOfValue 
+  ( Value : [ AsExpr, , AsIdentDef ] => TypeDecl : [ AsSubtypeName ] )  
+(* NIL if Value is not a value. Otherwise, its (sub)type decl. *)  
+ 
+(* FIX: ^provide this. *)  
+ 
+(* END GetSubtypeNameOfValue *)  
+ 
+FUNCTION TheBooleanTypeDecl ( ) : AsTypeDeclFull  
+(* THE builtin boolean type declaration. *)  
+ 
+(* FIX: ^provide this. *)  
+ 
+(* END TheBooleanTypeDecl *)  
+ 
+PROCEDURE GetStaticBoundsOfSubtypeName 
+  ( SubtypeName : [ AsSubtypeName, ]  
+  => Lower : StaticIntValueTyp  
+  ; Upper : StaticIntValueTyp  
+  )  
+ 
+(* FIX: Provide this. *)  
+ 
+(* END GetStaticBoundsOfSubtypeName *)  
+ 
+(* Expressions (excluding names): *)  
+ 
+(* Apparently no longer needed? *)  
+PROCEDURE CheckBinaryType  
+  ( Expr : [ AsExpr, ]  
+  ; TypeDecl : [ AsSubtypeName, ]  
+  ; Op : OpCodeTyp  
+  )  
+ 
+  _ :- ( { TypeDecl /= BooleanTypeDecl } ) ;  
+       ErrorPos 
+         ( Expr :: Position  
+         , "Operand of "  
+           & AstTypes . OpCodeImage ( Op )  
+           & " must be boolean. Its type is declared at " 
+         , TypeDecl :: Position  
+         ) ;  
+    .  
+ 
+(* END CheckBinaryType *)  
+ 
+PROCEDURE CheckExpectedTypeDefs 
+  ( Expr : [ AsExpr, ]  
+  ; ConstructName : String  
+  ; ExprTypeDef : [ AsTypeDef, ]  
+  ; ExpectedTypeDef : [ AsTypeDef, ]  
+  ) 
+ 
+  ExprTypeDef := [ AsUnivIntTypeDef , AsRootIntTypeDef ] ( )  
+  , ExpectedTypeDef := AsIntTypeDef ( )  
+    :- .  
+ 
+  ExprTypeDef := [ AsUnivRealTypeDef , AsRootRealTypeDef ] ( )  
+  , ExpectedTypeDef := [ AsFloatTypeDef , AsFixedTypeDef ] ( )  
+    :- .  
+ 
+  _ :- ( { LeftTypeDef /= RightTypeDef } )  
+       ErrorPosPos 
+         ( Expr :: Position 
+         , "Type of " & ConstructName  
+           " doesn't match expected type. "  
+           & "Types are defined at :"  
+         , ExprTypeDef :: Position  
+         , ExpectedTypeDef :: Position  
+         ) ;  
+    .  
+ 
+(* END CheckExpectedTypeDefs *)  
+ 
+PROCEDURE CheckIsStatic ( Expr : [ AsExpr, ] ; ConstructName : String ) 
+ 
+  StaticValue := NIL  
+    :- Error 
+         ( Expr :: Position  
+         , ConstructName & " must be static." 
+         ) ;  
+    .  
+ 
+  _ :- .  
+ 
+(* END CheckIsStatic *)  
+ 
+PROCEDURE CheckOperandTypeDefsSame 
+  ( Expr : [ AsExpr, ]  
+  ; LeftTypeDef : [ AsTypeDef, ]  
+  ; RightTypeDef : [ AsTypeDef, ]  
+  ) 
+ 
+  _ :- ( { LeftTypeDef /= RightTypeDef } )  
+       ErrorPosPos 
+         ( Expr :: Position  
+         , "Both operands of "  
+           & AstTypes . OpCodeImage ( Expr :: Op )  
+           & " must be the same.  Types are defined at :"  
+         , LeftTypeDef :: Position  
+         , RightTypeDef :: Position  
+         ) ;  
+    .  
+ 
+(* END CheckOperandTypeDefsSame *)  
+ 
+ PROCEDURE CheckTypeDefNumeric  
+  ( Expr : [ AsExpr, ]  
+  ; TypeDef : [ AsTypeDef, ]  
+  ; Op : OpCodeTyp  
+  )  
+ 
+  TypeDef := AsDerivedTypeDef ( ) 
+    :- GetTypeDefOfSubtypeName ( ParentType => LParentTypeDef : ) ;  
+       CheckNumericType ( Expr , LParentTypeDef , Op ) ;  
+    .  
+ 
+  TypeDef := [ AsIntTypeDef , AsModTypeDef , AsFixedTypeDef ,  
+             , AsFloatTypeDef ] ( )  
+    :- . 
+ 
+  _ :- ErrorPos 
+         ( Expr :: Position  
+         , "Operand of "  
+           & AstTypes . OpCodeImage ( Op )  
+           & "must be numeric. Type defined at " 
+         , TypeDef ::  Position  
+         ) ;  
+    .  
+ 
+(* END CheckTypeDefNumeric *)  
+ 
+PROCEDURE CheckTypeDefInteger  
+  ( Expr : [ AsExpr, ]  
+  ; TypeDef : [ AsTypeDef, ]  
+  ; Op : OpCodeTyp  
+  )  
+ 
+  TypeDef := [ AsIntTypeDef , AsModTypeDef ] ( )  
+    :- . 
+ 
+  _ :- ErrorPos  
+         ( Expr :: Position  
+         , "Operand of "  
+           & AstTypes . OpCodeImage ( Op )  
+           & "must be an integer or modular type. Type defined at " 
+         , TypeDef ::  Position  
+         ) ;  
+    .  
+ 
+(* END CheckTypeDefInteger *)  
+ 
+PROCEDURE CheckVisible 
+  ( OpNode : Tree  
+  ; TypeDef : [ AsTypeDef, ]  
+  ; Context : [ AsScope, ]  
+  )  
+ 
+[ AsBinaryOp , AsUnaryOp ] ( ) 
+  :- .  
+ 
+(* FIX: Provide this: *)  
+ 
+(* END CheckVisible *)  
+ 
+FUNCTION ConvertStaticValue  
+  ( Value : [ AsExpr, ]  
+  ; ToTypeDef : [ AsTypeDef, ]  
+(* FIX: ^This needs to be AsSubtypeName, and range checks need to be done. *)  
+  )  
+: [ AsExpr, ]  
+ 
+  (* Nonstatic, no conversion needed. *)  
+  Value := [ AsExpr, ] ( StaticValue := NIL )  
+    :- RETURN Value ; .  
+ 
+  (* Types same, no conversion needed. *)  
+  _ :- GetTypeDefOfSubtypeName ( Value :: ExprType => LExprTypeDef : ) ;  
+       ( ToTypeDef /= LExprTypeDef ) ;  
+    :- RETURN Value ; .  
+ 
+  ToTypeDef := AsIntTypeDef  
+    ( Lower := [ AsExpr, ]  
+        ( StaticValue := LLowerValue : AsStaticIntValue ( ) )  
+    , Upper := [ AsExpr, ]  
+        ( StaticValue := LUpperValue : AsStaticIntValue ( ) )  
+    )  
+    :- GetTypeDefOfSubtypeName ( Value :: ExprType => LExprTypeDef : ) ;  
+       ( ToTypeDef /= LExprTypeDef ) ;  
+    RETURN { mAsImplicitTypeConversion  
+               ( Position => Value :: Position  
+               , ExprType => ToTypeDef  
+               , Operand => Value  
+               , StaticValue  
+                   => StaticArith . ToInt 
+                        ( Value :: StaticValue  
+                        , LLowerValue :: Value  
+                        , LUpperValue :: Value  
+                        )  
+               )  
+           } ;  
+    .  
+ 
+   ToTypeDef := AsIntTypeDef ( )  
+    :- Zassert . Cant_Be  
+         ( "Semantics.ConvertStaticValue, Integer type with bad params." ) ;  
+    RETURN Value ;  
+    .  
+ 
+  ToTypeDef := AsFloatConstraint  
+    ( DeltaExpr := [ AsExpr, ]  
+        ( StaticValue := LDigitsValue : AsStaticRealValue ( ) )  
+    , Lower := [ AsExpr, ]  
+        ( StaticValue := LLowerValue : AsStaticRealValue ( ) )  
+    , Upper := [ AsExpr, ]  
+        ( StaticValue := LUpperValue : AsStaticRealValue ( ) )  
+    )  
+    :- GetTypeDefOfSubtypeName ( Value :: ExprType => LExprTypeDef : ) ;  
+       ( ToTypeDef /= LExprTypeDef ) ;  
+    RETURN { mAsImplicitTypeConversion  
+               ( Position => Value :: Position  
+               , ExprType => ToTypeDef  
+               , Operand => Value  
+               , StaticValue  
+                   => StaticArith . ToFloat 
+                        ( Value :: StaticValue  
+                        , LDigitsValue :: Value  
+                        , LLowerValue :: Value  
+                        , LUpperValue :: Value  
+                        )  
+               )  
+           } ;  
+    .  
+ 
+   ToTypeDef := AsFloatConstraint ( )  
+    :- Zassert . Cant_Be  
+         ( "Semantics.ConvertStaticValue, Float type with bad params." ) ;  
+    RETURN Value ;  
+    .  
+ 
+  ToTypeDef := AsFixedConstraint  
+    ( DeltaExpr := [ AsExpr, ]  
+        ( StaticValue := LDeltaValue : AsStaticRealValue ( ) )  
+    , Lower := [ AsExpr, ]  
+        ( StaticValue := LLowerValue : AsStaticRealValue ( ) )  
+    , Upper := [ AsExpr, ]  
+        ( StaticValue := LUpperValue : AsStaticRealValue ( ) )  
+    )  
+    :- GetTypeDefOfSubtypeName ( Value :: ExprType => LExprTypeDef : ) ;  
+       ( ToTypeDef /= LExprTypeDef ) ;  
+    RETURN { mAsImplicitTypeConversion  
+               ( Position => Value :: Position  
+               , ExprType => ToTypeDef  
+               , Operand => Value  
+               , StaticValue  
+                   => StaticArith . ToFixed 
+                        ( Value :: StaticValue  
+                        , LDeltaValue :: Value  
+                        , LLowerValue :: Value  
+                        , LUpperValue :: Value  
+                        )  
+               )  
+           } ;  
+    .  
+ 
+   ToTypeDef := AsFixedConstraint ( )  
+    :- Zassert . Cant_Be  
+         ( "Semantics.ConvertStaticValue, Fixed type with bad params." ) ;  
+    RETURN Value ;  
+    .  
+ 
+(* END ConvertStaticValue *)  
+ 
+FUNCTION BooleanValue  
+  ( StaticNode : [ AsStaticBoolValue, ] ) : BOOLEAN  
+ 
+  AsFALSE ( ) RETURN FALSE ; .  
+ 
+  AsTRUE ( ) RETURN TRUE ; .  
+ 
+(* END BooleanValue *) 
+ 
+FUNCTION StaticBoolNode ( Value : BOOLEAN ) : [ AsStaticBoolValue, ] 
+ 
+  ( FALSE ) RETURN mAsFALSE ; .  
+ 
+  ( TRUE ) RETURN mAsTRUE ; .  
+ 
+(* END StaticBoolNode *)  
+ 
+PROCEDURE EvalUnaryOp ( OpNode : AsnaryOp )  
+(* PRE: OpNode has been type analyzed and has no type errors. *)  
+ 
+  (* Nonstatic: *)  
+  OpNode := AsUnaryOp ( Right := [ AsExpr, ] ( StaticValue = NIL ) )  
+    :- . (* Do nothing *)  
+ 
+  (* Below here, we know the operand has a StaticValue *)  
+ 
+  (* Int -> Int: *)  
+  OpNode := AsUnaryOp  
+    ( Right := [ AsExpr, ]  
+        ( StaticValue := LRightStaticValue : AsStaticIntValue ( ) ) 
+    )  
+    :- ( { OpNode :: Op IN AstTypes . UnaryArithOpCodeTyp } ) ;  
+       OpNode :: StaticValue  
+         := { mAsStaticIntValue  
+                ( Position => OpNode :: Position  
+                , Value  
+                    => StaticArith . UnaryArithOp  
+                         ( OpNode :: Op  
+                         , LRightStaticValue :: Value  
+                         )  
+                )  
+            } ;  
+    .  
+  
+  (* Int NOT Int: *)  
+  OpNode := AsUnaryOp  
+    ( Right := [ AsExpr, ]  
+        ( StaticValue := LRightStaticValue : AsStaticIntValue ( ) ) 
+    )  
+    :- ( { OpNode :: Op = AstTypes . OpCodeNOT } ) ;  
+       OpNode :: StaticValue  
+         := { mAsStaticIntValue  
+                ( Position => OpNode :: Position  
+                , Value  
+                    => StaticArith . UnaryIntSpecialOp  
+                         ( OpNode :: Op  
+                         , LRightStaticValue :: Value  
+                         )  
+                )  
+            } ;  
+    .  
+  
+  (* Real -> Real: *)  
+  OpNode := AsUnaryOp  
+    ( Right := [ AsExpr, ]  
+        ( StaticValue := LRightStaticValue : AsStaticRealValue ( ) ) 
+    )  
+    :- ( { OpNode :: Op IN AstTypes . UnaryArithOpCodeTyp } ) ;  
+       OpNode :: StaticValue  
+         := { mAsStaticRealValue  
+                ( Position => OpNode :: Position  
+                , Value  
+                    => StaticArith . UnaryArithOp  
+                         ( OpNode :: Op  
+                         , LRightStaticValue :: Value  
+                         )  
+                )  
+            } ;  
+    .  
+  
+  (* Bool -> Bool: *)  
+  OpNode := AsUnaryOp  
+    ( Right := [ AsExpr, ]  
+        ( StaticValue := LRightStaticValue : [ AsFALSE , AsTRUE ] ( ) ) 
+    )  
+    :- ( { OpNode :: Op = AstTypes . OpCodeNOT } ) ;  
+       OpNode :: StaticValue  
+         := StaticBoolNode  
+              ( NOT BooleanValue ( LRightStaticValue :: Value ) ) ;  
+    .  
+ 
+(* END EvalUnaryOp *)  
+ 
+PROCEDURE EvalBinaryOp ( OpNode : AsBinaryOp )  
+(* PRE: OpNode has been type analyzed and has no type errors. *)  
+ 
+  (* Static X nonstatic: *)  
+  OpNode := AsBinaryOp  
+    ( Left := [ AsExpr, ] ( StaticValue = [ AsStaticValue ( ) ) )  
+  ; OpNode := AsBinaryOp ( Right := [ AsExpr, ] ( StaticValue = NIL ) )  
+    :- OpNode :: Left  
+         := ConvertStaticValue ( OpNode :: Left , OpNode . ExprType ) ;  
+    .  
+ 
+  (* Nonstatic X static: *)  
+  OpNode := AsBinaryOp  
+    ( Left := [ AsExpr, ] ( StaticValue = NIL ) )  
+  ; OpNode := AsBinaryOp  
+    ( Right := [ AsExpr, ] ( StaticValue = [ AsStaticValue, ] ( ) ) )  
+    :- OpNode :: Right  
+         := ConvertStaticValue ( OpNode :: Right , OpNode . ExprType ) ;  
+    .  
+ 
+  (* Nonstatic X nonstatic: *)  
+  OpNode := AsBinaryOp ( Left := [ AsExpr, ] ( StaticValue = NIL ) )  
+  ; OpNode := AsBinaryOp ( Right := [ AsExpr, ] ( StaticValue = NIL ) )  
+    :- . (* Do nothing *)  
+ 
+  (* Below here, we know that both operands have a StaticValue *)  
+ 
+  (* Int X Int -> Int special cases (/, MOD, REM, AND, OR, XOR): *)  
+  OpNode := AsBinaryOp  
+    ( Op := AstTypes . OpCodeDivide  
+    , Left := [ AsExpr, ]  
+        ( StaticValue := LLeftStaticValue : AsStaticIntValue ( ) )  
+    , Right := [ AsExpr, ]  
+        ( StaticValue := LRightStaticValue : AsStaticIntValue ( ) )  
+    )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryIntSpecialOpCodeTyp } ) ;  
+       OpNode :: StaticValue  
+         := { mAsStaticValue  
+                ( Position => OpNode :: Position  
+                , Value  
+                    => StaticArith . BinaryIntSpecialOp  
+                         ( OpNode :: Op  
+                         , LLeftStaticValue :: Value  
+                         , LRightStaticValue :: Value  
+                         )  
+                )  
+            } ;  
+    .  
+  
+  (* Int X Int -> Int: *)  
+  OpNode := AsBinaryOp  
+    ( Left := [ AsExpr, ]  
+        ( StaticValue := LLeftStaticValue : AsStaticIntValue ( ) ) 
+    , Right := [ AsExpr, ]  
+        ( StaticValue := LRightStaticValue : AsStaticIntValue ( ) ) 
+    )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryArithOpCodeTyp } ) ;  
+       OpNode :: StaticValue  
+         := { mAsStaticIntValue  
+                ( Position => OpNode :: Position  
+                , Value  
+                    => StaticArith . BinaryArithOp  
+                         ( OpNode :: Op  
+                         , LLeftStaticValue :: Value  
+                         , LRightStaticValue :: Value  
+                         )  
+                )  
+            } ;  
+    .  
+  
+  (* Real X Real -> Real: *)  
+  OpNode := AsBinaryOp  
+    ( Left := [ AsExpr, ]  
+        ( StaticValue := LLeftStaticValue : AsStaticRealValue ( ) ) 
+    , Right := [ AsExpr, ]  
+        ( StaticValue := LRightStaticValue : AsStaticRealValue ( ) ) 
+    )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryArithOpCodeTyp } ) ;  
+       OpNode :: StaticValue  
+         := { mAsStaticRealValue  
+                ( Position => OpNode :: Position  
+                , Value  
+                    => StaticArith . BinaryArithOp  
+                         ( OpNode :: Op  
+                         , LLeftStaticValue :: Value  
+                         , LRightStaticValue :: Value  
+                         )  
+                )  
+            } ;  
+    .  
+  
+  (* Real X Int -> Real: *)  
+  OpNode := AsBinaryOp  
+    ( Left := [ AsExpr, ]  
+        ( StaticValue := LLeftStaticValue : AsStaticRealValue ( ) ) 
+    , Right := [ AsExpr, ]  
+        ( StaticValue := LRightStaticValue : AsStaticIntValue ( ) ) 
+    )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryFixedMultOpCodeTyp } ) ;  
+       OpNode :: StaticValue  
+         := { mAsStaticRealValue  
+                ( Position => OpNode :: Position  
+                , Value  
+                    => StaticArith . BinaryArithOp  
+                         ( OpNode :: Op  
+                         , LLeftStaticValue :: Value  
+                         , LRightStaticValue :: Value  
+                         )  
+                )  
+            } ;  
+    .  
+  
+  (* Int X Real -> Real: *)  
+  OpNode := AsBinaryOp  
+    ( Left := [ AsExpr, ]  
+        ( StaticValue := LLeftStaticValue : AsStaticIntValue ( ) ) 
+    , Right := [ AsExpr, ]  
+        ( StaticValue := LRightStaticValue : AsStaticRealValue ( ) ) 
+    )  
+    :- ( { OpNode :: Op = AstTypes . OpCodeTimes } ) ;  
+       OpNode :: StaticValue  
+         := { mAsStaticRealValue  
+                ( Position => OpNode :: Position  
+                , Value  
+                    => StaticArith . BinaryArithOp  
+                         ( OpNode :: Op  
+                         , LLeftStaticValue :: Value  
+                         , LRightStaticValue :: Value  
+                         )  
+                )  
+            } ;  
+    .  
+  
+  (* Int X Int -> Bool: *)  
+  (* Real X Real -> Bool: *)  
+  OpNode := AsBinaryOp  
+    ( Left := [ AsExpr, ]  
+        ( StaticValue := LLeftStaticValue : AsStaticIntValue ( )  
+        )  
+    , Right := [ AsExpr, ]  
+        ( StaticValue := LRightStaticValue : AsStaticIntValue ( ) ) 
+    )  
+  ; OpNode := AsBinaryOp  
+      ( Left := [ AsExpr, ]  
+          ( StaticValue := LLeftStaticValue : AsStaticRealValue ( )  
+          )  
+      , Right := [ AsExpr, ]  
+          ( StaticValue := LRightStaticValue : AsStaticRealValue ( ) ) 
+      )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryRelOpCodeTyp } ) ;  
+       OpNode :: StaticValue  
+         := StaticBoolNode  
+              ( StaticArith . RelationOp  
+                  ( OpNode :: Op  
+                  , LLeftStaticValue :: Value  
+                  , LRightStaticValue :: Value  
+                )  
+              ) ;  
+    .  
+  
+  (* Bool X Bool -> Bool: *)  
+  OpNode := AsBinaryOp  
+    ( Left := [ AsExpr, ]  
+        ( StaticValue := LLeftStaticValue : [ AsFALSE , AsTRUE ] ( ) )  
+    , Right := [ AsExpr, ]  
+        ( StaticValue := LRightStaticValue : [ AsFALSE , AsTRUE ] ( ) ) 
+    )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryBoolOrRelOpCodeTyp } ) ;  
+       OpNode :: StaticValue  
+         := StaticBoolNode  
+              ( StaticArith . BinaryBooleanOp  
+                  ( OpNode :: Op  
+                  , BooleanValue ( LLeftStaticValue :: Value )  
+                  , BooleanValue ( LRightStaticValue :: Value )  
+                  )  
+              ) ;  
+    .  
+ 
+  (* String X String -> String *)  
+  OpNode := AsBinaryOp  
+    ( Left := [ AsExpr, ]  
+        ( StaticValue := LLeftStaticValue : AsStaticStringValue ( ) )  
+    , Right := [ AsExpr, ]  
+        ( StaticValue := LRightStaticValue : AsStaticStringValue ( ) ) 
+    , Op := AstTypes . OpCodeConcat  
+    )  
+    :- OpNode :: StaticValue  
+         := { mAsStaticStringValue  
+                ( Position => OpNode :: Position  
+                , Value  
+                    => Strings . CatStringString  
+                         ( LLeftStaticValue :: Value 
+                         , LRightStaticValue :: Value  
+                         )  
+                )  
+            } ;  
+    .  
+  
+  (* Char X String -> String *)  
+  OpNode := AsBinaryOp  
+    ( Left := [ AsExpr, ]  
+        ( StaticValue := LLeftStaticValue : AsStaticStringValue ( ) )  
+    , Right := [ AsExpr, ]  
+        ( StaticValue := LRightStaticValue : AsStaticCharValue ( ) ) 
+    , Op := AstTypes . OpCodeConcat  
+    )  
+    :- OpNode :: StaticValue  
+         := { mAsStaticStringValue  
+                ( Position => OpNode :: Position  
+                , Value  
+                    => Strings . CatStringChar  
+                         ( LLeftStaticValue :: Value 
+                         , LRightStaticValue :: Value  
+                         )  
+                )  
+            } ;  
+    .  
+  
+  
+  (* String X Char -> String *)  
+  OpNode := AsBinaryOp  
+    ( Left := [ AsExpr, ]  
+        ( StaticValue := LLeftStaticValue : AsStaticStringValue ( ) )  
+    , Right := [ AsExpr, ]  
+        ( StaticValue := LRightStaticValue : AsStaticCharValue ( ) ) 
+    , Op := AstTypes . OpCodeConcat  
+    )  
+    :- OpNode :: StaticValue  
+         := { mAsStaticStringValue  
+                ( Position => OpNode :: Position  
+                , Value  
+                    => Strings . CatCharString  
+                         ( LLeftStaticValue :: Value 
+                         , LRightStaticValue :: Value  
+                         )  
+                )  
+            } ;  
+    .  
+  
+  (* Char X Char -> String *)  
+  OpNode := AsBinaryOp  
+    ( Left := [ AsExpr, ]  
+        ( StaticValue := LLeftStaticValue : AsStaticCharValue ( ) )  
+    , Right := [ AsExpr, ]  
+        ( StaticValue := LRightStaticValue : AsStaticCharValue ( ) ) 
+    , Op := AstTypes . OpCodeConcat  
+    )  
+    :- OpNode :: StaticValue  
+         := { mAsStaticStringValue  
+                ( Position => OpNode :: Position  
+                , Value  
+                    => Strings . CatCharChar  
+                         ( LLeftStaticValue :: Value 
+                         , LRightStaticValue :: Value  
+                         )  
+                )  
+            } ;  
+    .  
+  
+  (* String X String -> Bool: *)  
+  OpNode := AsBinaryOp  
+    ( Left := [ AsExpr, ]  
+        ( StaticValue := LLeftStaticValue : AsStaticStringValue ( )  
+        )  
+    , Right := [ AsExpr, ]  
+        ( StaticValue := LRightStaticValue : AsStaticStringValue ( ) ) 
+    )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryRelOpCodeTyp } ) ;  
+       OpNode :: StaticValue  
+         := StaticBoolNode  
+              ( StaticStrings . StringRelation 
+                ( OpNode :: Op  
+                , LLeftStaticValue :: Value  
+                , LRightStaticValue :: Value  
+                )  
+              ) ;  
+    .  
+  
+  (* Char X Char -> Bool: *)  
+  OpNode := AsBinaryOp  
+    ( Left := [ AsExpr, ]  
+        ( StaticValue := LLeftStaticValue : AsStaticCharValue ( )  
+        )  
+    , Right := [ AsExpr, ]  
+        ( StaticValue := LRightStaticValue : AsStaticCharValue ( ) ) 
+    )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryRelOpCodeTyp } ) ;  
+       OpNode :: StaticValue  
+         := StaticBoolNode  
+              ( StaticStrings . CharRelation 
+                ( OpNode :: Op  
+                , LLeftStaticValue :: Value  
+                , LRightStaticValue :: Value  
+                )  
+              ) ;  
+    .  
+  
+(* END EvalBinaryOp *)  
+ 
+PROCEDURE UnaryOpTypeAnal  
+  ( OpNode : AsBinaryOp  
+  , RightTypeDef : [ AsTypeDef, ]  
+  ; Context : [ AsScope, ]  
+  )  
+ 
+  (* Arithmetic: *)  
+ 
+  (* (Univ int|root int) -> root int. *)  
+  RightTypeDef := [ AsUnivIntTypeDef , AsRootIntTypeDef ] ( )  
+    :- ( { OpNode :: Op IN AstTypes . UnaryArithOpCodeTyp } ) ; 
+       OpNode :: ExprType := TheRootIntTypeDef ( ) ;  
+    .  
+ 
+  (* (UnivReal | RootReal) -> RootReal. *)  
+  RightTypeDef [ AsUnivRealTypeDef , AsRootRealTypeDef ] ( )  
+    :- ( { OpNode :: Op IN AstTypes . UnaryArithOpCodeTyp } ) ; 
+       OpNode :: ExprType := TheRootRealTypeDef ( ) ;  
+    .  
+ 
+  (* Int -> Int. *)  
+  (* Mod -> Mod. *)  
+  (* Float -> Float. *)  
+  (* Fixed -> Fixed. *)  
+  RightTypeDef  
+    := [ AsIntTypeDef , AsModTypeDef , AsFloatTypeDef , AsFixedTypeDef ]  
+         ( )  
+    :- ( { OpNode :: Op IN AstTypes . UnaryArithOpCodeTyp } ) ; 
+       OpNode :: ExprType := RightTypeDef ;  
+       CheckVisible ( OpNode , RightTypeDef , Context ) ; 
+    . 
+ 
+  (* NOT: *)  
+ 
+  (* NOT on ARRAY OF BOOLEAN: *)  
+  RightTypeDef  
+    := [ AsArrayTypeDef, ] ( ElementType := AsBoolTypeDef ( ) ) 
+    :- ( { OpNode :: Op = AstTypes . OpCodeNOT } ) ; 
+       CheckVisible ( RightTypeDef ) ;  
+       OpNode :: ExprType := LeftTypeDef ;   
+    .  
+ 
+  (* NOT on BOOLEAN: *)  
+  RightTypeDef := AsBoolTypeDef ( )  
+    :- ( { OpNode :: Op = AstTypes . OpCodeNOT } ) ; 
+       OpNode :: ExprType := RightTypeDef ; 
+    .  
+ 
+  (* NOT on MOD types: *)  
+  RightTypeDef := AsModTypeDef ( )  
+    :- ( { OpNode :: Op = AstTypes . OpCodeNOT } ) ; 
+       CheckVisible ( RightTypeDef ) ;  
+       OpNode :: ExprType := RightTypeDef ; 
+    .  
+ 
+  (* All else has failed: *)  
+    :- ErrorPos 
+         ( OpNode :: Position  
+         , "Unary operator not compatible with operand type declared at " 
+         , RightTypeDef :: Position  
+         ) ;  
+    .  
+ 
+(* END UnaryOpTypeAnal *)  
+ 
+PROCEDURE BinaryOpTypeAnal  
+  ( OpNode : AsBinaryOp  
+  , LeftTypeDef : [ AsTypeDef, ]  
+  , RightTypeDef : [ AsTypeDef, ]  
+  ; Context : [ AsScope, ]  
+  )  
+ 
+  (* Integer arithmetic: *)  
+ 
+  (* (Univ int|root int) X (Univ int|root int) -> root int. *)  
+  LeftTypeDef := [ AsUnivIntTypeDef , AsRootIntTypeDef ] ( )  
+  , RightTypeDef := [ AsUnivIntTypeDef , AsRootIntTypeDef ] ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryArithOpCodeTyp } ) ; 
+       OpNode :: ExprType := TheRootIntTypeDef ( ) ;  
+    .  
+ 
+  (* Int X (UnivInt | RootInt) -> Int. *)  
+  LeftTypeDef := AsIntTypeDef ( )  
+  , RightTypeDef := [ AsUnivIntTypeDef , AsRootIntTypeDef ] ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryArithOpCodeTyp } ) ; 
+       OpNode :: ExprType := LeftTypeDef ;  
+       CheckVisible ( OpNode , LeftTypeDef , Context ) ; 
+       CheckVisible ( OpNode :: Right , LeftTypeDef ) ; 
+    .  
+ 
+  (* (Univ int|root int) X Int -> Int. *)  
+  LeftTypeDef := [ AsUnivIntTypeDef , AsRootIntTypeDef ] ( )  
+  , RightTypeDef := AsIntTypeDef ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryArithOpCodeTyp } ) ; 
+       OpNode :: ExprType := RightTypeDef ;  
+       CheckVisible ( OpNode , RightTypeDef , Context ) ; 
+       CheckVisible ( OpNode :: Left , RightTypeDef ) ; 
+    .  
+ 
+  (* Int X Int -> Int. *)  
+  (* Mod X Mod-> Mod. *)  
+  LeftTypeDef := [ AsIntTypeDef , AsModTypeDef ] ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryArithOpCodeTyp } ) ; 
+       OpNode :: ExprType := LeftTypeDef ;  
+       CheckOperandTypeDefsSame ( OpNode , LeftTypeDef , RightTypeDef ) ;  
+       CheckVisible ( OpNode , RightTypeDef , Context ) ; 
+    .  
+ 
+  (* Universal real and root real arithmetic: *)  
+ 
+  (* (UnivReal | RootReal) X (UnivReal | RootReal) -> RootReal. *)  
+  LeftTypeDef := [ AsUnivRealTypeDef , AsRootRealTypeDef ] ( )  
+  , RightTypeDef := [ AsUnivRealTypeDef , AsRootRealTypeDef ] ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryRealOpCodeTyp } ) ; 
+       OpNode :: ExprType := TheRootRealTypeDef ( ) ;  
+    .  
+ 
+  (* (UnivReal | RootReal) ( * | / )  (UnivInt | RootInt) -> RootReal. *)  
+  LeftTypeDef := [ AsUnivRealTypeDef , AsRootRealTypeDef ] ( )  
+  , RightTypeDef := [ AsUnivIntTypeDef , AsRootIntTypeDef ] ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryFixedMultOpCodeTyp } ) ; 
+       OpNode :: ExprType := TheRootRealTypeDef ( ) ;  
+    .  
+ 
+  (* (UnivInt | RootInt) * (UnivReal | RootReal) -> RootReal. *)  
+  LeftTypeDef := [ AsUnivIntTypeDef , AsRootIntTypeDef ] ( )  
+  , RightTypeDef := [ AsUnivRealTypeDef , AsRootRealTypeDef ] ( )  
+    :- ( { OpNode :: Op = AstTypes . OpCodeTimes } ) ; 
+       OpNode :: ExprType := TheRootRealTypeDef ( ) ;  
+    .  
+ 
+  (* Float arithmetic: *)  
+ 
+  (* Float X (UnivReal | RootReal) -> Float. *)  
+  LeftTypeDef := AsFloatTypeDef ( )  
+  , RightTypeDef := [ AsUnivRealTypeDef , AsRootRealTypeDef ] ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryRealOpCodeTyp } ) ; 
+       OpNode :: ExprType := LeftTypeDef ;  
+       CheckVisible ( OpNode , LeftTypeDef , Context ) ; 
+       CheckVisible ( OpNode :: Right , LeftTypeDef )  
+    .  
+ 
+  (* (UnivReal | RootReal) X Float -> Float. *)  
+  LeftTypeDef := [ AsUnivRealTypeDef , AsRootRealTypeDef ] ( )  
+  , RightTypeDef := AsFloatTypeDef ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryRealOpCodeTyp } ) ; 
+       OpNode :: ExprType := RightTypeDef ;  
+       CheckVisible ( OpNode , RightTypeDef , Context ) ; 
+       CheckVisible ( OpNode :: Left , RightTypeDef )  
+    .  
+ 
+  (* Float X Float -> Float. *)  
+  LeftTypeDef := AsFloatTypeDef ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryRealOpCodeTyp } ) ; 
+       OpNode :: ExprType := LeftTypeDef ;  
+       CheckOperandTypeDefsSame ( OpNode , LeftTypeDef , RightTypeDef ) ;  
+       CheckVisible ( OpNode , RightTypeDef , Context ) ; 
+    . 
+ 
+  (* Fixed arithmetic: *)  
+ 
+  (* Fixed (+|-) (UnivReal | RootReal) -> Fixed *) 
+  LeftTypeDef := AsFixedTypeDef ( ) 
+  , RightTypeDef := [ AsUnivRealTypeDef , AsRootRealTypeDef ] ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryArithAddOpCodeTyp } ) ; 
+       OpNode :: ExprType := LeftTypeDef ;  
+       CheckVisible ( OpNode , LeftTypeDef , Context ) ; 
+       CheckVisible ( OpNode :: Right , LeftTypeDef , Context ) ; 
+    .  
+  
+  (* (UnivReal | RootReal) (+|-) Fixed -> Fixed. *)  
+  LeftTypeDef := [ AsUnivRealTypeDef , AsRootRealTypeDef ] ( )  
+  , RightTypeDef := AsFixedTypeDef ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryArithAddOpCodeTyp } ) ; 
+       OpNode :: ExprType := RightTypeDef ;  
+       CheckVisible ( OpNode , RightTypeDef , Context ) ; 
+       CheckVisible ( OpNode :: Left , RightTypeDef )  
+    .  
+ 
+  (* Fixed (+|-) Fixed -> Fixed *) 
+  LeftTypeDef := AsFixedTypeDef ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryArithAddOpCodeTyp } ) ; 
+       OpNode :: ExprType := LeftTypeDef ;  
+       CheckOperandTypeDefsSame ( OpNode , LeftTypeDef , RightTypeDef ) ;  
+       CheckVisible ( OpNode , RightTypeDef , Context ) ; 
+    .  
+  
+  (* Fixed ( *|/) (UnivInt | RootInt) -> Fixed. *)  
+  LeftTypeDef := AsFixedTypeDef ( )  
+  , RightTypeDef := [ AsUnivIntTypeDef , AsRootIntTypeDef ] ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryFixedMultOpCodeTyp } ) ; 
+       OpNode :: ExprType := LeftTypeDef ;  
+       CheckVisible ( OpNode , LeftTypeDef , Context ) ; 
+    .  
+ 
+  (* (UnivInt | RootInt) * Fixed -> Fixed. *)  
+  LeftTypeDef := [ AsUnivIntTypeDef , AsRootIntTypeDef ] ( )  
+  , RightTypeDef := AsFixedTypeDef ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryFixedMultOpCodeTyp } ) ; 
+       OpNode :: ExprType := RightTypeDef ;  
+       CheckVisible ( OpNode , RightTypeDef , Context ) ; 
+    .  
+ 
+  (* Fixed ( * | / ) Integer -> Fixed. *)  
+  LeftTypeDef := AsFixedTypeDef ( )  
+  , RightTypeDef := AsIntTypeDef ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryFixedMultOpCodeTyp } ) ; 
+       CheckIsTheInteger ( OpNode , RightTypeDef ) ;  
+       OpNode :: ExprType := LeftTypeDef ;  
+    .  
+ 
+  (* Integer * Fixed  -> Fixed. *)  
+  LeftTypeDef := AsIntTypeDef ( )  
+  , RightTypeDef := AsFixedTypeDef ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryFixedMultOpCodeTyp } ) ; 
+       CheckIsTheInteger ( OpNode , LeftTypeDef ) ;  
+       OpNode :: ExprType := RightTypeDef ;  
+    .  
+ 
+  (* Fixed ( *|/) ( UnivReal | RootReal ) -> UnivFixed *)  
+  LeftTypeDef := AsFixedTypeDef ( )  
+  , RightTypeDef := [ AsUnivRealTypeDef , AsRootRealTypeDef ] ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryFixedMultOpCodeTyp } ) ; 
+       OpNode :: ExprType := TheUnivFixedTypeDef ( ) ;  
+       CheckVisible ( OpNode , LeftTypeDef , Context ) ;  
+       CheckVisible ( OpNode :: Right , LeftTypeDef , Context ) ;  
+    .  
+ 
+  (* ( UnivReal | RootReal) (*|/) Fixed -> UnivFixed *)  
+  LeftTypeDef := [ AsUnivRealTypeDef , AsRootRealTypeDef ] ( )  
+  , RightTypeDef := AsFixedTypeDef ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryFixedMultOpCodeTyp } ) ; 
+       OpNode :: ExprType := TheUnivFixedTypeDef ( ) ;  
+       CheckVisible ( OpNode , RightTypeDef , Context ) ;  
+       CheckVisible ( OpNode :: Left , RightTypeDef , Context ) ;  
+    .  
+ 
+  (* Fixed1 ( *|/) Fixed2 -> UnivFixed *)  
+  LeftTypeDef := AsFixedTypeDef ( )  
+  , RightTypeDef := AsFixedTypeDef ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryFixedMultOpCodeTyp } ) ; 
+       OpNode :: ExprType := TheUnivFixedTypeDef ( ) ;  
+    .  
+ 
+  (* Exponentiation: *)  
+ 
+  (* (RootInt | UnivInt ) ** (RootInt | UnivInt) -> RootInt: *)  
+  LeftTypeDef := [ AsRootIntTypeDef , AsUnivIntTypeDef ] ( )  
+  , RightTypeDef := [ AsRootIntTypeDef , AsUnivIntTypeDef ] ( )  
+  _ :- ( OpNode :: Op = AstTypes . OpCodeExponentiation ) ; 
+       Node :: ExprType := TheRootIntType ( ) ;  
+    .  
+ 
+  (* (RootReal | UnivReal ) ** (RootInt | UnivInt) -> RootReal: *)  
+  LeftTypeDef := [ AsRootRealTypeDef , AsUnivRealTypeDef ] ( )  
+  , RightTypeDef := [ AsRootIntTypeDef , AsUnivIntTypeDef ] ( )  
+    :- ( OpNode :: Op = AstTypes . OpCodeExponentiation ) ; 
+       Node :: ExprType := TheRootRealType ( ) ;  
+    .  
+ 
+  (* Int ** (RootInt | UnivInt) -> Int : *) 
+  (* Float ** (RootInt | UnivInt) -> Float : *) 
+  LeftTypeDef := [ AsIntTypeDef , AsFloatTypeDef ] ( )  
+  , RightTypeDef := [ AsRootIntTypeDef , AsUnivIntTypeDef ] ( )  
+    :- ( OpNode :: Op = AstTypes . OpCodeExponentiation ) ; 
+       CheckVisible ( LeftTypeDef ) ;  
+       Node :: ExprType := LeftTypeDef ;  
+    .  
+ 
+  (* (RootReal | UnivReal ) ** INTEGER -> RootReal: *)  
+  LeftTypeDef := [ AsRootRealTypeDef , AsUnivRealTypeDef ] ( )  
+  , RightTypeDef := AsIntTypeDef ( )  
+    :- ( OpNode :: Op = AstTypes . OpCodeExponentiation ) ; 
+       IsTheIntegerType ( RightTypeDef ) ;  
+       Node :: ExprType := TheRootRealType ( ) ;  
+    .  
+ 
+  (* Int ** INTEGER -> Int : *) 
+  (* Float ** INTEGER -> Float : *)  
+  LeftTypeDef := [ AsIntTypeDef , AsFloatTypeDef ] ( )  
+  , RightTypeDef := AsIntTypeDef ( )  
+    :- ( OpNode :: Op = AstTypes . OpCodeExponentiation ) ; 
+       IsTheIntegerType ( RightTypeDef ) ;  
+       CheckVisible ( LeftTypeDef ) ;  
+       Node :: ExprType := LeftTypeDef ;  
+    .  
+ 
+  (* Concatenation: *)  
+ 
+  (* For concatenation operators, we here handle only the cases 
+     allowed in an arbitrary expression context, which are, 
+     both operands are arrays or slices with static bounds, 
+     or single elements.  More liberal rules which apply to  
+     a concatenation operator only as the entire rhs of an 
+     assignment statement are checked from the assignment  
+     statement. *)  
+ 
+  (* (Char|RootString) & (Char|RootString) -> RootString; *)  
+  LeftTypeDef := [ AsCharTypeDef , AsRootStringTypeDef ] ( )  
+  , RightTypeDef := [ AsCharTypeDef , AsRootStringTypeDef ] ( )  
+    :- ( OpNode :: Op = AstTypes . OpCodeConcat ) ; 
+       OpNode :: ExprType := TheRootStringType ( ) ;  
+    .  
+  
+  (* (Char|RootString) & Array -> Array: *)  
+  LeftTypeDef := [ AsCharTypeDef , AsRootStringTypeDef ] ( )  
+  , RightTypeDef := [ AsArrayTypeDef, ] ( )  
+    :- ( OpNode :: Op = AstTypes . OpCodeConcat ) ; 
+       CheckOneDimensional ( RightTypeDef ) ;  
+       CheckElemIsChar ( RightTypeDef ) ;  
+       CheckStaticBounds ( OpNode :: Right , RightTypeDef ) ;  
+       OpNode :: ExprType := RightTypeDef ;  
+    .  
+ 
+  (* Array & (Char|RootString) -> Array: *)  
+  LeftTypeDef := [ AsArrayTypeDef, ] ( )  
+  , RightTypeDef := [ AsCharTypeDef , AsRootStringTypeDef ] ( )  
+    :- ( OpNode :: Op = AstTypes . OpCodeConcat ) ; 
+       CheckOneDimensional ( LeftTypeDef ) ;  
+       CheckElemIsChar ( LeftTypeDef ) ;  
+       CheckStaticBounds ( OpNode :: Left , LeftTypeDef ) ;  
+       OpNode :: ExprType := LeftTypeDef ;  
+    .  
+ 
+  (* Array & Array -> Array: *)  
+  LeftTypeDef := [ AsArrayTypeDef, ] ( )  
+  , RightTypeDef := [ AsArrayTypeDef, ] ( )  
+    :- ( OpNode :: Op = AstTypes . OpCodeConcat ) ; 
+       CheckOperandTypeDefsSame ( OpNode , LeftTypeDef , RightTypeDef ) ;  
+       CheckOneDimensional ( LeftTypeDef ) ;  
+       CheckStaticBounds ( OpNode :: Left , LeftTypeDef ) ;  
+       CheckStaticBounds ( OpNode :: Right , RightTypeDef ) ;  
+       OpNode :: ExprType := LeftTypeDef ;  
+    .  
+ 
+  (* Array & Elem -> Array: *)  
+  LeftTypeDef := [ AsArrayTypeDef, ] ( )  
+    :- ( OpNode :: Op = AstTypes . OpCodeConcat ) ; 
+       CheckOperandTypeDefsSame  
+         ( OpNode , LeftTypeDef :: ElementType , RightTypeDef ) ;  
+       CheckOneDimensional ( LeftTypeDef ) ;  
+       CheckStaticBounds ( OpNode :: Left , LeftTypeDef ) ;  
+       OpNode :: ExprType := LeftTypeDef ;  
+    .  
+ 
+  (* Elem & Array -> Array: *)  
+  RightTypeDef := [ AsArrayTypeDef, ] ( )  
+    :- ( OpNode :: Op = AstTypes . OpCodeConcat ) ; 
+       CheckOperandTypeDefsSame  
+         ( OpNode , LeftTypeDef , RightTypeDef :: ElementType ) ;  
+       CheckOneDimensional ( RightTypeDef ) ;  
+       CheckStaticBounds ( OpNode :: Right , RightTypeDef ) ;  
+       OpNode :: ExprType := RightTypeDef ;  
+    .  
+ 
+  (* Boolean operators: *)  
+ 
+  (* Boolean Operators on ARRAY OF BOOLEAN: *)  
+  LeftTypeDef := [ AsArrayTypeDef, ] ( ElementType := AsBoolTypeDef ( ) )  
+  , RightTypeDef  
+      := [ AsArrayTypeDef, ] ( ElementType := AsBoolTypeDef ( ) ) 
+    :- ( { OpNode :: Op IN AstTypes . BinaryBoolArrayOpCodeTyp } ) ; 
+       CheckOperandTypeDefsSame ( OpNode , LeftTypeDef , RightTypeDef ) ;  
+       CheckVisible ( LeftTypeDef ) ;  
+       OpNode :: ExprType := LeftTypeDef  
+    .  
+ 
+  (* All the BOOLEAN X BOOLEAN -> BOOLEAN operators: *)  
+  LeftTypeDef := AsBoolTypeDef ( )  
+  , RightTypeDef := AsBoolTypeDef ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryBoolOpCodeTyp } ) ; 
+       OpNode :: ExprType := LeftTypeDef  
+    .  
+ 
+  (* All the Mod X Mod -> Mod operators: *)  
+  LeftTypeDef := AsModTypeDef ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryBoolArrayOpCodeTyp } ) ; 
+       CheckOperandTypeDefsSame ( OpNode , LeftTypeDef , RightTypeDef ) ;  
+       CheckVisible ( LeftTypeDef ) ;  
+       OpNode :: ExprType := LeftTypeDef  
+    .  
+ 
+  (* Relations: *)  
+ 
+  (* RootString REL RootString Ambiguous: *)  
+  LeftTypeDef := AsRootStringTypeDef ( )  
+  , RightTypeDef := AsRootStringTypeDef ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryRelOpCodeTyp } ) ; 
+       Error  
+         ( OpNode :: Position  
+         , "Ambiguous relation on strings." 
+         ) ;  
+       Node :: ExprTyp := TheBoolTypeDef ( ) ;  
+    .  
+ 
+  (* (RootInt|UnivInt) REL (RootInt|UnivInt): *)  
+  LeftTypeDef := [ AsRootIntTypeDef , AsUnivIntTypeDef ] ( )  
+  , RightTypeDef := [ AsRootIntTypeDef , AsUnivIntTypeDef ] ( )  
+  (* (RootReal|UnivReal) REL (RootReal|UnivReal): *)  
+  ; LeftTypeDef := [ AsRootRealTypeDef , AsUnivRealTypeDef ] ( )  
+  , RightTypeDef := [ AsRootRealTypeDef , AsUnivRealTypeDef ] ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryRelOpCodeTyp } ) ; 
+       OpNode :: ExprType := TheBoolTypeDef ( ) ;  
+    .  
+ 
+  (* (RootInt|UnivInt) REL (Int|Mod): *)  
+  LeftTypeDef := [ AsRootIntTypeDef , AsUnivIntTypeDef ] ( )  
+  , RightTypeDef := [ AsIntTypeDef , AsModTypeDef ] ( )  
+  (* (RootReal|UnivReal) REL (Float|Fixed): *)  
+  ; LeftTypeDef := [ AsRootRealTypeDef , AsUnivRealTypeDef ] ( )  
+  , RightTypeDef := [ AsFloatTypeDef , AsFixedTypeDef ] ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryRelOpCodeTyp } ) ; 
+       CheckVisible ( OpNode , RightTypeDef ) ;  
+       OpNode :: ExprType := TheBoolTypeDef ( ) ;  
+    .  
+ 
+  (* (Int|Mod) REL (RootInt|UnivInt): *)  
+  ; LeftTypeDef := [ AsIntTypeDef , AsModTypeDef ] ( )  
+  , RightTypeDef := [ AsRootIntTypeDef , AsUnivIntTypeDef ] ( )  
+  (* (Float|Fixed) REL (RootReal|UnivReal): *)  
+  ; LeftTypeDef := [ AsFloatTypeDef , AsFixedTypeDef ] ( )  
+  , RightTypeDef := [ AsRootRealTypeDef , AsUnivRealTypeDef ] ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryRelOpCodeTyp } ) ; 
+       CheckVisible ( OpNode , LeftTypeDef ) ;  
+       OpNode :: ExprType := TheBoolTypeDef ( ) ;  
+    .  
+ 
+  (* Relations on one-dimensional arrays of discrete: *)  
+  LeftTypeDef  
+    := [ AsArrayTypeDef, ] ( ElementType := [ AsDiscrTypeDef, ] ( ) )  
+  , RightTypeDef  
+  (* Relations on discrete: *)  
+  LeftTypeDef := [ AsDiscreteTypeDef, ] ( )  
+  , RightTypeDef := [ AsDiscreteTypeDef, ] ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryRelOpCodeTyp } ) ; 
+       CheckOperandTypeDefsSame ( OpNode , LeftTypeDef , RightTypeDef ) ;  
+       CheckVisible ( OpNode , LeftTypeDef ) ;  
+       OpNode :: ExprType := TheBoolTypeDef ( ) ;  
+    .  
+  
+  (* Inequalities on scalar types: *)  
+  
+   LeftTypeDef := [ AsScalarTypeDef, ] ( )  
+    :- ( { OpNode :: Op IN AstTypes . BinaryInequalityOpCodeTyp } )  
+       CheckOperandTypeDefsSame ( OpNode , LeftTypeDef , RightTypeDef ) ;  
+       CheckVisible ( LeftTypeDef ) ;  
+       Node :: ExprTyp := TheBoolTypeDef ( ) ;  
+    .  
+ 
+  (* (Un)equal on any type: *)  
+  _ :- ( { OpNode :: Op IN AstTypes . BinaryEqualityOpCodeTyp } ) ; 
+       CheckOperandTypeDefsSame ( OpNode , LeftTypeDef , RightTypeDef ) ;  
+       CheckVisible ( LeftTypeDef ) ;  
+       Node :: ExprTyp := TheBoolTypeDef ( ) ;  
+    .  
+ 
+  (* All else has failed: *)  
+    :- ErrorPosPos 
+         ( OpNode :: Position  
+         , "Operator not compatible with operand types declared at " 
+         , LeftTypeDef :: Position  
+         , RightTypeDef :: Position  
+         ) ;  
+    .  
+ 
+(* END BinaryOpTypeAnal *)  
+ 
+PREDICATE IsNOTIN ( OpNode : [ AsINRange , AsNOTINRange ] )  
+  
+  AsNOTINRange ( ) .  
+ 
+(* END IsNOTIN *)  
+ 
+PROCEDURE EvalINOp 
+  ( OpNode : [ AsINRange , AsNOTINRange ] )  
+ 
+  (* If any of the three operands is nonstatic, then any of 
+     the others which is static and numeric will need to be 
+     type converted. *)  
+ 
+  (* Expr is nonstatic: *)  
+  _ ( Expr := _ ( StaticValue := NIL )  
+    , INRange := AsDiscrRangeNode  
+        ( Lower := LLower : _ , Upper := LUpper : _ )  
+    )  
+    :- LLower := ConvertStaticValue ( LLower , Expr :: ExprType ) ;  
+       LUpper := ConvertStaticValue ( LUpper , Expr :: ExprType ) ;  
+    .  
+  
+  (* Lower is nonstatic: *)  
+  _ ( INRange := AsDiscrRangeNode  
+        ( Lower := LLower : _ ( StaticValue := NIL ) , Upper := LUpper : _ )  
+    )  
+    :- Expr := ConvertStaticValue ( Expr , LLower :: ExprType ) ;  
+       LUpper := ConvertStaticValue ( LUpper , LLower :: ExprType ) ;  
+    .  
+  
+  (* Upper is nonstatic: *)  
+  _ ( INRange := AsDiscrRangeNode  
+        ( Lower := LLower : _ , Upper := LUpper : _ ( StaticValue := NIL ) )  
+    )  
+    :- Expr := ConvertStaticValue ( Expr , LUpper :: ExprType ) ;  
+       LLower := ConvertStaticValue ( LLower , LUpper :: ExprType ) ;  
+    .  
+  
+  (* All static integer or real: *)  
+  _ ( Expr := _ ( StaticValue := LExpr : AsStaticIntValue ( ) ) 
+    , INRange := AsDiscrRangeNode  
+        ( Lower := _ ( StaticValue := LLower : AsStaticIntValue ( ) )  
+        , Upper := _ ( StaticValue := LUpper : AsStaticIntValue ( ) )  
+        ) 
+    )  
+    ; ( Expr := _ ( StaticValue := LExpr : AsStaticIntValue ( ) ) 
+      , INRange := AsDiscrRangeNode  
+          ( Lower := _ ( StaticValue := LLower : AsStaticIntValue ( ) )  
+          , Upper := _ ( StaticValue := LUpper : AsStaticIntValue ( ) )  
+          ) 
+      )  
+    :- OpNode :: StaticValue  
+         := StaticBoolNode  
+              ( { StaticArith . INOp  
+                    ( LExpr :: Value  
+                    , LLower :: Value  
+                    , LUpper :: Value  
+                    )  
+                  XOR IsNOTIN ( OpNode )  
+                }  
+              ) ;  
+    .  
+ 
+  (* All static char: *)  
+  _ ( Expr := _ ( StaticValue := LExpr : AsStaticCharValue ( ) ) 
+    , INRange := AsDiscrRangeNode  
+        ( Lower := _ ( StaticValue := LLower : AsStaticCharValue ( ) )  
+        , Upper := _ ( StaticValue := LUpper : AsStaticCharValue ( ) )  
+        ) 
+    )  
+    :- OpNode :: StaticValue  
+         := StaticBoolNode  
+              ( { ( LLower :: Value <= LExpr :: Value  
+                    AND LExpr :: Value <= LUpper :: Value  
+                  )  
+                  XOR IsNOTIN ( OpNode )  
+                }  
+              ) ;  
+    .  
+ 
+  (* All static bool: *)  
+  _ ( Expr := _ ( StaticValue := LExpr : [ AsStaticBoolValue, ] ( ) ) 
+    , INRange := AsDiscrRangeNode  
+        ( Lower := _ ( StaticValue := LLower : [ AsStaticBoolValue, ] ( ) )  
+        , Upper := _ ( StaticValue := LUpper : [ AsStaticBoolValue, ] ( ) )  
+        ) 
+    )  
+    :- VAR LExprBool : BOOLEAN ;  
+       LExprBool := BooleanValue ( LExpr ) ;  
+       OpNode :: StaticValue  
+         := StaticBoolNode  
+              ( { ( BooleanValue ( LLower <= LExprBool 
+                    AND LExprBool <= BooleanValue ( LUpper )  
+                  )  
+                  XOR IsNOTIN ( OpNode )  
+                }  
+              ) ;  
+    .  
+ 
+(* END EvalINOp *)  
+  
+(* String literals: *)  
+ 
+PROCEDURE StringLitBounds  
+  ( Expr : [ AsExpr, ] ; ExpectedSubtypeDef : [ AsSubtypeDef, ] )  
+ 
+  (* Unconstrained: *) 
+  Expr := AsStringLit ( StaticValue := LStaticValue : )  
+  , ExpectedSubtypeDef := AsUnconstrainedArrayDef  
+      ( IndexTypes := AsListElem  
+          ( Child := LIndexType : [ AsSubtypeName, ] ( ) ) 
+      )  
+    :- VAR LStaticCountMinus1 : StaticIntValueTyp ;  
+       GetStaticBoundsOfSubtypeName ( LIndexType => LLower : , LUpper : ) ;  
+       LStaticCountMinus1  
+         := StaticArith . IntegerToStaticIntValueTyp  
+              (  Zstring . Length ( LStaticValue :: Value ) - 1 ) 
+    => LLower , StaticArith . IntSum ( LLower , LStaticCountMinus1 ) ,  
+    .  
+ 
+  (* Constrained, positional: *)  
+  Expr := AsStringLit ( StaticValue := LStaticValue : )  
+  , ExpectedSubtypeDef := AsConstrainedArrayDef  
+      ( IndexSubtypeNames := AsListElem  
+          ( Child := LIndexSubtype : [ AsSubtypeName, ] ( ) ) 
+      )  
+  ; Expr := AsStringLit ( StaticValue := LStaticValue : )  
+  , ExpectedSubtypeDef := AsSubtypeIndicationConstrained 
+      ( Constraint := AsIndexConstraint  
+          ( IndexSubtypeNames := AsListElem  
+              ( Child := LIndexSubtype : [ AsSubtypeName, ] ( ) ) 
+          )  
+      )  
+    :- VAR LPosUpper : StaticIntValueTyp ;  
+       ( PositionalCount > 0 ) ;  
+       GetStaticBoundsOfSubtypeName  
+         ( LIndexSubtype => LLower : , LUpper : ) ;  
+       LPosUpper  
+         := StaticArith . IntSum  
+              ( StaticArith . IntegerToStaticIntValueTyp  
+                  ( Zstring . Length ( LStaticValue :: Value ) - 1 ) 
+              , LLower  
+              ) ;  
+       { IF StaticArith . IntLess ( LPosUpper , LUpper )  
+         THEN Error ( Expr :: Position , "Too few characters." ) ;  
+         ELSIF StaticArith . IntGreater ( LPosUpper , LUpper )  
+         THEN Error ( Expr :: Position , "Too many characters." ) ;  
+         END IF ;  
+       } ;  
+    => LLower , LUpper ,  
+    .  
+ 
+  (* Otherwise, it's not a string literal, or previous checks failed: *)  
+  _ :- .  
+ 
+(* END StringLitBounds *)  
+ 
+(* Array aggregates: *)  
+ 
+(* NOTE: In this section of semantics, "aggregate" excludes 
+         string literals. 
+*)  
+ 
+PROCEDURE ArrayAggregateSyntaxOneLevel  
+  ( Assoc : [ AsList, AsAggregateArg, ]  
+  ; CP : BOOLEAN (* CP means "ContainsPositionalAssociation" *)  
+  ; CN : BOOLEAN (* CN means "ContainsNamedAssociation" *)  
+  ; CO : BOOLEAN (* CO means "ContainsOthersAssociation" *)  
+  )  
+  (* Check "syntactic" restrictions that are not enforced by 
+     the more liberal Hodl grammar:  
+       1) Either all associations are named, or all are positional, 
+          except for an OTHERS. 
+       2) A singleton OTHERS is the last association. 
+       3) There are no DiscrRangeAlt occurrences.  
+     Do not check for OTHERS not singleton in a choice list.  
+     Do not descend into nested aggregates.  
+     Fail if any errors are detected.  
+  *)  
+ 
+  (* Done: *)  
+  Assoc := NIL :- .  
+ 
+  (* Any association following an OTHERS: *)  
+  Assoc := AsListElem ( ) , CO := TRUE  
+    :- Error 
+         ( Assoc :: Child :: Position  
+         , "This association follows an OTHERS association." 
+         ) ; 
+       FAIL ;  
+    .  
+ 
+  (* singleton OTHERS choice in association: *)  
+  Assoc := AsListElem  
+    ( Child := AsNamedComponentAssoc  
+        ( Choices := AsListElem ( Child := AsOTHERS , Next := NIL ) )  
+    )  
+    :- ArrayAggregateSyntaxOneLevel  
+         ( Assoc :: Next , CP , CN , TRUE ) ;  
+    .  
+ 
+  (* Positional after named: *)  
+  Assoc := AsListElem ( Child := [ AsExpr, ] ( ) )  
+  , CN := TRUE  
+    :- Error 
+         ( Assoc :: Child :: Position  
+         , "Positional association after named association in " 
+           & "array aggregate"  
+         ) ; 
+       FAIL ;  
+    .  
+ 
+  (* Named after positional: *)  
+  Assoc := AsListElem ( Child := AsNamedComponentAssoc ( ) )  
+  , CP := TRUE  
+    :- Error 
+         ( Assoc :: Child :: Position  
+         , "Named association after positional association in " 
+           & "array aggregate"  
+         ) ; 
+       FAIL ;  
+    .  
+  
+  (* Discrete range: *)  
+  Assoc := AsListElem ( Child := [ AsDiscreteRange, ]  ( ) )  
+    :- Error 
+         ( Assoc :: Child :: Position  
+         , "Range not allowed in array aggregate"  
+         ) ; 
+       FAIL ;  
+    .  
+  
+  (* Positional association: *)  
+  Assoc := AsListElem ( Child := [ AsExpr, ] ( ) )  
+    :- ArrayAggregateSyntaxOneLevel  
+         ( Assoc :: Next , TRUE , CN , CO ) ;  
+    .  
+ 
+  (* Named association: *)  
+  Assoc := AsListElem ( Child := AsNamedComponentAssoc ( ) )  
+    :- ArrayAggregateSyntaxOneLevel  
+         ( Assoc :: Next , CP , TRUE , CO ) ;  
+    .  
+ 
+(* END ArrayAggregateSyntaxOneLevel *)  
+ 
+PROCEDURE CheckStaticChoiceValue  
+  ( Range : AsDiscrRangeNode  
+  ; Expr : [ AsExpr, ]  
+  ; REF ValueSet : ValueSets . T  
+  )  
+ 
+  (* Value not static: *)  
+  Expr := AsExpr ( StaticValue := NIL )  
+    :- Error 
+         ( Expr :: Position  
+         , "Choice value must be static." 
+         ) ;  
+    .  
+ 
+  (* Static integer: *)  
+  Expr := AsExpr ( StaticValue := LValue : AsStaticIntValue ( ) )  
+  ; Range := AsDiscrRangeNode  
+     ( Lower := [ AsExpr, ]  
+          ( StaticValue := LLower : AsStaticIntValue ( ) )  
+     , Upper := [ AsExpr, ]  
+          ( StaticValue := LUpper : AsStaticIntValue ( ) )  
+     )  
+    :- VAR LWasThere : BOOLEAN ; 
+       { IF NOT StaticArith . RangeContainsValue  
+                  ( LLower :: Value , LUpper :: Value , LValue :: Value )  
+         THEN  
+           Error 
+             ( Expr :: Position  
+             , "Choice value outside range of index type." 
+             ) ; 
+         ELSE  
+           ValueSets . AddValue  
+             ( ValueSet , LStaticInt :: Value , LWasThere ) ; 
+         ; IF LWasThere  
+           THEN 
+             Error 
+               ( Expr :: Position  
+               , "Choice value duplicates a previous value." 
+               ) ; 
+           END IF ;  
+         END IF ;  
+       }  
+    . 
+ 
+  (* Not a static integers: *)  
+  _ :- Zassert . Cant_Be  
+         ( "Semantics.CheckStaticChoiceValue: not static integer" ) ; . 
+ 
+(* END CheckStaticChoiceValue *)  
+ 
+PROCEDURE CheckStaticChoiceRange  
+  ( IndexRange : AsDiscrRangeNode  
+  ; ChoiceRange : AsDiscrRangeNode  
+  ; REF ValueSet : ValueSets . T  
+  )  
+ 
+  (* Lower value of choice range not static: *)  
+  ChoiceRange := AsDiscrRangeNode  
+    ( Lower := [ AsExpr, ] ( StaticValue := NIL ) )  
+    :- Error 
+         ( ChoiceRange :: Lower :: Position  
+         , "Choice range value must be static." 
+         ) ;  
+    .  
+ 
+  (* Upper value of choice range not static: *)  
+  ChoiceRange := AsDiscrRangeNode  
+    ( Upper := [ AsExpr, ] ( StaticValue := NIL ) )  
+    :- Error 
+         ( ChoiceRange :: Upper :: Position  
+         , "Choice range value must be static." 
+         ) ;  
+    .  
+ 
+  (* Static integers: *)  
+  IndexRange := AsDiscrRangeNode  
+     ( Lower := LIndexLowerExpr : [ AsExpr, ]  
+          ( StaticValue := LIndexLower : AsStaticIntValue ( ) )  
+     , Upper := [ AsExpr, ]  
+          ( StaticValue := LIndexUpper : AsStaticIntValue ( ) )  
+     )  
+  , ChoiceRange := AsDiscrRangeNode  
+     ( Lower := [ AsExpr, ]  
+          ( StaticValue := LChoiceLower : AsStaticIntValue ( ) )  
+     , Upper := [ AsExpr, ]  
+          ( StaticValue := LChoiceUpper : AsStaticIntValue ( ) )  
+     )  
+    :- VAR LWasThere : BOOLEAN ; 
+       { IF NOT StaticArith . RangeContainsRange  
+                  ( LIndexLower :: Value , LIndexUpper :: Value  
+                  , LChoiceLower :: Value , LChoiceUpper :: Value  
+                  )  
+         THEN  
+           Error 
+             ( LIndexLowerExpr :: Position  
+             , "One or more choice values in range are outside range " 
+               & "of index type." 
+             ) ; 
+         ELSE  
+           ValueSets . AddRange  
+             ( ValueSet  
+             , LChoiceLower :: Value  
+             , LChoiceUpper :: Value  
+             , LWasThere  
+             ) ; 
+         ; IF LWasThere  
+           THEN 
+             Error 
+               ( Expr :: Position  
+               , "Choice value duplicates a previous value." 
+               ) ; 
+           END IF ;  
+         END IF ;  
+       }  
+    . 
+ 
+  (* Not static integers: *)  
+  _ :- Zassert . Cant_Be  
+         ( "Semantics.CheckStaticChoiceRange: not static integers" ) ; . 
+ 
+(* END CheckStaticChoiceRange *)  
+ 
+PROCEDURE ArrayAggregateNamedChoices  
+  ( ChoiceList : [ AsList, ] (* Of AsChoice *)  
+  ; ExpectedSubtypeName : [ AsSubtypeName, ]  
+  ; ExpectedDiscrRange : AsDiscrRangeNode  
+  ; Context : [ AsScope, ]  
+  ; REF ValueSet : ValueSets . T  
+  )  
+ 
+  (* End of list: *)  
+  ChoiceList := NIL :- .  
+ 
+  (* Choice is OTHERS.  OTHERS as the only choice in the entire aggregate  
+     and OTHERS as the only choice in this component association have 
+     been detected and handled previously. *)  
+  ChoiceList := AsListElem ( Child := AsOTHERS ( ) )  
+    :- Error ( ChoiceList :: Child :: Position 
+             , "OTHERS must be a choice by itself"  
+             ) ;  
+   .  
+ 
+  (* Choice is an expression: *)  
+  ChoiceList := AsListElem ( Child := LValue : [ AsExpr, ] ( ) )  
+    :- VAR LExpr : [ AsExpr, ] ;  
+       LExpr := ExprWExpectedType  
+         ( LValue  
+         , ExpectedSubtypeName  
+         , "array aggregate choice"  
+         , Context  
+         ) ;  
+       LValue := LExpr ;  
+       CheckStaticChoiceValue ( ExpectedDiscrRange , LExpr , ValueSet ) ;  
+       (* Next choice: *)  
+       ArrayAggregateNamedChoices  
+         ( ChoiceList :: Next , ExpectedSubtypeName , Context , ValueSet ) ;  
+    .  
+ 
+  (* Choice is a range: *)  
+  ChoiceList := AsListElem ( Child := LRange : [ AsDiscreteRange, ] ( ) )  
+    :- DiscrRange  
+         ( LRange , ExpectedSubtypeName , Context => LRangeNode : ) ;  
+       LRange := LRangeNode ;  
+       CheckStaticChoiceRange  
+         ( ExpectedDiscrRange , LRangeNode , ValueSet ) ;  
+       (* Next choice: *)  
+       ArrayAggregateNamedChoices  
+         ( ChoiceList :: Next , ExpectedSubtypeName , Context , ValueSet ) ;  
+    .  
+ 
+(* END ArrayAggregateNamedChoices *)  
+ 
+PROCEDURE ArrayAggregateAssociation 
+  ( Assoc : [ AsAggregateArg, ]  
+  ; IndexType : [ AsSubtypeName, ] 
+  ; ExpectedDiscrRange : AsDiscrRangeNode  
+  ; Context : [ AsScope, ]  
+  ; REF ValueSet : ValueSets . T  
+  ; REF PositionalCount : INTEGER  
+  ; REF OTHERSExpr : [ AsExpr, ]  
+  )  
+(* Handle the kinds of associations: positional, named, OTHERS. *)  
+ 
+  (* Named association with singleton OTHERS: *)  
+  Assoc := AsNamedComponentAssoc  
+    ( Choices := AsListElem ( Child := AsOTHERS , Next := NIL )  
+    , Value := LValue :  
+    )  
+    :- OTHERSExpr := LValue ; .  
+ 
+  (* Other named association: *)  
+  Assoc := AsNamedComponentAssoc ( )  
+    :- ArrayAggregateNamedChoices  
+         ( Assoc :: Choices  
+         , IndexType  
+         , ExpectedDiscrRange  
+         , Context  
+         , ValueSet  
+         ) ; 
+    .  
+ 
+  (* Positional association: *)  
+  Assoc := [ AsExpr, ] ( )  
+    :- PositionalCount := PositionalCount + 1 ;  
+       (* Oh, to have a common, ordinary INC in Ada! *)  
+    .  
+ 
+(* END ArrayAggregateAssociation *)  
+ 
+PROCEDURE QualifiedArrayAggregateElement  
+  ( Assoc : [ AsAggregateArg, ] ; ElementType : [ AsSubtypeName, ] )  
+(* Check for qualified element value and make sure it has same type. *)  
+ 
+  (* Qualified element, should be for the element type. *)  
+  Assoc := LQual : AsQualifiedExpr ( Value := LValue : )  
+  ; Assoc := AsNamedComponentAssoc  
+      ( Value := LQual : AsQualifiedExpr ( Value := LValue : ) )  
+    :- LQual :: ExprType := GetTypeSubtypeDecl ( LQual :: TypeMark ) ; 
+       GetTypeDefOfSubtypeName ( ElementType => LElemTypeDef : ) ;  
+       GetTypeDefOfSubtypeName ( LQual :: ExprType => LQualTypeDef : ) ;  
+       CheckExpectedTypeDefs  
+         ( LValue  
+         , "array aggregate element qualifier"  
+         , LQualTypeDef  
+         , LElemTypeDef  
+         ) ; 
+    .  
+ 
+  (* Don't fail: *)  
+  _ :- .  
+ 
+(* END QualifiedArrayAggregateElement *)  
+ 
+PROCEDURE ArrayAggregateElement 
+  ( Assoc : [ AsAggregateArg, ]  
+  ; ArraySubtypeName [ AsSubtypeName, ]  
+  ; Index : [ AsList, ] (* Of AsSubtypeName *)  
+  ; ElementType : [ AsSubtypeName, ] 
+  ; Context : [ AsScope, ]  
+  => Multi-DSubaggregate : [ AsArrayAggregate, ] 
+     (* Element is a multi-dimensonal array subaggregate (NIL otherwise) *)  
+  )  
+(* Handle these possibilities: 
+     - String literal for an inner dimension of a multidimensional array  
+     - Nested aggregate for an inner dimension of a multidimensional array  
+     - Nested aggregate for array elements  
+     - Other value, including string literal as element.  
+*)  
+ 
+  (* String literal, another index, i.e. multidimensional. *)  
+  Assoc := AsQualifiedExpr ( Value := LString : AsStringLit ( ) )  
+  , Index := AsListElem  
+      ( Next := AsListElem  
+          ( Child := LIndexSubtypeName : [ AsSubtypeName, ] ( )  
+          , Next := LLaterIndex :  
+          )  
+  ; Assoc := LString: AsStringLit ( )  
+  , Index := AsListElem ( )  
+    :- { IF LLaterIndex /= NIL  
+         THEN  
+           Error 
+             ( LString :: Position  
+             , "string literal at an outer dimemsion of a " 
+               & "multidimensional array."  
+             ) ;  
+         END (* IF *) ; 
+       } ;  
+       { IF NOT IsCharType ( ElementType )  
+         THEN 
+           ErrorPos 
+             ( LString :: Position  
+             , "string literal for an array of type other than" 
+               & "character, declared at."  
+             , ElementType :: Position  
+             ) ;  
+         END (* IF *) ; 
+       } ;  
+       GetSubtypeDefOfSubtypeName  
+         ( LIndexSubtypeName => LIndexSubtypeDef : ) ; 
+       StringLitBounds ( LString , LIndexSubtypeDef ) ;  
+    => LString ,  
+    .  
+ 
+  (* Nested aggregate, another index, i.e multidimensional. *)  
+  Assoc := AsQualifiedExpr ( Value := LRaw : AsRawAggregate ( ) )  
+  , Index := AsListElem ( Next := AsListElem ( ) )  
+  ; Assoc := LRaw : AsRawAggregate ( )  
+  , Index := AsListElem ( Next := AsListElem ( ) )  
+  ; Assoc := AsNamedComponentAssoc  
+      ( Value : AsQualifiedExpr ( Value := LRaw : AsRawAggregate ( ) ) )  
+  , Index := AsListElem ( Next := AsListElem ( ) )  
+  ; Assoc := AsNamedComponentAssoc ( Value := LRaw : AsRawAggregate ( ) )  
+  , Index := AsListElem ( Next := AsListElem ( ) )  
+    :- LRaw := ArrayAggregate 
+         ( LRaw , ArraySubtypeName , Index :: Next , ElementType , Context ) ;  
+    => LRaw ,  
+    .  
+  
+  (* Nested aggregate, for the element type. *)  
+  Assoc := AsQualifiedExpr ( Value := LRaw : AsRawAggregate ( ) )  
+  ; Assoc := LRaw : AsRawAggregate ( )  
+  ; Assoc := AsNamedComponentAssoc  
+      ( Value : AsQualifiedExpr ( Value := LRaw : AsRawAggregate ( ) ) )  
+  ; Assoc := AsNamedComponentAssoc ( Value := LRaw : AsRawAggregate ( ) )  
+    :- GetSubtypeDefOfSubtypeName ( ElementType => LElementSubtypeDef : ) ;  
+       Assoc := Aggregate  
+         ( LRaw , ElementType , LElementSubtypeDef , Context ) ;  
+    => NIL ,  
+    .  
+ 
+  (* Not a nested aggregate (includes string literal as element): *)  
+  Assoc := LValue : [ AsExpr, ] ( )  
+  ; Assoc := AsNamedComponentAssoc ( Value := LValue : [ AsExpr, ] ( ) )  
+    LValue  
+      := ExprWExpectedType 
+           ( LValue , ElementType , "array aggregate element" , Context ) ; 
+    => NIL ,  
+    .  
+ 
+(* END ArrayAggregateElement *)  
+ 
+PROCEDURE ArraySubaggregatesEqualBounds  
+  ( Prev : [ AsArrayAggregate, ]  
+  ; Current : [ AsArrayAggregate, ]  
+  => Next : [ AsArrayAggregate, ]  
+  )  
+ 
+  (* No aggregates at all: *)  
+  Prev := NIL ; Current := NIL => NIL ; .  
+ 
+  (* Only Current: *)  
+  Prev := NIL ; Current := [ AsStaticArrayAggregate , AsStringLit ] ( )  
+    => Current ; .  
+ 
+  (* Only Prev: *)  
+  Prev := [ AsStaticArrayAggregate , AsStringLit ] ( ) ; Current := NIL  
+    => Prev ; .  
+ 
+  (* Both Prev and Current: *)  
+  Prev := [ AsStaticArrayAggregate , AsStringLit ] ( )  
+  , Current := [ AsStaticArrayAggregate , AsStringLit ] ( )  
+    :- { IF NOT StaticArith . IntEqual  
+                  ( Prev :: LowerBound , Current :: LowerBound ) 
+         THEN 
+           ErrorPos  
+             ( Current :: Position  
+             , "Lower bound of subaggregate differs from that of " 
+               & "previous subaggregate at " 
+             , Prev :: Position  
+             )  
+         END IF ;  
+         IF NOT StaticArith . IntEqual  
+                  ( Prev :: UpperBound , Current :: UpperBound ) 
+         THEN 
+           ErrorPos  
+             ( Current :: Position  
+             , "Upper bound of subaggregate differs from that of " 
+               & "previous subaggregate at " 
+             , Prev :: Position  
+             )  
+         END IF ;  
+       } ;  
+    => Prev ; .  
+ 
+(* END ArraySubaggregatesEqualBounds *) 
+ 
+PROCEDURE ArrayAggregateAssocs 
+  ( Assocs : [ AsList, , AsAggregateArg, ] 
+  ; ArraySubtypeName : [ AsSubtypeName, ]  
+  ; Index : [ AsList, ] 
+  ; ExpectedDiscrRange : AsDiscrRangeNode  
+  ; ElementType : [ AsSubtypeName, ] 
+  ; PrevElemSubaggregate : [ AsArrayAggregate, ]  
+    (* ^A prior association in the same list, which is an inner 
+        aggregate.  It will be used to enforce LRM 4.3.3(30) *) 
+  ; Context : [ AsScope, ]  
+  ; REF ValueSet : ValueSets . T  
+  ; REF PositionalCount : INTEGER  
+  ; REF OTHERSExpr : [ AsExpr, ]  
+  )  
+(* PRE: ArrayAggregateSyntaxOneLevel has been called on 
+        Assocs and did not fail. *)  
+ 
+  (* Done: *)  
+  Assocs := NIL :- .  
+ 
+  (* Missing an Index: *) 
+  (* This could happen if the array type had errors. *)  
+  Index := NIL :- .  
+ 
+  (* An association: *)  
+  Assocs := AsListElem ( Child := [ AsAggregateArg, ] ( ) )  
+  , Index := AsListElem ( )  
+    (* We have a cartesian product of the sets of possibilities handled 
+       by these routines:  
+         - ArrayAggregateAssociation 
+         - QualifiedArrayAggregateElement  
+         - ArrayAggregateElement 
+         - ArraySubaggregatesEqualBounds 
+    *)  
+    :- ArrayAggregateAssociation 
+         ( Assocs :: Child  
+         , Index :: Child  
+         , ExpectedDiscrRange  
+         , Context  
+         , ValueSet  
+         , PositionalCount  
+         , OTHERSExpr  
+         ) ;  
+       QualifiedArrayAggregateElement ( Assocs :: Child , ElementType ) ;  
+       ArrayAggregateElement  
+         ( Assocs :: Child , ArraySubtypeName , Index , ElementType , Context  
+         => LElemSubaggregate :  
+         ) ;  
+       ArraySubaggregatesEqualBounds  
+         ( PrevElemSubaggregate , LElemSubaggregate  
+         => LNextElemSubaggregate :  
+         ) ;  
+       (* Next association: *)  
+       ArrayAggregateAssocs 
+         ( Assocs :: Next 
+         , ArraySubtypeName  
+         , Index  
+         , ExpectedDiscrRange  
+         , ElementType  
+         , LNextElemSubaggregate  
+         , Context  
+         , ValueSet  
+         , PositionalCount  
+         , OTHERSExpr  
+         ) ;  
+    .  
+ 
+(* END ArrayAggregateAssocs *)  
+ 
+PROCEDURE ComputeArrayAggregateBounds  
+  ( Raw : AsRawAggregate  
+  ; ArrayType : [ AsSubtypeDef, ]  
+  ; IndexSubtype : [ AsSubtypeName, ] 
+  ; ValueSet : ValueSets . T  
+  ; PositionalCount : INTEGER  
+  ; OTHERSExpr : [ AsExpr, ]  
+  =>LowerBound : StaticIntValueTyp  
+  ; UpperBound : StaticIntValueTyp  
+  )  
+ 
+  (* Unconstrained, OTHERS: *)  
+  ArrayType := AsUnconstrainedArrayDef ( )  
+  ; OTHERSExpr := [ AsExpr, ]  
+    :- Error  
+         ( Raw :: Position  
+         , "Aggregate has OTHERS and no applicable index constraint." 
+         ) ;  
+    => AstTypes . StaticIntUnknown , AstTypes . StaticIntUnknown ,  
+    .  
+  
+  (* Unconstrained, named, no OTHERS: *)  
+  ArrayType := AsUnconstrainedArrayDef ( )  
+  ; PositionalCount := { 0 }  
+  ; OTHERSExpr := NIL  
+    :- { IF NOT ValueSets . IsCompact ( ValueSet )  
+         THEN Error 
+                ( Raw :: Position  
+                , "Range of values is not compact."  
+                ) ;  
+         END IF ;  
+       } ;  
+    => ValueSets . MinValue ( ValueSet )  
+       , ValueSets . MaxValue ( ValueSet ) , 
+    .  
+ 
+  (* Constrained, named: *)  
+  ArrayType  
+    := [ AsConstrainedArrayDef , AsSubtypeIndicationConstrained ] ( )  
+  ; PositionalCount := { 0 }  
+     :- GetStaticBoundsOfSubtypeName  
+          ( IndexSubtype => LLower : , LUpper : ) ;  
+        { IF OTHERSExpr = NULL  
+             AND NOT ValueSets . ExactlyCoversRange  
+                       ( ValueSet , LLower , LUpper )  
+          THEN Error 
+                 ( Raw :: Position  
+                 , "Range of values is not complete."  
+                 ) ;  
+          END IF ;  
+        } ;  
+     => LLower , LUpper ,  
+     . 
+ 
+  (* Unconstrained, positional, no OTHERS: *)  
+  ArrayType := AsUnconstrainedArrayDef ( )  
+  ; OTHERSExpr := NIL  
+    :- VAR LStaticCountMinus1 : StaticIntValueTyp ;  
+       ( PositionalCount > 0 ) ;  
+       GetStaticBoundsOfSubtypeName  
+         ( IndexSubtype => LLower : , LUpper : ) ;  
+       LStaticCountMinus1  
+         := StaticArith . IntegerToStaticIntValueTyp ( PositionalCount - 1 ) 
+    => LLower , StaticArith . IntSum ( LLower , LStaticCountMinus1 ) ,  
+    .  
+ 
+  (* Constrained, positional: *)  
+  ArrayType  
+    := [ AsConstrainedArrayDef , AsSubtypeIndicationConstrained ] ( )  
+    :- VAR LPosUpper : StaticIntValueTyp ;  
+       ( PositionalCount > 0 ) ;  
+       GetStaticBoundsOfSubtypeName  
+         ( IndexSubtype => LLower : , LUpper : ) ;  
+       LPosUpper  
+         := StaticArith . IntSum  
+              ( StaticArith . IntegerToStaticIntValueTyp  
+                  ( PositionalCount - 1 ) 
+              , LLower  
+              ) ;  
+       { IF OTHERSExpr = NULL  
+            AND StaticArith . IntLess ( LPosUpper , LUpper )  
+         THEN Error ( Raw :: Position , "Too few values." ) ;  
+         ELSIF StaticArith . IntGreater ( LPosUpper , LUpper )  
+         THEN Error ( Raw :: Position , "Too many values." ) ;  
+         END IF ;  
+       } ;  
+    => LLower , LUpper ,  
+    .  
+ 
+  (* Anything else can't happen: *)  
+  _ :- Zassert . Cant_Be 
+         ( "Semantics.ArrayAggregateType: Bad case." ) ;  
+    => AstTypes . StaticIntUnknown , AstTypes . StaticIntUnknown ,  
+    .  
+ 
+(* END ComputeArrayAggregateBounds *)  
+ 
+FUNCTION ArrayAggregate 
+  ( Raw : AsRawAggregate  
+  ; ArraySubtypeName : [ AsSubtypeName, ]  
+  ; IndexSubtypeNames [ AsList, ] (* Of AsSubtypeName *)  
+  ; ElementType : [ AsSubtypeName, ]  
+  ; Context : [ AsScope, ]  
+  )  
+: AsArrayAggregate  
+ 
+  (* No Index type, can happen because of errors in type: *)  
+  IndexSubtypeNames := NIL RETURN NIL ; .  
+ 
+  (* One-D aggregate with exactly one OTHERS association 
+     and one-D array type: *)  
+  Raw := AsRawAggregate  
+    ( Associations := AsListElem  
+        ( Child := AsNamedComponentAssoc  
+            ( Choices := AsListElem  
+                ( Child := AsOTHERS  
+                , Next := NIL  
+                )  
+            , Value := LValue :  
+            )  
+        , Next := NIL  
+        )  
+    )  
+  ; IndexSubtypeNames := AsListElem ( Next := NIL )  
+    :- ( IsUnconstrainedArraySubtypeName ( ArraySubtypeName ) ;  
+       Error  
+         ( Raw :: Position  
+         , "Aggregate has OTHERS and no applicable index constraint." 
+         ) ;  
+  
+    RETURN { mAsDynamicArrayAggregate 
+               ( Position => Raw :: Position  
+               , ExprType => ArraySubtypeName  
+               , Value  
+                   => ExprWExpectedType 
+                        ( LValue  
+                        , ElementType  
+                        , "array aggregate element"  
+                        , Context  
+                        )  
+               )  
+           } ;  
+    .  
+ 
+  (* Contains non-OTHERS associations, or multi-dimensional: *)  
+  IndexSubtypeNames := AsListElem  
+    ( Child := LIndexSubtypeName : [ AsSubtypeName, ] ( ) )  
+  _ :- VAR LValueSet : ValueSets . T ;  
+       VAR LPositionalCount : INTEGER ;  
+       VAR LOTHERSExpr : [ AsExpr, ] ;  
+       VAR LAggregateType : [ AsSubtypeName, ]  
+       VAR LResult : [ AsStaticArrayAggregate, ]  
+       ArrayAggregateSyntaxOneLevel  
+         ( Raw :: Associations  , FALSE , FALSE , FALSE ) ;  
+       (* ^May fail if it detects errors. *)  
+       GetDiscrRangeOfSubtypeName ( LIndexSubtypeName => LDiscrRange : )  
+       LValueSet := ValueSets . NewSet ;  
+       LPositionalCount := 0 ;  
+       LOTHERSExpr := NIL ;  
+       ArrayAggregateAssocs  
+         ( Raw :: Associations  
+         , ArraySubtypeName  
+         , IndexSubtypeNames  
+         , LDiscrRange  
+         , ElementType  
+         , NIL  
+         , Context  
+         , LValueSet 
+         , LPositionalCount  
+         , LOTHERSExpr 
+         ) ;  
+       GetSubtypeDefOfSubtypeName ( ArraySubtypeName => LArraySubtypeDef : ) ;  
+       ComputeArrayAggregateBounds  
+         ( Raw  
+         , LArraySubtypeDef 
+         , LIndexSubtypeName 
+         , LValueSet  
+         , LPositionalCount  
+         , LOTHERSExpr  
+         => LLower : , LUpper :  
+         ) 
+       ValueSets . Dispose ( LValueSet ) ;  
+       { IF LPositionalCount > 0  
+         THEN  
+           LResult :=  
+             mAsPositionalStaticArrayAggregate 
+               ( Position => Raw :: Position  
+               , ExprType => LAggregateType 
+               , Others => LOTHERS  
+               , Associations => Raw :: Associations  
+               , LowerBound => LLower  
+               , UpperBound => LUpper  
+               ) ;  
+         ELSE  
+           LResult :=  
+             mAsNamedStaticArrayAggregate 
+               ( Position => Raw :: Position  
+               , ExprType => LAggregateType 
+               , Others => LOTHERS  
+               , Associations => Raw :: Associations  
+               , LowerBound => LLower  
+               , UpperBound => LUpper  
+               ) ;  
+         END IF ;  
+       } ;  
+  
+    RETURN LResult ;  
+    .  
+ 
+  (* Cases above failed, due to errors: *)  
+  _ RETURN NIL ; .  
+ 
+(* END ArrayAggregate *)  
+ 
+(* Record aggregates: *)  
+ 
+PROCEDURE PrecheckAssocListRecurse  
+  ( Assoc : [ AsList, ] (* Of AsAggregateArg *)  
+  ; Decls : [ AsList, ] (* Of AsDecl *)  
+  ; ForegoingNamed : AsNamedComponentAssoc  
+  => HasErrors : BOOLEAN  
+  )  
+  (* Go thru Assoc linearly.  For each named association, 
+     search Decls. *)  
+ 
+  (* Done: *)  
+  Assoc := NIL :- => FALSE ; . 
+ 
+  (* Descend into choices: *)  
+  Assoc := AsListElem ( )  
+    :- PrecheckAssocListRecurse  
+         ( Assoc :: Child , Decls , ForegoingNamed => LChildHasErrors : _ ) ; 
+       PrecheckAssocListRecurse  
+         ( Assoc :: Next , Decls , ForegoingNamed => LNextHasErrors : _  ) ;  
+    => LChildHasErrors OR ELSE LNextHasErrors ..  
+    .  
+ 
+  (* Discrete range: *)  
+  Assoc := [ AsDiscreteRange, ]  ( )  
+    :- Error 
+         ( Assoc :: Position  
+         , "Range not allowed as an association."  
+         ) ; 
+       PrecheckAssocListRecurse  
+         ( Assoc :: Next , Decls , ForegoingNamed => LHasErrors : _ ) ;  
+    => TRUE ..  
+    .  
+  
+  (* Normal Positional association: *)  
+  Assoc := [ AsExpr, ] ( )  
+  , ForegoingNamed := NIL  
+    :- PrecheckAssocListRecurse  
+         ( Assoc :: Next , Decls , ForegoingNamed => LHasErrors : _ ) ;  
+    => LHasErrors ..  
+    .  
+ 
+  (* Positional association which follows a named association: *)  
+  Assoc := LPositional : [ AsExpr, ] ( )  
+    :- ErrorPos  
+         ( LPositional :: Position  
+         , "Positional association follows a named association at "  
+         , ForegoingNamed :: Position  
+         ) ;  
+       PrecheckAssocListRecurse  
+         ( Assoc :: Next , Decls , ForegoingNamed => LHasErrors : _ ) ;  
+    => TRUE ..  
+    .  
+ 
+  (* Named association with non-singleton choice list: *)  
+  Assoc := AsNamedComponentAssoc  
+    ( Choices := AsListElem  
+        ( Next := AsListElem ( Child := LSuccessor : ) ) 
+    )  
+    :- Error ( LSuccessor :: Position  
+             , "Named association must have only one choice."  
+             ) ;  
+       PrecheckAssocListRecurse  
+         ( Assoc :: Next , Decls , Assoc => LHasErrors : _ ) ;  
+    => TRUE ..  
+    .  
+ 
+  (* OTHERS association, not allowed: *)  
+  Assoc := AsNamedComponentAssoc  
+     ( Choices := AsListElem ( Child := LOthers : AsOTHERS ( ) ) )  
+    :- Error  
+         ( LOthers :: Position  
+         , "OTHERS not allowed in association list."  
+         ) ;  
+       PrecheckAssocListRecurse  
+         ( Assoc :: Next , Decls , Assoc => LHasErrors : _ ) ;  
+    => TRUE ..  
+    .  
+ 
+  (* Named association which matches a declaration: *)  
+  Assoc := AsNamedComponentAssoc  
+    ( Choices := AsListElem ( Child := LIdentRef : AsIdentRef ( ) )  
+    :- VAR LDecl : [ AsDecl, ] ;  
+       LDecl := LookupInDeclsList ( LIdentRef , Decls , NIL ) ;  
+       PrecheckAssocListRecurse  
+         ( Assoc :: Next , Decls , Assoc => LHasErrors : _ ) ;  
+    => LHasErrors ..  
+    .  
+ 
+  (* Named association which does not match a declaration: *)  
+  Assoc := AsNamedComponentAssoc  
+    ( Choices := AsListElem ( Child := LIdentRef : AsIdentRef ( ) )  
+    :- Error  
+         ( LIdentRef :: Position  
+         , "No such field/formal."  
+         ) ;  
+       PrecheckAssocListRecurse  
+         ( Assoc :: Next , Decls , Assoc => LHasErrors : _ ) ;  
+    => TRUE ..  
+    .  
+ 
+  (* Named association with bad Choice: *)  
+  Assoc := AsNamedComponentAssoc  
+     ( Choices := AsListElem ( Child := LChoiceRef : _ )  
+    :- Error  
+         ( LChoiceRef :: Position  
+         , "Named association must be identifier."  
+         ) ;  
+       PrecheckAssocListRecurse  
+         ( Assoc :: Next , Decls , Assoc => LHasErrors : _ ) ;  
+    => TRUE ..  
+    .  
+ 
+  _ :- Zassert . Cant_Be ( "PrecheckAssocListRecurse: bad case.: ) ;  
+    => TRUE ..  
+    .  
+ 
+(* END PrecheckAssocListRecurse *)  
+ 
+PROCEDURE PrecheckAssocList  
+  ( Assoc : [ AsList, ] (* Of AsAggregateArg *)  
+  ; Decls : [ AsList, ] (* Of AsDecl *)  
+  )  
+  (* Precheck the arguments of a stage 1 aggregate, for use as 
+     an association list, i.e. either a record aggregate, or 
+     an actual parameter list.  Emit error messages for any errors 
+     detected.  FAIL if this happens. Check the following:  
+       1) All named associations follow all positional associations. 
+       2) Each Choices list has only one element 
+       3) Each choice is a single identifier. 
+       4) An identifier as a choice is found in Decls.  
+       5) There are no AsDiscrRangeAlt occurrences.  
+  *)  
+ 
+  _ :- PrecheckAssocListRecurse ( Assoc , Decls , NIL => FALSE ) ; .  
+ 
+(* END PrecheckAssocList *)  
+ 
+PROCEDURE SemRecordAggregate  
+  ( NormAssocs : [ AsList, AsNormalizedAssoc ] ; Context : [ AsScope, ] )  
+ 
+  (* Done: *)  
+  NIL :- .  
+ 
+  (* List element: *)  
+  AsListElem ( )  
+    :- SemRecordAggregate ( NormAssocs :: Child , Context ) ;  
+       SemRecordAggregate ( NormAssocs :: Next , Context ) ;  
+    .  
+ 
+  (* Nested aggregate. *)  
+  NormAssocs := AsNormalizedAssocExplicit  
+    ( Value := LRaw : AsRawAggregate ( ) )  
+    :- GetSubtypeNameOfValue ( NormAssocs :: DeclIdent => LSubtypeName : ) ;  
+       GetSubtypeDefOfSubtypeName ( LSubtypeName => LSubtypeDef : ) ;  
+       NormAssocs :: Value := Aggregate  
+         ( LRaw , LSubtypeName, LSubtypeDef , Context ) ;  
+    .  
+ 
+  (* Nested qualified aggregate, should be for the component type. *)  
+  NormAssocs := AsNormalizedAssocExplicit  
+      ( Value := LQual : AsQualifiedExpr  
+          ( Value := LRaw : AsRawAggregate ( ) )  
+      )  
+    :- GetSubtypeNameOfValue ( NormAssocs :: DeclIdent => LSubtypeName : ) ;  
+       GetTypeDefOfSubtypeName ( LSubtypeName => LTypeDef : ) ;  
+       GetTypeDefOfSubtypeName ( LQual :: ExprType => LQualTypeDef : ) ;  
+       CheckExpectedTypeDefs  
+         ( LRaw , "record aggregate element" , LQualTypeDef , LTypeDef ) ;  
+       GetSubtypeDefOfSubtypeName ( LSubtypeName => LSubtypeDef : ) ;  
+       NormAssocs :: Value:= Aggregate  
+         ( LRaw , LSubtypeName, LSubtypeDef , Context ) ;  
+    .  
+ 
+  (* Scalar component: *)  
+  AsNormalizedAssocExplicit ( )  
+    :- GetSubtypeNameOfValue ( NormAssocs :: DeclIdent => LSubtypeName : )  
+       NormAssocs :: Value := ConvertStaticValue  
+         ( Expr ( NormAssocs :: Value , Context ) )  
+         , LSubtypeName  
+         ) ;  
+    .  
+ 
+(* END SemRecordAggregate *)  
+ 
+FUNCTION RecordAggregate 
+  ( Raw : AsRawAggregate  
+  ; Components : [ AsList, ] (* Of AsComponent <= AsDecl *)  
+  ; ExpectedSubtypeName : [ AsSubtypeName, ]  
+  ; Context : [ AsScope, ]  
+  )  
+: AsRecordAggregate  
+ 
+  (* Try PrecheckAssocList: *)  
+  _ :- VAR LNormalized : [ AsList, ] ;  
+       PrecheckAssocList ( Raw :: Arguments , Components ) ;  
+       (* If PrecheckAssocList finds any errors, it will fail. *)  
+       LNormalized  
+         := NormalizedAssocs  
+             ( Components  
+             , NIL  
+             , Raw :: Associations  
+             , ExpectedSubtypeName  
+             ) ;  
+       SemRecordAggregate ( LNormalized , Context ) ;  
+    RETURN { mAsRecordAggregate  
+               ( Position => Raw :: Position  
+               , ExprType => ExpectedSubtypeName  
+               , Associations => Raw :: Associations  
+               , NormalizedAssociations => LNormalized 
+               )  
+           } ;  
+ 
+  (* Something failed: *)  
+  _ RETURN NIL ; .  
+ 
+(* END RecordAggregate *)  
+ 
+FUNCTION Aggregate  
+  ( Raw : AsRawAggregate  
+  ; ExpectedSubtypeName : [ AsSubtypeName, ]  
+  ; ExpectedSubtypeDef : [ AsTypeDef, ]  
+  ; Context : [ AsScope, ]  
+  )  
+: [ AsTrueAggregate, ]  
+ 
+  (* Unconstained array type: *)  
+  ExpectedSubtypeDef := AsUnconstrainedArrayDef ( )  
+  _ :- ErrorPos  
+         ( Raw :: Position  
+         , "Aggregate for unconstrianed array type declared at " 
+         , ExpectedSubtypeName :: Position 
+         ) ;  
+    .  
+ 
+  (* Constained array type: *)  
+  ExpectedSubtypeDef  
+    := [ AsConstrainedArrayDef, AsSubtypeIndicationConstrained ]  ( )  
+    RETURN ArrayAggregate 
+             ( Raw  
+             , ExpectedSubtypeName  
+             , ExpectedSubtypeDef :: IndexSubtypeNames  
+             , ExpectedSubtypeDef :: ElementType  
+             , Context  
+             ) ;  
+    .  
+ 
+  (* Record Type: *)  
+  ExpectedSubtypeDef := RecordTypeDef ( Components := LComponents : _ ) 
+    RETURN RecordAggregate 
+             ( Raw , LComponents , ExpectedSubtypeName , Context ) ;  
+   .  
+ 
+  (* Other type: *)  
+  _ :- ErrorPos  
+         ( Raw :: Position  
+         , "Aggregate for non-array, non-record type declared at " 
+         , ExpectedSubtypeName :: Position 
+         ) ;  
+    .  
+ 
+(* END Aggregate *)  
+ 
+FUNCTION Expr  
+  ( Node : [ AsExpr, ]  
+  ; Context : [ AsScope, ]  
+  )  
+: [ AsExpr, ]  
+ 
+  AsIntLit ( .. )  
+    :- StaticValue  
+         := { mAsStaticIntValue  
+                ( Position => Node :: Position  
+                , Value => StaticArith . IntValue ( TokenText ( Node ) )  
+                )  
+            } ;  
+    RETURN Node ;  
+    .  
+ 
+  AsRealLit ( .. )  
+    :- StaticValue  
+         := { mAsStaticRealValue  
+                ( Position => Node :: Position  
+                , Value => StaticArith . RealValue ( TokenText ( Node ) )  
+                )  
+            } ;  
+    RETURN Node ;  
+    .  
+ 
+  AsStringLit ( .. )  
+    :- StaticValue  
+         := { mAsStaticStringValue  
+                ( Position => Node :: Position  
+                , Value  
+                    => StaticStrings . StringValue ( TokenText ( Node ) )  
+                )  
+            } ;  
+    RETURN Node ;  
+    . 
+ 
+  AsCharLit ( .. )  
+    :- StaticValue  
+         := { mAsStaticCharValue  
+                ( Position => Node :: Position  
+                , Value => StaticStrings . CharValue ( TokenText ( Node ) )  
+                )  
+            } ;  
+    RETURN Node ;  
+    . 
+ 
+  AsNULL ( ) RETURN Node ; .  
+ 
+  [ AsName, ] ( )  
+    RETURN Name ( Node , Context ) ; .  
+ 
+  AsUnaryOp ( .. )  
+    :- Left := Expr ( Right , Context ) ;  
+       GetSubtypeNameOfValue ( Right => LRightSubtypeName : ) ;  
+       GetTypeDefOfSubtypeName ( LRightSubtypeName => LLRightTypeDef : ) ;  
+       UnaryOpTypeAnal 
+         ( Node  
+         , LRightTypeDef 
+         , Context  
+         ) ;  
+       EvalUnaryOp ( Node ) ;  
+    RETURN Node ;  
+   .  
+ 
+  AsBinaryOp ( .. )  
+    :- Left := Expr ( Left , Context ) ;  
+       GetSubtypeNameOfValue ( Left => LLeftSubtypeName : ) ;  
+       GetTypeDefOfSubtypeName ( LLeftSubtypeName => LLeftTypeDef : ) ;  
+       Right := Expr ( Right , Context ) ; 
+       GetSubtypeNameOfValue ( Right => LRightSubtypeName : ) ;  
+       GetTypeDefOfSubtypeName ( LRightSubtypeName => LLRightTypeDef : ) ;  
+       BinaryOpTypeAnal 
+         ( Node  
+         , LLeftTypeDef  
+         , LRightTypeDef 
+         , Context  
+         ) ;  
+       EvalBinaryOp ( Node ) ;  
+    RETURN Node ;  
+   .  
+ 
+  [ AsINRange , AsNOTINRange ] ( .. )  
+    :- DiscreteRange  
+         ( Node :: INRange , Context  
+         => LRangeNode : AsDiscrRangeNode ( )  
+         ) ; 
+       Node :: INRange := LRangeNode ; 
+(* FIX: After DiscreteRange is written, do we really need this 
+        check, or is it inside DiscreteRange? *)  
+       GetTypeDefOfSubtypeName  
+         ( LRangeNode :: RangeType => LRangeTypeDef ) ;  
+       GetSubtypeNameOfValue  
+         ( LRangeNode :: Lower => LLowerSubtypeName : ) ;  
+       GetTypeDefOfSubtypeName ( LLowerSubtypeName => LLowerTypeDef : ) ;  
+       GetSubtypeNameOfValue  
+         ( LRangeNode :: Upper => LUpperSubtypeName : ) ;  
+       GetTypeDefOfSubtypeName ( LUpperSubtypeName => LUpperTypeDef : ) ;  
+       CheckOperandTypeDefsSame ( Node , LRangeTypeDef , LLowerTypeDef ) ;  
+       CheckOperandTypeDefsSame ( Node , LRangeTypeDef , LUpperTypeDef ) ;  
+       Node :: ExprType := LRangeNode :: RangeType ;  
+       EvalINOp ( Node ) ;  
+    RETURN Node  ;  
+    .  
+ 
+  (* "Aggregate" with only one, positional association is 
+     really a parenthesized expression: *)  
+  AsRawAggregate  
+    ( Associations := AsListElem ( Child := LExpr : _ , Next := NIL ) )  
+    :- LExpr := Expr ( LExpr , Context ) ;  
+    RETURN { mAsParenthesizedExpr  
+               ( Position => Node :: Position  
+               , ExprType => LExpr :: ExprType  
+               , Value => LExpr  
+               )  
+           } ;  
+    .  
+  
+    AsRawAggregate ( )  
+      :- Error 
+           ( Node :: Position  
+           , "Aggregate must be qualified." 
+           ) ;  
+      RETURN Node ;  
+      .  
+ 
+  (* Type qualified aggregate (which is top level): *)  
+  AsQualifiedExpr  
+    ( Value := AsRawAggregate  
+        ( Associations := LAssociations : [ AsList, ] )  
+    )  
+    :- Node :: ExprType := GetTypeSubtypeDecl ( Node :: TypeMark ) ; 
+       Node :: StaticValue := NIL ;  
+       GetSubtypeDefOfSubtypeName ( Node :: ExprType => LSubtypeDef : ) ;  
+       Node :: Value := Aggregate  
+         ( Node :: Value , Node :: ExprType , LSubtypeDef , Context ) ;  
+    RETURN Node ;  
+    .  
+ 
+  (* Other qualfied expression: *)  
+  AsQualifiedExpr ( )  
+    :- Node :: ExprType := GetTypeSubtypeDecl ( Node :: TypeMark ) ; 
+       Node :: StaticValue := NIL ;  
+       GetTypeDefOfSubtypeName ( Node :: ExprType => LTypeDef : ) ;  
+       Value := ExprWExpectedType  
+         ( Node :: Value , Node :: ExprType , "expression" , Context ) ;  
+    RETURN Node ;  
+    .  
+ 
+(* END Expr *)  
+ 
+FUNCTION ExprWExpectedType 
+  ( Value : [ AsExpr, ]  
+  ; ExpectedType : [ AsSubtypeName, ] 
+  ; ConstructName : String  
+  ; Context : [ AsScope, ]  
+  )  
+: [ AsExpr, ]  
+ 
+  _ :- VAR LResult : [ AsExpr, ] ;  
+       LResult := Expr ( Value , Context ) ;  
+       GetTypeDefOfSubtypeName ( ExpectedType => LExpectedTypeDef : ) ;  
+       GetTypeDefOfSubtypeName ( LResult :: ExprType => LExprTypeDef : ) ;  
+       CheckExpectedTypeDefs  
+         ( LResult  
+         , ContextString  
+         , LExpectedTypeDef  
+         , LElemTypeDef  
+         ) ;  
+       GetSubtypeDefOfSubtypeName  
+         ( ExpectedType => LExpectedSubtypeDef : ) ;  
+       StringLitBounds ( LResult , LExpectedSubtypeDef : ) ;  
+    RETURN ConvertStaticValue ( LResult , LElemTypeDef ) ; 
+    . 
+ 
+(* END ExprWExpectedType *)  
+ 
+PROCEDURE ExprType ( Expr : [ AsExpr, ] ) : [ AsSubtypeName, ]  
+ 
+  AsExprWithExprType ( .. ) RETURN ExprType ; .  
+ 
+(* FIX: complete this^ *)  
+ 
+(* END ExprType *)  
+ 
+(* Statements: *)  
+ 
+PROCEDURE Stmt 
+  ( Node : Ast  
+  , Context : [ AsScope, ]  
+  )  
+ 
+  Node := NIL :- .  
+ 
+  Node := AsNullStmt ( ) :- .  
+ 
+  Node := AsAssignStmt ( )  
+    :- Node :: Left := Name ( Node :: Left , Context ) ;  
+    .  
+ 
+  Node := AsExitStmt ( )  
+ 
+  Node := AsReturnStmt ( )  
+ 
+  Node := AsRaiseStmt ( )  
+ 
+  Node := AsIfStmt ( )  
+ 
+  Node := AsCaseStmt ( )  
+ 
+  Node := AsLoopStmtPlain ( )  
+ 
+  Node := AsWhileStmt ( )  
+ 
+  Node := AsForStmtForward ( )  
+ 
+  Node := AsStmtBackward ( )  
+ 
+  Node := AsBlockStmt ( )  
+ 
+(* END Stmt *)  
+ 
+(* Identifier lookups: *)  
+ 
+FUNCTION LookupInContext 
+  ( Ref : AsIdentRef 
+  , Context : [ AsScope, ]  
+  , LastPosition : Ast  
+    (* The declaration found must not appear textually later 
+       in the input file than this node.  NIL disables this 
+       check.  
+    *)  
+  )  
+: AsIdentDef  
+(* Always succeeds, but will produce an error message and 
+   return NIL, if Ref is not visible in Context. *)  
+ 
+  _ RETURN LookupInSingleScope ( Ref , Context , LastPosition ) ; .  
+ 
+  _ , [ AsScope, ] ( ContainingScope := AsCompilationUnit ( ) )  
+    RETURN LookupInDeclsList ( Ref , ContextClauses , LastPosition ) ; .  
+  
+  _ , AsPackBody ( .. )  
+    RETURN LookupInContext ( Ref , PriorUnit , LastPosition ) ; .  
+  
+  _ , AsScope ( .. )  
+     RETURN LookupInContext ( Ref , ContainingScope , LastPosition ) ; .  
+  
+  - ( )  
+    :- Error ( Ref :: Position , "No visible declaration." ) ;  
+    RETURN NIL ;  
+    .  
+ 
+(* END LookupInContext *)  
+ 
+FUNCTION LookupInSingleScope  
+  ( Ref : AsIdentRef 
+  , Node : [ AsScope, ]  
+  , LastPosition : Ast  
+    (* The declaration found must not appear textually later 
+       in the input file than this node.  NIL disables this 
+       check.  
+    *)  
+  )  
+: AsIdentDef  
+(* Call this only for a scope node which is surrounding 
+   the reference. *)  
+ 
+  (* The scope itself is referred to. Can this ever happen?  
+  _ , [ AsScope, ] ( )  
+    :- ( HaveEqualTokenTexts ( Ref , Node . SimpleName ) ) ; 
+       ( PositionLess ( Node , LastPosition ) ) ;  
+    RETURN SimpleName ; .  
+  *)  
+ 
+  (* Look in formals list, for subprogram body. *)  
+  _ , [ AsProcBody , AsFuncBody ] ( )  
+    RETURN LookupInDeclsList ( Ref , Node . Formals , LastPosition ) ; . 
+ 
+  _ , [ AsScope, ] ( )  
+    RETURN LookupInDeclsList ( Ref . Node . Decls , LastPostion ) ; . 
+ 
+  _ , _ :- FAIL ; .  
+ 
+(* END LookupInSingleScope *)  
+ 
+FUNCTION LookupInDeclsList  
+  ( Ref : AsIdentRef 
+  , Node :  
+      [ AsList, , AsDecl, , AsComponent, , AsIdentDef ]  
+  , LastPosition : Ast  
+    (* The declaration found must not appear textually later 
+       in the input file than this node.  NIL disables this 
+       check.  
+    *)  
+  )  
+: AsIdentDef  
+ 
+  _ , NIL :- FAIL ; .  
+ 
+  _ , AsListElem ( )  
+    RETURN LookupInDeclsList ( Ref , Node :: Child , LastPosition ) ; .  
+ 
+  _ , AsTypeDeclFull ( TYPEType := AsEnumTypeDef ( ) )  
+    RETURN LookupInDeclsList  
+             ( Ref , TYPEType :: EnumLits , LastPosition ) ; .  
+ 
+  _ , [ AsSingleNameDecl, ] ( )  
+    RETURN LookupInDeclsList  
+             ( Ref , Node :: SimpleName , LastPosition ) ; .  
+ 
+  _ , [ AsMultiNameDecl, AsWithClause ] ( )  
+    RETURN LookupInDeclsList  
+             ( Ref , Node :: SimpleNames , LastPosition ) ; .  
+ 
+  _ , AsIdentDef ( )  
+    :- ( HaveEqualTokenTexts ( Ref , Node ) ) ;  
+       ( PositionLess ( Node , LastPosition ) ) ;  
+    RETURN Node ; .  
+ 
+  _ :- FAIL ; .  
+ 
+(* END LookupInDeclsList *)  
+ 
+(* END of file Semantics.puma *)  
+ 

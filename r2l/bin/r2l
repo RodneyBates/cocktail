@@ -1,0 +1,13 @@
+ABIN=`abspath $0`
+ADIR=`dirname $ABIN`
+LIB=`abspath $ADIR/../lib`
+echo 1>&2 "running r2l from $LIB"
+exec $LIB/r2l -l$LIB $* |
+sed -e '
+s/<>//
+s/<,/</
+s/yyStart/BEGIN/g
+s;yyPrevious;/*** sorry - cannot translate yyPrevious ***/;g
+s/yyEcho/ECHO/g
+s/STD/INITIAL/g
+'

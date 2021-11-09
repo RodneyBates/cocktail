@@ -1,0 +1,1986 @@
+(*
+ *	"Semantics.mi"
+ *	generated with estra/8906
+ *	from "../src/Sem.estra"
+ *
+ *	estra 
+ *	was written by Bertram Vielsack in june 1989
+ *
+ *)
+
+IMPLEMENTATION MODULE Semantics;
+
+IMPORT SYSTEM, IO, Memory, System, Tree;
+
+    (* line 14 ../src/Sem.estra *)
+
+FROM ArgCheck	IMPORT	tLanguage, LANGUAGE;
+FROM Codes	IMPORT	IsCoded, IsCode, SetCode, SetDefCode, EmptyRecSetIndex,
+			cNoIndex, SetIndex, RecSetIndex;
+FROM Derivable	IMPORT	TestDerivable, IsDerivable;
+FROM Errors	IMPORT	eError, eWarning, eIdent, eIdentSet, eInteger,
+			InError, ErrorMessage, ErrorMessageI, ERROR;
+FROM Positions	IMPORT	NoPosition, tPosition;
+FROM First	IMPORT	Firsts, IsLeftRec;
+FROM Follow	IMPORT	Follows;
+FROM Idents	IMPORT	tIdent, MaxIdent, WriteIdent;
+FROM Reachable	IMPORT	WindThrough, IsReachable;
+FROM Scanner	IMPORT	NoIdent, NoValue, EndOfToken, Epsilon;
+FROM Sets	IMPORT	tSet, MakeSet, ReleaseSet, IsEmpty, IsSubset, IsEqual,
+			IsElement, Assign, Union, Difference, Include,
+			Exclude, AssignEmpty, Intersection, Card;
+FROM SYSTEM	IMPORT	ADR;
+FROM Table	IMPORT	InitTable, SetExpr, SetLeaf;
+FROM Tree	IMPORT	tTree, NoTree;
+FROM Types	IMPORT	BeginTypes, MakeTerm, MakeNonterm, IsDeclared,
+			Terminals, IsTerm, IsNonterm;
+
+CONST
+  eAlreadyDeclared	= 40;
+  eNotDeclared		= 41;
+  eCodeExist		= 42;
+  eNoRules		= 43;
+  eNotReachable		= 44;
+  eNotDerivable		= 45;
+  eEnter		= 46;	(* eEnterWith = 47 *)
+  eByPass		= 48;	(* eByPassWith = 49 *)
+  eLeave		= 50;	(* eLeaveWith = 51 *)
+  eLeftRec		= 52;
+
+VAR
+  LeftSide: tIdent;
+  EmptySet, EpsilonSet: tSet;
+
+PROCEDURE IdentError	(error, class: INTEGER; pos: tPosition; ident: tIdent);
+  BEGIN
+    IF ident # NoIdent THEN
+      ErrorMessageI (error, class, pos, eIdent, ADR (ident));
+    END;
+  END IdentError;
+
+PROCEDURE IntError	(error, class: INTEGER; pos: tPosition; int: INTEGER);
+  BEGIN
+    ErrorMessageI (error, class, pos, eInteger, ADR (int));
+  END IntError;
+
+PROCEDURE Check		(VAR I: tSet; E: tSet; code: INTEGER; pos: tPosition);
+  BEGIN
+    IF IsSubset (I, E) THEN
+      ErrorMessage (code, eError, pos);
+    ELSE
+      Intersection (I, E);
+      IF NOT IsEmpty (I) THEN
+	ErrorMessageI (code+1, eWarning, pos, eIdentSet, ADR (I));
+      END;
+    END;
+  END Check;
+
+CONST
+  MinSetSizeC		= 2;
+  MinCasesC		= 3;
+  MinSetSizeM2		= 2;
+  MinCasesM2		= 3;
+
+VAR
+  MinSetSize: CARDINAL;
+  MaxDepth: INTEGER;
+  AnySymbol: tSet;
+
+PROCEDURE Index	(set: tSet): INTEGER;
+  BEGIN
+    Exclude (set, Epsilon);
+    IF Card (set) < MinSetSize THEN
+      RETURN cNoIndex;
+    ELSE
+      RETURN SetIndex (set);
+    END;
+  END Index;
+
+PROCEDURE ExpIndex	(first, follow, recovery: tSet): INTEGER;
+  VAR LocalFollow: tSet;
+  VAR result: INTEGER;
+  BEGIN
+    MakeSet (LocalFollow, MaxIdent ());
+    Assign (LocalFollow, follow);
+    Intersection (LocalFollow, recovery);
+      Union (LocalFollow, first);
+      Exclude (LocalFollow, Epsilon);
+      result := RecSetIndex (LocalFollow);
+    ReleaseSet (LocalFollow);
+    RETURN result;
+  END ExpIndex;
+
+PROCEDURE SetMinSetSize;
+  BEGIN
+    CASE LANGUAGE OF
+    | C:
+	MinSetSize := MinSetSizeC;
+	MaxDepth := MinCasesC - 2;
+    | MODULA2:
+	MinSetSize := MinSetSizeM2;
+	MaxDepth := MinCasesM2 - 2;
+    END;
+  END SetMinSetSize;
+
+
+CONST
+  yyInfinite = 715827882;
+
+  yyBitsPerBitset = 32;
+  yySetSize = 70;
+  yyMaxIndex = 18;
+  yyCombSize = 136;      
+  yyStartState = 0;
+
+  yyPoolSize = 10240;
+
+TYPE
+  yytBlockPtr = POINTER TO yytBlock;
+  yytBlock =
+  RECORD
+    Successor: yytBlockPtr;
+    Block: ARRAY [1..yyPoolSize] OF CHAR;
+  END;
+
+  yyStateType = INTEGER;
+  yySetType = ARRAY [0..yySetSize DIV yyBitsPerBitset] OF BITSET;
+  yySetsType = ARRAY [0..yyMaxIndex] OF yySetType;
+  yyCombType = ARRAY [0..yyCombSize] OF yyStateType;
+
+  yyPAnalyse = PROCEDURE (Tree.tTree);
+  yyPDeclare = PROCEDURE (Tree.tTree);
+  yyPDeclared = PROCEDURE (Tree.tTree);
+  yyPReduced = PROCEDURE (Tree.tTree);
+  yyPLL1 = PROCEDURE (Tree.tTree, tSet);
+  yyPRecovery = PROCEDURE (Tree.tTree, tSet, VAR tSet );
+  yyPRecoveryAlt = PROCEDURE (Tree.tTree, tSet, tSet, VAR tSet );
+  yyPPrepareCode = PROCEDURE (Tree.tTree, tSet, VAR BOOLEAN );
+  yyPPrepareCodeAlt = PROCEDURE (Tree.tTree, BOOLEAN, tSet, tSet, tTree, VAR BOOLEAN );
+  
+  yyInfoPtr  = POINTER TO yyInfoType;
+  yyInfoType =
+    RECORD
+      Analyse: RECORD Cost: INTEGER; Proc: yyPAnalyse; END;
+      Declare: RECORD Cost: INTEGER; Proc: yyPDeclare; END;
+      Declared: RECORD Cost: INTEGER; Proc: yyPDeclared; END;
+      Reduced: RECORD Cost: INTEGER; Proc: yyPReduced; END;
+      LL1: RECORD Cost: INTEGER; Proc: yyPLL1; END;
+      Recovery: RECORD Cost: INTEGER; Proc: yyPRecovery; END;
+      RecoveryAlt: RECORD Cost: INTEGER; Proc: yyPRecoveryAlt; END;
+      PrepareCode: RECORD Cost: INTEGER; Proc: yyPPrepareCode; END;
+      PrepareCodeAlt: RECORD Cost: INTEGER; Proc: yyPPrepareCodeAlt; END;
+    END;
+
+VAR
+  yySets: yySetsType;
+  yyComb: yyCombType;
+  yyInfo: yyInfoType;
+  yyMatch: ARRAY [0..70] OF BOOLEAN;
+  yyBlockList: yytBlockPtr;
+  yyPoolFreePtr, yyPoolEndPtr: SYSTEM.ADDRESS;
+
+PROCEDURE yyAlloc (): SYSTEM.ADDRESS;
+VAR BlockPtr: yytBlockPtr;
+BEGIN
+  IF LONGINT (yyPoolEndPtr - yyPoolFreePtr) < SYSTEM.TSIZE (yyInfoType) THEN
+    BlockPtr  := yyBlockList;
+    yyBlockList  := Memory.Alloc (SYSTEM.TSIZE (yytBlock));
+    yyBlockList^.Successor := BlockPtr;
+    yyPoolFreePtr := SYSTEM.ADR (yyBlockList^.Block);
+    yyPoolEndPtr  := yyPoolFreePtr + yyPoolSize;
+  END;
+  INC (yyPoolFreePtr, SYSTEM.ADDRESS (SYSTEM.TSIZE (yyInfoType)));
+  RETURN yyPoolFreePtr - SYSTEM.ADDRESS (SYSTEM.TSIZE (yyInfoType));
+END yyAlloc;
+
+PROCEDURE yyReleaseHeap;
+VAR BlockPtr: yytBlockPtr;
+BEGIN
+  WHILE yyBlockList # NIL DO
+    BlockPtr:= yyBlockList;
+    yyBlockList:= yyBlockList^.Successor;
+    Memory.Free (SYSTEM.TSIZE (yytBlock), BlockPtr);
+  END;
+  yyPoolFreePtr:= NIL;
+  yyPoolEndPtr:= NIL;
+END yyReleaseHeap;
+
+PROCEDURE Analyse (yyt: Tree.tTree);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.Analyse.Proc (yyt);
+END Analyse;
+
+PROCEDURE Declare (yyt: Tree.tTree);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.Declare.Proc (yyt);
+END Declare;
+
+PROCEDURE Declared (yyt: Tree.tTree);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.Declared.Proc (yyt);
+END Declared;
+
+PROCEDURE Reduced (yyt: Tree.tTree);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.Reduced.Proc (yyt);
+END Reduced;
+
+PROCEDURE LL1 (yyt: Tree.tTree;Exclude:tSet);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.LL1.Proc (yyt, Exclude);
+END LL1;
+
+PROCEDURE Recovery (yyt: Tree.tTree;RecIn:tSet; VAR RecOut:
+tSet);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.Recovery.Proc (yyt, RecIn, RecOut);
+END Recovery;
+
+PROCEDURE RecoveryAlt (yyt: Tree.tTree;RecIn:tSet;RecUnion:tSet; VAR RecOut:
+tSet);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.RecoveryAlt.Proc (yyt, RecIn, RecUnion, RecOut);
+END RecoveryAlt;
+
+PROCEDURE PrepareCode (yyt: Tree.tTree;PossibleTerms:tSet; VAR IsCalling:
+BOOLEAN);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.PrepareCode.Proc (yyt, PossibleTerms, IsCalling);
+END PrepareCode;
+
+PROCEDURE PrepareCodeAlt (yyt: Tree.tTree;Case:BOOLEAN;PossibleTerms:tSet;First:tSet;Default:tTree; VAR IsCalling:
+BOOLEAN);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.PrepareCodeAlt.Proc (yyt, Case, PossibleTerms, First, Default, IsCalling);
+END PrepareCodeAlt;
+
+PROCEDURE yyEAnalyse (yyt: Tree.tTree);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function Analyse is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyEAnalyse;
+
+PROCEDURE yyEDeclare (yyt: Tree.tTree);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function Declare is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyEDeclare;
+
+PROCEDURE yyEDeclared (yyt: Tree.tTree);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function Declared is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyEDeclared;
+
+PROCEDURE yyEReduced (yyt: Tree.tTree);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function Reduced is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyEReduced;
+
+PROCEDURE yyELL1 (yyt: Tree.tTree;Exclude:tSet);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function LL1 is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyELL1;
+
+PROCEDURE yyERecovery (yyt: Tree.tTree;RecIn:tSet; VAR RecOut:
+tSet);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function Recovery is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyERecovery;
+
+PROCEDURE yyERecoveryAlt (yyt: Tree.tTree;RecIn:tSet;RecUnion:tSet; VAR RecOut:
+tSet);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function RecoveryAlt is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyERecoveryAlt;
+
+PROCEDURE yyEPrepareCode (yyt: Tree.tTree;PossibleTerms:tSet; VAR IsCalling:
+BOOLEAN);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function PrepareCode is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyEPrepareCode;
+
+PROCEDURE yyEPrepareCodeAlt (yyt: Tree.tTree;Case:BOOLEAN;PossibleTerms:tSet;First:tSet;Default:tTree; VAR IsCalling:
+BOOLEAN);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function PrepareCodeAlt is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyEPrepareCodeAlt;
+
+PROCEDURE yyF1Analyse (yyt: Tree.tTree);
+
+BEGIN    (* line 194 ../src/Sem.estra *)
+
+		BeginTypes;
+		MakeTerm (Epsilon);
+		MakeTerm (EndOfToken);
+		SetCode (EndOfToken, 0);
+		Declare (yyt^.Grammar.tokens);
+		Declare (yyt^.Grammar.rules);
+		InitTable;
+		Declared (yyt^.Grammar.tokens);
+		Declared (yyt^.Grammar.rules);
+		Reduced (yyt);
+		Analyse (yyt^.Grammar.rules);
+		
+END yyF1Analyse;
+
+PROCEDURE yyF2Analyse (yyt: Tree.tTree);
+
+BEGIN    (* line 209 ../src/Sem.estra *)
+
+		ErrorMessage (eNoRules, eError, NoPosition);
+		
+END yyF2Analyse;
+
+PROCEDURE yyF3Analyse (yyt: Tree.tTree);
+    (* line 214 ../src/Sem.estra *)
+ VAR
+		   RecIn, RecOut, Empty: tSet;
+		   IsCalling: BOOLEAN;
+		
+BEGIN    (* line 217 ../src/Sem.estra *)
+
+		Firsts;
+		Follows (yyt^.Rules.rule^.Rule.id^.Id.ident);
+		IF InError THEN RETURN END;
+
+		MakeSet (EmptySet, MaxIdent ());
+		MakeSet (EpsilonSet, MaxIdent ());
+		Include (EpsilonSet, Epsilon);
+		LL1 (yyt, EmptySet);
+		ReleaseSet (EmptySet);
+		ReleaseSet (EpsilonSet);
+
+		MakeSet (RecIn, MaxIdent ());
+		MakeSet (RecOut, MaxIdent ());
+		Recovery (yyt, RecIn, RecOut);
+		ReleaseSet (RecIn);
+		ReleaseSet (RecOut);
+		SetMinSetSize;
+		MakeSet (AnySymbol, MaxIdent ());
+		Terminals (AnySymbol);
+		Include (AnySymbol, EndOfToken);
+  		MakeSet (Empty, MaxIdent ());
+  		EmptyRecSetIndex := RecSetIndex (Empty);
+		PrepareCode (yyt, AnySymbol, IsCalling);
+		ReleaseSet (AnySymbol);
+  		ReleaseSet (Empty);
+		
+END yyF3Analyse;
+
+PROCEDURE yyF4Declare (yyt: Tree.tTree);
+
+BEGIN
+END yyF4Declare;
+
+PROCEDURE yyF5Declare (yyt: Tree.tTree);
+
+BEGIN    (* line 256 ../src/Sem.estra *)
+
+		Declare (yyt^.Tokens.token);
+		Declare (yyt^.Tokens.tokens);
+		
+END yyF5Declare;
+
+PROCEDURE yyF6Declare (yyt: Tree.tTree);
+
+BEGIN    (* line 262 ../src/Sem.estra *)
+
+		IF IsDeclared (yyt^.Token.id^.Id.ident) THEN
+		  IdentError (eAlreadyDeclared, eError, yyt^.Token.id^.Id.pos, yyt^.Token.id^.Id.ident);
+		  yyt^.Token.id^.Id.ident := NoIdent;
+		ELSIF yyt^.Token.id^.Id.ident # NoIdent THEN
+		  MakeTerm (yyt^.Token.id^.Id.ident);
+		  IF yyt^.Token.number^.Number.value # NoValue THEN
+		    IF IsCode (yyt^.Token.number^.Number.value) THEN
+		      IntError (eCodeExist, eError, yyt^.Token.number^.Number.pos, yyt^.Token.number^.Number.value);
+		    ELSE
+		      SetCode (yyt^.Token.id^.Id.ident, yyt^.Token.number^.Number.value);
+		    END;
+		  END;
+		END;
+		
+END yyF6Declare;
+
+PROCEDURE yyF7Declare (yyt: Tree.tTree);
+
+BEGIN
+END yyF7Declare;
+
+PROCEDURE yyF8Declare (yyt: Tree.tTree);
+
+BEGIN    (* line 285 ../src/Sem.estra *)
+
+		IF IsDeclared (yyt^.Rules.rule^.Rule.id^.Id.ident) THEN
+		  IdentError (eAlreadyDeclared, eError, yyt^.Rules.rule^.Rule.id^.Id.pos, yyt^.Rules.rule^.Rule.id^.Id.ident);
+		  yyt^.Rules.rule^.Rule.id^.Id.ident := NoIdent;
+		ELSE
+		  MakeNonterm (yyt^.Rules.rule^.Rule.id^.Id.ident);
+		END;
+		Declare (yyt^.Rules.rules);
+		
+END yyF8Declare;
+
+PROCEDURE yyF9Declared (yyt: Tree.tTree);
+
+BEGIN
+END yyF9Declared;
+
+PROCEDURE yyF10Declared (yyt: Tree.tTree);
+
+BEGIN    (* line 305 ../src/Sem.estra *)
+
+		Declared (yyt^.Tokens.token);
+		Declared (yyt^.Tokens.tokens);
+		
+END yyF10Declared;
+
+PROCEDURE yyF11Declared (yyt: Tree.tTree);
+
+BEGIN    (* line 311 ../src/Sem.estra *)
+
+		IF (yyt^.Token.id^.Id.ident # NoIdent) & (NOT IsCoded (yyt^.Token.id^.Id.ident)) THEN
+		  SetDefCode (yyt^.Token.id^.Id.ident);
+		END;
+		
+END yyF11Declared;
+
+PROCEDURE yyF12Declared (yyt: Tree.tTree);
+
+BEGIN
+END yyF12Declared;
+
+PROCEDURE yyF13Declared (yyt: Tree.tTree);
+
+BEGIN    (* line 327 ../src/Sem.estra *)
+
+		LeftSide := yyt^.Rules.rule^.Rule.id^.Id.ident;
+		SetExpr (LeftSide, yyt^.Rules.rule^.Rule.expr);
+		Declared (yyt^.Rules.rule^.Rule.expr);
+		Declared (yyt^.Rules.rules);
+		
+END yyF13Declared;
+
+PROCEDURE yyF14Declared (yyt: Tree.tTree);
+
+BEGIN    (* line 335 ../src/Sem.estra *)
+
+		Declared (yyt^.Option.expr);
+		
+END yyF14Declared;
+
+PROCEDURE yyF15Declared (yyt: Tree.tTree);
+
+BEGIN    (* line 340 ../src/Sem.estra *)
+
+		Declared (yyt^.Times.expr);
+		
+END yyF15Declared;
+
+PROCEDURE yyF16Declared (yyt: Tree.tTree);
+
+BEGIN    (* line 345 ../src/Sem.estra *)
+
+		Declared (yyt^.Plus.expr);
+		
+END yyF16Declared;
+
+PROCEDURE yyF17Declared (yyt: Tree.tTree);
+
+BEGIN    (* line 350 ../src/Sem.estra *)
+
+		Declared (yyt^.List.body);
+		Declared (yyt^.List.sep);
+		
+END yyF17Declared;
+
+PROCEDURE yyF18Declared (yyt: Tree.tTree);
+
+BEGIN
+END yyF18Declared;
+
+PROCEDURE yyF19Declared (yyt: Tree.tTree);
+
+BEGIN    (* line 358 ../src/Sem.estra *)
+
+		IF NOT IsDeclared (yyt^.Leaf.id^.Id.ident) THEN
+		  IdentError (eNotDeclared, eError, yyt^.Leaf.id^.Id.pos, yyt^.Leaf.id^.Id.ident);
+		ELSE
+		  SetLeaf (LeftSide, yyt^.Leaf.id^.Id.ident);
+		END;
+		
+END yyF19Declared;
+
+PROCEDURE yyF20Declared (yyt: Tree.tTree);
+
+BEGIN
+END yyF20Declared;
+
+PROCEDURE yyF21Declared (yyt: Tree.tTree);
+
+BEGIN    (* line 369 ../src/Sem.estra *)
+
+		Declared (yyt^.Alternative.expr);
+		Declared (yyt^.Alternative.alternative);
+		
+END yyF21Declared;
+
+PROCEDURE yyF22Declared (yyt: Tree.tTree);
+
+BEGIN
+END yyF22Declared;
+
+PROCEDURE yyF23Declared (yyt: Tree.tTree);
+
+BEGIN    (* line 377 ../src/Sem.estra *)
+
+		Declared (yyt^.Sequence.expr);
+		Declared (yyt^.Sequence.sequence);
+		
+END yyF23Declared;
+
+PROCEDURE yyF24Reduced (yyt: Tree.tTree);
+
+BEGIN    (* line 390 ../src/Sem.estra *)
+
+		
+END yyF24Reduced;
+
+PROCEDURE yyF25Reduced (yyt: Tree.tTree);
+
+BEGIN    (* line 394 ../src/Sem.estra *)
+
+		WindThrough (yyt^.Grammar.rules^.Rules.rule^.Rule.id^.Id.ident);
+		TestDerivable;
+		Reduced (yyt^.Grammar.tokens);
+		Reduced (yyt^.Grammar.rules);
+		
+END yyF25Reduced;
+
+PROCEDURE yyF26Reduced (yyt: Tree.tTree);
+
+BEGIN
+END yyF26Reduced;
+
+PROCEDURE yyF27Reduced (yyt: Tree.tTree);
+
+BEGIN    (* line 404 ../src/Sem.estra *)
+
+		Reduced (yyt^.Tokens.token);
+		Reduced (yyt^.Tokens.tokens);
+		
+END yyF27Reduced;
+
+PROCEDURE yyF28Reduced (yyt: Tree.tTree);
+
+BEGIN    (* line 410 ../src/Sem.estra *)
+
+		IF NOT IsReachable (yyt^.Token.id^.Id.ident) THEN
+		  IdentError (eNotReachable, eWarning, yyt^.Token.id^.Id.pos, yyt^.Token.id^.Id.ident);
+		END;
+		
+END yyF28Reduced;
+
+PROCEDURE yyF29Reduced (yyt: Tree.tTree);
+
+BEGIN    (* line 417 ../src/Sem.estra *)
+
+		
+END yyF29Reduced;
+
+PROCEDURE yyF30Reduced (yyt: Tree.tTree);
+
+BEGIN    (* line 421 ../src/Sem.estra *)
+
+		IF NOT IsReachable (yyt^.Rules.rule^.Rule.id^.Id.ident) THEN
+		  IdentError (eNotReachable, eError, yyt^.Rules.rule^.Rule.id^.Id.pos, yyt^.Rules.rule^.Rule.id^.Id.ident);
+		END;
+		IF NOT IsDerivable (yyt^.Rules.rule^.Rule.id^.Id.ident) THEN
+		  IdentError (eNotDerivable, eError, yyt^.Rules.rule^.Rule.id^.Id.pos, yyt^.Rules.rule^.Rule.id^.Id.ident);
+		END;
+		Reduced (yyt^.Rules.rules);
+		
+END yyF30Reduced;
+
+PROCEDURE yyF31LL1 (yyt: Tree.tTree;Exclude:tSet);
+
+BEGIN
+END yyF31LL1;
+
+PROCEDURE yyF32LL1 (yyt: Tree.tTree;Exclude:tSet);
+
+BEGIN    (* line 442 ../src/Sem.estra *)
+
+		IF IsLeftRec (yyt^.Rules.rule^.Rule.id^.Id.ident) THEN
+		  IdentError (eLeftRec, eError, yyt^.Rules.rule^.Rule.id^.Id.pos, yyt^.Rules.rule^.Rule.id^.Id.ident);
+		END;
+		LL1 (yyt^.Rules.rule^.Rule.expr, Exclude);
+		LL1 (yyt^.Rules.rules, Exclude);
+		
+END yyF32LL1;
+
+PROCEDURE yyF33LL1 (yyt: Tree.tTree;Exclude:tSet);
+    (* line 451 ../src/Sem.estra *)
+
+		VAR In, ByPass, Set: tSet;
+		
+BEGIN    (* line 453 ../src/Sem.estra *)
+
+		MakeSet (In, MaxIdent ());
+		MakeSet (ByPass, MaxIdent ());
+		MakeSet (Set, MaxIdent ());
+		Assign (In, yyt^.Option.expr^.expr.fifo);
+		Assign (ByPass, yyt^.Option.expr^.expr.follow);
+		Assign (Set, yyt^.Option.expr^.expr.fifo);	Union (Set, Exclude);
+		Check (ByPass, Set, eByPass, yyt^.Option.pos);
+		Check (In, Exclude, eEnter, yyt^.Option.pos);
+		ReleaseSet (In);
+		ReleaseSet (ByPass);
+		ReleaseSet (Set);
+		LL1 (yyt^.Option.expr, Exclude);
+		Difference (yyt^.Option.fifo, Exclude);
+		
+END yyF33LL1;
+
+PROCEDURE yyF34LL1 (yyt: Tree.tTree;Exclude:tSet);
+    (* line 470 ../src/Sem.estra *)
+
+		VAR In, Leave, Set: tSet;
+		
+BEGIN    (* line 472 ../src/Sem.estra *)
+
+		MakeSet (In, MaxIdent ());
+		MakeSet (Leave, MaxIdent ());
+		MakeSet (Set, MaxIdent ());
+		Assign (In, yyt^.Times.expr^.expr.fifo);
+		Assign (Leave, yyt^.Times.follow);
+		Assign (Set, yyt^.Times.expr^.expr.fifo);	Union (Set, Exclude);
+		Check (Leave, Set, eLeave, yyt^.Times.pos);
+		Check (In, Exclude, eEnter, yyt^.Times.pos);
+		ReleaseSet (In);
+		ReleaseSet (Leave);
+		ReleaseSet (Set);
+		LL1 (yyt^.Times.expr, EmptySet);
+		Difference (yyt^.Times.fifo, Exclude);
+		
+END yyF34LL1;
+
+PROCEDURE yyF35LL1 (yyt: Tree.tTree;Exclude:tSet);
+    (* line 489 ../src/Sem.estra *)
+
+		VAR In, Leave: tSet;
+		
+BEGIN    (* line 491 ../src/Sem.estra *)
+
+		MakeSet (In, MaxIdent ());
+		MakeSet (Leave, MaxIdent ());
+		Assign (In, yyt^.Plus.fifo);
+		Assign (Leave, yyt^.Plus.follow);
+		Check (Leave, In, eLeave, yyt^.Plus.pos);
+		Check (In, Exclude, eEnter, yyt^.Plus.pos);
+		ReleaseSet (In);
+		ReleaseSet (Leave);
+		LL1 (yyt^.Plus.expr, EmptySet);
+		Difference (yyt^.Plus.fifo, Exclude);
+		
+END yyF35LL1;
+
+PROCEDURE yyF36LL1 (yyt: Tree.tTree;Exclude:tSet);
+    (* line 505 ../src/Sem.estra *)
+
+		VAR In, Keep, Leave: tSet;
+		
+BEGIN    (* line 507 ../src/Sem.estra *)
+
+		MakeSet (In, MaxIdent ());
+		MakeSet (Keep, MaxIdent ());
+		MakeSet (Leave, MaxIdent ());
+		Assign (In, yyt^.List.fifo);
+		Assign (Keep, yyt^.List.sep^.expr.fifo);
+		Assign (Leave, yyt^.List.follow);
+		Check (Leave, Keep, eLeave, yyt^.List.pos);
+		Check (In, Exclude, eEnter, yyt^.List.pos);
+		ReleaseSet (In);
+		ReleaseSet (Keep);
+		ReleaseSet (Leave);
+		LL1 (yyt^.List.body, EmptySet);
+		LL1 (yyt^.List.sep, EmptySet);
+		Difference (yyt^.List.fifo, Exclude);
+		
+END yyF36LL1;
+
+PROCEDURE yyF37LL1 (yyt: Tree.tTree;Exclude:tSet);
+    (* line 525 ../src/Sem.estra *)
+
+		VAR In: tSet;
+		
+BEGIN    (* line 527 ../src/Sem.estra *)
+
+		MakeSet (In, MaxIdent ());
+		Assign (In, yyt^.Action.fifo);
+		Check (In, Exclude, eEnter, yyt^.Action.pos);
+		ReleaseSet (In);
+		Difference (yyt^.Action.fifo, Exclude);
+		
+END yyF37LL1;
+
+PROCEDURE yyF38LL1 (yyt: Tree.tTree;Exclude:tSet);
+    (* line 536 ../src/Sem.estra *)
+
+		VAR In: tSet;
+		
+BEGIN    (* line 538 ../src/Sem.estra *)
+
+		MakeSet (In, MaxIdent ());
+		Assign (In, yyt^.Leaf.fifo);
+		Check (In, Exclude, eEnter, yyt^.Leaf.pos);
+		ReleaseSet (In);
+		Difference (yyt^.Leaf.fifo, Exclude);
+		
+END yyF38LL1;
+
+PROCEDURE yyF39LL1 (yyt: Tree.tTree;Exclude:tSet);
+
+BEGIN    (* line 547 ../src/Sem.estra *)
+
+		yyt^.Alternative0.depth := 0;
+		Difference (yyt^.Alternative0.fifo, Exclude);
+		
+END yyF39LL1;
+
+PROCEDURE yyF40LL1 (yyt: Tree.tTree;Exclude:tSet);
+    (* line 553 ../src/Sem.estra *)
+
+		VAR E2: tSet;
+		
+BEGIN    (* line 555 ../src/Sem.estra *)
+
+		LL1 (yyt^.Alternative.expr, Exclude);
+		MakeSet (E2, MaxIdent ());
+		Assign (E2, Exclude);
+		Union (E2, yyt^.Alternative.expr^.expr.fifo);
+		LL1 (yyt^.Alternative.alternative, E2);
+		yyt^.Alternative.depth := yyt^.Alternative.alternative^.alternative.depth + 1;
+		ReleaseSet (E2);
+		Difference (yyt^.Alternative.fifo, Exclude);
+		
+END yyF40LL1;
+
+PROCEDURE yyF41LL1 (yyt: Tree.tTree;Exclude:tSet);
+    (* line 567 ../src/Sem.estra *)
+
+		VAR In: tSet;
+		
+BEGIN    (* line 569 ../src/Sem.estra *)
+
+		MakeSet (In, MaxIdent ());
+		Assign (In, yyt^.Sequence0.fifo);
+		Check (In, Exclude, eEnter, yyt^.Sequence0.pos);
+		Difference (yyt^.Sequence0.fifo, Exclude);
+		
+END yyF41LL1;
+
+PROCEDURE yyF42LL1 (yyt: Tree.tTree;Exclude:tSet);
+
+BEGIN    (* line 577 ../src/Sem.estra *)
+
+		LL1 (yyt^.Sequence.expr, Exclude);
+		IF IsEqual (yyt^.Sequence.expr^.expr.first, EpsilonSet) THEN
+		  LL1 (yyt^.Sequence.sequence, Exclude);
+		ELSE
+		  LL1 (yyt^.Sequence.sequence, EmptySet);
+		END;
+		Difference (yyt^.Sequence.fifo, Exclude);
+		
+END yyF42LL1;
+
+PROCEDURE yyF43Recovery (yyt: Tree.tTree;RecIn:tSet; VAR RecOut:
+tSet);
+
+BEGIN
+END yyF43Recovery;
+
+PROCEDURE yyF44Recovery (yyt: Tree.tTree;RecIn:tSet; VAR RecOut:
+tSet);
+
+BEGIN    (* line 598 ../src/Sem.estra *)
+
+		Recovery (yyt^.Rules.rule^.Rule.expr, RecIn, RecOut);
+		Recovery (yyt^.Rules.rules, RecIn, RecOut);
+		
+END yyF44Recovery;
+
+PROCEDURE yyF45Recovery (yyt: Tree.tTree;RecIn:tSet; VAR RecOut:
+tSet);
+
+BEGIN    (* line 604 ../src/Sem.estra *)
+
+		MakeSet (yyt^.Option.recovery, MaxIdent ());
+		Assign (yyt^.Option.recovery, RecIn);
+		Union (yyt^.Option.recovery, yyt^.Option.first);
+		Exclude (yyt^.Option.recovery, Epsilon);
+		Recovery (yyt^.Option.expr, RecIn, RecOut);
+		Assign (RecOut, yyt^.Option.recovery);
+		
+END yyF45Recovery;
+
+PROCEDURE yyF46Recovery (yyt: Tree.tTree;RecIn:tSet; VAR RecOut:
+tSet);
+
+BEGIN    (* line 614 ../src/Sem.estra *)
+
+		MakeSet (yyt^.Times.recovery, MaxIdent ());
+		Assign (yyt^.Times.recovery, RecIn);
+		Union (yyt^.Times.recovery, yyt^.Times.first);
+		Exclude (yyt^.Times.recovery, Epsilon);
+		Recovery (yyt^.Times.expr, RecIn, RecOut);
+		Assign (RecOut, yyt^.Times.recovery);
+		
+END yyF46Recovery;
+
+PROCEDURE yyF47Recovery (yyt: Tree.tTree;RecIn:tSet; VAR RecOut:
+tSet);
+
+BEGIN    (* line 624 ../src/Sem.estra *)
+
+		MakeSet (yyt^.Plus.recovery, MaxIdent ());
+		Assign (yyt^.Plus.recovery, RecIn);
+		Union (yyt^.Plus.recovery, yyt^.Plus.first);
+		Exclude (yyt^.Plus.recovery, Epsilon);
+		Recovery (yyt^.Plus.expr, RecIn, RecOut);
+		Assign (RecOut, yyt^.Plus.recovery);
+		
+END yyF47Recovery;
+
+PROCEDURE yyF48Recovery (yyt: Tree.tTree;RecIn:tSet; VAR RecOut:
+tSet);
+    (* line 634 ../src/Sem.estra *)
+
+		VAR In: tSet;
+		
+BEGIN    (* line 636 ../src/Sem.estra *)
+
+		MakeSet (yyt^.List.recovery, MaxIdent ());
+		Assign (yyt^.List.recovery, RecIn);
+		Union (yyt^.List.recovery, yyt^.List.body^.expr.first);
+		Union (yyt^.List.recovery, yyt^.List.sep^.expr.first);
+		Exclude (yyt^.List.recovery, Epsilon);
+		MakeSet (In, MaxIdent ());
+		Assign (In, RecIn);
+		Union (In, yyt^.List.sep^.expr.first);
+		Exclude (In, Epsilon);
+		Recovery (yyt^.List.body, In, RecOut);
+		Assign (In, RecIn);
+		Union (In, yyt^.List.body^.expr.first);
+		Exclude (In, Epsilon);
+		Recovery (yyt^.List.sep, In, RecOut);
+		ReleaseSet (In);
+		Assign (RecOut, yyt^.List.recovery);
+		
+END yyF48Recovery;
+
+PROCEDURE yyF49Recovery (yyt: Tree.tTree;RecIn:tSet; VAR RecOut:
+tSet);
+
+BEGIN    (* line 656 ../src/Sem.estra *)
+
+		MakeSet (yyt^.Action.recovery, MaxIdent ());
+		Assign (yyt^.Action.recovery, RecIn);
+		Assign (RecOut, RecIn);
+		
+END yyF49Recovery;
+
+PROCEDURE yyF50Recovery (yyt: Tree.tTree;RecIn:tSet; VAR RecOut:
+tSet);
+
+BEGIN    (* line 663 ../src/Sem.estra *)
+
+		MakeSet (yyt^.Leaf.recovery, MaxIdent ());
+		Assign (RecOut, RecIn);
+		Union (RecOut, yyt^.Leaf.first);
+		Exclude (RecOut, Epsilon);
+		IF IsTerm (yyt^.Leaf.id^.Id.ident) THEN
+		  Assign (yyt^.Leaf.recovery, RecOut);
+		ELSE
+		  Assign (yyt^.Leaf.recovery, RecIn);
+		END;
+		
+END yyF50Recovery;
+
+PROCEDURE yyF51Recovery (yyt: Tree.tTree;RecIn:tSet; VAR RecOut:
+tSet);
+
+BEGIN    (* line 676 ../src/Sem.estra *)
+
+		ERROR ('Sem.estra: Alternative0 unexpected');
+		
+END yyF51Recovery;
+
+PROCEDURE yyF52Recovery (yyt: Tree.tTree;RecIn:tSet; VAR RecOut:
+tSet);
+    (* line 681 ../src/Sem.estra *)
+
+		VAR RecUnion: tSet;
+		
+BEGIN    (* line 683 ../src/Sem.estra *)
+
+		MakeSet (RecUnion, MaxIdent ());
+		Assign (RecUnion, RecIn);
+		RecoveryAlt (yyt, RecIn, RecUnion, RecOut);
+		ReleaseSet (RecUnion);
+		
+END yyF52Recovery;
+
+PROCEDURE yyF53Recovery (yyt: Tree.tTree;RecIn:tSet; VAR RecOut:
+tSet);
+
+BEGIN    (* line 691 ../src/Sem.estra *)
+
+		MakeSet (yyt^.Sequence0.recovery, MaxIdent ());
+		Assign (yyt^.Sequence0.recovery, RecIn);
+		Assign (RecOut, RecIn);
+		
+END yyF53Recovery;
+
+PROCEDURE yyF54Recovery (yyt: Tree.tTree;RecIn:tSet; VAR RecOut:
+tSet);
+
+BEGIN    (* line 698 ../src/Sem.estra *)
+
+		MakeSet (yyt^.Sequence.recovery, MaxIdent ());
+		Recovery (yyt^.Sequence.sequence, RecIn, RecOut);
+		Recovery (yyt^.Sequence.expr, RecOut, yyt^.Sequence.recovery);
+		Assign (RecOut, yyt^.Sequence.recovery);
+		
+END yyF54Recovery;
+
+PROCEDURE yyF55RecoveryAlt (yyt: Tree.tTree;RecIn:tSet;RecUnion:tSet; VAR RecOut:
+tSet);
+
+BEGIN    (* line 714 ../src/Sem.estra *)
+
+		MakeSet (yyt^.Alternative0.recovery, MaxIdent ());
+		Exclude (RecUnion, Epsilon);
+		Assign (yyt^.Alternative0.recovery, RecUnion);
+		Assign (RecOut, RecUnion);
+		
+END yyF55RecoveryAlt;
+
+PROCEDURE yyF56RecoveryAlt (yyt: Tree.tTree;RecIn:tSet;RecUnion:tSet; VAR RecOut:
+tSet);
+
+BEGIN    (* line 722 ../src/Sem.estra *)
+
+		MakeSet (yyt^.Alternative.recovery, MaxIdent ());
+		Recovery (yyt^.Alternative.expr, RecIn, RecOut);
+		Union (RecUnion, yyt^.Alternative.expr^.expr.first);
+		RecoveryAlt (yyt^.Alternative.alternative, RecIn, RecUnion, RecOut);
+		Assign (yyt^.Alternative.recovery, RecOut);
+		
+END yyF56RecoveryAlt;
+
+PROCEDURE yyF57PrepareCode (yyt: Tree.tTree;PossibleTerms:tSet; VAR IsCalling:
+BOOLEAN);
+
+BEGIN
+END yyF57PrepareCode;
+
+PROCEDURE yyF58PrepareCode (yyt: Tree.tTree;PossibleTerms:tSet; VAR IsCalling:
+BOOLEAN);
+
+BEGIN    (* line 741 ../src/Sem.estra *)
+
+		PrepareCode (yyt^.Rules.rule^.Rule.expr, PossibleTerms, yyt^.Rules.rule^.Rule.iscalling);
+		PrepareCode (yyt^.Rules.rules, PossibleTerms, IsCalling);
+		
+END yyF58PrepareCode;
+
+PROCEDURE yyF59PrepareCode (yyt: Tree.tTree;PossibleTerms:tSet; VAR IsCalling:
+BOOLEAN);
+
+BEGIN    (* line 747 ../src/Sem.estra *)
+
+		yyt^.Option.index := Index (yyt^.Option.first);
+		yyt^.Option.followindex := Index (yyt^.Option.follow);
+		yyt^.Option.expindex := ExpIndex (yyt^.Option.first, yyt^.Option.follow, yyt^.Option.recovery);
+		yyt^.Option.recindex := RecSetIndex (yyt^.Option.recovery);
+		PrepareCode (yyt^.Option.expr, yyt^.Option.expr^.expr.fifo, IsCalling);
+		
+END yyF59PrepareCode;
+
+PROCEDURE yyF60PrepareCode (yyt: Tree.tTree;PossibleTerms:tSet; VAR IsCalling:
+BOOLEAN);
+
+BEGIN    (* line 756 ../src/Sem.estra *)
+
+		yyt^.Times.index := Index (yyt^.Times.first);
+		yyt^.Times.followindex := Index (yyt^.Times.follow);
+		yyt^.Times.expindex := ExpIndex (yyt^.Times.first, yyt^.Times.follow, yyt^.Times.recovery);
+		yyt^.Times.recindex := RecSetIndex (yyt^.Times.recovery);
+		PrepareCode (yyt^.Times.expr, yyt^.Times.expr^.expr.fifo, IsCalling);
+		
+END yyF60PrepareCode;
+
+PROCEDURE yyF61PrepareCode (yyt: Tree.tTree;PossibleTerms:tSet; VAR IsCalling:
+BOOLEAN);
+    (* line 765 ../src/Sem.estra *)
+
+		VAR set: tSet;
+		
+BEGIN    (* line 767 ../src/Sem.estra *)
+
+		yyt^.Plus.index := Index (yyt^.Plus.first);
+		yyt^.Plus.followindex := Index (yyt^.Plus.follow);
+		yyt^.Plus.expindex := ExpIndex (yyt^.Plus.first, yyt^.Plus.follow, yyt^.Plus.recovery);
+		yyt^.Plus.recindex := RecSetIndex (yyt^.Plus.recovery);
+		MakeSet (set, MaxIdent ());
+		Assign (set, PossibleTerms);
+		Union (set, yyt^.Plus.expr^.expr.fifo);
+		PrepareCode (yyt^.Plus.expr, set, IsCalling);
+		ReleaseSet (set);
+		
+END yyF61PrepareCode;
+
+PROCEDURE yyF62PrepareCode (yyt: Tree.tTree;PossibleTerms:tSet; VAR IsCalling:
+BOOLEAN);
+    (* line 780 ../src/Sem.estra *)
+
+		VAR iscalling: BOOLEAN;
+		
+BEGIN    (* line 782 ../src/Sem.estra *)
+
+		yyt^.List.index := Index (yyt^.List.first);
+		yyt^.List.followindex := Index (yyt^.List.follow);
+		yyt^.List.expindex := ExpIndex (yyt^.List.sep^.expr.first, yyt^.List.follow, yyt^.List.recovery);
+		yyt^.List.recindex := RecSetIndex (yyt^.List.recovery);
+		PrepareCode (yyt^.List.body, AnySymbol, iscalling);
+		PrepareCode (yyt^.List.sep, AnySymbol, IsCalling);
+		IsCalling := IsCalling OR iscalling;
+		
+END yyF62PrepareCode;
+
+PROCEDURE yyF63PrepareCode (yyt: Tree.tTree;PossibleTerms:tSet; VAR IsCalling:
+BOOLEAN);
+
+BEGIN    (* line 792 ../src/Sem.estra *)
+ IsCalling := FALSE; 
+END yyF63PrepareCode;
+
+PROCEDURE yyF64PrepareCode (yyt: Tree.tTree;PossibleTerms:tSet; VAR IsCalling:
+BOOLEAN);
+
+BEGIN    (* line 795 ../src/Sem.estra *)
+
+		yyt^.Leaf.sure := IsSubset (PossibleTerms, yyt^.Leaf.fifo);
+		IF yyt^.Leaf.sure OR IsNonterm (yyt^.Leaf.id^.Id.ident) THEN
+		  yyt^.Leaf.index := cNoIndex;
+		ELSE
+		  yyt^.Leaf.index := Index (yyt^.Leaf.first);
+		END;
+		yyt^.Leaf.recindex := RecSetIndex (yyt^.Leaf.recovery);
+		(* Leaf.followindex := Index (Leaf.follow); *)
+		IsCalling := IsNonterm (yyt^.Leaf.id^.Id.ident);
+		
+END yyF64PrepareCode;
+
+PROCEDURE yyF65PrepareCode (yyt: Tree.tTree;PossibleTerms:tSet; VAR IsCalling:
+BOOLEAN);
+
+BEGIN    (* line 808 ../src/Sem.estra *)
+
+		ERROR ('Sem.estra: Alternative0 unexpected');
+		
+END yyF65PrepareCode;
+
+PROCEDURE yyF66PrepareCode (yyt: Tree.tTree;PossibleTerms:tSet; VAR IsCalling:
+BOOLEAN);
+    (* line 813 ../src/Sem.estra *)
+
+		VAR case: BOOLEAN; maxdepth: INTEGER;
+		
+BEGIN    (* line 815 ../src/Sem.estra *)
+
+		maxdepth := MaxDepth;
+		IF IsSubset (PossibleTerms, yyt^.Alternative.fifo) (* OR IsElement (Epsilon, Alternative.first) *) THEN
+		  INC (maxdepth);
+		END;
+		case := yyt^.Alternative.depth > maxdepth;
+		PrepareCodeAlt (yyt, case, PossibleTerms, yyt^.Alternative.first, NoTree, IsCalling);
+		
+END yyF66PrepareCode;
+
+PROCEDURE yyF67PrepareCode (yyt: Tree.tTree;PossibleTerms:tSet; VAR IsCalling:
+BOOLEAN);
+
+BEGIN    (* line 824 ../src/Sem.estra *)
+ IsCalling := FALSE; 
+END yyF67PrepareCode;
+
+PROCEDURE yyF68PrepareCode (yyt: Tree.tTree;PossibleTerms:tSet; VAR IsCalling:
+BOOLEAN);
+    (* line 827 ../src/Sem.estra *)
+
+		VAR iscalling: BOOLEAN;
+		
+BEGIN    (* line 829 ../src/Sem.estra *)
+
+		PrepareCode (yyt^.Sequence.expr, PossibleTerms, iscalling);
+		IF IsElement (Epsilon, yyt^.Sequence.expr^.expr.first) & (Card (yyt^.Sequence.expr^.expr.first) = 1) THEN
+		  PrepareCode (yyt^.Sequence.sequence, PossibleTerms, IsCalling);
+		ELSE
+		  PrepareCode (yyt^.Sequence.sequence, AnySymbol, IsCalling);
+		END;
+		IsCalling := IsCalling OR iscalling;
+		
+END yyF68PrepareCode;
+
+PROCEDURE yyF69PrepareCodeAlt (yyt: Tree.tTree;Case:BOOLEAN;PossibleTerms:tSet;First:tSet;Default:tTree; VAR IsCalling:
+BOOLEAN);
+    (* line 850 ../src/Sem.estra *)
+
+		VAR LocalFollow: tSet;
+		
+BEGIN    (* line 852 ../src/Sem.estra *)
+
+    		MakeSet (LocalFollow, MaxIdent ());
+    		Assign (LocalFollow, yyt^.Alternative0.follow);
+    		Intersection (LocalFollow, yyt^.Alternative0.recovery);
+    		IF NOT IsEmpty (LocalFollow) OR NOT IsElement (Epsilon, First) THEN
+      		  Union (LocalFollow, First);
+      		  Exclude (LocalFollow, Epsilon);
+		  yyt^.Alternative0.expindex := RecSetIndex (LocalFollow);
+    		ELSE
+		  yyt^.Alternative0.expindex := cNoIndex;
+    		END;
+    		ReleaseSet (LocalFollow);
+
+		yyt^.Alternative0.case := Case;
+		yyt^.Alternative0.default := Default;
+		yyt^.Alternative0.recindex := RecSetIndex (yyt^.Alternative0.recovery);
+		(* Alternative0.followindex := Index (Alternative0.follow); *)
+		IsCalling := FALSE;
+		
+END yyF69PrepareCodeAlt;
+
+PROCEDURE yyF70PrepareCodeAlt (yyt: Tree.tTree;Case:BOOLEAN;PossibleTerms:tSet;First:tSet;Default:tTree; VAR IsCalling:
+BOOLEAN);
+    (* line 873 ../src/Sem.estra *)
+
+		VAR possible: tSet; iscalling: BOOLEAN;
+		
+BEGIN    (* line 875 ../src/Sem.estra *)
+
+		yyt^.Alternative.case := Case;
+		PrepareCode (yyt^.Alternative.expr, yyt^.Alternative.expr^.expr.fifo, iscalling);
+		MakeSet (possible, MaxIdent ());
+		Assign (possible, PossibleTerms);
+		IF (Default = NoTree) OR (Default^.expr.length > yyt^.Alternative.expr^.expr.length) THEN
+		  Default := yyt^.Alternative.expr;
+		END;
+		Difference (possible, yyt^.Alternative.expr^.expr.fifo);
+		IF NOT Case THEN
+		   yyt^.Alternative.index := Index (yyt^.Alternative.expr^.expr.fifo);
+		END;
+		(* Alternative.followindex := Index (Alternative.follow); *)
+		PrepareCodeAlt (yyt^.Alternative.alternative, Case, possible, First, Default, IsCalling);
+		IsCalling := IsCalling OR iscalling;
+		ReleaseSet (possible);
+		
+END yyF70PrepareCodeAlt;
+
+PROCEDURE CostAnalyse (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.Analyse.Cost;
+END CostAnalyse;
+
+PROCEDURE CostDeclare (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.Declare.Cost;
+END CostDeclare;
+
+PROCEDURE CostDeclared (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.Declared.Cost;
+END CostDeclared;
+
+PROCEDURE CostReduced (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.Reduced.Cost;
+END CostReduced;
+
+PROCEDURE CostLL1 (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.LL1.Cost;
+END CostLL1;
+
+PROCEDURE CostRecovery (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.Recovery.Cost;
+END CostRecovery;
+
+PROCEDURE CostRecoveryAlt (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.RecoveryAlt.Cost;
+END CostRecoveryAlt;
+
+PROCEDURE CostPrepareCode (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.PrepareCode.Cost;
+END CostPrepareCode;
+
+PROCEDURE CostPrepareCodeAlt (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.PrepareCodeAlt.Cost;
+END CostPrepareCodeAlt;
+
+PROCEDURE yyTraverse (yyt: Tree.tTree): yyStateType;
+VAR
+  state: yyStateType;
+  match: POINTER TO yySetType;
+  cost: INTEGER;
+  info: yyInfoPtr;
+  success: BOOLEAN;
+  
+BEGIN
+  info := yyAlloc ();
+  info^ := yyInfo;
+  yyt^.yyHead.yyEstraInfo := info;
+  
+  
+  CASE yyt^.Kind OF
+  
+  | Tree.Codes:
+      state := 0;
+      state := yyComb [state + yyTraverse (yyt^.Codes.code)];
+      state := yyComb [state + yyTraverse (yyt^.Codes.codes)];
+
+  | Tree.Grammar:
+      state := 12;
+      state := yyComb [state + yyTraverse (yyt^.Grammar.sections)];
+      state := yyComb [state + yyTraverse (yyt^.Grammar.tokens)];
+      state := yyComb [state + yyTraverse (yyt^.Grammar.rules)];
+      match := SYSTEM.ADR (yySets [state]);
+      
+      yyMatch [24] := (24 IN match^[0]);
+      yyMatch [25] := (25 IN match^[0]);
+
+      IF yyMatch [24] THEN
+        cost := 1;
+        IF cost < info^.Reduced.Cost THEN
+          info^.Reduced.Cost := cost;
+          info^.Reduced.Proc := yyF24Reduced;
+        END;
+      END;
+      
+      IF yyMatch [25] THEN
+        cost := 1
+        + CostReduced (yyt^.Grammar.tokens)
+        + CostReduced (yyt^.Grammar.rules);
+        IF cost < info^.Reduced.Cost THEN
+          info^.Reduced.Cost := cost;
+          info^.Reduced.Proc := yyF25Reduced;
+        END;
+      END;
+      
+      cost := 1
+      + CostReduced (yyt)
+      + CostDeclare (yyt^.Grammar.tokens)
+      + CostDeclared (yyt^.Grammar.tokens)
+      + CostDeclare (yyt^.Grammar.rules)
+      + CostDeclared (yyt^.Grammar.rules)
+      + CostAnalyse (yyt^.Grammar.rules);
+      IF cost < info^.Analyse.Cost THEN
+        info^.Analyse.Cost := cost;
+        info^.Analyse.Proc := yyF1Analyse;
+      END;
+      
+  | Tree.Sections0:
+      state := 18;
+
+  | Tree.Sections:
+      state := 0;
+      state := yyComb [state + yyTraverse (yyt^.Sections.section)];
+      state := yyComb [state + yyTraverse (yyt^.Sections.sections)];
+
+  | Tree.Export:
+      state := 11;
+      state := yyComb [state + yyTraverse (yyt^.Export.codes)];
+
+  | Tree.Global:
+      state := 11;
+      state := yyComb [state + yyTraverse (yyt^.Global.codes)];
+
+  | Tree.Local:
+      state := 11;
+      state := yyComb [state + yyTraverse (yyt^.Local.codes)];
+
+  | Tree.Begin:
+      state := 11;
+      state := yyComb [state + yyTraverse (yyt^.Begin.codes)];
+
+  | Tree.Close:
+      state := 11;
+      state := yyComb [state + yyTraverse (yyt^.Close.codes)];
+
+  | Tree.Codes0:
+      state := 18;
+
+  | Tree.Code:
+      state := 18;
+
+  | Tree.Tokens0:
+      state := 5;
+
+      cost := 1;
+      IF cost < info^.Declare.Cost THEN
+        info^.Declare.Cost := cost;
+        info^.Declare.Proc := yyF4Declare;
+      END;
+      
+      cost := 1;
+      IF cost < info^.Declared.Cost THEN
+        info^.Declared.Cost := cost;
+        info^.Declared.Proc := yyF9Declared;
+      END;
+      
+      cost := 1;
+      IF cost < info^.Reduced.Cost THEN
+        info^.Reduced.Cost := cost;
+        info^.Reduced.Proc := yyF26Reduced;
+      END;
+      
+  | Tree.Tokens:
+      state := 28;
+      state := yyComb [state + yyTraverse (yyt^.Tokens.token)];
+      state := yyComb [state + yyTraverse (yyt^.Tokens.tokens)];
+
+      cost := 1
+      + CostDeclare (yyt^.Tokens.token)
+      + CostDeclare (yyt^.Tokens.tokens);
+      IF cost < info^.Declare.Cost THEN
+        info^.Declare.Cost := cost;
+        info^.Declare.Proc := yyF5Declare;
+      END;
+      
+      cost := 1
+      + CostDeclared (yyt^.Tokens.token)
+      + CostDeclared (yyt^.Tokens.tokens);
+      IF cost < info^.Declared.Cost THEN
+        info^.Declared.Cost := cost;
+        info^.Declared.Proc := yyF10Declared;
+      END;
+      
+      cost := 1
+      + CostReduced (yyt^.Tokens.token)
+      + CostReduced (yyt^.Tokens.tokens);
+      IF cost < info^.Reduced.Cost THEN
+        info^.Reduced.Cost := cost;
+        info^.Reduced.Proc := yyF27Reduced;
+      END;
+      
+  | Tree.Token:
+      state := 20;
+      state := yyComb [state + yyTraverse (yyt^.Token.id)];
+      state := yyComb [state + yyTraverse (yyt^.Token.number)];
+
+      cost := 1;
+      IF cost < info^.Declare.Cost THEN
+        info^.Declare.Cost := cost;
+        info^.Declare.Proc := yyF6Declare;
+      END;
+      
+      cost := 1;
+      IF cost < info^.Declared.Cost THEN
+        info^.Declared.Cost := cost;
+        info^.Declared.Proc := yyF11Declared;
+      END;
+      
+      cost := 1;
+      IF cost < info^.Reduced.Cost THEN
+        info^.Reduced.Cost := cost;
+        info^.Reduced.Proc := yyF28Reduced;
+      END;
+      
+  | Tree.Id:
+      state := 18;
+
+  | Tree.Number:
+      state := 18;
+
+  | Tree.Rules0:
+      state := 3;
+
+      cost := 1;
+      IF cost < info^.Analyse.Cost THEN
+        info^.Analyse.Cost := cost;
+        info^.Analyse.Proc := yyF2Analyse;
+      END;
+      
+      cost := 1;
+      IF cost < info^.Declare.Cost THEN
+        info^.Declare.Cost := cost;
+        info^.Declare.Proc := yyF7Declare;
+      END;
+      
+      cost := 1;
+      IF cost < info^.Declared.Cost THEN
+        info^.Declared.Cost := cost;
+        info^.Declared.Proc := yyF12Declared;
+      END;
+      
+      cost := 1;
+      IF cost < info^.Reduced.Cost THEN
+        info^.Reduced.Cost := cost;
+        info^.Reduced.Proc := yyF29Reduced;
+      END;
+      
+      cost := 1;
+      IF cost < info^.LL1.Cost THEN
+        info^.LL1.Cost := cost;
+        info^.LL1.Proc := yyF31LL1;
+      END;
+      
+      cost := 1;
+      IF cost < info^.Recovery.Cost THEN
+        info^.Recovery.Cost := cost;
+        info^.Recovery.Proc := yyF43Recovery;
+      END;
+      
+      cost := 1;
+      IF cost < info^.PrepareCode.Cost THEN
+        info^.PrepareCode.Cost := cost;
+        info^.PrepareCode.Proc := yyF57PrepareCode;
+      END;
+      
+  | Tree.Rules:
+      state := 22;
+      state := yyComb [state + yyTraverse (yyt^.Rules.rule)];
+      state := yyComb [state + yyTraverse (yyt^.Rules.rules)];
+
+      cost := 1
+      + CostDeclare (yyt^.Rules.rules);
+      IF cost < info^.Declare.Cost THEN
+        info^.Declare.Cost := cost;
+        info^.Declare.Proc := yyF8Declare;
+      END;
+      
+      cost := 1
+      + CostDeclared (yyt^.Rules.rule^.Rule.expr)
+      + CostDeclared (yyt^.Rules.rules);
+      IF cost < info^.Declared.Cost THEN
+        info^.Declared.Cost := cost;
+        info^.Declared.Proc := yyF13Declared;
+      END;
+      
+      cost := 1
+      + CostReduced (yyt^.Rules.rules);
+      IF cost < info^.Reduced.Cost THEN
+        info^.Reduced.Cost := cost;
+        info^.Reduced.Proc := yyF30Reduced;
+      END;
+      
+      cost := 1
+      + CostLL1 (yyt^.Rules.rule^.Rule.expr)
+      + CostLL1 (yyt^.Rules.rules);
+      IF cost < info^.LL1.Cost THEN
+        info^.LL1.Cost := cost;
+        info^.LL1.Proc := yyF32LL1;
+      END;
+      
+      cost := 1
+      + CostRecovery (yyt^.Rules.rule^.Rule.expr)
+      + CostRecovery (yyt^.Rules.rules);
+      IF cost < info^.Recovery.Cost THEN
+        info^.Recovery.Cost := cost;
+        info^.Recovery.Proc := yyF44Recovery;
+      END;
+      
+      cost := 1
+      + CostPrepareCode (yyt^.Rules.rule^.Rule.expr)
+      + CostPrepareCode (yyt^.Rules.rules);
+      IF cost < info^.PrepareCode.Cost THEN
+        info^.PrepareCode.Cost := cost;
+        info^.PrepareCode.Proc := yyF58PrepareCode;
+      END;
+      
+      cost := 1
+      + CostLL1 (yyt)
+      + CostRecovery (yyt)
+      + CostPrepareCode (yyt);
+      IF cost < info^.Analyse.Cost THEN
+        info^.Analyse.Cost := cost;
+        info^.Analyse.Proc := yyF3Analyse;
+      END;
+      
+  | Tree.Rule:
+      state := 25;
+      state := yyComb [state + yyTraverse (yyt^.Rule.id)];
+      state := yyComb [state + yyTraverse (yyt^.Rule.codes)];
+      state := yyComb [state + yyTraverse (yyt^.Rule.expr)];
+
+  | Tree.Option:
+      state := 49;
+      state := yyComb [state + yyTraverse (yyt^.Option.expr)];
+
+      cost := 1
+      + CostDeclared (yyt^.Option.expr);
+      IF cost < info^.Declared.Cost THEN
+        info^.Declared.Cost := cost;
+        info^.Declared.Proc := yyF14Declared;
+      END;
+      
+      cost := 1
+      + CostLL1 (yyt^.Option.expr);
+      IF cost < info^.LL1.Cost THEN
+        info^.LL1.Cost := cost;
+        info^.LL1.Proc := yyF33LL1;
+      END;
+      
+      cost := 1
+      + CostRecovery (yyt^.Option.expr);
+      IF cost < info^.Recovery.Cost THEN
+        info^.Recovery.Cost := cost;
+        info^.Recovery.Proc := yyF45Recovery;
+      END;
+      
+      cost := 1
+      + CostPrepareCode (yyt^.Option.expr);
+      IF cost < info^.PrepareCode.Cost THEN
+        info^.PrepareCode.Cost := cost;
+        info^.PrepareCode.Proc := yyF59PrepareCode;
+      END;
+      
+  | Tree.Times:
+      state := 60;
+      state := yyComb [state + yyTraverse (yyt^.Times.expr)];
+
+      cost := 1
+      + CostDeclared (yyt^.Times.expr);
+      IF cost < info^.Declared.Cost THEN
+        info^.Declared.Cost := cost;
+        info^.Declared.Proc := yyF15Declared;
+      END;
+      
+      cost := 1
+      + CostLL1 (yyt^.Times.expr);
+      IF cost < info^.LL1.Cost THEN
+        info^.LL1.Cost := cost;
+        info^.LL1.Proc := yyF34LL1;
+      END;
+      
+      cost := 1
+      + CostRecovery (yyt^.Times.expr);
+      IF cost < info^.Recovery.Cost THEN
+        info^.Recovery.Cost := cost;
+        info^.Recovery.Proc := yyF46Recovery;
+      END;
+      
+      cost := 1
+      + CostPrepareCode (yyt^.Times.expr);
+      IF cost < info^.PrepareCode.Cost THEN
+        info^.PrepareCode.Cost := cost;
+        info^.PrepareCode.Proc := yyF60PrepareCode;
+      END;
+      
+  | Tree.Plus:
+      state := 71;
+      state := yyComb [state + yyTraverse (yyt^.Plus.expr)];
+
+      cost := 1
+      + CostDeclared (yyt^.Plus.expr);
+      IF cost < info^.Declared.Cost THEN
+        info^.Declared.Cost := cost;
+        info^.Declared.Proc := yyF16Declared;
+      END;
+      
+      cost := 1
+      + CostLL1 (yyt^.Plus.expr);
+      IF cost < info^.LL1.Cost THEN
+        info^.LL1.Cost := cost;
+        info^.LL1.Proc := yyF35LL1;
+      END;
+      
+      cost := 1
+      + CostRecovery (yyt^.Plus.expr);
+      IF cost < info^.Recovery.Cost THEN
+        info^.Recovery.Cost := cost;
+        info^.Recovery.Proc := yyF47Recovery;
+      END;
+      
+      cost := 1
+      + CostPrepareCode (yyt^.Plus.expr);
+      IF cost < info^.PrepareCode.Cost THEN
+        info^.PrepareCode.Cost := cost;
+        info^.PrepareCode.Proc := yyF61PrepareCode;
+      END;
+      
+  | Tree.List:
+      state := 82;
+      state := yyComb [state + yyTraverse (yyt^.List.body)];
+      state := yyComb [state + yyTraverse (yyt^.List.sep)];
+
+      cost := 1
+      + CostDeclared (yyt^.List.body)
+      + CostDeclared (yyt^.List.sep);
+      IF cost < info^.Declared.Cost THEN
+        info^.Declared.Cost := cost;
+        info^.Declared.Proc := yyF17Declared;
+      END;
+      
+      cost := 1
+      + CostLL1 (yyt^.List.body)
+      + CostLL1 (yyt^.List.sep);
+      IF cost < info^.LL1.Cost THEN
+        info^.LL1.Cost := cost;
+        info^.LL1.Proc := yyF36LL1;
+      END;
+      
+      cost := 1
+      + CostRecovery (yyt^.List.body)
+      + CostRecovery (yyt^.List.sep);
+      IF cost < info^.Recovery.Cost THEN
+        info^.Recovery.Cost := cost;
+        info^.Recovery.Proc := yyF48Recovery;
+      END;
+      
+      cost := 1
+      + CostPrepareCode (yyt^.List.body)
+      + CostPrepareCode (yyt^.List.sep);
+      IF cost < info^.PrepareCode.Cost THEN
+        info^.PrepareCode.Cost := cost;
+        info^.PrepareCode.Proc := yyF62PrepareCode;
+      END;
+      
+  | Tree.Action:
+      state := 27;
+      state := yyComb [state + yyTraverse (yyt^.Action.codes)];
+
+      cost := 1;
+      IF cost < info^.Declared.Cost THEN
+        info^.Declared.Cost := cost;
+        info^.Declared.Proc := yyF18Declared;
+      END;
+      
+      cost := 1;
+      IF cost < info^.LL1.Cost THEN
+        info^.LL1.Cost := cost;
+        info^.LL1.Proc := yyF37LL1;
+      END;
+      
+      cost := 1;
+      IF cost < info^.Recovery.Cost THEN
+        info^.Recovery.Cost := cost;
+        info^.Recovery.Proc := yyF49Recovery;
+      END;
+      
+      cost := 1;
+      IF cost < info^.PrepareCode.Cost THEN
+        info^.PrepareCode.Cost := cost;
+        info^.PrepareCode.Proc := yyF63PrepareCode;
+      END;
+      
+  | Tree.Leaf:
+      state := 29;
+      state := yyComb [state + yyTraverse (yyt^.Leaf.id)];
+
+      cost := 1;
+      IF cost < info^.Declared.Cost THEN
+        info^.Declared.Cost := cost;
+        info^.Declared.Proc := yyF19Declared;
+      END;
+      
+      cost := 1;
+      IF cost < info^.LL1.Cost THEN
+        info^.LL1.Cost := cost;
+        info^.LL1.Proc := yyF38LL1;
+      END;
+      
+      cost := 1;
+      IF cost < info^.Recovery.Cost THEN
+        info^.Recovery.Cost := cost;
+        info^.Recovery.Proc := yyF50Recovery;
+      END;
+      
+      cost := 1;
+      IF cost < info^.PrepareCode.Cost THEN
+        info^.PrepareCode.Cost := cost;
+        info^.PrepareCode.Proc := yyF64PrepareCode;
+      END;
+      
+  | Tree.Alternative0:
+      state := 14;
+
+      cost := 1;
+      IF cost < info^.Declared.Cost THEN
+        info^.Declared.Cost := cost;
+        info^.Declared.Proc := yyF20Declared;
+      END;
+      
+      cost := 1;
+      IF cost < info^.LL1.Cost THEN
+        info^.LL1.Cost := cost;
+        info^.LL1.Proc := yyF39LL1;
+      END;
+      
+      cost := 1;
+      IF cost < info^.Recovery.Cost THEN
+        info^.Recovery.Cost := cost;
+        info^.Recovery.Proc := yyF51Recovery;
+      END;
+      
+      cost := 1;
+      IF cost < info^.RecoveryAlt.Cost THEN
+        info^.RecoveryAlt.Cost := cost;
+        info^.RecoveryAlt.Proc := yyF55RecoveryAlt;
+      END;
+      
+      cost := 1;
+      IF cost < info^.PrepareCode.Cost THEN
+        info^.PrepareCode.Cost := cost;
+        info^.PrepareCode.Proc := yyF65PrepareCode;
+      END;
+      
+      cost := 1;
+      IF cost < info^.PrepareCodeAlt.Cost THEN
+        info^.PrepareCodeAlt.Cost := cost;
+        info^.PrepareCodeAlt.Proc := yyF69PrepareCodeAlt;
+      END;
+      
+  | Tree.Alternative:
+      state := 104;
+      state := yyComb [state + yyTraverse (yyt^.Alternative.expr)];
+      state := yyComb [state + yyTraverse (yyt^.Alternative.alternative)];
+
+      cost := 1
+      + CostDeclared (yyt^.Alternative.expr)
+      + CostDeclared (yyt^.Alternative.alternative);
+      IF cost < info^.Declared.Cost THEN
+        info^.Declared.Cost := cost;
+        info^.Declared.Proc := yyF21Declared;
+      END;
+      
+      cost := 1
+      + CostLL1 (yyt^.Alternative.expr)
+      + CostLL1 (yyt^.Alternative.alternative);
+      IF cost < info^.LL1.Cost THEN
+        info^.LL1.Cost := cost;
+        info^.LL1.Proc := yyF40LL1;
+      END;
+      
+      cost := 1
+      + CostRecovery (yyt^.Alternative.expr)
+      + CostRecoveryAlt (yyt^.Alternative.alternative);
+      IF cost < info^.RecoveryAlt.Cost THEN
+        info^.RecoveryAlt.Cost := cost;
+        info^.RecoveryAlt.Proc := yyF56RecoveryAlt;
+      END;
+      
+      cost := 1
+      + CostPrepareCode (yyt^.Alternative.expr)
+      + CostPrepareCodeAlt (yyt^.Alternative.alternative);
+      IF cost < info^.PrepareCodeAlt.Cost THEN
+        info^.PrepareCodeAlt.Cost := cost;
+        info^.PrepareCodeAlt.Proc := yyF70PrepareCodeAlt;
+      END;
+      
+      REPEAT
+        success := FALSE;
+        cost := 1
+        + CostRecoveryAlt (yyt);
+        IF cost < info^.Recovery.Cost THEN
+          info^.Recovery.Cost := cost;
+          info^.Recovery.Proc := yyF52Recovery;
+          success := TRUE;
+        END;
+        
+        cost := 1
+        + CostPrepareCodeAlt (yyt);
+        IF cost < info^.PrepareCode.Cost THEN
+          info^.PrepareCode.Cost := cost;
+          info^.PrepareCode.Proc := yyF66PrepareCode;
+          success := TRUE;
+        END;
+        
+      UNTIL NOT success;
+  | Tree.Sequence0:
+      state := 16;
+
+      cost := 1;
+      IF cost < info^.Declared.Cost THEN
+        info^.Declared.Cost := cost;
+        info^.Declared.Proc := yyF22Declared;
+      END;
+      
+      cost := 1;
+      IF cost < info^.LL1.Cost THEN
+        info^.LL1.Cost := cost;
+        info^.LL1.Proc := yyF41LL1;
+      END;
+      
+      cost := 1;
+      IF cost < info^.Recovery.Cost THEN
+        info^.Recovery.Cost := cost;
+        info^.Recovery.Proc := yyF53Recovery;
+      END;
+      
+      cost := 1;
+      IF cost < info^.PrepareCode.Cost THEN
+        info^.PrepareCode.Cost := cost;
+        info^.PrepareCode.Proc := yyF67PrepareCode;
+      END;
+      
+  | Tree.Sequence:
+      state := 115;
+      state := yyComb [state + yyTraverse (yyt^.Sequence.expr)];
+      state := yyComb [state + yyTraverse (yyt^.Sequence.sequence)];
+
+      cost := 1
+      + CostDeclared (yyt^.Sequence.expr)
+      + CostDeclared (yyt^.Sequence.sequence);
+      IF cost < info^.Declared.Cost THEN
+        info^.Declared.Cost := cost;
+        info^.Declared.Proc := yyF23Declared;
+      END;
+      
+      cost := 1
+      + CostLL1 (yyt^.Sequence.expr)
+      + CostLL1 (yyt^.Sequence.sequence)
+      + CostLL1 (yyt^.Sequence.sequence);
+      IF cost < info^.LL1.Cost THEN
+        info^.LL1.Cost := cost;
+        info^.LL1.Proc := yyF42LL1;
+      END;
+      
+      cost := 1
+      + CostRecovery (yyt^.Sequence.expr)
+      + CostRecovery (yyt^.Sequence.sequence);
+      IF cost < info^.Recovery.Cost THEN
+        info^.Recovery.Cost := cost;
+        info^.Recovery.Proc := yyF54Recovery;
+      END;
+      
+      cost := 1
+      + CostPrepareCode (yyt^.Sequence.expr)
+      + CostPrepareCode (yyt^.Sequence.sequence)
+      + CostPrepareCode (yyt^.Sequence.sequence);
+      IF cost < info^.PrepareCode.Cost THEN
+        info^.PrepareCode.Cost := cost;
+        info^.PrepareCode.Proc := yyF68PrepareCode;
+      END;
+      
+  END;
+  RETURN state;
+END yyTraverse;
+
+PROCEDURE yyErrorCheck (i: INTEGER; s1, s2: ARRAY OF CHAR);
+BEGIN
+  IF i < 0 THEN
+    IO.WriteS (IO.StdError, s1);
+    IO.WriteS (IO.StdError, s2);
+    IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+  END;
+END yyErrorCheck;
+
+PROCEDURE BeginSemantics;
+VAR yyf: System.tFile; yyi: INTEGER;
+BEGIN
+  yyf := System.OpenInput (SemanticsTabName);
+  yyErrorCheck (yyf, 'cannot open ', SemanticsTabName);
+  yyi := System.Read (yyf, SYSTEM.ADR (yySets), SYSTEM.TSIZE (yySetsType));
+  yyErrorCheck (yyi, 'cannot read ', SemanticsTabName);
+  yyi := System.Read (yyf, SYSTEM.ADR (yyComb), SYSTEM.TSIZE (yyCombType));
+  yyErrorCheck (yyi, 'cannot read ', SemanticsTabName);
+  System.Close (yyf);
+
+END BeginSemantics;
+
+PROCEDURE DoSemantics (yyt: Tree.tTree);
+VAR yystate: yyStateType;
+BEGIN
+  yystate := yyTraverse (yyt);
+  Analyse (yyt);
+  yyReleaseHeap;
+END DoSemantics;
+
+PROCEDURE CloseSemantics;
+BEGIN
+
+END CloseSemantics;
+
+BEGIN
+  SemanticsTabName := 'Semantics.tab';
+  WITH yyInfo DO
+    Analyse.Cost := yyInfinite;
+    Analyse.Proc := yyEAnalyse;
+    Declare.Cost := yyInfinite;
+    Declare.Proc := yyEDeclare;
+    Declared.Cost := yyInfinite;
+    Declared.Proc := yyEDeclared;
+    Reduced.Cost := yyInfinite;
+    Reduced.Proc := yyEReduced;
+    LL1.Cost := yyInfinite;
+    LL1.Proc := yyELL1;
+    Recovery.Cost := yyInfinite;
+    Recovery.Proc := yyERecovery;
+    RecoveryAlt.Cost := yyInfinite;
+    RecoveryAlt.Proc := yyERecoveryAlt;
+    PrepareCode.Cost := yyInfinite;
+    PrepareCode.Proc := yyEPrepareCode;
+    PrepareCodeAlt.Cost := yyInfinite;
+    PrepareCodeAlt.Proc := yyEPrepareCodeAlt;
+  END;
+  yyBlockList:= NIL;
+  yyPoolFreePtr:= NIL;
+  yyPoolEndPtr:= NIL;
+END Semantics.

@@ -1,0 +1,910 @@
+
+(* file ada2.puma *) 
+
+(* Ada generation of Tree io, etc. 
+   Rodney M. Bates Jul 2000  
+   Extensively modified from file MThree2.puma, which had these header comments:  
+     Extensively modified from file mod2.puma, which had these header comments:  
+       (* Ich, Doktor Josef Grosch, Informatiker, 26.1.1989 *)
+       (* Modified Rodney M. Bates: 
+          RMB Dec 1995: Made tree writer reduce the amount of space on the
+                        left of deeply indented lines by replacing whole
+                        multiples of yyIndentFactor (initially = 20) blanks
+                        by a modula-2 style comment containing a count of 
+                        the blanks replaced. 
+
+       END of mod2.puma changelog. *)
+     Dec 1997 Added <*LINE...*> pragma output with -# option  
+     Jan 1999 Added html tree dumper generation 
+     Jan 1999 Added cases to Mark, WriteTREEm and WriteTREEHtml to follow 
+              LINK Attributes 
+     Jan 1999 changed procedure name yWriteNode to yyyWriteNode, to avoid
+              possible conflict with yWrite<Class>, where <Class> = "Node"
+  END of MThree2.puma changelog. *)
+
+(* ada2.puma changelog: 
+
+  Rodney M. Bates Jul 2000.  Initial creation from MThree2.puma
+
+*) 
+
+TRAFO TreeAda2
+TREE Tree
+PUBLIC TreeIO TreeIOInit GetIterator 
+
+EXPORT  {
+FROM Positions  IMPORT tPosition;
+
+VAR Iterator    : Tree.tTree;
+
+PROCEDURE WriteLine (Line: tPosition);
+}
+
+GLOBAL  {
+
+IMPORT Idents , Strings ; 
+FROM IO         IMPORT WriteS, WriteNl;
+FROM Sets       IMPORT IsElement , IsEmpty , Extract , Exclude ;
+FROM Idents     IMPORT tIdent;
+FROM Positions  IMPORT tPosition;
+FROM Semantics IMPORT TypeCount ; 
+
+FROM Tree       IMPORT
+   NoTree       , tTree         , Options       , ClassCount    ,
+   f            , WI    , WN    , iInteger      , itTree        ,
+   iNoTree      , iModule       , iMain         , HasChildren   ,
+   HasAttributes, NoCodeAttr    , NoCodeClass   , Link          , 
+   ForallClassesExtensionsFirst, ForallAttributes, Reverse      ,
+   TypeNames ;
+
+VAR
+   iClassName   : Idents . tIdent;
+   sBOOLEAN     : Strings . tString;
+   iBOOLEAN     : Idents . tIdent;
+   RevChild     : tTree;
+
+PROCEDURE WriteLine (Line: tPosition);
+   BEGIN
+      IF Line.Line # 0 THEN
+         !-- From line ! WN (Line.Line); @ of file "@ WI (Line.File); @"@
+         IF IsElement (ORD ('#'), Options) THEN 
+           !PRAGMA LINE ( ! WN (Line.Line); @ , "@ WI (Line.File); @" ) ; @
+         END; 
+      END;
+   END WriteLine;
+} (* End of GLOBAL *) 
+
+BEGIN { 
+
+  Strings . ArrayToString ( "BOOLEAN" , sBOOLEAN ) ; 
+  iBOOLEAN := Idents . MakeIdent ( sBOOLEAN ) ; 
+
+} (* End of BEGIN *)  
+
+PROCEDURE TreeIO (t: Tree)
+
+Ag (..) 
+  :- VAR LTypeId : tIdent ; 
+      {
+        !!
+      IF IsElement (ORD ('w'), Options) 
+         OR IsElement (ORD ('w'), Options) THEN 
+        !yyf : Text_Io . File_Type ; !
+(* ^This won't work, as Text_Io . File_Type is LIMITED PRIVATE. *) 
+      END; 
+      IF IsElement (ORD ('r'), Options) THEN 
+(* These are used only by the Ascii reader, which is  not generated for Ada.
+        !yyLabel : NATURAL ; !
+        !yyKind : NATURAL ; !
+        !yyc : CHARACTER ; !
+*)
+      END;  
+        !!
+      IF IsElement (ORD (','), Options) THEN
+        !PROCEDURE yyMark  ( Tree : ! WI (itTree); ! ) !
+        !IS !
+        !  yyt : ! WI ( itTree ) ; ! := Tree ; !
+        !!
+        !BEGIN !
+        !  LOOP!
+        !    IF yyt = ! WI (iNoTree); ! THEN RETURN ; END IF ;!
+        !    yyt . ALL . yyHead . yyMark := yyt . ALL . yyHead . yyMark + 1 ; !
+        !    IF yyt . ALL . yyHead . yyMark > 1 THEN RETURN ; END IF ; !
+        !!
+        !    CASE yyt . ALL . Kind IS!
+        Mark ( Classes ) ; 
+        !    WHEN OTHERS => RETURN ; !
+        !    END CASE ; !
+        !  END LOOP ;!
+        !END yyMark ;!
+        !!
+      END;
+      IF IsElement (ORD (';'), Options) THEN
+        !yyInitTreeStoreSize : CONSTANT := 32 ; !
+        !!
+        !TYPE yytTreeStore IS ARRAY ( INTEGER RANGE <> ) OF ! WI (itTree); ! ; !
+        !TYPE yytTreeStorePtr IS ACCESS yytTreeStore ; ! 
+        !!
+        !yyTreeStorePtr : yytTreeStorePtr := NULL ; !
+        !yyLabelCount : NATURAL := 0 ; !
+        !yyInitialTreeStoreCount : CONSTANT NATURAL := 2000 ; !
+        !yyRecursionLevel : NATURAL ; !
+        !!
+        !FUNCTION yyMapToLabel ( yyTree : ! WI (itTree); ! ) RETURN NATURAL !
+        !IS !
+        !  yyi : NATURAL ; !
+        !  LNewTreeStorePtr : yytTreeStorePtr ; !
+        !BEGIN!
+        !  FOR yyi IN 0 .. yyLabelCount - 1 !
+        !  LOOP !
+        !    IF yyTreeStorePtr . ALL ( yyi ) = yyTree THEN RETURN yyi ; END IF ; !
+        !  END LOOP ; !
+        !  IF yyTreeStorePtr = NULL !
+        !  THEN !
+        !    yyTreeStorePtr := NEW yytTreeStore ( 0 .. yyInitialTreeStoreCount - 1 ) ; !
+        !  END IF ; !
+        !  IF yyLabelCount = yyTreeStorePtr . ALL __ADA_TICK__ LENGTH !
+        !  THEN !
+        !     LNewTreeStorePtr !
+        !       := NEW yytTreeStore ( 0 .. yyTreeStorePtr . ALL __ADA_TICK__ LENGTH * 2 - 1 ) ;!
+        !     LNewTreeStorePtr . ALL ( yyTreeStorePtr . ALL __ADA_TICK__ RANGE ) !
+        !       := yyTreeStorePtr . ALL ; !
+        !     yyTreeStorePtr := LNewTreeStorePtr ; !
+        !  END IF ; !
+        !  yyi := yyLabelCount ; !
+        !  yyTreeStorePtr . ALL ( yyi ) := yyTree ; !
+        !  yyLabelCount := yyLabelCount + 1 ; !
+        !  RETURN yyi ;!
+        ! END yyMapToLabel ; !
+        !!
+       IF IsElement (ORD ('r'), Options) THEN 
+(* This is used only by the Ascii reader, which is  not generated for Ada.
+        !PROCEDURE yyMapToTree ( yyLabel : NATURAL ) : ! WI (itTree); !!
+        !=BEGIN RETURN yyTreeStorePtr ^ [ yyLabel ] ; END yyMapToTree ;!
+        !!
+*) 
+       END;
+      END;
+      IF IsElement (ORD ('w'), Options) OR
+         IsElement (ORD ('^'), Options) OR
+         IsElement (ORD ('o'), Options) THEN
+        @PROCEDURE yyWriteNl IS BEGIN Text_Io . Put_Line ( "" ) ; END yyWriteNl ; @
+        !!
+        !PROCEDURE yyWriteSelector ( yys : STRING ) !
+        !IS !
+        !  SUBTYPE LPadSt IS STRING ( 1 .. 16 - yys __ADA_TICK__ LENGTH ) ; !
+        !BEGIN !
+        !  Text_Io . Put ( yys ) ; !
+        !  Text_Io . Put ( LPadSt __ADA_TICK__ ( OTHERS => ' ' ) ) ; !
+        @  Text_Io . Put ( " = " ) ; @
+        !END yyWriteSelector ; !
+        !!
+        !LittleEndian : BOOLEAN := TRUE ; !
+        !!
+        !TYPE Byte IS RANGE 0 .. 255 ; !
+        !TYPE Bytes IS ARRAY ( INTEGER RANGE <> ) OF BYTE ; !
+        !! 
+        !PROCEDURE yyWriteHex ( yyx : Bytes ) !
+        !IS BEGIN!
+        !  IF LittleEndian!
+        !  THEN!
+        !    FOR yyi IN REVERSE yyx __ADA_TICK__ RANGE LOOP !
+        !      Integer_Text_Io . Put ( yyx ( yyi ) , 2 , 16 ) ; !
+     (* !      Text_Io . Put (' ' ) ;! *) 
+        !    END LOOP ; !
+        !  ELSE!
+        !    FOR yyi IN yyx __ADA_TICK__ RANGE LOOP !
+        !      Integer_Text_Io . Put ( yyx ( yyi ) , 2 , 16 ) ; !
+     (* !      Text_Io . Put (' ' ) ;! *) 
+        !    END LOOP ; !
+        !  END IF ; !
+        !END yyWriteHex ;!
+        !!
+      END;
+      IF IsElement (ORD ('o'), Options) 
+         OR IsElement (ORD ('^'), Options) THEN
+        !FUNCTION ! WI(itTree); !ToBytes IS NEW Unchecked_Conversion !
+        !  ( ! WI (itTree); ! , Bytes ( 1 .. ! WI ( itTree ) ; ! __ADA_TICK__ Size / 8 ) ) ; ! 
+        !!
+        !PROCEDURE yyWriteAdr ( yyt : ! WI (itTree); ! ) !
+        !IS BEGIN !
+        !  IF yyt = ! WI (iNoTree); ! THEN !
+        @   Text_Io . Put ("@ WI (iNoTree); @" ) ; @
+        !  ELSE !
+        !   yyWriteHex ( ! WI(itTree); !ToBytes ( yyt ) ) ;!
+        !  END IF ; !
+        !  yyWriteNl ;!
+        !END yyWriteAdr ; !
+        !!
+	IF itTree <= TypeCount THEN Exclude (TypeNames, itTree); END;
+	WHILE NOT IsEmpty (TypeNames) DO
+	  LTypeId := Extract (TypeNames);
+          !FUNCTION ! WI ( LTypeId ) ; !ToBytes IS NEW Unchecked_Conversion !
+          !  ( ! WI ( LTypeId ) ; ! , Bytes ( 1 .. ! WI ( LTypeId ) ; ! __ADA_TICK__ SIZE / 8 ) ) ; !
+          !!
+        END (* WHILE *) ; 
+      END;
+      IF IsElement (ORD ('o'), Options) THEN 
+        ForallClassesExtensionsFirst (Classes, WriteNode);
+        !PROCEDURE Write! WI (iModule); !Node !
+        ! ( f : Text_Io . File_Type ; Tree : ! WI (itTree); ! ) !
+        !IS BEGIN!
+        !  Text_Io . Set_Output ( f ) ; !
+        !  IF Tree = ! WI (iNoTree); ! THEN !
+        @    Text_Io . Put ( "@ WI (iNoTree); @" ) ; yyWriteNl ; RETURN ; @
+        !  END IF ; !
+        !!
+        !  CASE Tree . ALL . Kind IS !
+        WriteNodeName ( Classes ) ;
+        !  WHEN OTHERS => NULL ; !
+        !  END CASE ;!
+        !END Write! WI (iModule); !Node ;!
+        !!
+      END;
+      (* Generate ascii writer, original Cocktail format *) 
+      IF IsElement (ORD ('w'), Options) THEN
+      (*!VAR yyIndentLevel      : INTEGER ;!
+        !VAR yyActualIndent , yyIndentQuotient , yyIndentRemainder : INTEGER ;!
+        !CONST yyIndentFactor = 20 ; !
+        !!
+        !PROCEDURE yySetIndentInfo ( ) !
+        ! =BEGIN !
+        !   yyIndentQuotient := yyIndentLevel DIV yyIndentFactor ; !
+        !   yyIndentRemainder := yyIndentLevel MOD yyIndentFactor ; !
+        !   yyActualIndent !
+        !     := 10 * ORD ( yyIndentQuotient > 0 ) !
+        !        + yyIndentRemainder !
+        !  END yySetIndentInfo ; !
+        !!
+        !PROCEDURE Write! WI (iModule); ! ( f : Wr . T ; Tree : ! WI (itTree); ! ) !
+        !=VAR yySaveLevel : INTEGER ;!
+        ! BEGIN!
+        !  yyf := f ;!
+        !  IF yyRecursionLevel = 0 THEN yyLabelCount := 0 END ;!
+        !  INC ( yyRecursionLevel ) ;!
+        !  yyMark ( Tree ) ;!
+        !  yySaveLevel := yyIndentLevel ;!
+        !  yyIndentLevel := 0 ;!
+        !  yySetIndentInfo ( ) ; !
+        !  yyWrite! WI (iModule); ! ( Tree );!
+        !  yyIndentLevel := yySaveLevel ;!
+        !  yySetIndentInfo ( ) ; !
+        !  DEC ( yyRecursionLevel ) ;!
+        ! END Write! WI (iModule); ! ;!
+        !!
+        !PROCEDURE yyIndentSelector ( yys : TEXT )!
+        !=BEGIN !
+        !   IF yyIndentQuotient > 0 !
+        !   THEN Text_Io . Put ('(' ) ; Text_Io . Put ('*' ) ;!
+        !     Text_Io . Put (Fmt . Pad ( Fmt . Int ( yyIndentQuotient * yyIndentFactor ) , 6 ) ) ; !
+        !     Text_Io . Put ('*' ) ; Text_Io . Put (')' ) ;!
+        !   END ; !
+        @   Text_Io . Put (Fmt . Pad ( "" , yyIndentRemainder ) ) ;@
+        !   yyWriteSelector ( yys ) ; !
+        ! END yyIndentSelector ;!
+        !!
+        !PROCEDURE yyIndentSelectorTree ( yys : TEXT ; yyt : ! WI (itTree); ! )!
+        !=BEGIN yyIndentSelector  ( yys ) ; write! WI (itTree); ! (yyt) END yyIndentSelectorTree ;!
+        !!
+        ForallClassesExtensionsFirst (Classes, WriteAttributes);
+        !PROCEDURE yyWrite! WI (iModule); ! ( yyt : ! WI (itTree); ! )!
+        !=VAR yyLevel : NATURAL ;!
+        ! BEGIN!
+        !  yyLevel := yyIndentLevel ;!
+        !  LOOP!
+        !   IF yyt = ! WI (iNoTree); ! THEN!
+        @    Text_Io . Put (" @ WI (iNoTree); @" ) ; yyWriteNl  ; EXIT ; @
+        !   ELSIF yyt . ALL . yyHead . yyMark = 0 THEN!
+        !    Wr . PutChar ( yyf, '^') ;!
+        !    Text_Io . Put (Fmt . Int ( yyMapToLabel ( yyt ) ) ) ; yyWriteNl  ; EXIT ;!
+        !   ELSIF yyt . ALL . yyHead . yyMark > 1 THEN!
+        !    yyWriteNl  ;!
+        !    Text_Io . Put (Fmt . Pad ( Fmt . Int ( yyMapToLabel ( yyt ) ) , 6 ) ) ;!
+        !    Text_Io . Put (':') ;!
+        @    Text_Io . Put (Fmt . Pad ( "" , MAX ( 0 , yyActualIndent - 7 ) ) ) ;@
+        !   ELSE!
+        !    Text_Io . Put (' ' ) ;!
+        !   END ;!
+        !   yyt . ALL . yyHead . yyMark := 0 ;!
+        !   INC ( yyIndentLevel , 2 ) ;!
+        !   yySetIndentInfo ( ) ; !
+        !!
+        !   CASE yyt . ALL . Kind IS!
+        WriteClassName ( Classes );
+        !   WHEN OTHERS => EXIT ;!
+        !   END ;!
+        !  END ;!
+        !  yyIndentLevel := yyLevel ;!
+        !  yySetIndentInfo ( ) ; !
+        ! END yyWrite! WI (iModule); ! ;!
+        !!*)
+      END;
+      (* Generate html dumper *) 
+      IF IsElement (ORD ('^'), Options) THEN
+        !FUNCTION yyNodeTag ( yyt : ! WI ( itTree ) ; ! ) RETURN STRING !
+        !IS BEGIN !
+        !  IF yyt = NULL !
+        @  THEN RETURN "NIL" ; @
+        !  ELSE ! 
+        @    RETURN "Node" @ !& INTEGER __ADA_TICK__ IMAGE ( yyMapToLabel ( yyt ) ) ; !
+        !  END IF ; ! 
+        ! END yyNodeTag ; !
+        !!
+        !FUNCTION yyNodeKind ( yyt : ! WI ( itTree ) ; ! ) RETURN STRING !
+        !IS BEGIN!
+        !  IF yyt = ! WI (iNoTree); !!
+        !  THEN !
+        @    RETURN "NIL"  ; @
+        !  ELSE!
+        !    CASE yyt . ALL . Kind IS !
+        NodeKinds ( Classes ) ; 
+        !    WHEN OTHERS => ! 
+        @      RETURN "<Unknown>" ; @
+        !    END CASE ; !
+        !   END IF ; !
+        !  END yyNodeKind ; !
+        !!
+        !PROCEDURE Write! WI (iModule); !Html !
+        @  ( f : Text_Io . File_Type ; Tree : @ WI (itTree); @ ; Title : STRING := "" @
+        !  ; SuppressNullFields : BOOLEAN := FALSE ) !
+        !!
+        !IS !
+        @  IndentString : CONSTANT STRING := "  " ; @ 
+        !!
+        !  PROCEDURE WriteChildOrLink !
+        !    ( Name , TypeName : STRING ; Value : ! WI ( itTree ) ; ! ; IsLink : BOOLEAN := FALSE ) !
+        !  IS !
+        !   LNodeTag : STRING := yyNodeTag ( Value ) ; !
+        !  BEGIN !
+        !   IF Value /= NULL OR NOT SuppressNullFields ! 
+        !   THEN !
+        !    Text_Io . Put ( IndentString ) ; !
+        !    Text_Io . Put ( Name ) ; !
+        @    Text_Io . Put ( " : " ) ; @
+        !    Text_Io . Put ( TypeName ) ; !
+        !    IF IsLink !
+        !    THEN !
+        @      Text_Io . Put ( " LINK" ) ; @
+        !    END IF ; !
+        @    Text_Io . Put ( " = " ) ; @
+        @    Text_Io . Put ( "<a href=__ADA_DQUOTE_IN_STRING__#" ) ; @
+        !    Text_Io . Put ( LNodeTag ) ; !
+        @    Text_Io . Put ( "__ADA_DQUOTE_IN_STRING__>REF " ) ; @
+        !    Text_Io . Put ( LNodeTag ) ; !
+        @    Text_Io . Put ( "(" ) ; @
+        !    yyWriteAdr ( Value ) ; !
+        @    Text_Io . Put ( ")" ) ; @
+        !    Text_Io . Put ( yyNodeKind ( Value ) ) ; !
+        @    Text_Io . Put ( "</a>" ) ; @
+        !    yyWriteNl ; !
+        !   END IF ; ! 
+        !  END WriteChildOrLink ; !
+        !!
+        !  PROCEDURE WriteBOOLEANAttribute !
+        !    ( Name : STRING ; Value : BOOLEAN ) !
+        !  IS BEGIN !
+        !   IF Value OR NOT SuppressNullFields ! 
+        !   THEN !
+        !    Text_Io . Put ( IndentString ) ; !
+        !    Text_Io . Put ( Name ) ; !
+        @    Text_Io . Put ( " : " ) ; @
+        @    Text_Io . Put ( "BOOLEAN = " ) ; @ 
+        !    writeBOOLEAN ( Value ) ! 
+        !    yyWriteNl  ; !
+        !   END IF ; ! 
+        !  END WriteBOOLEANAttribute ; !
+        !!
+     (* ! PROCEDURE WriteAttributeHeader !
+        !   ( Name , Type : TEXT ) !
+        ! =BEGIN !
+        !   Text_Io . Put (IndentString ) ; !
+        !   Text_Io . Put (Name ) ; !
+        @   Text_Io . Put (" : " ) ; @
+        !   Text_Io . Put (Type ) ; !
+        @   Text_Io . Put (" = " ) ; @
+        !  END WriteAttributeHeader ; !
+        !! *) 
+        ForallClassesExtensionsFirst ( Classes , WriteHtmlNodes ) ;
+        ! PROCEDURE WriteHtmlRecurse ( Tree : ! WI ( itTree ) ; ! ) !
+        ! IS !
+        !   yyt : ! WI ( itTree ) ; ! := Tree ; !
+        ! BEGIN !
+        !   LOOP !
+        !    IF yyt = ! WI (iNoTree); ! OR ELSE yyt . ALL . yyHead . yyMark = 0!
+        !    THEN !
+        !     EXIT ; !
+        !    ELSE !
+        !     yyt . ALL . yyHead . yyMark := 0 ; !
+        !     CASE yyt . ALL . Kind IS !
+        WriteHtmlCases ( Classes );
+        !     WHEN OTHERS => EXIT ; !
+        !     END CASE ; !
+        !    END IF ; !
+        !   END LOOP ; !
+        ! END WriteHtmlRecurse ; !
+        !!
+        ! BEGIN -- Write! WI (iModule); !Html !
+        !  Text_Io . Set_Output ( f ) ; !
+        !  IF yyRecursionLevel = 0 THEN yyLabelCount := 0 ; END IF ; !
+        !  yyRecursionLevel := yyRecursionLevel + 1 ; !
+        !  yyMark ( Tree ) ; !
+        @  Text_Io . Put ( "<html> " ) ; yyWriteNl  ; @ 
+        @  Text_Io . Put ( "<head>" ) ; yyWriteNl  ; @ 
+        @  Text_Io . Put ( "<title>" ) ; @ 
+        @  Text_Io . Put ( "Tree """ ) ; @ 
+        @  Text_Io . Put ( Title ) ; @ 
+        @  Text_Io . Put ( """</title>" ) ; yyWriteNl  ; @ 
+        @  Text_Io . Put ( "</head>" ) ; yyWriteNl  ; @ 
+        @  Text_Io . Put ( "<body>" ) ; yyWriteNl  ; @ 
+        @  Text_Io . Put ( "<pre>" ) ; yyWriteNl  ; @ 
+        !  yyWriteNl  ; !
+        !  WriteHtmlRecurse ( Tree ) ; !
+        @  Text_Io . Put ( "</pre>" ) ; yyWriteNl  ; @ 
+        @  Text_Io . Put ( "</body>" ) ; yyWriteNl  ; @ 
+        @  Text_Io . Put ( "</html>" ) ; yyWriteNl  ; @ 
+        !  yyRecursionLevel := yyRecursionLevel - 1;!
+        ! END Write! WI (iModule); !Html ; !
+        !!
+      END;
+(* Ascii reader not generated for Ada.  
+      IF IsElement (ORD ('r'), Options) THEN 
+        !PROCEDURE Read! WI (iModule); !        (f: Rd.T): ! WI (itTree); !;!
+        ! VAR yyt       : ! WI (itTree); !;!
+        ! BEGIN!
+        !  yyf := f;!
+        !  IF yyRecursionLevel = 0 THEN yyLabelCount := 0; END;!
+        !  INC (yyRecursionLevel);!
+        !  IF NOT yyIsInitialized THEN!
+        !   yyInitKindToIdent; yyIsInitialized := TRUE;!
+        !  END;!
+        !  yyRead! WI (iModule); ! (SYSTEM.ADR (yyt));!
+        !  DEC (yyRecursionLevel);!
+        !  RETURN yyt;!
+        ! END Read! WI (iModule); !;!
+        !!
+        !PROCEDURE yyRead! WI (iModule); ! (yyt: yyPtrtTree);!
+        ! BEGIN!
+        !  LOOP!
+        !   CASE IO.ReadC (yyf) OF!
+        !   | '^': yyLabel := IO.ReadI (yyf); yyReadNl; yyt^ := yyMapToTree (yyLabel); RETURN;!
+        !   | 12C, '0': yyLabel := IO.ReadI (yyf); yyc := IO.ReadC (yyf);!
+        !    Layout.SkipSpaces (yyf); Strings.ReadL (yyf, yys);!
+        !    yyKind := yyMapToKind (yys); yyt^ := Make! WI (iMain); ! (yyKind);!
+        @    IF yyLabel # yyMapToLabel (yyt^) THEN Wr . PutText ( Stdio . stderr , "@ WI (iModule); @: error in Read@ 
+        WI (iModule); @" ) ; Wr . PutText ( Stdio . stderr , Wr . EOL ) ; yyExit ; END ;@
+        !   WHEN OTHERS =>!
+        !    Layout.SkipSpaces (yyf); Strings.ReadL (yyf, yys);!
+        !    yyKind := yyMapToKind (yys);!
+        !    IF yyKind = 0 THEN yyt^ := ! WI (iNoTree); !; RETURN; END;!
+        !    yyt^ := Make! WI (iMain); ! (yyKind);!
+        !   END;!
+        !!
+        !   CASE yyKind OF!
+        ForallClassesExtensionsFirst (Classes, ReadAttributes);
+        !   WHEN OTHERS => RETURN;!
+        !   END;!
+        !  END;!
+        ! END yyRead! WI (iModule); !;!
+        !!
+        !VAR yyKindToIdent      : ARRAY [0 .. ! WN (ClassCount); !] OF Idents.tIdent;!
+        !VAR yyIsInitialized    : BOOLEAN;!
+        !!
+        !PROCEDURE yyMapToKind (VAR yys: Strings.tString): NATURAL;!
+        ! VAR yyi       : Idents.tIdent;!
+        ! VAR yyk       : NATURAL;!
+        ! BEGIN!
+        !  yyi := Idents.MakeIdent (yys);!
+        !  FOR yyk := 0 TO ! WN (ClassCount); ! DO!
+        !   IF yyKindToIdent [yyk] = yyi THEN RETURN yyk; END;!
+        !  END;!
+        !  RETURN 0;!
+        ! END yyMapToKind;!
+        !!
+        !PROCEDURE yyInitKindToIdent2 (yya: ARRAY OF CHAR; yyKind: NATURAL);!
+        ! VAR yys       : Strings.tString;!
+        ! BEGIN!
+        !  Strings.ArrayToString (yya, yys);!
+        !  yyKindToIdent [yyKind] := Idents.MakeIdent (yys);!
+        ! END yyInitKindToIdent2;!
+        !!
+        !PROCEDURE yyInitKindToIdent;!
+        ! BEGIN!
+        !  yyInitKindToIdent2 ('! WI (iNoTree); !', 0);!
+        ForallClassesExtensionsFirst (Classes, InitKindToIdent);
+        ! END yyInitKindToIdent;!
+        !!
+        !PROCEDURE yyReadNl; BEGIN IO.ReadNl (yyf); END yyReadNl;!
+        !!
+        !PROCEDURE yyReadIdent (): Idents.tIdent;!
+        ! VAR yys       : Strings.tString;!
+        ! BEGIN!
+        !  Strings.ReadL (yyf, yys);!
+        !  IO.UnRead (yyf);!
+        !  RETURN Idents.MakeIdent (yys);!
+        ! END yyReadIdent;!
+        !!
+        !PROCEDURE yyReadHex (VAR yyx: ARRAY OF SYSTEM.BYTE);!
+        ! VAR yyi       : INTEGER;!
+        ! BEGIN!
+        !  FOR yyi := 0 TO INTEGER (HIGH (yyx)) DO!
+        !   yyx [yyi] := SYSTEM.BYTE (CHR (NATURAL (IO.ReadN (yyf, 16))));!
+        !  END;!
+        ! END yyReadHex;!
+        !!
+        !PROCEDURE yySkip;!
+        ! BEGIN!
+        !  REPEAT UNTIL IO.ReadC (yyf) = '='; yyc := IO.ReadC (yyf);!
+        ! END yySkip;!
+        !!
+      END;
+*) 
+      IF IsElement (ORD ('p'), Options) 
+         OR IsElement (ORD ('g'), Options) THEN
+      (*!TYPE AtomSpecialTyp = Pickle . Special OBJECT!
+        !  OVERRIDES!
+        !    write := WriteAtom!
+        !  ; read := ReadAtom!
+        !  END ;!
+        !!
+        !PROCEDURE WriteAtom ( Self : AtomSpecialTyp ; r : REFANY ; wr : Pickle . Writer )!
+        !  RAISES { Pickle . Error , Wr . Failure , Thread . Alerted }!
+        != VAR LText : TEXT := Atom . ToText ( NARROW ( r , Atom . T ) )!
+        !      (* Why does M3 accept this without the NARROW? *) !
+        !; VAR LLength : INTEGER := Text . Length ( LText )!
+        !; BEGIN!
+        !    wr . writeInt ( LLength ) !
+        !  ; FOR i := 0 TO LLength !
+        !    DO!
+        !      Wr . PutChar ( wr . wr , Text . GetChar ( LText , i ) )!
+        !    END (* FOR *) !
+        !  END WriteAtom ;!
+        !!
+        !PROCEDURE ReadAtom !
+        !  ( Self : AtomSpecialTyp ; rd : Pickle . Reader ; id : Pickle . RefID ) !
+        !  : REFANY!
+        !  RAISES { Pickle . Error , Rd . EndOfFile , Rd . Failure , Thread . Alerted }!
+        != VAR LLength : INTEGER := rd . readInt ( ) !
+        !; VAR LChars : REF ARRAY OF CHAR := NEW ( REF ARRAY OF CHAR , LLength ) !
+        !; BEGIN!
+        !    FOR i := 0 TO LLength !
+        !    DO !
+        !      LChars ^ [ i ] := Rd . GetChar ( rd . rd )!
+        !    END (* FOR *) !
+        !  ; RETURN Atom . FromText ( Text . FromChars ( LChars ^ ) )!
+        !  END ReadAtom ;!
+        !!*)
+      END; 
+      IF IsElement (ORD ('p'), Options) THEN
+      (*!PROCEDURE Put! WI (iModule); ! ( f : Wr . T ; Tree : ! WI (itTree); ! )!
+        !=BEGIN!
+        !   Pickle . Write ( f , Tree )!
+        ! END Put! WI (iModule); ! ;!
+        !!*)
+      END;
+      IF IsElement (ORD ('g'), Options) THEN
+      (*!PROCEDURE Get! WI (iModule); ! ( f : Rd . T ) : ! WI (itTree); 
+        != BEGIN!
+        !    RETURN NARROW ( Pickle . Read ( f ) , ! WI ( itTree ) ; ! )!
+        !  END Get! WI (iModule); ! ;!
+        !!*)
+      END;
+}; .
+
+
+PROCEDURE TreeIOInit (t: Tree)
+
+Ag (..) :- {
+      IF IsElement (ORD ('p'), Options) 
+         OR IsElement (ORD ('g'), Options) THEN
+        (*!Pickle . RegisterSpecial ( NEW ( AtomSpecialTyp , sc := TYPECODE ( Atom . T ) ) ) ;!*)
+      END; 
+}; .
+
+
+PROCEDURE WriteNodeName (t: Tree)
+
+Class (..) :- {
+        WriteNodeName ( Extensions ) ; 
+        IF (NoCodeClass * Properties) = {} THEN
+           !  WHEN ! WI (Name); ! => !
+           @    Text_Io . Put ( "Node of Kind @ WI (Name); @:" ) ; yyWriteNl ; @ 
+           IF ({HasChildren, HasAttributes} * Properties) # {} THEN
+             !    yyyWriteNode! WI (Name); ! ( Tree ) ;!
+           END;
+           !!
+        END;
+        WriteNodeName ( Next ) ; 
+}; .
+
+
+PROCEDURE WriteNode (t: Tree)
+
+Class (..) :- {
+        IF ((NoCodeClass * Properties) = {}) AND
+           (({HasChildren, HasAttributes} * Properties) # {}) THEN
+           !PROCEDURE yyyWriteNode! WI (Name); ! ( yyt : ! WI ( itTree ); ! )!
+           !  IS BEGIN!
+           WriteNodeAttributes ( t ) ; 
+           !    NULL ; !
+           (* ^Just in case no statements generated. *) 
+           !  END yyyWriteNode! WI (Name); ! ; !
+           !!
+        END;
+}; .
+
+PROCEDURE WriteNodeAttributes (t: Tree)
+
+NoClass ( ) :- . 
+
+Class (..) :- {
+        WriteNodeAttributes ( BaseClass ) ; 
+        IF ((NoCodeClass * Properties) = {}) AND
+           (({HasChildren, HasAttributes} * Properties) # {}) THEN
+           iClassName := Name; 
+           ForallAttributes (Attributes, WriteNodeAttributes);
+        END;
+}; .
+Child (..) :- {
+        @    yyWriteSelector ( "@ WI (Name); @" ) ; @
+        !    yyWriteAdr ( yyt . ALL . ! WI ( iClassName ) ; 
+               ! . ! WI (Name); ! ) ; !
+}; .
+Attribute (..) :- {
+        IF (NoCodeAttr * Properties) = {} THEN
+         IF Link IN Properties 
+         THEN
+           @    yyWriteSelector ( "@ WI (Name); @" ) ; @
+           !    yyWriteAdr ( yyt . ALL . ! WI ( iClassName ) ; 
+                  ! . ! WI (Name); ! ) ; !
+         ELSE  
+           @    yyWriteSelector ( "@ WI (Name); @" ) ; write@ WI (Type);
+           !      ( yyt . ALL . ! WI ( iClassName ) ; 
+                      ! . ! WI (Name) ; ! ) yyWriteNl  ; !
+         END; 
+        END;
+}; .
+
+
+PROCEDURE Mark (t: Tree)
+
+Class (..) :- {
+        Mark ( Extensions ) ; 
+        IF ((NoCodeClass * Properties) = {}) AND (HasChildren IN Properties) THEN
+           !    WHEN ! WI (Name); ! => !
+           GetIterator (t);
+           iClassName := Name; 
+           ForallAttributes (t, Mark);
+           IF Iterator = NoTree THEN
+              !      RETURN ; !
+           ELSE
+              !      yyt := yyt . ALL . ! WI (iClassName); 
+                       ! . ! WI (Iterator^.Child.Name); ! ; !
+           END;
+        END;
+        Mark ( Next ) ; 
+}; .
+
+Child (..) :- {
+        IF t # Iterator THEN
+           !      yyMark ( yyt . ALL . ! WI (iClassName); ! . ! WI (Name); ! ) ; !
+        END;
+}; .
+
+Attribute (..) :- {
+        IF Link IN Properties THEN
+           !      yyMark ( yyt . ALL . ! WI (iClassName); ! . ! WI (Name); ! ) ; !
+        END;
+}; .
+
+PROCEDURE WriteClassName (t: Tree)
+
+Class (..) :- {
+        WriteClassName ( Extensions ) ; 
+        IF (NoCodeClass * Properties) = {} THEN
+           !   | ! WI (Name); ! ( TNode ) => !
+           IF ({HasChildren, HasAttributes} * Properties) # {} THEN
+              !       yWrite! WI (Name); ! ( TNode ) ; !
+              GetIterator (t);
+              IF Iterator = NoTree THEN
+                !       EXIT ;!
+              ELSE
+                 @       yyIndentSelector ( "@ WI (Iterator^.Child.Name); @" ) ;@ 
+                 !       yyt := TNode . ! WI (Iterator^.Child.Name); ! ;!
+              END ;
+           ELSE
+              @       Text_Io . Put ("@ WI (Name); @" ) ; yyWriteNl  ; EXIT ;@
+           END;
+        END;
+        WriteClassName ( Next ) ; 
+}; .
+
+PROCEDURE WriteAttributes (t: Tree)
+
+Class (..) :- {
+        IF ((NoCodeClass * Properties) = {}) AND
+           (({HasChildren, HasAttributes} * Properties) # {}) THEN
+           !PROCEDURE yWrite! WI (Name); ! ( yyt : ! WI ( Name ); ! )!
+           !=BEGIN!
+           @  Text_Io . Put ("@ WI (Name); @" ) ; yyWriteNl  ;@
+           GetIterator (t);
+           iClassName := Name; (* unused, at present *) 
+           ForallAttributes (t, WriteAttributes);
+           ! END yWrite! WI (Name); ! ;!
+           !!
+        END;
+}; .
+Child (..) :- {
+        IF t # Iterator THEN
+           @  yyIndentSelectorTree ( "@ WI (Name); @" , yyt . @ WI (Name); @ ) ;@
+        END;
+}; .
+Attribute (..) :- {
+        IF (NoCodeAttr * Properties) = {} THEN 
+         IF Link IN Properties 
+         THEN
+           @  yyIndentSelectorTree ( "@ WI (Name); @" , yyt . @ WI (Name); @ ) ;@
+         ELSE 
+           @  yyIndentSelector ( "@ WI (Name); @" ) ; @ 
+           !write! WI (Type); ! ( yyt . ! WI (Name); ! ) yyWriteNl  ;!
+         END (* IF *) ; 
+        END;
+}; .
+
+(* Html writer support routines *) 
+
+PROCEDURE NodeKinds ( t : Tree ) 
+
+Class ( .. ) 
+:- { NodeKinds ( Extensions ) ; 
+     IF ( NoCodeClass * Properties = { } ) 
+     THEN
+       !    WHEN ! WI ( Name ) ; @ => RETURN "@ WI ( Name ) ; @" ; @
+     END (* IF *) ; 
+     NodeKinds ( Next ) ; 
+   } ; . 
+
+PROCEDURE WriteHtmlNodes ( t : Tree ) 
+
+Class ( .. ) 
+:- { 
+     IF ( NoCodeClass * Properties = { } ) 
+     THEN
+       !  PROCEDURE Write! WI ( Name ) ; !Html ( TNode : tAst ) !
+       !  IS !
+       !    LNodeTag : STRING := yyNodeTag ( TNode ) ; !
+       !  BEGIN !
+       @    Text_Io . Put ( "<a name=__ADA_DQUOTE_IN_STRING__" ) ; @
+       !    Text_Io . Put ( LNodeTag ) ; !
+       @    Text_Io . Put ( "__ADA_DQUOTE_IN_STRING__>DEF " ) ; @
+       !    Text_Io . Put ( LNodeTag ) ; !
+       @    Text_Io . Put ( "(" ) ; @
+       !    yyWriteAdr ( TNode ) ; !
+       @    Text_Io . Put ( ")@ WI ( Name ) ; @</a>" ) ; @
+       !    yyWriteNl ; !
+       IF ( { HasChildren , HasAttributes } * Properties # { } ) 
+       THEN 
+         iClassName := Name; 
+         ForallAttributes ( t , WriteHtmlNodes ) ; 
+       END (* IF *) ; 
+       !    yyWriteNl ; !
+       !  END Write! WI ( Name ) ; !Html ; !
+       !!
+     END (* IF *) ; 
+   } ; . 
+
+Child ( .. ) 
+:- { @    WriteChildOrLink ( "@ WI ( Name ) ; @" , "@ WI ( Type ) ; 
+     @" , TNode . ALL . @ WI ( iClassName ) ; @ . @ WI ( Name ) ; @ ) ; @
+   } ; . 
+
+Attribute ( .. ) 
+:- { IF (NoCodeAttr * Properties) = {} 
+     THEN 
+       IF Link IN Properties 
+       THEN 
+         @    WriteChildOrLink ( "@ WI ( Name ) ; @" , "@ WI ( Type ) ; 
+         @" , TNode . ALL . @ WI ( iClassName ) ; @ . @ WI ( Name ) ; @ , TRUE ) ; @
+       ELSIF Type = iBOOLEAN 
+       THEN 
+         @    WriteBOOLEANAttribute ( "@ WI ( Name ) ; @" , TNode . ALL . @ WI ( Name ) ; @ ) ; @
+       ELSE
+         @    Text_Io . Put ( IndentString & "@ WI ( Name ) ; @ : @ WI ( Type ) ; @ = " ) ; @
+         !    write! WI ( Type ) ; ! ( TNode . ALL . ! WI ( iClassName ) ; ! . ! WI ( Name ) ; ! ) !
+         (* ^ No semicolon, as the write<type> macro expands to include it *) 
+         !    yyWriteNl ; !
+       END (* IF *) ; 
+     END (* IF *) ; 
+   } ; . 
+
+PROCEDURE WriteHtmlCases ( t : Tree ) 
+
+Class ( .. ) 
+:- { WriteHtmlCases ( Extensions ) ; 
+     IF ( NoCodeClass * Properties = { } ) 
+     THEN
+       !     WHEN ! WI ( Name ) ; ! => !
+       !         Write! WI ( Name ) ; !Html ( yyt ) ; !
+       IF ( { HasChildren , HasAttributes } * Properties # { } ) 
+       THEN 
+         GetIterator ( t ) ; 
+         iClassName := Name; 
+         ForallAttributes ( t , WriteHtmlCases ) ;  
+         IF Iterator = NoTree THEN
+           !         EXIT ; !
+         ELSE
+           !         yyt := yyt . ALL . ! WI (iClassName); ! . ! WI ( Iterator ^ . Child . Name ) ; ! ; !
+         END;
+       END (* IF *) 
+     END (* IF *) ;  
+     WriteHtmlCases ( Next ) ;  
+   } ; . 
+
+Child ( .. )  
+:- { IF t # Iterator 
+     THEN
+         !         WriteHtmlRecurse ( yyt . ALL . ! WI (iClassName); ! . ! WI ( Name ) ; ! ) ;!
+     END (* IF *) ; 
+   } ; . 
+
+Attribute ( .. )  
+:- { IF Link IN Properties  
+     THEN
+         !         WriteHtmlRecurse ( yyt . ALL . ! WI (iClassName); ! . ! WI ( Name ) ; ! ) ;!
+     END (* IF *) ; 
+   } ; . 
+
+(* Ascii reader not generated for M3.  Prefer to use Pickle. to avoid UNSAFE constructs which
+   Ascii reader would need. 
+
+PROCEDURE ReadAttributes (t: Tree)
+
+Class (..) :- {
+        IF ((NoCodeClass * Properties) = {}) AND
+           (({HasChildren, HasAttributes} * Properties) # {}) THEN
+           !| ! WI (Name); !:!
+           GetIterator (t);
+           iClassName := Name;
+           ForallAttributes (t, ReadAttributes);
+           IF Iterator = NoTree THEN
+              !RETURN;!
+           ELSE
+              !yySkip; yyt := SYSTEM.ADR (yyt^^.! WI (iClassName); !.! WI (Iterator^.Child.Name); !);!
+           END;
+        END;
+}; .
+Child (..) :- {
+        IF t # Iterator THEN
+           !yySkip; read! WI (itTree); ! (SYSTEM.ADR (yyt^^.! WI (iClassName); !.! WI (Name); !))!
+        END;
+}; .
+Attribute (..) :- {
+        IF (NoCodeAttr * Properties) = {} THEN 
+           !yySkip; read! WI (Type); ! (yyt^^.! WI (iClassName); !.! WI (Name); !) yyReadNl;!
+        END;
+}; .
+
+PROCEDURE InitKindToIdent (t: Tree)
+
+Class (..) :- {
+        IF (NoCodeClass * Properties) = {} THEN
+           !  yyInitKindToIdent2 ('! WI (Name); !', ! WI (Name); !);!
+        END;
+}; .
+
+*)
+
+
+PROCEDURE GetIterator (t: Tree)
+
+Class (..) :- {
+        Iterator := NoTree;
+        RevChild := NoTree;
+        ForallAttributes (t, GetIterator);
+        IF RevChild # NoTree THEN Iterator := RevChild; END;
+}; .
+Child (..) :- {
+        Iterator := t;
+        IF Reverse IN Properties THEN RevChild := t; END;
+}; .
+
+

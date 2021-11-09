@@ -1,0 +1,33 @@
+# Makefile for ./common/src
+# RMB modified 92/10/19
+
+MC      = WRL
+
+all:    $(MC)
+
+cleanm2c:
+	for file in `ls *.md`; do rm -f ../m2c/`basename $$file .md`.h; done
+	for file in `ls *.mi`; do rm -f ../m2c/`basename $$file .mi`.c; done
+
+forcem2c: cleanm2c m2c
+
+symlinks:
+	for file in `ls *.md`; do ln -s $$file `basename $$file .md`.def; done
+	for file in `ls *.mi`; do ln -s $$file `basename $$file .mi`.mod; done
+
+MC:
+	echo p Main | mc -O -noindex -norange -d ../../reuse/src
+	rm -f Main Main.[dimor]
+
+WRL:	
+	rm -f Main
+	make Main -f MakefileWRL
+
+m2c:
+#	co RCS/*
+	ln *.m[id] ../m2c
+	cd ../m2c; make sources M2FLAGS="-c -d../../reuse/src"
+	cd ../m2c; rm -f *.m[id]
+
+clean:
+	rm -f *.[dimor]

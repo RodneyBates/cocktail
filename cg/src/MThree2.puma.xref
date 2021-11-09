@@ -1,0 +1,1238 @@
+     1 
+     2 (* file MThree2.puma *) 
+     3 
+     4 (* Modula-3 generation of Tree io, etc. 
+c    5    Rodney M. Bates Oct 1997 
+c    6    Extensively modified from file mod2.puma, which had these header comments:  
+c    7      (* Ich, Doktor Josef Grosch, Informatiker, 26.1.1989 *)
+     8      (* Modified Rodney M. Bates: 
+c    9         RMB Dec 1995: Made tree writer reduce the amount of space on the
+c   10                       left of deeply indented lines by replacing whole
+c   11                       multiples of yyIndentFactor (initially = 20) blanks
+c   12                       by a modula-2 style comment containing a count of 
+c   13                       the blanks replaced. 
+c   14 
+c   15      *)
+    16    Dec 1997 Added <*LINE...*> pragma output with -# option                    *     *     *     *     *     *     *
+    17    Jan 1999 Added html tree dumper generation                                 *    16     *     *     *     *
+    18    Jan 1999 Added cases to Mark, WriteTREEm and WriteTREEHtml to follow      17    17     *     *     *     *     *     *
+                                                                                     *     *
+    19             LINK Attributes                                                   *     *
+    20    Jan 1999 changed procedure name yWriteNode to yyyWriteNode, to avoid      18     *     *     *     *    18     *     *
+                                                                                     *
+    21             possible conflict with yWrite<Class>, where <Class> = "Node"      *     *    16     *     *     *     *
+    22 *)
+    23 
+    24 TRAFO TreeMThree2                                                             *     *
+    25 TREE Tree                                                                     *     *
+    26 PUBLIC TreeIO TreeIOInit GetIterator                                          *     *     *     *
+    27 
+    28 EXPORT  {                                                                     *
+    29 FROM Positions  IMPORT tPosition;                                             *     *     *     *
+    30 
+    31 VAR Iterator    : Tree.tTree;                                                 *     *    25     *
+    32 
+    33 PROCEDURE WriteLine (Line: tPosition);                                        *     *     *    29
+    34 }
+    35 
+    36 GLOBAL  {                                                                     *
+    37 
+    38 IMPORT Idents , Strings ;                                                    29     *     *
+    39 FROM IO         IMPORT WriteS, WriteNl;                                      29     *    38     *     *
+    40 FROM Sets       IMPORT IsElement;                                            39     *    39     *
+    41 FROM Idents     IMPORT tIdent;                                               40    38    40     *
+    42 FROM Positions  IMPORT tPosition;                                            41    29    41    33
+    43 
+    44 FROM Tree       IMPORT                                                       42    31    42
+    45    NoTree       , tTree         , Options       , ClassCount    ,             *    31     *     *
+    46    f            , WI    , WN    , iInteger      , itTree        ,             *     *     *     *     *
+    47    iNoTree      , iModule       , iMain         , HasChildren   ,             *     *     *     *
+    48    HasAttributes, NoCodeAttr    , NoCodeClass   , Link          ,             *     *     *     *
+    49    ForallClassesExtensionsFirst, ForallAttributes, Reverse      ;             *     *     *
+    50 
+    51 VAR                                                                          31
+    52    iClassName   : Idents . tIdent;                                            *    41    41
+    53    sBOOLEAN     : Strings . tString;                                          *    38     *
+    54    iBOOLEAN     : Idents . tIdent;                                            *    52    52
+    55    RevChild     : tTree;                                                      *    45
+    56 
+    57 PROCEDURE WriteLine (Line: tPosition);                                       33    33    33    42
+    58    BEGIN                                                                      *
+    59       IF Line.Line # 0 THEN                                                   *    57     *     *
+    60          !(* line ! WN (Line.Line); @ "@ WI (Line.File); @" *)@
+    61          IF IsElement (ORD ('#'), Options) THEN                              59    40     *    45    59
+    62            !<*LINE ! WN (Line.Line); @ "@ WI (Line.File); @" *>@             16    46    59     *
+    63          END;                                                                 *
+    64       END;                                                                   63
+    65    END WriteLine;                                                            64    57
+    66 } (* End of GLOBAL *) 
+    67 
+    68 BEGIN {                                                                      58
+    69 
+    70   Strings . ArrayToString ( "BOOLEAN" , sBOOLEAN ) ;                         53     *    53
+    71   iBOOLEAN := Idents . MakeIdent ( sBOOLEAN ) ;                              54    54     *    70
+    72 
+    73 } (* End of BEGIN *)  
+    74 
+    75 PROCEDURE TreeIO (t: Tree)                                                   57    26     *    44
+    76 
+    77 Ag (..) :- {                                                                  *
+    78         !!
+    79       IF IsElement (ORD ('w'), Options)                                      61    61    61    61
+    80          OR IsElement (ORD ('o'), Options)                                    *    79    79    79
+    81          OR IsElement (ORD ( '^' ), Options) THEN                            80    80    80    80    61
+    82         !VAR yyf        : Wr . T ;!                                          51     *     *     *
+    83       END;                                                                   65
+    84       IF IsElement (ORD ('r'), Options) THEN                                 79    81    81    81    81
+    85 (* These are used only by the Ascii reader, which is  not generated for M3.
+c   86         !VAR yyLabel    : CARDINAL ;!
+c   87         !VAR yyKind     : CARDINAL ;!
+c   88         !VAR yyc        : CHAR;!
+c   89 *)
+    90       END;                                                                   83
+    91         !!
+    92       IF IsElement (ORD (','), Options) THEN                                 84    84    84    84    84
+    93         !PROCEDURE yyMark  (yyt : ! WI (itTree); ! )!                        75     *     *    46    46
+    94         !=BEGIN!                                                             68
+    95         !  LOOP!                                                              *
+    96         !   IF yyt = ! WI (iNoTree); ! THEN RETURN; END;!                    92    93    93    47    92     *    90
+    97         !   INC ( yyt . yyHead . yyMark ) ;!                                  *    96     *    93
+    98         !   IF yyt . yyHead . yyMark > 1 THEN RETURN; END;!                  96    97    97    97    96    96    96
+    99         !!
+   100         !   TYPECASE yyt OF!                                                  *    98     *
+   101         Mark ( Classes ) ;                                                   18     *
+   102         !   ELSE RETURN ;!                                                    *    98
+   103         !   END ;!                                                           98
+   104         !  END ;!                                                           103
+   105         ! END yyMark ;!                                                     104    98
+   106         !!
+   107       END;                                                                  105
+   108       IF IsElement (ORD (';'), Options) THEN                                 98    92    92    92    98
+   109         !CONST yyInitTreeStoreSize      = 32 ;!                               *     *
+   110         !!
+   111         !TYPE yytTreeStore = ARRAY OF ! WI (itTree); ! ;!                     *     *     *   100    96    93
+   112         !!
+   113         !VAR yyTreeStorePtr     : REF yytTreeStore ;!                        82     *     *   111
+   114         !VAR yyLabelCount       : CARDINAL ;!                               113     *     *
+   115         !VAR yyRecursionLevel   : CARDINAL ;!                               114     *   114
+   116         !!
+   117         !PROCEDURE yyMapToLabel ( yyTree : ! WI (itTree); ! ) : CARDINAL!    93     *     *   111   111   115
+   118         !=VAR yyi       : CARDINAL ;!                                       115     *   117
+   119         ! VAR LNewTreeStorePtr : REF yytTreeStore ;!                        118     *   113   113
+   120         ! BEGIN!                                                             94
+   121         !  FOR yyi := 0 TO yyLabelCount - 1 DO!                               *   118     *   114     *
+   122         !   IF yyTreeStorePtr ^ [ yyi ] = yyTree THEN RETURN yyi ; END ;!   108   113   121   117   108   102     *   107
+   123         !  END ;!                                                           122
+   124         !  IF yyLabelCount = NUMBER ( yyTreeStorePtr ^ ) THEN!              122   121     *   122   122
+   125         !     LNewTreeStorePtr := NEW ( REF yytTreeStore , NUMBER ( yyTreeStorePtr ^\   119     *   119   119   124   124
+      \ ) * 2 ) ;!
+   126         !     SUBARRAY ( LNewTreeStorePtr ^ , 0 , NUMBER ( yyTreeStorePtr ^ ) ) := y\     *   125   125   125
+      \yTreeStorePtr ^ ; !                                                           *
+   127         !     yyTreeStorePtr := LNewTreeStorePtr ; !                        126   126
+   128         !  END;!                                                            123
+   129         !  yyi := yyLabelCount ;!                                           122   124
+   130         !  yyTreeStorePtr ^ [ yyi ] := yyTree ;!                            127   129   122
+   131         !  INC ( yyLabelCount ) ;!                                           97   129
+   132         !  RETURN yyi ;!                                                    122   130
+   133         ! END yyMapToLabel;!                                                128   117
+   134         !!
+   135        IF IsElement (ORD ('r'), Options) THEN                               124   108   108   108   124
+   136 (* This is used only by the Ascii reader, which is  not generated for M3.
+c  137         !PROCEDURE yyMapToTree ( yyLabel : CARDINAL ) : ! WI (itTree); !!
+c  138         !=BEGIN RETURN yyTreeStorePtr ^ [ yyLabel ] ; END yyMapToTree ;!
+c  139         !!
+c  140 *) 
+   141        END;                                                                 133
+   142       END;                                                                  141
+   143       IF IsElement (ORD ('w'), Options) OR                                  135   135   135   135    81
+   144          IsElement (ORD ('^'), Options) OR                                  143   143   143   143
+   145          IsElement (ORD ('o'), Options) THEN                                144   144   144   135
+   146         !PROCEDURE yyWriteNl ( ) = BEGIN Wr . PutText ( yyf , Wr . EOL ) ; END yyWri\   117     *   120    82     *    82
+                                                                                     *     *   142
+      \teNl ;!                                                                       *
+   147         !!
+   148         !PROCEDURE yyWriteSelector ( yys : TEXT ) !                         146     *     *     *
+   149         !=BEGIN Wr . PutText  ( yyf , yys ) ; !                             146   146   146   146   148
+   150         @   Wr . PutText ( yyf , Fmt . Pad ( "" , MAX ( 0 , 16 - Text . Length ( yys\   149   149   149     *     *     *
+                                                                                     *     *   149
+      \ ) ) ) ) ;@
+   151         @   Wr . PutText (yyf, " = " ) ;@                                   150   150   150
+   152         ! END yyWriteSelector ;!                                            146   148
+   153         !!
+   154         !VAR LittleEndian := TRUE ; !                                       119     *     *
+   155         !!
+   156         !PROCEDURE yyWriteHex ( VAR yyx : ARRAY OF CHAR ) !                 148     *   154     *   111   111     *
+   157         !=BEGIN!                                                            149
+   158         !  IF LittleEndian!                                                 143   154
+   159         !  THEN!                                                            145
+   160         !   FOR yyi := NUMBER ( yyx ) - 1 TO 0 BY - 1 DO!                   121   132   126   156   121     *   121
+   161         !    Wr . PutText ( yyf , Fmt . Pad ( Fmt . Int ( ORD ( yyx [ yyi ] ) , 16 )\   151   151   151   150   150     *
+                                                                                     *   145   160   160
+      \ , 2 , '0' ) ) ;!
+   162         (* !    Wr . PutChar ( yyf, ' ' ) ;! *) 
+   163         !   END ;!                                                          152
+   164         !  ELSE!                                                            102
+   165         !   FOR yyi := 0 TO NUMBER ( yyx ) - 1 DO!                          160   161   160   160   161   160
+   166         !    Wr . PutText ( yyf , Fmt . Pad ( Fmt . Int ( ORD ( yyx [ yyi ] ) , 16 )\   161   161   161   161   161     *
+                                                                                   161   161   165   165
+      \ , 2 , '0' ) ) ;!
+   167         (* !    Wr . PutChar ( yyf, ' ' ) ;! *) 
+   168         !   END ;!                                                          163
+   169         !  END!                                                             168
+   170         ! END yyWriteHex ;!                                                 169   156
+   171         !!
+   172       END;                                                                  170
+   173       IF IsElement (ORD ('o'), Options) THEN                                158   145   166   145   159
+   174         !PROCEDURE yyWriteAdr ( yyt : ! WI (itTree); ! )!                   156     *   100   117   117
+   175         !=BEGIN!                                                            157
+   176         !  IF yyt = ! WI (iNoTree); ! THEN!                                 173   174   174    96   173
+   177         @   Wr . PutText ( yyf , "@ WI (iNoTree); @" ) ;@                   166   166   166
+   178         !  ELSE!                                                            164
+   179         !   yyWriteHex ( LOOPHOLE ( yyt , ARRAY [ 0 .. 3 ] OF CHAR ) ) ;!   170     *   176   156   156   156
+   180 (* ^Revisit this. *) 
+   181         !  END ;!                                                           172
+   182         !  yyWriteNl ( ) ;!                                                 146
+   183         ! END yyWriteAdr;!                                                  181   174
+   184         !!
+   185         ForallClassesExtensionsFirst (Classes, WriteNode);                   49   101     *
+   186         !PROCEDURE Write! WI (iModule); !Node ( f : Wr . T ; Tree : ! WI (itTree); !\   174     *   176    47     *    46
+                                                                                   177    82    75     *   174
+      \ ) !
+   187         !=BEGIN!                                                            175
+   188         !  yyf := f ;!                                                      177   186
+   189         !  IF Tree = ! WI (iNoTree); ! THEN!                                176   186   186   176   176
+   190         @   Wr . PutText ( yyf , "@ WI (iNoTree); @" ) ; yyWriteNl ( ) ; RETURN ;@      186   177   188   182   132
+   191         !  END ;!                                                           183
+   192         !!
+   193         !  TYPECASE Tree OF!                                                100   189   179
+   194         WriteNodeName ( Classes ) ;                                           *   185
+   195         !  ELSE!                                                            178
+   196         !  END ;!                                                           191
+   197         ! END Write! WI (iModule); !Node ;!                                 196   186   189   186   186
+   198         !!
+   199       END;                                                                  197
+   200       (* Generate ascii writer, original Cocktail format *) 
+   201       IF IsElement (ORD ('w'), Options) THEN                                189   173   173   173   189
+   202         !VAR yyIndentLevel      : INTEGER ;!                                156     *     *
+   203         !VAR yyActualIndent , yyIndentQuotient , yyIndentRemainder : INTEGER ;!   202     *     *     *   202
+   204         !CONST yyIndentFactor = 20 ; !                                      109     *
+   205         !!
+   206         !PROCEDURE yySetIndentInfo ( ) !                                    186     *
+   207         ! =BEGIN !                                                          187
+   208         !   yyIndentQuotient := yyIndentLevel DIV yyIndentFactor ; !        203   202     *   204
+   209         !   yyIndentRemainder := yyIndentLevel MOD yyIndentFactor ; !       203   208     *   208
+   210         !   yyActualIndent !                                                203
+   211         !     := 10 * ORD ( yyIndentQuotient > 0 ) !                        201   208
+   212         !        + yyIndentRemainder !                                      209
+   213         !  END yySetIndentInfo ; !                                          199   206
+   214         !!
+   215         !PROCEDURE Write! WI (iModule); ! ( f : Wr . T ; Tree : ! WI (itTree); ! ) !    206   197   197   197   188   190
+                                                                                   186   193     *   186
+   216         !=VAR yySaveLevel : INTEGER ;!                                      203     *   203
+   217         ! BEGIN!                                                            207
+   218         !  yyf := f ;!                                                      190   215
+   219         !  IF yyRecursionLevel = 0 THEN yyLabelCount := 0 END ;!            201   115   201   131   213
+   220         !  INC ( yyRecursionLevel ) ;!                                      131   219
+   221         !  yyMark ( Tree ) ;!                                               105   215
+   222         !  yySaveLevel := yyIndentLevel ;!                                  216   209
+   223         !  yyIndentLevel := 0 ;!                                            222
+   224         !  yySetIndentInfo ( ) ; !                                          213
+   225         !  yyWrite! WI (iModule); ! ( Tree );!                                *   215   215   221
+   226         !  yyIndentLevel := yySaveLevel ;!                                  223   222
+   227         !  yySetIndentInfo ( ) ; !                                          224
+   228         !  DEC ( yyRecursionLevel ) ;!                                        *   220
+   229         ! END Write! WI (iModule); ! ;!                                     219   215   225   225
+   230         !!
+   231         !PROCEDURE yyIndentSelector ( yys : TEXT )!                         215     *   150   148
+   232         !=BEGIN !                                                           217
+   233         !   IF yyIndentQuotient > 0 !                                       219   211
+   234         !   THEN Wr . PutChar ( yyf , '(' ) ; Wr . PutChar ( yyf , '*' ) ;!       219   215     *   218     *     *     *
+   235         !     Wr . PutText ( yyf , Fmt . Pad ( Fmt . Int ( yyIndentQuotient * yyInde\   234   190   234   166   166     *
+                                                                                   166   233
+      \ntFactor ) , 6 ) ) ; !                                                      209
+   236         !     Wr . PutChar ( yyf , '*' ) ; Wr . PutChar ( yyf , ')' ) ;!    235   234   235     *     *     *
+   237         !   END ; !                                                         229
+   238         @   Wr . PutText ( yyf , Fmt . Pad ( "" , yyIndentRemainder ) ) ;@        236   235   236   235   235   212
+   239         !   yyWriteSelector ( yys ) ; !                                     152   231
+   240         ! END yyIndentSelector ;!                                           237   231
+   241         !!
+   242         !PROCEDURE yyIndentSelectorTree ( yys : TEXT ; yyt : ! WI (itTree); ! )!        231     *   239   231   179   229
+                                                                                   215
+   243         !=BEGIN yyIndentSelector  ( yys ) ; write! WI (itTree); ! (yyt) END yyIndent\   232   240   242     *   242   242
+                                                                                   242   240
+      \SelectorTree ;!                                                             242
+   244         !!
+   245         ForallClassesExtensionsFirst (Classes, WriteAttributes);            185   194     *
+   246         !PROCEDURE yyWrite! WI (iModule); ! ( yyt : ! WI (itTree); ! )!     242   225   243   229   243     *   243
+   247         !=VAR yyLevel : CARDINAL ;!                                         216     *   118
+   248         ! BEGIN!                                                            243
+   249         !  yyLevel := yyIndentLevel ;!                                      247   226
+   250         !  LOOP!                                                             95
+   251         !   IF yyt = ! WI (iNoTree); ! THEN!                                233   246   246   189   234
+   252         @    Wr . PutText ( yyf , " @ WI (iNoTree); @" ) ; yyWriteNl ( ) ; EXIT ; @     238   238   238   190     *
+   253         !   ELSIF yyt . yyHead . yyMark = 0 THEN!                             *   251    98   221   251
+   254         !    Wr . PutChar ( yyf, '^') ;!                                    252   236   252
+   255         !    Wr . PutText  ( yyf , Fmt . Int ( yyMapToLabel ( yyt ) ) ) ; yyWriteNl \   254   252   254   238   235   133
+                                                                                   253   252
+      \( ) ; EXIT ;!                                                               252
+   256         !   ELSIF yyt . yyHead . yyMark > 1 THEN!                           253   255   253   253   253
+   257         !    yyWriteNl ( ) ;!                                               255
+   258         !    Wr . PutText ( yyf , Fmt . Pad ( Fmt . Int ( yyMapToLabel ( yyt ) ) , 6\   255   255   255   255   238     *
+                                                                                   255   255   256
+      \ ) ) ;!
+   259         !    Wr . PutChar ( yyf , ':') ;!                                   258   254   258
+   260         @    Wr . PutText ( yyf , Fmt . Pad ( "" , MAX ( 0 , yyActualIndent - 7 ) ) \   259   258   259   258   258   150
+                                                                                   210
+      \) ;@
+   261         !   ELSE!                                                           195
+   262         !    Wr . PutChar ( yyf , ' ' ) ;!                                  260   259   260
+   263         !   END ;!                                                          243
+   264         !   yyt . yyHead . yyMark := 0 ;!                                   258   256   256
+   265         !   INC ( yyIndentLevel , 2 ) ;!                                    220   249
+   266         !   yySetIndentInfo ( ) ; !                                         227
+   267         !!
+   268         !   TYPECASE yyt OF!                                                193   264   193
+   269         WriteClassName ( Classes );                                           *   245
+   270         !   ELSE EXIT ;!                                                    261   255
+   271         !   END ;!                                                          263
+   272         !  END ;!                                                           271
+   273         !  yyIndentLevel := yyLevel ;!                                      265   249
+   274         !  yySetIndentInfo ( ) ; !                                          266
+   275         ! END yyWrite! WI (iModule); ! ;!                                   272   246   251   246
+   276         !!
+   277       END;                                                                  275
+   278       (* Generate html dumper *) 
+   279       IF IsElement (ORD ('^'), Options) THEN                                251   201   211   201   256
+   280         !PROCEDURE yyNodeTag ( yyt : ! WI ( itTree ) ; ! ) : TEXT !         246     *   268   275   246   242
+   281         !=BEGIN!                                                            248
+   282         @   RETURN "Node" & Fmt . Int ( yyMapToLabel ( yyt ) ) @            190   260   258   258   280
+   283         ! END yyNodeTag ; !                                                 277   280
+   284         !!
+   285         ! PROCEDURE yyNodeKind ( yyt : ! WI ( itTree ) ; ! ) : TEXT !       280     *   282   280   280   280
+   286         ! =BEGIN!                                                           281
+   287         !   IF yyt = ! WI (iNoTree); !!                                     279   285   285   251
+   288         !   THEN!                                                           279
+   289         @    RETURN "NIL" @                                                 282
+   290         !   ELSE!                                                           270
+   291         !    TYPECASE yyt OF!                                               268   287   268
+   292         NodeKinds ( Classes ) ;                                               *   269
+   293         !    ELSE !                                                         290
+   294         @     RETURN "<Unknown>" @                                          289
+   295         !    END (* TYPECASE *) !                                           283
+   296         !   END (* IF *) !                                                  295
+   297         !  END yyNodeKind ; !                                               296   285
+   298         !!
+   299         !PROCEDURE Write! WI (iModule); !Html !                             285   229   287   275     *
+   300         @  ( f : Wr . T ; Tree : @ WI (itTree); @ ; Title : TEXT := "" @    218   262   215   225   299   285     *   285
+   301         !  ; SuppressNullFields : BOOLEAN := FALSE ) !                        *     *     *
+   302         !!
+   303         @=CONST IndentString = "  " ; @                                     204     *
+   304         !!
+   305         ! PROCEDURE WriteChildOrLink !                                      299     *
+   306         !   ( Name , Type : TEXT ; Value : ! WI ( itTree ) ; ! ; IsLink : BOOLEAN :=\     *     *   300     *   300   300
+                                                                                     *   301
+      \ FALSE ) !                                                                  301
+   307         ! =VAR LNodeTag : TEXT ; !                                          247     *   306
+   308         !  BEGIN !                                                          286
+   309         !   IF Value # NIL OR NOT SuppressNullFields !                      287   306     *   144     *   301
+   310         !   THEN !                                                          288
+   311         !    Wr . PutText ( yyf , IndentString ) ; !                        300   260   262   303
+   312         !    Wr . PutText ( yyf , Name ) ; !                                311   311   311   306
+   313         @    Wr . PutText ( yyf , " : " ) ; @                               312   312   312
+   314         !    Wr . PutText ( yyf , Type ) ; !                                313   313   313   306
+   315         !    IF IsLink  !                                                   309   306
+   316         !    THEN !                                                         310
+   317         @      Wr . PutText ( yyf , " LINK" ) ; @                           314   314   314
+   318         !    END (* IF *) ; !                                               297
+   319         @    Wr . PutText ( yyf , " = " ) ; @                               317   317   317
+   320         !    LNodeTag := yyNodeTag ( Value ) ; !                            307   283   309
+   321         @    Wr . PutText ( yyf , "<a href=\"#" ) ; @                       319   319   319
+   322         !    Wr . PutText ( yyf , LNodeTag ) ; !                            321   321   321   320
+   323         @    Wr . PutText ( yyf , "\">REF " ) ; @                           322   322   322   125
+   324         !    Wr . PutText ( yyf , LNodeTag ) ; !                            323   323   323   322
+   325         @    Wr . PutText ( yyf , "(" ) ; @                                 324   324   324
+   326         !    yyWriteHex ( LOOPHOLE ( Value , ARRAY [ 0 .. 3 ] OF CHAR ) ) ; !     179   179   320   179   291   179
+   327         @    Wr . PutText ( yyf , ")" ) ; @                                 325   325   325
+   328         !    Wr . PutText ( yyf , yyNodeKind ( Value ) ) ; !                327   327   327   297   326
+   329         @    Wr . PutText ( yyf , "</a>" ) ; @                              328   328   328
+   330         !    yyWriteNl ( ) ; !                                              257
+   331         !   END (* IF *) !                                                  318
+   332         !  END WriteChildOrLink ; !                                         331   305
+   333         !!
+   334         ! PROCEDURE WriteBOOLEANAttribute !                                 305     *
+   335         !   ( Name : TEXT ; Value : BOOLEAN ) !                             312   307   328   306
+   336         ! =BEGIN !                                                          308
+   337         !   IF Value OR NOT SuppressNullFields !                            315   335   309   309   309
+   338         !   THEN !                                                          316
+   339         !    Wr . PutText ( yyf , IndentString ) ; !                        329   329   329   311
+   340         !    Wr . PutText ( yyf , Name ) ; !                                339   339   339   335
+   341         @    Wr . PutText ( yyf , " : " ) ; @                               340   340   340
+   342         @    Wr . PutText ( yyf , "BOOLEAN = " ) ; @                        341   341   341
+   343         !    writeBOOLEAN ( Value ) !                                         *   337
+   344         !    yyWriteNl ( ) ; !                                              330
+   345         !   END (* IF *) !                                                  332
+   346         !  END WriteBOOLEANAttribute ; !                                    345   334
+   347         !!
+   348      (* ! PROCEDURE WriteAttributeHeader !
+c  349         !   ( Name , Type : TEXT ) !
+c  350         ! =BEGIN !
+c  351         !   Wr . PutText ( yyf , IndentString ) ; !
+c  352         !   Wr . PutText ( yyf , Name ) ; !
+c  353         @   Wr . PutText ( yyf , " : " ) ; @
+c  354         !   Wr . PutText ( yyf , Type ) ; !
+c  355         @   Wr . PutText ( yyf , " = " ) ; @
+c  356         !  END WriteAttribute ; !
+c  357         !! *) 
+   358         ForallClassesExtensionsFirst ( Classes , WriteHtmlNodes ) ;         245   292     *
+   359         ! PROCEDURE WriteHtmlRecurse ( yyt : ! WI ( itTree ) ; ! )!         334     *   291   306   306
+   360         ! =BEGIN!                                                           336
+   361         !   LOOP!                                                           250
+   362         !    IF yyt = ! WI (iNoTree); ! OR yyt . yyHead . yyMark = 0!       337   359   359   287   337     *   264   264
+   363         !    THEN!                                                          338
+   364         !     EXIT!                                                         270
+   365         !    ELSE!                                                          293
+   366         !     yyt . yyHead . yyMark := 0 ;!                                 362   362   362
+   367         !     TYPECASE yyt OF!                                              291   366   326
+   368         WriteHtmlCases ( Classes );                                           *   358
+   369         !     ELSE EXIT!                                                    365   364
+   370         !     END (* TYPECASE *)!                                           346
+   371         !    END (* IF *)!                                                  370
+   372         !   END (* LOOP *)!                                                 371
+   373         !  END WriteHtmlRecurse ;!                                          372   359
+   374         !!
+   375         ! BEGIN (* Write! WI (iModule); !Html *)!                           360
+   376         !  yyf := f ;!                                                      342   300
+   377         !  IF yyRecursionLevel = 0 THEN yyLabelCount := 0 END ;!            362   228   363   219   373
+   378         !  INC ( yyRecursionLevel ) ;!                                      265   377
+   379         !  yyMark ( Tree ) ;!                                               366   300
+   380         @  Wr . PutText ( yyf , "<html> " ) ; yyWriteNl ( ) ; @             342   342   376   344
+   381         @  Wr . PutText ( yyf , "<head>" ) ; yyWriteNl ( ) ; @              380   380   380   380
+   382         @  Wr . PutText ( yyf , "<title>" ) ; @                             381   381   381
+   383         @  Wr . PutText ( yyf , "Gnat Tree \"" ) ; @                        382   382   382
+   384         @  Wr . PutText ( yyf , Title ) ; @                                 383   383   383   300
+   385         @  Wr . PutText ( yyf , "\"</title>" ) ; yyWriteNl ( ) ; @          384   384   384     *
+   386         @  Wr . PutText ( yyf , "</head>" ) ; yyWriteNl ( ) ; @             385   385   385   381
+   387         @  Wr . PutText ( yyf , "<body>" ) ; yyWriteNl ( ) ; @              386   386   386   386
+   388         @  Wr . PutText ( yyf , "<pre>" ) ; yyWriteNl ( ) ; @               387   387   387   387
+   389         !  yyWriteNl ( ) ; !                                                388
+   390         !  WriteHtmlRecurse ( Tree );!                                      373   379
+   391         @  Wr . PutText ( yyf , "</pre>" ) ; yyWriteNl ( ) ; @              388   388   388   389
+   392         @  Wr . PutText ( yyf , "</body>" ) ; yyWriteNl ( ) ; @             391   391   391   391
+   393         @  Wr . PutText ( yyf , "</html>" ) ; yyWriteNl ( ) ; @             392   392   392   392
+   394         !  DEC ( yyRecursionLevel ) ;!                                      228   378
+   395         ! END Write! WI (iModule); !Html ;!                                 377   299   362   299   299
+   396         !!
+   397       END;                                                                  395
+   398 (* Ascii reader not generated for M3.  Prefer to use Pickle. to avoid UNSAFE constru\
+c     \cts which
+c  399    Ascii reader would need. 
+c  400       IF IsElement (ORD ('r'), Options) THEN 
+c  401         !PROCEDURE Read! WI (iModule); !        (f: Rd.T): ! WI (itTree); !;!
+c  402         ! VAR yyt       : ! WI (itTree); !;!
+c  403         ! BEGIN!
+c  404         !  yyf := f;!
+c  405         !  IF yyRecursionLevel = 0 THEN yyLabelCount := 0; END;!
+c  406         !  INC (yyRecursionLevel);!
+c  407         !  IF NOT yyIsInitialized THEN!
+c  408         !   yyInitKindToIdent; yyIsInitialized := TRUE;!
+c  409         !  END;!
+c  410         !  yyRead! WI (iModule); ! (SYSTEM.ADR (yyt));!
+c  411         !  DEC (yyRecursionLevel);!
+c  412         !  RETURN yyt;!
+c  413         ! END Read! WI (iModule); !;!
+c  414         !!
+c  415         !PROCEDURE yyRead! WI (iModule); ! (yyt: yyPtrtTree);!
+c  416         ! BEGIN!
+c  417         !  LOOP!
+c  418         !   CASE IO.ReadC (yyf) OF!
+c  419         !   | '^': yyLabel := IO.ReadI (yyf); yyReadNl; yyt^ := yyMapToTree (yyLabel\
+c     \); RETURN;!
+c  420         !   | 12C, '0': yyLabel := IO.ReadI (yyf); yyc := IO.ReadC (yyf);!
+c  421         !    Layout.SkipSpaces (yyf); Strings.ReadL (yyf, yys);!
+c  422         !    yyKind := yyMapToKind (yys); yyt^ := Make! WI (iMain); ! (yyKind);!
+c  423         @    IF yyLabel # yyMapToLabel (yyt^) THEN Wr . PutText ( Stdio . stderr , "\
+c     \@ WI (iModule); @: error in Read@ 
+c  424         WI (iModule); @" ) ; Wr . PutText ( Stdio . stderr , Wr . EOL ) ; yyExit ; E\
+c     \ND ;@
+c  425         !   ELSE!
+c  426         !    Layout.SkipSpaces (yyf); Strings.ReadL (yyf, yys);!
+c  427         !    yyKind := yyMapToKind (yys);!
+c  428         !    IF yyKind = 0 THEN yyt^ := ! WI (iNoTree); !; RETURN; END;!
+c  429         !    yyt^ := Make! WI (iMain); ! (yyKind);!
+c  430         !   END;!
+c  431         !!
+c  432         !   CASE yyKind OF!
+c  433         ForallClassesExtensionsFirst (Classes, ReadAttributes);
+c  434         !   ELSE RETURN;!
+c  435         !   END;!
+c  436         !  END;!
+c  437         ! END yyRead! WI (iModule); !;!
+c  438         !!
+c  439         !VAR yyKindToIdent      : ARRAY [0 .. ! WN (ClassCount); !] OF Idents.tIdent\
+c     \;!
+c  440         !VAR yyIsInitialized    : BOOLEAN;!
+c  441         !!
+c  442         !PROCEDURE yyMapToKind (VAR yys: Strings.tString): CARDINAL;!
+c  443         ! VAR yyi       : Idents.tIdent;!
+c  444         ! VAR yyk       : CARDINAL;!
+c  445         ! BEGIN!
+c  446         !  yyi := Idents.MakeIdent (yys);!
+c  447         !  FOR yyk := 0 TO ! WN (ClassCount); ! DO!
+c  448         !   IF yyKindToIdent [yyk] = yyi THEN RETURN yyk; END;!
+c  449         !  END;!
+c  450         !  RETURN 0;!
+c  451         ! END yyMapToKind;!
+c  452         !!
+c  453         !PROCEDURE yyInitKindToIdent2 (yya: ARRAY OF CHAR; yyKind: CARDINAL);!
+c  454         ! VAR yys       : Strings.tString;!
+c  455         ! BEGIN!
+c  456         !  Strings.ArrayToString (yya, yys);!
+c  457         !  yyKindToIdent [yyKind] := Idents.MakeIdent (yys);!
+c  458         ! END yyInitKindToIdent2;!
+c  459         !!
+c  460         !PROCEDURE yyInitKindToIdent;!
+c  461         ! BEGIN!
+c  462         !  yyInitKindToIdent2 ('! WI (iNoTree); !', 0);!
+c  463         ForallClassesExtensionsFirst (Classes, InitKindToIdent);
+c  464         ! END yyInitKindToIdent;!
+c  465         !!
+c  466         !PROCEDURE yyReadNl; BEGIN IO.ReadNl (yyf); END yyReadNl;!
+c  467         !!
+c  468         !PROCEDURE yyReadIdent (): Idents.tIdent;!
+c  469         ! VAR yys       : Strings.tString;!
+c  470         ! BEGIN!
+c  471         !  Strings.ReadL (yyf, yys);!
+c  472         !  IO.UnRead (yyf);!
+c  473         !  RETURN Idents.MakeIdent (yys);!
+c  474         ! END yyReadIdent;!
+c  475         !!
+c  476         !PROCEDURE yyReadHex (VAR yyx: ARRAY OF SYSTEM.BYTE);!
+c  477         ! VAR yyi       : INTEGER;!
+c  478         ! BEGIN!
+c  479         !  FOR yyi := 0 TO INTEGER (HIGH (yyx)) DO!
+c  480         !   yyx [yyi] := SYSTEM.BYTE (CHR (CARDINAL (IO.ReadN (yyf, 16))));!
+c  481         !  END;!
+c  482         ! END yyReadHex;!
+c  483         !!
+c  484         !PROCEDURE yySkip;!
+c  485         ! BEGIN!
+c  486         !  REPEAT UNTIL IO.ReadC (yyf) = '='; yyc := IO.ReadC (yyf);!
+c  487         ! END yySkip;!
+c  488         !!
+c  489       END;
+c  490 *) 
+   491       IF IsElement (ORD ('p'), Options)                                     377   279   279   279
+   492          OR IsElement (ORD ('g'), Options) THEN                             362   491   491   491   377
+   493         !TYPE AtomSpecialTyp = Pickle . Special OBJECT!                     111     *     *     *     *
+   494         !  OVERRIDES!                                                         *
+   495         !    write := WriteAtom!                                            243     *
+   496         !  ; read := ReadAtom!                                                *     *
+   497         !  END ;!                                                           397
+   498         !!
+   499         !PROCEDURE WriteAtom ( Self : AtomSpecialTyp ; r : REFANY ; wr : Pickle . Wr\   359   495     *   493     *     *
+                                                                                     *   493
+      \iter )!                                                                       *
+   500         !  RAISES { Pickle . Error , Wr . Failure , Thread . Alerted }!       *   499     *   393     *     *     *
+   501         != VAR LText : TEXT := Atom . ToText ( NARROW ( r , Atom . T ) )!   307     *   335     *     *     *   499     *
+                                                                                   300
+   502         !      (* Why does M3 accept this without the NARROW? *) !
+   503         !; VAR LLength : INTEGER := Text . Length ( LText )!                501     *   216   150   150   501
+   504         !; BEGIN!                                                           375
+   505         !    wr . writeInt ( LLength ) !                                    499     *   503
+   506         !  ; FOR i := 0 TO LLength !                                        165     *   165   505
+   507         !    DO!                                                            165
+   508         !      Wr . PutChar ( wr . wr , Text . GetChar ( LText , i ) )!     500   262   505     *   503     *   503   506
+   509         !    END (* FOR *) !                                                497
+   510         !  END WriteAtom ;!                                                 509   499
+   511         !!
+   512         !PROCEDURE ReadAtom !                                               499   496
+   513         !  ( Self : AtomSpecialTyp ; rd : Pickle . Reader ; id : Pickle . RefID ) !     499   499     *   500     *     *
+                                                                                     *     *
+   514         !  : REFANY!                                                        499
+   515         !  RAISES { Pickle . Error , Rd . EndOfFile , Rd . Failure , Thread . Alerte\   500   513   500     *     *     *
+                                                                                   500   500
+      \d }!                                                                        500
+   516         != VAR LLength : INTEGER := rd . readInt ( ) !                      503   506   503   513     *
+   517         !; VAR LChars : REF ARRAY OF CHAR := NEW ( REF ARRAY OF CHAR , LLength ) !      516     *   323   326   367   326
+                                                                                   125     *     *     *     *   516
+   518         !; BEGIN!                                                           504
+   519         !    FOR i := 0 TO LLength !                                        506   508   506   517
+   520         !    DO !                                                           507
+   521         !      LChars ^ [ i ] := Rd . GetChar ( rd . rd )!                  517   519   515   508   516     *
+   522         !    END (* FOR *) !                                                510
+   523         !  ; RETURN Atom . FromText ( Text . FromChars ( LChars ^ ) )!      294   501     *   508     *   521
+   524         !  END ReadAtom ;!                                                  522   512
+   525         !!
+   526       END;                                                                  524
+   527       IF IsElement (ORD ('p'), Options) THEN                                491   492   492   492   492
+   528         !PROCEDURE Put! WI (iModule); ! ( f : Wr . T ; Tree : ! WI (itTree); ! )!       512     *   395   395   376   508
+                                                                                   501   390     *   359
+   529         !=BEGIN!                                                            518
+   530         !   Pickle . Write ( f , Tree )!                                    515   395   528   528
+   531         ! END Put! WI (iModule); ! ;!                                       526   528   528   528
+   532         !!
+   533       END;                                                                  531
+   534       IF IsElement (ORD ('g'), Options) THEN                                527   527   527   527   527
+   535         !PROCEDURE Get! WI (iModule); ! ( f : Rd . T ) : ! WI (itTree);     528     *   531   531   530   521   528     *
+                                                                                   528
+   536         != BEGIN!                                                           529
+   537         !    RETURN NARROW ( Pickle . Read ( f ) , ! WI ( itTree ) ; ! )!   523   501   530     *   535   535   535
+   538         !  END Get! WI (iModule); ! ;!                                      533   535   537   535
+   539         !!
+   540       END;                                                                  538
+   541 }; .
+   542 
+   543 
+   544 PROCEDURE TreeIOInit (t: Tree)                                              535    26    75   530
+   545 
+   546 Ag (..) :- {                                                                 77
+   547       IF IsElement (ORD ('p'), Options)                                     534   534   534   534
+   548          OR IsElement (ORD ('g'), Options) THEN                             492   547   547   547   534
+   549         !Pickle . RegisterSpecial ( NEW ( AtomSpecialTyp , sc := TYPECODE ( Atom . T\   537     *   517   513     *     *
+                                                                                   523   535
+      \ ) ) ) ;!
+   550       END;                                                                  540
+   551 }; .
+   552 
+   553 
+   554 PROCEDURE WriteNodeName (t: Tree)                                           544   194   544   544
+   555 
+   556 Class (..) :- {                                                              21
+   557         WriteNodeName ( Extensions ) ;                                      554     *
+   558         IF (NoCodeClass * Properties) = {} THEN                             547    48     *   548
+   559            !   | ! WI (Name); ! ( TNode ) =>!                               538   340     *
+   560            @        Wr . PutText ( yyf , "@ WI (Name); @" ) ; yyWriteNl ( ) ;@    528   393   393   393
+   561            IF ({HasChildren, HasAttributes} * Properties) # {} THEN         558    47    48   558   558
+   562              !        yyyWriteNode! WI (Name); ! ( TNode ) ;!                20   559   559   559
+   563            END;                                                             550
+   564            !!
+   565         END;                                                                563
+   566         WriteNodeName ( Next ) ;                                            557     *
+   567 }; .
+   568 
+   569 
+   570 PROCEDURE WriteNode (t: Tree)                                               554   185   554   554
+   571 
+   572 Class (..) :- {                                                             556
+   573         IF ((NoCodeClass * Properties) = {}) AND                            561   558   561     *
+   574            (({HasChildren, HasAttributes} * Properties) # {}) THEN          561   561   573   561
+   575            !PROCEDURE yyyWriteNode! WI (Name); ! ( yyt : ! WI ( Name ); ! )!      570   562   562   562   367     *     *
+   576            !=BEGIN!                                                         536
+   577            IF (BaseClass^.Kind = Tree.Class) AND                (* NOT Top ? *)   573     *     *   570   572   573
+   578               (({HasChildren, HasAttributes} * BaseClass^.Class.Properties) # {}) TH\   574   574   577   577   574
+      \EN                                                                          574
+   579            !  yyyWriteNode! WI (BaseClass^.Class.Name); ! (yyt); !          575   575   578   578   575   575
+   580            END;                                                             565
+   581            iClassName := Name; (* unused, at present *)                      52   579
+   582            ForallAttributes (Attributes, WriteNode);                         49    19   570
+   583            ! END yyyWriteNode! WI (Name); !;!                               580   579   579   581
+   584            !!
+   585         END;                                                                583
+   586 }; .
+   587 Child (..) :- {                                                               *
+   588         @  yyWriteSelector ( "@ WI (Name); @" ) ;@                          239
+   589         ! yyWriteAdr ( yyt . ! WI (Name); ! ) ;!                            183   579   583   583
+   590 }; .
+   591 Attribute (..) :- {                                                           *
+   592         IF (NoCodeAttr * Properties) = {} THEN                              577    48   578   578
+   593          IF Link IN Properties                                              592    48     *   592
+   594          THEN                                                               592
+   595            @  yyWriteSelector ( "@ WI (Name); @" ) ;@                       588
+   596            ! yyWriteAdr ( yyt . ! WI (Name); ! ) ;!                         589   589   589   589
+   597          ELSE                                                               369
+   598            @  yyWriteSelector ( "@ WI (Name); @" ) ; write@ WI (Type);      595   495   596   314
+   599            ! ( yyt . ! WI (Name) ; ! ) yyWriteNl ( ) ;!                     596   598   596   560
+   600          END;                                                               585
+   601         END;                                                                600
+   602 }; .
+   603 
+   604 
+   605 PROCEDURE Mark (t: Tree)                                                    575   101   570   577
+   606 
+   607 Class (..) :- {                                                             579
+   608         Mark ( Extensions ) ;                                               605   557
+   609         IF ((NoCodeClass * Properties) = {}) AND (HasChildren IN Properties) THEN       593   573   593   577   578   593
+                                                                                     *   594
+   610            !    | ! WI (Name); ! ( TNode ) => !                             599   599   562
+   611            GetIterator (t);                                                  26   605
+   612            iClassName := Name; (* unused, at present *)                     581   610
+   613            ForallAttributes (t, Mark);                                      582   611   608
+   614            IF Iterator = NoTree THEN                                        609    31    45   609
+   615               !RETURN ;!                                                    537
+   616            ELSE                                                             597
+   617               !yyt := TNode . ! WI (Iterator^.Child.Name); ! ;!             599   610   610   614   587   612
+   618            END;                                                             601
+   619         END;                                                                618
+   620         Mark ( Next ) ;                                                     613   566
+   621 }; .
+   622 
+   623 Child (..) :- {                                                             617
+   624         IF t # Iterator THEN                                                614   613   617   614
+   625            !yyMark ( TNode . ! WI (Name); !);!                              379   617   617   617
+   626         END;                                                                619
+   627 }; .
+   628 
+   629 Attribute (..) :- {                                                         591
+   630         IF Link IN Properties THEN                                          624   593   609   609   624
+   631            !yyMark ( TNode . ! WI (Name); !);!                              625   625   625   625
+   632         END;                                                                626
+   633 }; .
+   634 
+   635 
+   636 PROCEDURE WriteClassName (t: Tree)                                          605   269   624   605
+   637 
+   638 Class (..) :- {                                                             607
+   639         WriteClassName ( Extensions ) ;                                     636   608
+   640         IF (NoCodeClass * Properties) = {} THEN                             630   609   630   630
+   641            !   | ! WI (Name); ! ( TNode ) => !                              631   631   631
+   642            IF ({HasChildren, HasAttributes} * Properties) # {} THEN         640   609   578   640   640
+   643               !       yWrite! WI (Name); ! ( TNode ) ; !                     21   641   641   641
+   644               GetIterator (t);                                              611   636
+   645               IF Iterator = NoTree THEN                                     642   624   614   642
+   646                 !       EXIT ;!                                             369
+   647               ELSE                                                          616
+   648                  @       yyIndentSelector ( "@ WI (Iterator^.Child.Name); @" ) ;@       243
+   649                  !       yyt := TNode . ! WI (Iterator^.Child.Name); ! ;!   617   643   643   645   623   643
+   650               END ;                                                         632
+   651            ELSE                                                             647
+   652               @       Wr . PutText ( yyf , "@ WI (Name); @" ) ; yyWriteNl ( ) ; EXIT\   560   560   560   599   646
+      \ ;@
+   653            END;                                                             650
+   654         END;                                                                653
+   655         WriteClassName ( Next ) ;                                           639   620
+   656 }; .
+   657 
+   658 
+   659 PROCEDURE WriteAttributes (t: Tree)                                         636   245   644   636
+   660 
+   661 Class (..) :- {                                                             638
+   662         IF ((NoCodeClass * Properties) = {}) AND                            645   640   642   609
+   663            (({HasChildren, HasAttributes} * Properties) # {}) THEN          642   642   662   645
+   664            !PROCEDURE yWrite! WI (Name); ! ( yyt : ! WI ( Name ); ! )!      659   643   649   649   649     *     *
+   665            !=BEGIN!                                                         576
+   666            @  Wr . PutText ( yyf , "@ WI (Name); @" ) ; yyWriteNl ( ) ;@    652   652   652   652
+   667            GetIterator (t);                                                 644   659
+   668            iClassName := Name; (* unused, at present *)                     612   664
+   669            ForallAttributes (t, WriteAttributes);                           613   667   659
+   670            ! END yWrite! WI (Name); ! ;!                                    654   664   664   668
+   671            !!
+   672         END;                                                                670
+   673 }; .
+   674 Child (..) :- {                                                             649
+   675         IF t # Iterator THEN                                                662   669   649   663
+   676            @  yyIndentSelectorTree ( "@ WI (Name); @" , yyt . @ WI (Name); @ ) ;@       243   664   670   670
+   677         END;                                                                672
+   678 }; .
+   679 Attribute (..) :- {                                                         629
+   680         IF (NoCodeAttr * Properties) = {} THEN                              675   592   663   675
+   681          IF Link IN Properties                                              680   630   630   680
+   682          THEN                                                               680
+   683            @  yyIndentSelectorTree ( "@ WI (Name); @" , yyt . @ WI (Name); @ ) ;@       676   676   676   676
+   684          ELSE                                                               651
+   685            @  yyIndentSelector ( "@ WI (Name); @" ) ; @                     648
+   686            !write! WI (Type); ! ( yyt . ! WI (Name); ! ) yyWriteNl ( ) ;!   598   683   598   683     *   683   666
+   687          END (* IF *) ;                                                     677
+   688         END;                                                                687
+   689 }; .
+   690 
+   691 (* Html writer support routines *) 
+   692 
+   693 PROCEDURE NodeKinds ( t : Tree )                                            664   292   675   659
+   694 
+   695 Class ( .. )                                                                661
+   696 :- { NodeKinds ( Extensions ) ;                                             693   639
+   697      IF ( NoCodeClass * Properties = { } )                                  681   662   681
+   698      THEN                                                                   682
+   699        !     | ! WI ( Name ) ; ! => !                                       686   686
+   700        @         RETURN "@ WI ( Name ) ; @" ; @                             615
+   701      END (* IF *) ;                                                         688
+   702      NodeKinds ( Next )                                                     696   655
+   703    } ; . 
+   704 
+   705 PROCEDURE WriteHtmlNodes ( t : Tree )                                       693   358   693   693
+   706 
+   707 Class ( .. )                                                                695
+   708 :- { 
+   709      IF ( NoCodeClass * Properties = { } )                                  697   697   697
+   710      THEN                                                                   698
+   711        ! PROCEDURE Write! WI ( Name ) ; !Html ( TNode : ! WI ( Name ) ; ! ) !     705   530   699   699   395   649     *
+                                                                                     *
+   712        ! =VAR LNodeTag : TEXT ; !                                           517   324   501
+   713        !  BEGIN !                                                           665
+   714        !    LNodeTag := yyNodeTag ( TNode ) ; !                             712   320   711
+   715        @    Wr . PutText ( yyf , "<a name=\"" ) ; @                         666   666   666
+   716        !    Wr . PutText ( yyf , LNodeTag ) ; !                             715   715   715   714
+   717        @    Wr . PutText ( yyf , "\">DEF " ) ; @                            716   716   716     *
+   718        !    Wr . PutText ( yyf , LNodeTag ) ; !                             717   717   717   716
+   719        @    Wr . PutText ( yyf , "(" ) ; @                                  718   718   718
+   720        !    yyWriteHex ( LOOPHOLE ( TNode , ARRAY [ 0 .. 3 ] OF CHAR ) ) ; !      326   326   714   517   517   517
+   721        @    Wr . PutText ( yyf , ")@ WI ( Name ) ; @</a>" ) ; @             719   719   719
+   722        !    yyWriteNl ( ) ; !                                               686
+   723        IF ( { HasChildren , HasAttributes } * Properties # { } )            709   663   663   709
+   724        THEN                                                                 710
+   725          ForallAttributes ( t , WriteHtmlNodes ) ;                          669   705   705
+   726        END (* IF *) ;                                                       701
+   727        !    yyWriteNl ( ) ; !                                               722
+   728        !  END Write! WI ( Name ) ; !Html ; !                                726   711   711   711   711
+   729        !!
+   730      END (* IF *) ;                                                         728
+   731    } ; . 
+   732 
+   733 Child ( .. )                                                                674
+   734 :- { @    WriteChildOrLink ( "@ WI ( Name ) ; @" , "@ WI ( Type ) ;         332
+   735      @" , TNode . @ WI ( Name ) ; @ ) ; @
+   736    } ; . 
+   737 
+   738 Attribute ( .. )                                                            679
+   739 :- { IF (NoCodeAttr * Properties) = {}                                      723   680   723
+   740      THEN                                                                   724
+   741        IF Link IN Properties                                                739   681   681   739
+   742        THEN                                                                 740
+   743          @    WriteChildOrLink ( "@ WI ( Name ) ; @" , "@ WI ( Type ) ;     734
+   744          @" , TNode . @ WI ( Name ) ; @ , TRUE ) ; @
+   745        ELSIF Type = iBOOLEAN                                                256   686    71
+   746        THEN                                                                 742
+   747          @    WriteBOOLEANAttribute ( "@ WI ( Name ) ; @" , TNode . @ WI ( Name ) ; \   346   720   728   728
+      \@ ) ; @
+   748        ELSE                                                                 684
+   749          @    Wr . PutText ( yyf , IndentString & "@ WI ( Name ) ; @ : @ WI ( Type )\   721   721   721   339
+      \ ; @ = " ) ; @
+   750          !    write! WI ( Type ) ; ! ( TNode . ! WI ( Name ) ; ! ) !        686   747   745   747     *   747
+   751          (* ^ No semicolon, as the write<type> macro expands to include it *) 
+   752          !    yyWriteNl ( ) ; !                                             727
+   753        END (* IF *) ;                                                       730
+   754      END (* IF *) ;                                                         753
+   755    } ; . 
+   756 
+   757 PROCEDURE WriteHtmlCases ( t : Tree )                                       711   368   725   705
+   758 
+   759 Class ( .. )                                                                707
+   760 :- { WriteHtmlCases ( Extensions ) ;                                        757   696
+   761      IF ( NoCodeClass * Properties = { } )                                  741   709   741
+   762      THEN                                                                   746
+   763        !     | ! WI ( Name ) ; ! ( TNode ) => !                             750   750   750
+   764        !         Write! WI ( Name ) ; !Html ( TNode ) ; !                   728   763   763   728   763
+   765        IF ( { HasChildren , HasAttributes } * Properties # { } )            761   723   723   761
+   766        THEN                                                                 762
+   767          GetIterator ( t ) ;                                                667   757
+   768          ForallAttributes ( t , WriteHtmlCases ) ;                          725   767   760
+   769          IF Iterator = NoTree THEN                                          765   675   645   766
+   770            !         EXIT ;!                                                652
+   771          ELSE                                                               748
+   772            !         yyt := TNode . ! WI ( Iterator ^ . Child . Name ) ; ! ; !    686   764   764   769   733   764
+   773          END;                                                               754
+   774        END (* IF *)                                                         773
+   775      END (* IF *) ;                                                         774
+   776      WriteHtmlCases ( Next ) ;                                              768   702
+   777    } ; . 
+   778 
+   779 Child ( .. )                                                                772
+   780 :- { IF t # Iterator                                                        769   768   772
+   781      THEN                                                                   769
+   782          !         WriteHtmlRecurse ( TNode . ! WI ( Name ) ; ! ) ;!        390   772   772   772
+   783      END (* IF *) ;                                                         775
+   784    } ; . 
+   785 
+   786 Attribute ( .. )                                                            738
+   787 :- { IF Link IN Properties                                                  780   741   741   765
+   788      THEN                                                                   781
+   789          !         WriteHtmlRecurse ( TNode . ! WI ( Name ) ; ! ) ;!        782   782   782   782
+   790      END (* IF *) ;                                                         783
+   791    } ; . 
+   792 
+   793 (* Ascii reader not generated for M3.  Prefer to use Pickle. to avoid UNSAFE constru\
+c     \cts which
+c  794    Ascii reader would need. 
+c  795 
+c  796 PROCEDURE ReadAttributes (t: Tree)
+c  797 
+c  798 Class (..) :- {
+c  799         IF ((NoCodeClass * Properties) = {}) AND
+c  800            (({HasChildren, HasAttributes} * Properties) # {}) THEN
+c  801            !| ! WI (Name); !:!
+c  802            GetIterator (t);
+c  803            iClassName := Name;
+c  804            ForallAttributes (t, ReadAttributes);
+c  805            IF Iterator = NoTree THEN
+c  806               !RETURN;!
+c  807            ELSE
+c  808               !yySkip; yyt := SYSTEM.ADR (yyt^^.! WI (iClassName); !.! WI (Iterator^\
+c     \.Child.Name); !);!
+c  809            END;
+c  810         END;
+c  811 }; .
+c  812 Child (..) :- {
+c  813         IF t # Iterator THEN
+c  814            !yySkip; read! WI (itTree); ! (SYSTEM.ADR (yyt^^.! WI (iClassName); !.! W\
+c     \I (Name); !))!
+c  815         END;
+c  816 }; .
+c  817 Attribute (..) :- {
+c  818         IF (NoCodeAttr * Properties) = {} THEN 
+c  819            !yySkip; read! WI (Type); ! (yyt^^.! WI (iClassName); !.! WI (Name); !) y\
+c     \yReadNl;!
+c  820         END;
+c  821 }; .
+c  822 
+c  823 PROCEDURE InitKindToIdent (t: Tree)
+c  824 
+c  825 Class (..) :- {
+c  826         IF (NoCodeClass * Properties) = {} THEN
+c  827            !  yyInitKindToIdent2 ('! WI (Name); !', ! WI (Name); !);!
+c  828         END;
+c  829 }; .
+c  830 
+c  831 *)
+   832 
+   833 
+   834 PROCEDURE GetIterator (t: Tree)                                             757   767   780   757
+   835 
+   836 Class (..) :- {                                                             759
+   837         Iterator := NoTree;                                                 780   769
+   838         RevChild := NoTree;                                                  55   837
+   839         ForallAttributes (t, GetIterator);                                  768   834   834
+   840         IF RevChild # NoTree THEN Iterator := RevChild; END;                787   838   838   788   837     *   790
+   841 }; .
+   842 Child (..) :- {                                                             779
+   843         Iterator := t;                                                      840   839
+   844         IF Reverse IN Properties THEN RevChild := t; END;                   840    49   787   787   840   840   843   840
+   845 }; .
+   846 
+   847 
+Cross reference: 
+
+-A-
+ Added                           16    17    18 
+ Ag                              77   546 
+ Alerted                        500   515 
+ AND                            573   577   609   662 
+ and                             18 
+ ARRAY                          111   156   179   326   517   517   720 
+ ArrayToString                   70 
+ Atom                           501   501   523   549 
+ AtomSpecialTyp                 493   499   513   549 
+ Attribute                      591   629   679   738   786 
+ Attributes                      19   582 
+ avoid                           20 
+
+-B-
+ BaseClass                      577   578   579 
+ BEGIN                           58    68    94   120   146   149   157   175   187   207   217   232   243   248   281   286   308 
+                                336   360   375   504   518   529   536   576   665   713 
+ BOOLEAN                        301   306   335 
+ BY                             160 
+
+-C-
+ CARDINAL                       114   115   117   118   247 
+ cases                           18 
+ changed                         20 
+ CHAR                           156   179   326   517   517   720 
+ Child                          587   617   623   649   674   733   772   779   842 
+ Class                           21    21   556   572   577   578   579   607   638   661   695   707   759   836 
+ ClassCount                      45 
+ Classes                        101   185   194   245   269   292   358   368 
+ conflict                        21 
+ CONST                          109   204   303 
+
+-D-
+ DEC                            228   394 
+ Dec                             16 
+ DEF                            717 
+ DIV                            208 
+ DO                             121   160   165   507   520 
+ dumper                          17 
+
+-E-
+ ELSE                           102   164   178   195   261   270   290   293   365   369   597   616   647   651   684   748   771 
+ ELSIF                          253   256   745 
+ END                             63    64    65    83    90    96    98   103   104   105   107   122   123   128   133   141   142 
+                                146   152   163   168   169   170   172   181   183   191   196   197   199   213   219   229   237 
+                                240   243   263   271   272   275   277   283   295   296   297   318   331   332   345   346   370 
+                                371   372   373   377   395   397   497   509   510   522   524   526   531   533   538   540   550 
+                                563   565   580   583   585   600   601   618   619   626   632   650   653   654   670   672   677 
+                                687   688   701   726   728   730   753   754   773   774   775   783   790   840   844 
+ EndOfFile                      515 
+ EOL                            146 
+ Error                          500   515 
+ EXIT                           252   255   270   364   369   646   652   770 
+ EXPORT                          28 
+ Extensions                     557   608   639   696   760 
+
+-F-
+ f                               46   186   188   215   218   300   376   528   530   535   537 
+ Failure                        500   515 
+ FALSE                          301   306 
+ Fmt                            150   161   161   166   166   235   235   238   255   258   258   260   282 
+ follow                          18 
+ FOR                            121   160   165   506   519 
+ ForallAttributes                49   582   613   669   725   768   839 
+ ForallClassesExtensionsFirst    49   185   245   358 
+ FROM                            29    39    40    41    42    44 
+ FromChars                      523 
+ FromText                       523 
+
+-G-
+ generation                      17 
+ Get                            535   538 
+ GetChar                        508   521 
+ GetIterator                     26   611   644   667   767   834   839 
+ GLOBAL                          36 
+
+-H-
+ HasAttributes                   48   561   574   578   642   663   723   765 
+ HasChildren                     47   561   574   578   609   642   663   723   765 
+ Html                           299   395   711   728   764 
+ html                            17 
+
+-I-
+ i                              506   508   519   521 
+ iBOOLEAN                        54    71   745 
+ iClassName                      52   581   612   668 
+ id                             513 
+ Idents                          38    41    52    54    71 
+ IF                              59    61    79    84    92    96    98   108   122   124   135   143   158   173   176   189   201 
+                                219   233   251   279   287   309   315   337   362   377   491   527   534   547   558   561   573 
+                                577   592   593   609   614   624   630   640   642   645   662   675   680   681   697   709   723 
+                                739   741   761   765   769   780   787   840   844 
+ iInteger                        46 
+ iMain                           47 
+ iModule                         47   186   197   215   225   229   246   275   299   395   528   531   535   538 
+ IMPORT                          29    38    39    40    41    42    44 
+ IN                             593   609   630   681   741   787   844 
+ INC                             97   131   220   265   378 
+ IndentString                   303   311   339   749 
+ iNoTree                         47    96   176   189   251   287   362 
+ Int                            161   166   235   255   258   282 
+ INTEGER                        202   203   216   503   516 
+ IO                              39 
+ IsElement                       40    61    79    80    81    84    92   108   135   143   144   145   173   201   279   491   492 
+                                527   534   547   548 
+ IsLink                         306   315 
+ Iterator                        31   614   617   624   645   649   675   769   772   780   837   840   843 
+ itTree                          46    93   111   117   174   186   215   242   243   246   280   285   300   306   359   528   535 
+                                537 
+
+-J-
+ Jan                             17    18    20 
+
+-K-
+ Kind                           577 
+
+-L-
+ LChars                         517   521   523 
+ Length                         150   503 
+ LINE                            16    62 
+ Line                            33    57    59    59    62    62 
+ LINK                            19 
+ Link                            48   593   630   681   741   787 
+ LittleEndian                   154   158 
+ LLength                        503   505   506   516   517   519 
+ LNewTreeStorePtr               119   125   126   127 
+ LNodeTag                       307   320   322   324   712   714   716   718 
+ LOOP                            95   250   361 
+ LOOPHOLE                       179   326   720 
+ LText                          501   503   508 
+
+-M-
+ MakeIdent                       71 
+ Mark                            18   101   605   608   613   620 
+ MAX                            150   260 
+ MOD                            209 
+
+-N-
+ Name                           306   312   335   340   559   562   575   575   579   581   583   589   596   599   610   612   617 
+                                625   631   641   643   649   664   664   668   670   676   683   686   699   711   711   728   747 
+                                750   763   764   772   782   789 
+ name                            20 
+ NARROW                         501   537 
+ NEW                            125   517   549 
+ Next                           566   620   655   702   776 
+ NIL                            309 
+ NoCodeAttr                      48   592   680   739 
+ NoCodeClass                     48   558   573   609   640   662   697   709   761 
+ Node                           186   197 
+ NodeKinds                      292   693   696   702 
+ NOT                            309   337 
+ NoTree                          45   614   645   769   837   838   840 
+ NUMBER                         124   125   126   160   165 
+
+-O-
+ OBJECT                         493 
+ OF                             100   111   156   179   193   268   291   326   367   517   517   720 
+ option                          16 
+ Options                         45    61    79    80    81    84    92   108   135   143   144   145   173   201   279   491   492 
+                                527   534   547   548 
+ OR                              80    81   143   144   309   337   362   492   548 
+ ORD                             61    79    80    81    84    92   108   135   143   144   145   161   166   173   201   211   279 
+                                491   492   527   534   547   548 
+ output                          16 
+ OVERRIDES                      494 
+
+-P-
+ Pad                            150   161   166   235   238   258   260 
+ Pickle                         493   499   500   513   513   515   530   537   549 
+ Positions                       29    42 
+ possible                        21 
+ pragma                          16 
+ PROCEDURE                       33    57    75    93   117   146   148   156   174   186   206   215   231   242   246   280   285 
+                                299   305   334   359   499   512   528   535   544   554   570   575   605   636   659   664   693 
+                                705   711   757   834 
+ procedure                       20 
+ Properties                     558   561   573   574   578   592   593   609   609   630   640   642   662   663   680   681   697 
+                                709   723   739   741   761   765   787   844 
+ PUBLIC                          26 
+ Put                            528   531 
+ PutChar                        234   234   236   236   254   259   262   508 
+ PutText                        146   149   150   151   161   166   177   190   235   238   252   255   258   260   311   312   313 
+                                314   317   319   321   322   323   324   325   327   328   329   339   340   341   342   380   381 
+                                382   383   384   385   386   387   388   391   392   393   560   652   666   715   716   717   718 
+                                719   721   749 
+
+-R-
+ r                              499   501 
+ RAISES                         500   515 
+ Rd                             515   515   521   535 
+ rd                             513   516   521   521 
+ Read                           537 
+ read                           496 
+ ReadAtom                       496   512   524 
+ Reader                         513 
+ readInt                        516 
+ REF                            113   119   125   323   517   517 
+ REFANY                         499   514 
+ RefID                          513 
+ RegisterSpecial                549 
+ RETURN                          96    98   102   122   132   190   282   289   294   523   537   615   700 
+ RevChild                        55   838   840   840   844 
+ Reverse                         49   844 
+
+-S-
+ sBOOLEAN                        53    70    71 
+ sc                             549 
+ Self                           499   513 
+ Sets                            40 
+ Special                        493 
+ Strings                         38    53    70 
+ SUBARRAY                       126 
+ SuppressNullFields             301   309   337 
+
+-T-
+ T                               82   186   215   300   501   528   535   549 
+ t                               75   544   554   570   605   611   613   624   636   644   659   667   669   675   693   705   725 
+                                757   767   768   780   834   839   843   844 
+ TEXT                           148   231   242   280   285   300   306   307   335   501   712 
+ Text                           150   503   508   523 
+ THEN                            59    61    81    84    92    96    98   108   122   124   135   145   159   173   176   189   201 
+                                219   234   251   253   256   279   288   310   316   338   363   377   492   527   534   548   558 
+                                561   574   578   592   594   609   614   624   630   640   642   645   663   675   680   682   698 
+                                710   724   740   742   746   762   766   769   781   788   840   844 
+ Thread                         500   515 
+ tIdent                          41    52    54 
+ Title                          300   384 
+ title                          385 
+ TNode                          559   562   610   617   625   631   641   643   649   711   714   720   747   750   763   764   772 
+                                782   789 
+ TO                             121   160   165   506   519 
+ to                              18    18    20    20 
+ ToText                         501 
+ tPosition                       29    33    42    57 
+ TRAFO                           24 
+ TREE                            25 
+ Tree                            25    31    44    75   186   189   193   215   221   225   300   379   390   528   530   544   554 
+                                570   577   605   636   659   693   705   757   834 
+ tree                            17 
+ TreeIO                          26    75 
+ TreeIOInit                      26   544 
+ TreeMThree2                     24 
+ TRUE                           154 
+ tString                         53 
+ tTree                           31    45    55 
+ TYPE                           111   493 
+ Type                           306   314   598   686   745   750 
+ TYPECASE                       100   193   268   291   367 
+ TYPECODE                       549 
+
+-V-
+ Value                          306   309   320   326   328   335   337   343 
+ VAR                             31    51    82   113   114   115   118   119   154   156   202   203   216   247   307   501   503 
+                                516   517   712 
+
+-W-
+ where                           21 
+ WI                              46    93    96   111   117   174   176   186   186   189   197   215   215   225   229   242   243 
+                                246   246   251   275   280   285   287   299   300   306   359   362   395   528   528   531   535 
+                                535   537   538   559   562   575   575   579   583   589   596   598   599   610   617   625   631 
+                                641   643   649   664   664   670   676   683   686   686   699   711   711   728   747   750   750 
+                                763   764   772   782   789 
+ with                            16    21 
+ WN                              46    62 
+ Wr                              82   146   146   149   150   151   161   166   177   186   190   215   234   234   235   236   236 
+                                238   252   254   255   258   259   260   262   300   311   312   313   314   317   319   321   322 
+                                323   324   325   327   328   329   339   340   341   342   380   381   382   383   384   385   386 
+                                387   388   391   392   393   500   508   528   560   652   666   715   716   717   718   719   721 
+                                749 
+ wr                             499   505   508   508 
+ Write                          186   197   215   229   299   395   530   711   728   764 
+ write                          243   495   598   686   750 
+ WriteAtom                      495   499   510 
+ WriteAttributes                245   659   669 
+ writeBOOLEAN                   343 
+ WriteBOOLEANAttribute          334   346   747 
+ WriteChildOrLink               305   332   734   743 
+ WriteClassName                 269   636   639   655 
+ WriteHtmlCases                 368   757   760   768   776 
+ WriteHtmlNodes                 358   705   725 
+ WriteHtmlRecurse               359   373   390   782   789 
+ writeInt                       505 
+ WriteLine                       33    57    65 
+ WriteNl                         39 
+ WriteNode                      185   570   582 
+ WriteNodeName                  194   554   557   566 
+ Writer                         499 
+ WriteS                          39 
+ WriteTREEHtml                   18 
+ WriteTREEm                      18 
+
+-Y-
+ yWrite                          21   643   664   670 
+ yWriteNode                      20 
+ yyActualIndent                 203   210   260 
+ yyf                             82   146   149   150   151   161   166   177   188   190   218   234   234   235   236   236   238 
+                                252   254   255   258   259   260   262   311   312   313   314   317   319   321   322   323   324 
+                                325   327   328   329   339   340   341   342   376   380   381   382   383   384   385   386   387 
+                                388   391   392   393   560   652   666   715   716   717   718   719   721   749 
+ yyHead                          97    98   253   256   264   362   366 
+ yyi                            118   121   122   122   129   130   132   160   161   165   166 
+ yyIndentFactor                 204   208   209   235 
+ yyIndentLevel                  202   208   209   222   223   226   249   265   273 
+ yyIndentQuotient               203   208   211   233   235 
+ yyIndentRemainder              203   209   212   238 
+ yyIndentSelector               231   240   243   648   685 
+ yyIndentSelectorTree           242   243   676   683 
+ yyInitTreeStoreSize            109 
+ yyLabelCount                   114   121   124   129   131   219   377 
+ yyLevel                        247   249   273 
+ yyMapToLabel                   117   133   255   258   282 
+ yyMark                          93    97    98   105   221   253   256   264   362   366   379   625   631 
+ yyNodeKind                     285   297   328 
+ yyNodeTag                      280   283   320   714 
+ yyRecursionLevel               115   219   220   228   377   378   394 
+ yys                            148   149   150   231   239   242   243 
+ yySaveLevel                    216   222   226 
+ yySetIndentInfo                206   213   224   227   266   274 
+ yyt                             93    96    97    98   100   174   176   179   242   243   246   251   253   255   256   258   264 
+                                268   280   282   285   287   291   359   362   362   366   367   575   579   589   596   599   617 
+                                649   664   676   683   686   772 
+ yyTree                         117   122   130 
+ yyTreeStorePtr                 113   122   124   125   126   126   127   130 
+ yytTreeStore                   111   113   119   125 
+ yyWrite                        225   246   275 
+ yyWriteAdr                     174   183   589   596 
+ yyWriteHex                     156   170   179   326   720 
+ yyWriteNl                      146   146   182   190   252   255   257   330   344   380   381   386   387   388   389   391   392 
+                                393   560   599   652   666   686   722   727   752 
+ yyWriteSelector                148   152   239   588   595   598 
+ yyx                            156   160   161   165   166 
+ yyyWriteNode                    20   562   575   579   583 
+
+end cross reference, 1712 occurrences of 248 identifiers.

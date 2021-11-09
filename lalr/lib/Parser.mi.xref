@@ -1,0 +1,815 @@
+     1 (* $Id: Parser.mi,v 2.8 1992/08/12 06:54:05 grosch rel $ *)
+     2 (* Skeleton parser for Cocktail lalr. *)
+     3 (* Modified Rodney M. Bates. Various times. *)
+     4 
+     5 $@ IMPLEMENTATION MODULE @;                                                   *
+     6 
+     7 $@ IMPORT SYSTEM, $, Positions, Errors, Strings, DynArray, Sets, System;      *     *     *     *     *     *     *
+     8 
+     9 $G (* GLOBAL section is inserted here *)                                      *
+    10 
+    11 CONST
+    12    yyInitStackSize      = 100;                                                *
+    13    yyNoState            = 0;                                                  *
+    14 
+    15 $T (* Table Constants are inserted here *)                                    *
+    16 
+    17    yyFirstFinalState    = yyFirstReadTermState;                               *     *
+    18    yyLastState          = yyLastReduceState;                                  *     *
+    19 
+    20 TYPE
+    21    yyTableElmt          = SHORTCARD;                                          *     *
+    22    yyTCombRange         = yyTableElmt [0 .. yyTableMax];                      *    21     *
+    23    yyNCombRange         = yyTableElmt [yyLastTerminal + 1 .. yyNTableMax];          *    21     *     *
+    24    yyStateRange         = yyTableElmt [0 .. yyLastState];                     *    21    18
+    25    yyReadRange          = yyTableElmt [yyFirstReadState .. yyLastReadState];        *    21     *     *
+    26    yyReadReduceRange    = yyTableElmt                                         *    21
+    27                             [yyFirstReadTermState ..yyLastReadNontermState];        *     *
+    28    yyReduceRange        = yyTableElmt [yyFirstReduceState .. yyLastReduceState];          *    21     *     *
+    29    yySymbolRange        = yyTableElmt [yyFirstSymbol .. yyLastSymbol];        *    21     *     *
+    30    yyTCombType          = RECORD Check, Next: yyStateRange; END;              *     *     *    24
+    31    yyNCombType          = yyStateRange;                                       *    24
+    32    yyTCombTypePtr       = POINTER TO yyTCombType;                             *    30
+    33    yyNCombTypePtr       = POINTER TO yyNCombType;                             *    31
+    34    yyStackPtrType       = yyTableElmt [ MIN(yyTableElmt) .. MAX (yyTableElmt) ];          *    21     *    21     *     *
+    35    yyStackType          = POINTER TO ARRAY yyStackPtrType OF yyStateRange;          *    34    24
+    36    yyAttributeStackType = POINTER TO ARRAY yyStackPtrType OF tParsAttribute;        *    34     *
+    37 
+    38 VAR
+    39    yyTBasePtr           : ARRAY yyTableElmt [0 .. yyLastReadState]            *    34     *
+    40                           OF yyTCombTypePtr;                                 32
+    41    yyNBasePtr           : ARRAY yyTableElmt [0 .. yyLastReadState]            *    34     *
+    42                           OF yyNCombTypePtr;                                 33
+    43    yyDefault            : ARRAY yyTableElmt [0 .. yyLastReadState]            *    34     *
+    44                           OF yyReadRange  ;                                  25
+    45    yyTComb              : ARRAY yyTCombRange            OF yyTCombType  ;     *    22    30
+    46    yyNComb              : ARRAY yyNCombRange            OF yyNCombType  ;     *    23    31
+    47    yyLength             : ARRAY yyReduceRange           OF yyTableElmt  ;     *    28    34
+    48    yyLeftHandSide       : ARRAY yyReduceRange           OF yySymbolRange;     *    28    29
+    49    yyContinuation       : ARRAY yyTableElmt [0 .. yyLastReadState]            *    34     *
+    50                           OF yySymbolRange;                                  29
+    51    yyFinalToProd        : ARRAY yyReadReduceRange       OF yyReduceRange;     *    26    28
+    52    yyIsInitialized      : BOOLEAN;                                            *     *
+    53    yyTableFile          : System.tFile;                                       *     7     *
+    54 
+    55 PROCEDURE TokenName (Token: SHORTCARD; VAR Name: ARRAY OF CHAR);              *     *     *     *     *
+    56    PROCEDURE Copy (Source: ARRAY OF CHAR; VAR Target: ARRAY OF CHAR);         *     *     *     *     *
+    57       VAR i, j: CARDINAL;                                                     *     *     *
+    58       BEGIN
+    59          IF HIGH (Source) < HIGH (Target)                                     *    56     *    56
+    60          THEN j := HIGH (Source); ELSE j := HIGH (Target); END;              57     *    56    57     *    56
+    61          FOR i := 0 TO j DO Target [i] := Source [i]; END;                   57    57    56    57    56    57
+    62          IF HIGH (Target) > j THEN Target [j + 1] := CHR (0); END;            *    56    57    56    57     *
+    63       END Copy;                                                              56
+    64    BEGIN
+    65       CASE Token OF                                                          55
+    66 $W      (* token names are inserted here *)                                   *
+    67       END;
+    68    END TokenName;                                                            55
+    69 
+    70 $@ PROCEDURE @ (): CARDINAL;                                                  *
+    71 $L (* LOCAL section is inserted here *)                                       *
+    72    VAR
+    73       yyState           : yyStateRange;                                       *    24
+    74       yyTerminal        : yySymbolRange;                                      *    29
+    75       yyNonterminal     : yySymbolRange;        (* left-hand side symbol *)         *    29
+    76       yyStackPtr        : yyStackPtrType;                                     *    34
+    77       yyStateStackSize  : LONGINT;                                            *     *
+    78       yyAttrStackSize   : LONGINT;                                            *     *
+    79       yyShortStackSize  : yyStackPtrType;                                     *    34
+    80       yyStateStack      : yyStackType;                                        *    35
+    81       yyAttributeStack  : yyAttributeStackType;                               *    36
+    82       yySynAttribute    : tParsAttribute;       (* synthesized attribute *)         *     *
+    83 $@    yyRepairAttribute : $.tScanAttribute;                                   *     *
+    84       yyRepairToken     : yySymbolRange;                                      *    29
+    85       yyTCombPtr        : yyTCombTypePtr;                                     *    32
+    86       yyNCombPtr        : yyNCombTypePtr;                                     *    33
+    87       yyIsRepairing     : BOOLEAN;                                            *     *
+    88       yyErrorCount      : CARDINAL;                                           *     *
+    89       yyTokenString     : ARRAY [0..127] OF CHAR;                             *     *
+    90    BEGIN
+    91 $@    Begin@;                                                                 *
+    92       yyState           := yyStartState;                                     73     *
+    93 $@    yyTerminal        := VAL ( yySymbolRange,$.GetToken ());               74     *    29     *
+    94       yyStateStackSize  := yyInitStackSize;                                  77    12
+    95       yyAttrStackSize   := yyInitStackSize;                                  78    12
+    96       DynArray.MakeArray                                                      7     *
+    97         (yyStateStack, yyStateStackSize, SYSTEM.TSIZE (yyStateRange));       80    77     7     *    24
+    98       DynArray.MakeArray                                                      7     *
+    99         (yyAttributeStack, yyAttrStackSize, SYSTEM.TSIZE (tParsAttribute));        81    78     7     *     *
+   100       yyShortStackSize  := VAL ( yyStackPtrType , yyStateStackSize ) - 1;    79     *    34    77
+   101       yyStackPtr        := 0;                                                76
+   102       yyErrorCount      := 0;                                                88
+   103       yyIsRepairing     := FALSE;                                            87     *
+   104 
+   105       LOOP
+   106          IF yyStackPtr >= yyShortStackSize THEN                              76    79
+   107             DynArray.ExtendArray                                              7     *
+   108               (yyStateStack, yyStateStackSize, SYSTEM.TSIZE (yyStateRange));       80    77     7     *    24
+   109             DynArray.ExtendArray                                              7     *
+   110               (yyAttributeStack, yyAttrStackSize,                            81    78
+   111                SYSTEM.TSIZE (tParsAttribute)                                  7     *     *
+   112               );
+   113             yyShortStackSize := VAL ( yyStackPtrType , yyStateStackSize ) - 1;     79     *    34    77
+   114          END (* IF *) ;
+   115          yyStateStack^ [yyStackPtr] := yyState;                              80    76    73
+   116 
+   117          LOOP   (* SPEC State := Next (State, Terminal); terminal transition *)
+   118             yyTCombPtr := yyTCombTypePtr                                     85    32
+   119                             ( LONGCARD ( yyTBasePtr [yyState] )               *    39    73
+   120                               + VAL ( LONGCARD , yyTerminal )                 *     *    74
+   121                                 * SYSTEM.TSIZE (yyTCombType)                  7     *    30
+   122                             );
+   123             IF yyTCombPtr^.Check = yyState                                   85    30    73
+   124             THEN
+   125                yyState := yyTCombPtr^.Next;                                  73    85    30
+   126                EXIT;
+   127             END (* IF *) ;
+   128             yyState := yyDefault [yyState];                                  73    43    73
+   129 
+   130             IF yyState = yyNoState                                           73    13
+   131             THEN (* syntax error *)
+   132                yyState := yyStateStack^ [yyStackPtr];                        73    80    76
+   133                IF yyIsRepairing                                              87
+   134                THEN (* repair *)
+   135                   yyRepairToken := yyContinuation [yyState];                 84    49    73
+   136                   yyState := Next (yyState, yyRepairToken);                  73    30    73    84
+   137                   IF yyState <= yyLastReadTermState                          73     *
+   138                   THEN (* read or read terminal reduce ? *)
+   139 $@                   $.ErrorAttribute                                         *
+   140                        (VAL(INTEGER,yyRepairToken), yyRepairAttribute);       *     *    84    83
+   141                      TokenName (yyRepairToken, yyTokenString);               55    84    89
+   142                      Errors.ErrorMessageI                                     7     *
+   143                        (Errors.TokenInserted, Errors.Repair,                  7     *     7     *
+   144 $@                      $.Attribute.Position, Errors.Array,                   *     *     7     *
+   145                         SYSTEM.ADR (yyTokenString)                            7     *    89
+   146                        );
+   147                      IF yyState >= yyFirstFinalState                         73    17
+   148                      THEN (* avoid second push *)
+   149                         yyState := yyFinalToProd [yyState];                  73    51    73
+   150                      END (* IF *) ;
+   151                      INC (yyStackPtr);                                        *    76
+   152                      yyAttributeStack^ [yyStackPtr].Scan := yyRepairAttribute;     81    76     *    83
+   153                      yyStateStack^     [yyStackPtr] := yyState;              80    76    73
+   154                   END (* IF *) ;
+   155                   IF yyState >= yyFirstFinalState                            73    17
+   156                   THEN (* final state ? *)
+   157                     EXIT;
+   158                   END (* IF *) ;
+   159                ELSE (* report and recover *)
+   160                   INC (yyErrorCount);                                         *    88
+   161                   ErrorRecovery                                               *
+   162                     (yyTerminal, yyStateStack, yyStateStackSize, yyStackPtr);      74    80    77    76
+   163                   yyIsRepairing := TRUE;                                     87     *
+   164                END (* IF *) ;
+   165             END (* IF *) ;
+   166          END (* LOOP *) ;
+   167 
+   168          IF yyState >= yyFirstFinalState                                     73    17
+   169          THEN (* final state ? *)
+   170             IF yyState <= yyLastReadTermState                                73     *
+   171             THEN (* read terminal reduce ? *)
+   172                INC (yyStackPtr);                                              *    76
+   173 $@             yyAttributeStack^ [yyStackPtr].Scan := $.Attribute;           81    76     *     *
+   174 $@             yyTerminal := VAL( yySymbolRange , $.GetToken () );           74     *    29     *
+   175                yyIsRepairing := FALSE;                                       87     *
+   176 $X             yyState := yyFinalToProd [yyState]; (* reducing case label ct. *)          *    73    51    73
+   177             END (* IF *) ;
+   178 
+   179             LOOP (* reduce *)
+   180 $R            (* Code for Reductions is inserted here *)                      *
+   181               (* SPEC State 
+c  182                    := Next (Top (), Nonterminal); nonterminal transition *)
+   183                yyNCombPtr                                                    86
+   184                  := yyNCombTypePtr                                           33
+   185                       ( LONGCARD (yyNBasePtr [yyStateStack^ [yyStackPtr]])          *    41    80    76
+   186                         + VAL ( LONGCARD, yyNonterminal )                     *     *    75
+   187                           * SYSTEM.TSIZE (yyNCombType)                        7     *    31
+   188                       );
+   189                yyState := yyNCombPtr^;                                       73    86
+   190                INC (yyStackPtr);                                              *    76
+   191                yyAttributeStack^ [yyStackPtr] := yySynAttribute;             81    76    82
+   192                IF yyState < yyFirstFinalState                                73    17
+   193                THEN (* read nonterminal ? *)
+   194                  EXIT 
+   195                END (* IF *) ; 
+   196 $X             yyState := yyFinalToProd [yyState]; (* reducing case label ct. *)          *    73    51    73
+   197             END (* LOOP *) ;
+   198 
+   199          ELSE (* read *)
+   200             INC (yyStackPtr);                                                 *    76
+   201 $@          yyAttributeStack^ [yyStackPtr].Scan := $.Attribute;              81    76     *     *
+   202 $@          yyTerminal := VAL(yySymbolRange,$.GetToken ());                  74     *    29     *
+   203             yyIsRepairing := FALSE;                                          87     *
+   204          END (* IF *);
+   205       END (* LOOP *) ;
+   206 $@    END @;
+   207 
+   208 PROCEDURE ErrorRecovery (                                                     *
+   209       VAR Terminal      : yySymbolRange ;                                     *    29
+   210           StateStack    : yyStackType   ;                                     *    35
+   211           StackSize     : LONGINT       ;                                     *     *
+   212           StackPtr      : yyStackPtrType);                                    *    34
+   213    VAR
+   214       TokensSkipped     : BOOLEAN;                                            *     *
+   215       ContinueSet       : Sets.tSet;                                          *     7     *
+   216       RestartSet        : Sets.tSet;                                          *     7     *
+   217       Token             : yySymbolRange;                                     55    29
+   218       TokenArray        : ARRAY [0..127] OF CHAR;                             *     *
+   219       TokenString       : Strings.tString;                                    *     7     *
+   220       ContinueString    : Strings.tString;                                    *     7     *
+   221    BEGIN
+   222    (* 1. report the error *)
+   223          TokenName ( Terminal , TokenArray );                                55   209   218
+   224          Strings.ArrayToString (TokenArray, TokenString);                     7     *   218   219
+   225          Errors.ErrorMessageI (Errors.SyntaxError, Errors.Error,              7     *     7     *     7     *
+   226 $@          $.Attribute.Position, Errors.String, SYSTEM.ADR(TokenString) );         *     *     7     *     7     *   219
+   227 
+   228    (* 2. report the set of expected terminal symbols *)
+   229       Sets.MakeSet (ContinueSet, yyLastTerminal);                             7     *   215     *
+   230       ComputeContinuation (StateStack, StackSize, StackPtr, ContinueSet);     *   210   211   212   215
+   231       Strings.AssignEmpty (ContinueString);                                   7     *   220
+   232       FOR Token := VAL(yySymbolRange,Sets.Minimum (ContinueSet)) TO VAL(yySymbolRang\   217     *    29     7     *   215
+                                                                                     *
+      \e,Sets.Maximum (ContinueSet)) DO                                             29     7     *   215
+   233          IF Sets.IsElement (VAL(Sets.tElement,Token), ContinueSet) THEN       7     *     *     7     *   217   215
+   234             TokenName (Token, TokenArray);                                   55   217   218
+   235             Strings.ArrayToString (TokenArray, TokenString);                  7     *   218   219
+   236             IF (Strings.Length (ContinueString) + Strings.Length (TokenString) + 1 <\     7     *   220     7     *   219
+      \= Strings.cMaxStrLength) THEN                                                 7     *
+   237                Strings.Concatenate (ContinueString, TokenString);             7     *   220   219
+   238                Strings.Append (ContinueString, ' ');                          7     *   220
+   239             END;
+   240          END;
+   241       END;
+   242       Errors.ErrorMessageI (Errors.ExpectedTokens, Errors.Information,        7     *     7     *     7     *
+   243 $@       $.Attribute.Position, Errors.String, SYSTEM.ADR (ContinueString));         *     *     7     *     7     *   220
+   244       Sets.ReleaseSet (ContinueSet);                                          7     *   215
+   245 
+   246    (* 3. compute the set of terminal symbols for restart of the parse *)
+   247       Sets.MakeSet (RestartSet, yyLastTerminal);                              7     *   216     *
+   248       ComputeRestartPoints (StateStack, StackSize, StackPtr, RestartSet);     *   210   211   212   216
+   249 
+   250    (* 4. skip terminal symbols until a restart point is reached *)
+   251       TokensSkipped := FALSE;                                               214     *
+   252       WHILE NOT Sets.IsElement (VAL(Sets.tElement,Terminal), RestartSet) DO         7     *     *     7     *   209   216
+   253 $@       Terminal := VAL(yySymbolRange,$.GetToken ());                      209     *    29     *
+   254          TokensSkipped := TRUE;                                             214     *
+   255       END;
+   256       Sets.ReleaseSet (RestartSet);                                           7     *   216
+   257 
+   258    (* 5. report the restart point *)
+   259       IF TokensSkipped THEN                                                 214
+   260 $@       Errors.ErrorMessage (Errors.RestartPoint, Errors.Information, $.Attribute.P\     7     *     7     *     7     *
+                                                                                     *
+      \osition);                                                                     *
+   261       END;
+   262    END ErrorRecovery;                                                       208
+   263 
+   264 (*
+c  265    compute the set of terminal symbols that can be accepted (read)
+c  266    in a given stack configuration (eventually after reduce actions)
+c  267 *)
+   268 
+   269 PROCEDURE ComputeContinuation (                                               *
+   270           Stack         : yyStackType   ;                                     *    35
+   271           StackSize     : LONGINT       ;                                   211     *
+   272           StackPtr      : yyStackPtrType;                                   212    34
+   273       VAR ContinueSet   : Sets.tSet     );                                  215     7     *
+   274    VAR Terminal         : yySymbolRange;                                    209    29
+   275    BEGIN
+   276       Sets.AssignEmpty (ContinueSet);                                         7     *   273
+   277       FOR Terminal := yyFirstTerminal TO yyLastTerminal DO                  274     *     *
+   278          IF IsContinuation (Terminal, Stack, StackSize, StackPtr) THEN        *   274   270   271   272
+   279             Sets.Include (ContinueSet, VAL(Sets.tElement,Terminal));          7     *   273     *     7     *   274
+   280          END;
+   281       END;
+   282    END ComputeContinuation;                                                 269
+   283 
+   284 (*
+c  285    check whether a given terminal symbol can be accepted (read)
+c  286    in a certain stack configuration (eventually after reduce actions)
+c  287 *)
+   288 
+   289 PROCEDURE IsContinuation (                                                    *
+   290       Terminal          : yySymbolRange ;                                   274    29
+   291       ParseStack        : yyStackType   ;                                     *    35
+   292       StackSize         : LONGINT       ;                                   271     *
+   293       StackPtr          : yyStackPtrType): BOOLEAN;                         272    34     *
+   294    VAR
+   295       State             : yyStackPtrType;                                     *    34
+   296       Nonterminal       : yySymbolRange;                                      *    29
+   297       Stack             : yyStackType;                                      270    35
+   298    BEGIN
+   299       DynArray.MakeArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));     7     *   297   292     7     *    24
+   300       FOR State := 0 TO StackPtr DO                                         295   293
+   301          Stack^ [State] := ParseStack^ [State];                             297   295   291   295
+   302       END;
+   303       State := Stack^ [StackPtr];                                           295   297   293
+   304       LOOP
+   305          Stack^ [StackPtr] := State;                                        297   293   295
+   306          State := Next (State, Terminal);                                   295    30   295   290
+   307          IF State = yyNoState THEN                                          295    13
+   308             DynArray.ReleaseArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));        7     *   297   292     7     *
+                                                                                    24
+   309             RETURN FALSE;                                                     *
+   310          END;
+   311          IF State <= yyLastReadTermState THEN           (* read or read terminal red\   295     *
+c     \uce ? *)
+   312             DynArray.ReleaseArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));        7     *   297   292     7     *
+                                                                                    24
+   313             RETURN TRUE;                                                      *
+   314          END;
+   315 
+   316          LOOP                                           (* reduce *)
+   317             IF State =  yyStopState THEN                                    295     *
+   318                DynArray.ReleaseArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange))\     7     *   297   292     7     *
+                                                                                    24
+      \;
+   319                RETURN TRUE;                                                   *
+   320             ELSE 
+   321                DEC (StackPtr, yyLength [State]);                              *   293    47   295
+   322                Nonterminal := yyLeftHandSide [State];                       296    48   295
+   323             END;
+   324 
+   325             State := Next (Stack^ [StackPtr], Nonterminal);                 295    30   297   293   296
+   326             IF StackPtr >= VAL ( yyStackPtrType , StackSize ) THEN          293     *    34   292
+   327                DynArray.ExtendArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));      7     *   297   292     7     *
+                                                                                    24
+   328             END;
+   329             INC (StackPtr);                                                   *   293
+   330             IF State < yyFirstFinalState THEN EXIT; END; (* read nonterminal ? *)       295    17
+   331             State := yyFinalToProd [State];             (* read nonterminal reduce *\   295    51   295
+c     \)
+   332          END;
+   333       END;
+   334    END IsContinuation;                                                      289
+   335 
+   336 (*
+c  337    compute a set of terminal symbols that can be used to restart
+c  338    parsing in a given stack configuration. we simulate parsing until
+c  339    end of file using a suffix program synthesized by the function
+c  340    Continuation. All symbols acceptable in the states reached during
+c  341    the simulation can be used to restart parsing.
+c  342 *)
+   343 
+   344 PROCEDURE ComputeRestartPoints (                                              *
+   345           ParseStack    : yyStackType   ;                                   291    35
+   346           StackSize     : LONGINT       ;                                   292     *
+   347           StackPtr      : yyStackPtrType;                                   293    34
+   348       VAR RestartSet    : Sets.tSet     );                                  216     7     *
+   349    VAR
+   350       Stack             : yyStackType;                                      297    35
+   351       State             : yyStackPtrType;                                   295    34
+   352       Nonterminal       : yySymbolRange;                                    296    29
+   353       ContinueSet       : Sets.tSet;                                        273     7     *
+   354    BEGIN
+   355       DynArray.MakeArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));     7     *   350   346     7     *    24
+   356       FOR State := 0 TO StackPtr DO                                         351   347
+   357          Stack^ [State] := ParseStack^ [State];                             350   351   345   351
+   358       END;
+   359       Sets.MakeSet (ContinueSet, yyLastTerminal);                             7     *   353     *
+   360       Sets.AssignEmpty (RestartSet);                                          7     *   348
+   361       State := Stack^ [StackPtr];                                           351   350   347
+   362 
+   363       LOOP
+   364          IF StackPtr >= VAL ( yyStackPtrType , StackSize ) THEN             347     *    34   346
+   365             DynArray.ExtendArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRange));         7     *   350   346     7     *
+                                                                                    24
+   366          END;
+   367          Stack^ [StackPtr] := State;                                        350   347   351
+   368          ComputeContinuation (Stack, StackSize, StackPtr, ContinueSet);     269   350   346   347   353
+   369          Sets.Union (RestartSet, ContinueSet);                                7     *   348   353
+   370          State := Next (State, yyContinuation [State]);                     351    30   351    49   351
+   371 
+   372          IF State >= yyFirstFinalState THEN             (* final state ? *)       351    17
+   373             IF State <= yyLastReadTermState THEN        (* read terminal reduce ? *)    351     *
+   374                INC (StackPtr);                                                *   347
+   375                State := yyFinalToProd [State];                              351    51   351
+   376             END;
+   377 
+   378             LOOP                                        (* reduce *)
+   379                IF State = yyStopState THEN                                  351     *
+   380                   DynArray.ReleaseArray (Stack, StackSize, SYSTEM.TSIZE (yyStateRang\     7     *   350   346     7     *
+      \e));                                                                         24
+   381                   Sets.ReleaseSet (ContinueSet);                              7     *   353
+   382                   RETURN;
+   383                ELSE 
+   384                   DEC (StackPtr, yyLength [State]);                           *   347    47   351
+   385                   Nonterminal := yyLeftHandSide [State];                    352    48   351
+   386                END;
+   387 
+   388                State := Next (Stack^ [StackPtr], Nonterminal);              351    30   350   347   352
+   389                INC (StackPtr);                                                *   347
+   390                IF State < yyFirstFinalState THEN EXIT; END; (* read nonterminal ? *)    351    17
+   391                State := yyFinalToProd [State];          (* read nonterminal reduce *\   351    51   351
+c     \)
+   392             END;
+   393          ELSE                                           (* read *)
+   394             INC (StackPtr);                                                   *   347
+   395          END;
+   396       END;
+   397    END ComputeRestartPoints;                                                344
+   398 
+   399 (* access the parse table:   Next : State x Symbol -> State *)
+   400 
+   401 PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange;         30   351    24     *    29    24
+   402    VAR
+   403       TCombPtr          : yyTCombTypePtr;                                     *    32
+   404       NCombPtr          : yyNCombTypePtr;                                     *    33
+   405    BEGIN
+   406       IF Symbol <= yyLastTerminal THEN                                      401     *
+   407          LOOP
+   408             TCombPtr                                                        403
+   409               := yyTCombTypePtr                                              32
+   410                    ( LONGCARD (yyTBasePtr [State])                            *    39   401
+   411                      + VAL ( LONGCARD , Symbol )                              *     *   401
+   412                        * SYSTEM.TSIZE (yyTCombType)                           7     *    30
+   413                    );
+   414             IF TCombPtr^.Check # State THEN                                 403    30   401
+   415                State := yyDefault [State];                                  401    43   401
+   416                IF State = yyNoState THEN RETURN yyNoState; END;             401    13    13
+   417             ELSE
+   418                RETURN TCombPtr^.Next;                                       403   401
+   419             END;
+   420          END;
+   421       ELSE
+   422         NCombPtr                                                            404
+   423           := yyNCombTypePtr                                                  33
+   424                ( LONGCARD (yyNBasePtr [State])                                *    41   401
+   425                  + VAL ( LONGCARD , Symbol )                                  *     *   401
+   426                    * SYSTEM.TSIZE (yyNCombType)                               7     *    31
+   427                );
+   428         RETURN NCombPtr^;                                                   404
+   429       END;
+   430    END Next;                                                                401
+   431 
+   432 PROCEDURE yyGetTables;                                                        *
+   433    VAR
+   434       BlockSize, j, n   : CARDINAL;                                           *    57     *     *
+   435       State     : yyStateRange;                                             401    24
+   436       TBase     : ARRAY yyTableElmt[0 .. yyLastReadState] OF yyTCombRange;          *    34     *    22
+   437       NBase     : ARRAY yyTableElmt[0 .. yyLastReadState] OF yyNCombRange;          *    34     *    23
+   438    BEGIN
+   439       BlockSize := 64000 DIV SYSTEM.TSIZE (yyTCombType);                    434     7     *    30
+   440       yyTableFile := System.OpenInput (ParsTabName);                         53     7     *     *
+   441       yyErrorCheck (Errors.OpenParseTable, yyTableFile);                      *     7     *    53
+   442       IF 
+   443          (yyGetTable (SYSTEM.ADR (TBase         )) DIV SYSTEM.TSIZE (yyTCombRange ) \     *     7     *   436     7     *
+                                                                                    22
+      \- 1
+   444             # yyLastReadState) OR                                             *
+   445          (yyGetTable (SYSTEM.ADR (NBase         )) DIV SYSTEM.TSIZE (yyNCombRange ) \     *     7     *   437     7     *
+                                                                                    23
+      \- 1
+   446             # yyLastReadState) OR                                             *
+   447          (yyGetTable (SYSTEM.ADR (yyDefault     )) DIV SYSTEM.TSIZE (yyReadRange  ) \     *     7     *    43     7     *
+                                                                                    25
+      \- 1
+   448             # yyLastReadState) OR                                             *
+   449          (yyGetTable (SYSTEM.ADR (yyNComb       )) DIV SYSTEM.TSIZE (yyNCombType  )       *     7     *    46     7     *
+                                                                                    31
+   450             # yyNTableMax - yyLastTerminal) OR                                *     *
+   451          (yyGetTable (SYSTEM.ADR (yyLength      )) DIV SYSTEM.TSIZE (yyTableElmt  ) \     *     7     *    47     7     *
+                                                                                    34
+      \- 1
+   452             # yyLastReduceState - yyFirstReduceState) OR                      *     *
+   453          (yyGetTable (SYSTEM.ADR (yyLeftHandSide)) DIV SYSTEM.TSIZE (yySymbolRange) \     *     7     *    48     7     *
+                                                                                    29
+      \- 1
+   454             # yyLastReduceState - yyFirstReduceState) OR                      *     *
+   455          (yyGetTable (SYSTEM.ADR (yyContinuation)) DIV SYSTEM.TSIZE (yySymbolRange) \     *     7     *    49     7     *
+                                                                                    29
+      \- 1
+   456             # yyLastReadState) OR                                             *
+   457          (yyGetTable (SYSTEM.ADR (yyFinalToProd )) DIV SYSTEM.TSIZE (yyReduceRange) \     *     7     *    51     7     *
+                                                                                    28
+      \- 1
+   458             # yyLastReadNontermState - yyFirstReadTermState)                  *     *
+   459       THEN
+   460          Errors.ErrorMessage (Errors.WrongParseTable, Errors.Fatal, Positions.NoPosi\     7     *     7     *     7     *
+                                                                                     7
+      \tion);                                                                        *
+   461       END;
+   462       n := 0;                                                               434
+   463       j := 0;                                                               434
+   464       WHILE j <= yyTableMax DO                                              434     *
+   465          INC (n, yyGetTable (SYSTEM.ADR (yyTComb [VAL(yyStateRange,j)])) DIV SYSTEM.\     *   434     *     7     *    45
+                                                                                     *    24   434     7
+      \TSIZE (yyTCombType));                                                         *    30
+   466          INC (j, BlockSize);                                                  *   434   434
+   467       END;
+   468       IF n # yyTableMax + 1 THEN                                            434     *
+   469          Errors.ErrorMessage (Errors.WrongParseTable, Errors.Fatal, Positions.NoPosi\     7     *     7     *     7     *
+                                                                                     7
+      \tion);                                                                        *
+   470       END;
+   471       System.Close (yyTableFile);                                             7     *    53
+   472 
+   473       FOR State := 1 TO yyLastReadState DO                                  435     *
+   474          yyTBasePtr [State] := SYSTEM.ADR (yyTComb [TBase [State]]);         39   435     7     *    45   436   435
+   475       END;
+   476       FOR State := 1 TO yyLastReadState DO                                  435     *
+   477          yyNBasePtr [State] := SYSTEM.ADR (yyNComb [NBase [State]]);         41   435     7     *    46   437   435
+   478       END;
+   479    END yyGetTables;                                                         432
+   480 
+   481 PROCEDURE yyGetTable (Address: SYSTEM.ADDRESS): CARDINAL;                     *     *     7     *     *
+   482    VAR
+   483       N         : INTEGER;                                                    *     *
+   484       Length    : yyTableElmt;                                                *    34
+   485       LongLength : CARDINAL;                                                  *     *
+   486    BEGIN
+   487       N := System.Read (yyTableFile, SYSTEM.ADR (Length), SYSTEM.TSIZE (yyTableElmt)\   483     7     *    53     7     *
+                                                                                   484     7     *    34
+      \);
+   488       yyErrorCheck (Errors.ReadParseTable, N);                                *     7     *   483
+   489       LongLength := VAL ( CARDINAL , Length );                              485     *     *   484
+   490       N := System.Read (yyTableFile, Address, LongLength);                  483     7     *    53   481   485
+   491       yyErrorCheck (Errors.ReadParseTable, N);                                *     7     *   483
+   492       RETURN LongLength;                                                    485
+   493    END yyGetTable;                                                          481
+   494 
+   495 PROCEDURE yyErrorCheck (ErrorCode: INTEGER; Info: INTEGER);                   *     *     *     *     *
+   496    VAR ErrNo: INTEGER;                                                        *     *
+   497    BEGIN
+   498      IF Info < 0 THEN                                                       495
+   499         ErrNo := System.ErrNum ();                                          496     7     *
+   500         Errors.ErrorMessageI (ErrorCode, Errors.Fatal, Positions.NoPosition,        7     *   495     7     *     7     *
+   501            Errors.Integer, SYSTEM.ADR (ErrNo));                               7     *     7     *   496
+   502      END;
+   503    END yyErrorCheck;                                                        495
+   504 
+   505 $@ PROCEDURE Begin@;                                                          *
+   506    BEGIN
+   507 $B      (* BEGIN section is inserted here *)                                  *
+   508       IF NOT yyIsInitialized THEN                                            52
+   509          yyIsInitialized := TRUE;                                            52     *
+   510          yyGetTables;                                                       432
+   511       END;
+   512 $@    END Begin@;                                                           505
+   513 
+   514 $@ PROCEDURE Close@;                                                          *
+   515    BEGIN
+   516 $C      (* CLOSE section is inserted here *)                                  *
+   517 $@    END Close@;                                                           514
+   518 
+   519 BEGIN
+   520     yyIsInitialized := FALSE;                                                52     *
+   521 $@     ParsTabName := '@.Tab';                                                *
+   522 $@ END @.
+Cross reference: * is declaration, = is assignment
+
+-A-
+ ADDRESS                        481 
+ Address                        481*  490 
+ ADR                            145   226   243   443   445   447   449   451   453   455   457   465   474   477   487   501 
+ Append                         238 
+ Array                          144 
+ ArrayToString                  224   235 
+ AssignEmpty                    231   276   360 
+ Attribute                      144   173   201   226   243   260 
+
+-B-
+ B                              507 
+ Begin                           91   505*  512 
+ BlockSize                      434*  439=  466 
+ BOOLEAN                         52    87   214   293 
+
+-C-
+ C                              516 
+ CARDINAL                        57    70    88   434   481   485   489 
+ CHAR                            55    56    56    89   218 
+ Check                           30*  123   414 
+ CHR                             62 
+ Close                          471   514*  517 
+ cMaxStrLength                  236 
+ ComputeContinuation            230   269*  282   368 
+ ComputeRestartPoints           248   344*  397 
+ Concatenate                    237 
+ ContinueSet                    215*  229   230   232   232   233   244   273*  276   279   353*  359   368   369   381 
+ ContinueString                 220*  231   236   237   238   243 
+ Copy                            56*   63 
+
+-D-
+ DEC                            321   384 
+ DynArray                         7*   96    98   107   109   299   308   312   318   327   355   365   380 
+
+-E-
+ ErrNo                          496*  499=  501 
+ ErrNum                         499 
+ Error                          225 
+ ErrorAttribute                 139 
+ ErrorCode                      495*  500 
+ ErrorMessage                   260   460   469 
+ ErrorMessageI                  142   225   242   500 
+ ErrorRecovery                  161   208*  262 
+ Errors                           7*  142   143   143   144   225   225   225   226   242   242   242   243   260   260   260   441 
+                                460   460   460   469   469   469   488   491   500   500   501 
+ ExpectedTokens                 242 
+ ExtendArray                    107   109   327   365 
+
+-F-
+ FALSE                          103   175   203   251   309   520 
+ Fatal                          460   469   500 
+
+-G-
+ G                                9*
+ GetToken                        93   174   202   253 
+
+-H-
+ HIGH                            59    59    60    60    62 
+
+-I-
+ i                               57*   61=   61    61 
+ IMPLEMENTATION                   5*
+ INC                            151   160   172   190   200   329   374   389   394   465   466 
+ Include                        279 
+ Info                           495*  498 
+ Information                    242   260 
+ INTEGER                        140   483   495   495   496 
+ Integer                        501 
+ IsContinuation                 278   289*  334 
+ IsElement                      233   252 
+
+-J-
+ j                               57*   60=   60=   61    62    62   434*  463=  464   465   466 
+
+-L-
+ L                               71*
+ Length                         236   236   484*  487   489 
+ LONGCARD                       119   120   185   186   410   411   424   425 
+ LONGINT                         77    78   211   271   292   346 
+ LongLength                     485*  489=  490   492 
+
+-M-
+ MakeArray                       96    98   299   355 
+ MakeSet                        229   247   359 
+ MAX                             34*
+ Maximum                        232 
+ MIN                             34 
+ Minimum                        232 
+
+-N-
+ N                              483*  487=  488   490=  491 
+ n                              434*  462=  465   468 
+ Name                            55*
+ NBase                          437*  445   477 
+ NCombPtr                       404*  422=  428 
+ Next                            30*  125   136   306   325   370   388   401*  418   430 
+ Nonterminal                    296*  322=  325   352*  385=  388 
+ NoPosition                     460   469   500 
+
+-O-
+ OpenInput                      440 
+ OpenParseTable                 441 
+
+-P-
+ ParseStack                     291*  301   345*  357 
+ ParsTabName                    440   521=
+ Position                       144   226   243   260 
+ Positions                        7*  460   469   500 
+
+-R-
+ R                              180=
+ Read                           487   490 
+ ReadParseTable                 488   491 
+ ReleaseArray                   308   312   318   380 
+ ReleaseSet                     244   256   381 
+ Repair                         143 
+ RestartPoint                   260 
+ RestartSet                     216*  247   248   252   256   348*  360   369 
+
+-S-
+ Scan                           152=  173=  201=
+ Sets                             7*  215   216   229   232   232   233   233   244   247   252   252   256   273   276   279   279 
+                                348   353   359   360   369   381 
+ SHORTCARD                       21    55 
+ Source                          56*   59    60    61 
+ Stack                          270*  278   297*  299   301=  303   305=  308   312   318   325   327   350*  355   357=  361   365 
+                                367=  368   380   388 
+ StackPtr                       212*  230   248   272*  278   293*  300   303   305   321   325   326   329   347*  356   361   364 
+                                367   368   374   384   388   389   394 
+ StackSize                      211*  230   248   271*  278   292*  299   308   312   318   326   327   346*  355   364   365   368 
+                                380 
+ State                          295*  300=  301   301   303=  305   306=  306   307   311   317   321   322   325=  330   331=  331 
+                                351*  356=  357   357   361=  367   370=  370   370   372   373   375=  375   379   384   385   388=
+                                390   391=  391   401*  410   414   415=  415   416   424   435*  473=  474   474   476=  477   477 
+ StateStack                     210*  230   248 
+ String                         226   243 
+ Strings                          7*  219   220   224   231   235   236   236   236   237   238 
+ Symbol                         401*  406   411   425 
+ SyntaxError                    225 
+ SYSTEM                           7*   97    99   108   111   121   145   187   226   243   299   308   312   318   327   355   365 
+                                380   412   426   439   443   443   445   445   447   447   449   449   451   451   453   453   455 
+                                455   457   457   465   465   474   477   481   487   487   501 
+ System                           7*   53   440   471   487   490   499 
+
+-T-
+ T                               15*
+ Target                          56*   59    60    61=   62    62=
+ TBase                          436*  443   474 
+ TCombPtr                       403*  408=  414   418 
+ tElement                       233   252   279 
+ Terminal                       209*  223   252   253=  274*  277=  278   279   290*  306 
+ tFile                           53 
+ Token                           55*   65   217*  232=  233   234 
+ TokenArray                     218*  223   224   234   235 
+ TokenInserted                  143 
+ TokenName                       55*   68   141   223   234 
+ TokensSkipped                  214*  251=  254=  259 
+ TokenString                    219*  224   226   235   236   237 
+ tParsAttribute                  36    82    99   111 
+ TRUE                           163   254   313   319   509 
+ tScanAttribute                  83 
+ tSet                           215   216   273   348   353 
+ TSIZE                           97    99   108   111   121   187   299   308   312   318   327   355   365   380   412   426   439 
+                                443   445   447   449   451   453   455   457   465   487 
+ tString                        219   220 
+
+-U-
+ Union                          369 
+
+-V-
+ VAL                             93   100   113   120   140   174   186   202   232   232   233   252   253   279   326   364   411 
+                                425   465   489 
+
+-W-
+ W                               66 
+ WrongParseTable                460   469 
+
+-X-
+ X                              176=  196=
+
+-Y-
+ yyAttributeStack                81*   99   110   152=  173=  191=  201=
+ yyAttributeStackType            36*   81 
+ yyAttrStackSize                 78*   95=   99   110 
+ yyContinuation                  49*  135   370   455 
+ yyDefault                       43*  128   415   447 
+ yyErrorCheck                   441   488   491   495*  503 
+ yyErrorCount                    88*  102=  160 
+ yyFinalToProd                   51*  149   176   196   331   375   391   457 
+ yyFirstFinalState               17*  147   155   168   192   330   372   390 
+ yyFirstReadState                25 
+ yyFirstReadTermState            17    27   458 
+ yyFirstReduceState              28   452   454 
+ yyFirstSymbol                   29 
+ yyFirstTerminal                277 
+ yyGetTable                     443   445   447   449   451   453   455   457   465   481*  493 
+ yyGetTables                    432*  479   510 
+ yyInitStackSize                 12*   94    95 
+ yyIsInitialized                 52*  508   509=  520=
+ yyIsRepairing                   87*  103=  133   163=  175=  203=
+ yyLastReadNontermState          27   458 
+ yyLastReadState                 25    39    41    43    49   436   437   444   446   448   456   473   476 
+ yyLastReadTermState            137   170   311   373 
+ yyLastReduceState               18    28   452   454 
+ yyLastState                     18*   24 
+ yyLastSymbol                    29 
+ yyLastTerminal                  23   229   247   277   359   406   450 
+ yyLeftHandSide                  48*  322   385   453 
+ yyLength                        47*  321   384   451 
+ yyNBasePtr                      41*  185   424   477=
+ yyNComb                         46*  449   477 
+ yyNCombPtr                      86*  183=  189 
+ yyNCombRange                    23*   46   437   445 
+ yyNCombType                     31*   33    46   187   426   449 
+ yyNCombTypePtr                  33*   42    86   184   404   423 
+ yyNonterminal                   75*  186 
+ yyNoState                       13*  130   307   416   416 
+ yyNTableMax                     23   450 
+ yyReadRange                     25*   44   447 
+ yyReadReduceRange               26*   51 
+ yyReduceRange                   28*   47    48    51   457 
+ yyRepairAttribute               83*  140   152 
+ yyRepairToken                   84*  135=  136   140   141 
+ yyShortStackSize                79*  100=  106   113=
+ yyStackPtr                      76*  101=  106   115   132   151   152   153   162   172   173   185   190   191   200   201 
+ yyStackPtrType                  34*   35    36    76    79   100   113   212   272   293   295   326   347   351   364 
+ yyStackType                     35*   80   210   270   291   297   345   350 
+ yyStartState                    92 
+ yyState                         73*   92=  115   119   123   125=  128=  128   130   132=  135   136=  136   137   147   149=  149 
+                                153   155   168   170   176=  176   189=  192   196=  196 
+ yyStateRange                    24*   30    31    35    73    97   108   299   308   312   318   327   355   365   380   401   401 
+                                435   465 
+ yyStateStack                    80*   97   108   115=  132   153=  162   185 
+ yyStateStackSize                77*   94=   97   100   108   113   162 
+ yyStopState                    317   379 
+ yySymbolRange                   29*   48    50    74    75    84    93   174   202   209   217   232   232   253   274   290   296 
+                                352   401   453   455 
+ yySynAttribute                  82*  191 
+ yyTableElmt                     21*   22    23    24    25    26    28    29    34    34*   34*   39    41    43    47    49   436 
+                                437   451   484   487 
+ yyTableFile                     53*  440=  441   471   487   490 
+ yyTableMax                      22   464   468 
+ yyTBasePtr                      39*  119   410   474=
+ yyTComb                         45*  465   474 
+ yyTCombPtr                      85*  118=  123   125 
+ yyTCombRange                    22*   45   436   443 
+ yyTCombType                     30*   32    45   121   412   439   465 
+ yyTCombTypePtr                  32*   40    85   118   403   409 
+ yyTerminal                      74*   93=  120   162   174=  202=
+ yyTokenString                   89*  141   145 
+
+end cross reference, 1047 occurrences of 191 identifiers.

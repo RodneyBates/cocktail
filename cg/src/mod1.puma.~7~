@@ -1,0 +1,1137 @@
+/* Ich, Doktor Josef Grosch, Informatiker, 22.3.1989 */
+/* R.M.B. Added generation of declaration and import
+          of constants <Node>Max, with option '+'. */
+/* R.M.B. Added generation of declaration and import
+          of types p<Node>, with option '^'. */
+/* R.M.B. Put IsType in generated imports list. */
+
+TRAFO TreeMod1
+TREE Tree
+PUBLIC TreeDefMod TreeImplMod ImportList
+
+EXPORT {
+CONST BSS	= 32;	(* BITSET size *)
+}
+
+GLOBAL {
+
+FROM General	IMPORT Max;
+FROM IO		IMPORT WriteS, WriteNl;
+FROM Idents	IMPORT tIdent;
+FROM Texts	IMPORT WriteText;
+FROM Sets	IMPORT IsElement, Include;
+FROM TreeMod2	IMPORT TreeIO, GetIterator, Iterator, WriteLine;
+
+FROM Tree	IMPORT
+   NoTree	, tTree		, Input		, Reverse	,
+   Class	, Child		, Attribute	, Abstract	,
+   HasChildren	, HasAttributes	, NoCodeAttr	, NoCodeClass	,
+   Options	, TreeRoot	, ClassCount	, iNoTree	,
+   itTree	, iMain		, iModule	, f		,
+   WI	, WN	, ForallClasses	, ForallAttributes, Ignore	,
+   Test		, Dummy		, ForallClassesPreAndPost;
+
+IMPORT Strings;
+
+VAR
+   ConstCount	,
+   ListCount	: INTEGER;
+   iRange	,
+   iClassName	: tIdent;
+   Node		: tTree;
+   gBitCount	: SHORTCARD;
+   i, MaxBit	: SHORTCARD;
+}
+
+BEGIN { ConstCount := 0; }
+
+PROCEDURE TreeDefMod (t: Tree)
+
+Ag (..) :- {
+	!DEFINITION MODULE ! WI (iModule); !;!
+	!!
+      IF IsElement (ORD ('<'), Options) THEN
+	!FROM ! WI (iMain); ! IMPORT ! WI (itTree); !, tProcTree;!
+      END;
+	!IMPORT SYSTEM, IO;!
+	WriteLine (TreeCodes^.Codes.ImportLine);
+	WriteText (f, TreeCodes^.Codes.Import);
+	Node := Modules;
+	WHILE Node^.Kind = Tree.Module DO
+	   WriteLine (Node^.Module.TreeCodes^.Codes.ImportLine);
+	   WriteText (f, Node^.Module.TreeCodes^.Codes.Import);
+	   Node := Node^.Module.Next;
+	END;
+	!!
+      IF NOT IsElement (ORD ('<'), Options) THEN
+	!CONST!
+	WI (iNoTree); ! = NIL;!
+	!!
+        /* R.M.B. */
+	ForallClassesPreAndPost (Classes, ConstDeclsPre, ConstDeclsPost);
+        /* R.M.B. End */
+	!!
+	!TYPE ! WI (itTree); ! = POINTER TO yyNode;!
+        /* R.M.B. */
+        IF IsElement (ORD ('^'), Options) THEN
+          ForallClasses ( Classes, PointerTypes);
+        END;
+        /* R.M.B. End */
+	!tProcTree = PROCEDURE (! WI (itTree); !);!
+      END;
+	WriteLine (TreeCodes^.Codes.ExportLine);
+	WriteText (f, TreeCodes^.Codes.Export);
+	Node := Modules;
+	WHILE Node^.Kind = Tree.Module DO
+	   WriteLine (Node^.Module.TreeCodes^.Codes.ExportLine);
+	   WriteText (f, Node^.Module.TreeCodes^.Codes.Export);
+	   Node := Node^.Module.Next;
+	END;
+	!!
+      IF NOT IsElement (ORD ('<'), Options) THEN
+	!# ifndef yyNodeHead!
+	!# define yyNodeHead!
+	!# endif!
+	!TYPE!
+      IF IsElement (ORD ('L'), Options) THEN
+	MaxBit := 0;
+	ForallClasses (Classes, CompMaxBit);
+	!yytNodeHead = RECORD yyKind, yyMark, yyOffset: SHORTCARD; yyParent: ! WI (itTree); !; yyIsComp0! 
+      IF IsElement (ORD ('5'), Options) THEN
+	!, yyIsDone0! 
+      END;
+	FOR i := 1 TO (MaxBit - 1) DIV BSS DO
+	   !, yyIsComp! WN (i);
+      IF IsElement (ORD ('5'), Options) THEN
+	   !, yyIsDone! WN (i);
+      END;
+	END;
+	!: BITSET; yyNodeHead END;!
+      ELSE
+	!yytNodeHead = RECORD yyKind, yyMark: SHORTCARD; yyNodeHead END;!
+      END;
+	ForallClasses (Classes, TypeDeclNode);
+	!!
+	!yyNode = RECORD!
+	!CASE : SHORTCARD OF!
+	!| 0: Kind: SHORTCARD;!
+	!| ! WN (ClassCount + 1); !: yyHead: yytNodeHead;!
+	ForallClasses (Classes, TypeDeclRecord);
+	!END;!
+	!END;!
+	!!
+	!VAR ! WI (iMain); !Root	: ! WI (itTree); !;!
+	!VAR HeapUsed	: LONGCARD;!
+	!VAR yyPoolFreePtr, yyPoolMaxPtr	: SYSTEM.ADDRESS;!
+	!VAR yyNodeSize	: ARRAY [0..! WN (ClassCount); !] OF SHORTCARD;!
+	!VAR yyExit	: PROC;!
+	!!
+	!PROCEDURE yyAlloc	(): ! WI (itTree); !;!
+	!PROCEDURE Make! WI (iMain); !	(Kind: SHORTCARD): ! WI (itTree); !;!
+	!PROCEDURE IsType	(Tree: ! WI (itTree); !; Kind: SHORTCARD): BOOLEAN;!
+	!!
+      END;
+      IF IsElement (ORD ('n'), Options) THEN
+	ForallClasses (Classes, ProcedureDeclsn);
+	!!
+      END;
+      IF IsElement (ORD ('m'), Options) THEN
+	ForallClasses (Classes, ProcedureHeadingm);
+	!!
+      END;
+      IF IsElement (ORD ('f'), Options) THEN
+	!PROCEDURE Release! WI (iModule); !	(Tree: ! WI (itTree); !);!
+      END;
+      IF IsElement (ORD ('F'), Options) AND NOT IsElement (ORD ('<'), Options) THEN
+	!PROCEDURE Release! WI (iModule); !Module;!
+      END;
+      IF IsElement (ORD ('o'), Options) THEN
+	!PROCEDURE Write! WI (iModule); !Node	(f: IO.tFile; Tree: ! WI (itTree); !);!
+      END;
+      IF IsElement (ORD ('w'), Options) THEN
+	!PROCEDURE Write! WI (iModule); !	(f: IO.tFile; Tree: ! WI (itTree); !);!
+      END;
+      IF IsElement (ORD ('r'), Options) THEN
+	!PROCEDURE Read! WI (iModule); !	(f: IO.tFile): ! WI (itTree); !;!
+      END;
+      IF IsElement (ORD ('p'), Options) THEN
+	!PROCEDURE Put! WI (iModule); !	(f: IO.tFile; Tree: ! WI (itTree); !);!
+      END;
+      IF IsElement (ORD ('g'), Options) THEN
+	!PROCEDURE Get! WI (iModule); !	(f: IO.tFile): ! WI (itTree); !;!
+      END;
+      IF IsElement (ORD ('t'), Options) THEN
+	!PROCEDURE Traverse! WI (iModule); !TD	(Tree: ! WI (itTree); !; Proc: tProcTree);!
+      END;
+      IF IsElement (ORD ('b'), Options) THEN
+	!PROCEDURE Traverse! WI (iModule); !BU	(Tree: ! WI (itTree); !; Proc: tProcTree);!
+      END;
+      IF IsElement (ORD ('R'), Options) THEN
+	!PROCEDURE Reverse! WI (iModule); !	(Tree: ! WI (itTree); !): ! WI (itTree); !;!
+      END;
+      IF IsElement (ORD ('y'), Options) THEN
+	!PROCEDURE Copy! WI (iModule); !	(Tree: ! WI (itTree); !): ! WI (itTree); !;!
+      END;
+      IF IsElement (ORD ('k'), Options) THEN
+	!PROCEDURE Check! WI (iModule); !	(Tree: ! WI (itTree); !): BOOLEAN;!
+      END;
+      IF IsElement (ORD ('q'), Options) THEN
+	!PROCEDURE Query! WI (iModule); !	(Tree: ! WI (itTree); !);!
+      END;
+      IF IsElement (ORD ('='), Options) THEN
+	!PROCEDURE IsEqual! WI (iModule); !	(Tree1, Tree2: ! WI (itTree); !): BOOLEAN;!
+      END;
+      IF IsElement (ORD ('L'), Options) THEN
+	!PROCEDURE Init! WI (iModule); !	(Tree: ! WI (itTree); !);!
+      END;
+	!PROCEDURE Begin! WI (iModule); !;!
+	!PROCEDURE Close! WI (iModule); !;!
+	!!
+	!END ! WI (iModule); !.!
+}; .
+
+
+PROCEDURE ConstDeclsPre (t: Tree)
+
+Class (..) :- {
+	IF NOT (Abstract IN Properties) THEN
+	   INC (ConstCount);
+	   IF NOT (Ignore IN Properties) THEN
+	      WI (Name); ! = ! WN (ConstCount); !;!
+	   END;
+	END;
+}; .
+
+/* R.M.B. */
+PROCEDURE ConstDeclsPost (t: Tree)
+
+Class (..) :- {
+      IF IsElement (ORD ('+'), Options) THEN
+	IF NOT (Abstract IN Properties) THEN
+	   IF NOT (Ignore IN Properties) THEN
+	      WI (Name); !Max = ! WN (ConstCount); !;!
+	   END;
+	END;
+      END;
+}; .
+
+PROCEDURE PointerTypes (t: Tree)
+
+Class (..) :- {
+	IF NOT (Abstract IN Properties) THEN
+	   IF NOT (Ignore IN Properties) THEN
+	      !p!WI (Name); ! = ! WI ( itTree ); !;!
+	   END;
+	END;
+}; .
+
+/* R.M.B. End */
+
+
+PROCEDURE TypeDeclNode (t: Tree)
+
+Class (..) :- {
+	IF (NoCodeClass * Properties) = {} THEN
+	   !y! WI (Name); ! = RECORD yyHead: yytNodeHead; ! 
+	   ForallAttributes (t, TypeDeclNode); !END;!
+	END;
+}; .
+Child (..) :- {
+	WI (Name); !: ! WI (itTree); !; ! 
+}; .
+Attribute (..) :- {
+	IF (NoCodeAttr * Properties) = {} THEN 
+	   WI (Name); !: ! WI (Type); !; ! 
+	END;
+}; .
+
+
+PROCEDURE TypeDeclRecord (t: Tree)
+
+Class (..) :- {
+	IF (NoCodeClass * Properties) = {} THEN
+	   !| ! WI (Name); !: ! WI (Name); !: y! WI (Name); !;!
+	END;
+}; .
+
+
+PROCEDURE ProcedureDeclsn (t: Tree)
+
+Class (..) :- {
+	IF (NoCodeClass * Properties) = {} THEN
+	   !PROCEDURE n! WI (Name); ! (): ! WI (itTree); !;!
+	END;
+}; .
+
+
+PROCEDURE ProcedureHeadingm (t: Tree)
+
+Class (..) :- {
+	IF (NoCodeClass * Properties) = {} THEN
+	   ListCount := 0;
+	   !PROCEDURE m! WI (Name); ! (! 
+	   ForallAttributes (t, ProcedureHeadingm); !): ! WI (itTree); !;!
+	END;
+}; .
+Child (..) :- {
+	IF Input IN Properties THEN
+	   IF ListCount > 0 THEN !; ! END;
+	   !p! WI (Name); !: ! WI (itTree);
+	   INC (ListCount);
+	END;
+}; .
+Attribute (..) :- {
+	IF Input IN Properties THEN
+	   IF ListCount > 0 THEN !; ! END;
+	   !p! WI (Name); !: ! WI (Type);
+	   INC (ListCount);
+	END;
+}; .
+
+
+PROCEDURE TreeImplMod (t: Tree)
+
+Ag (..) :- {
+	!IMPLEMENTATION MODULE ! WI (iModule); !;!
+	!# define yyALLOC(ptr, size)	ptr := yyPoolFreePtr; \!
+	!  IF SYSTEM.ADDRESS (ptr) >= yyPoolMaxPtr THEN ptr := yyAlloc (); END; \!
+	!  INC (yyPoolFreePtr, size);!
+	!# define yyFREE(ptr, size)	!
+	!!
+	!IMPORT SYSTEM, System, General, Memory, DynArray, IO, Layout, StringMem, Strings, Idents, Texts, Sets, Positions;!
+      IF IsElement (ORD ('<'), Options) THEN
+	!FROM ! WI (iMain); ! IMPORT ! WI (itTree); !, ! WI (iNoTree); !, tProcTree, Make! WI (iMain); !, IsType, yyExit,!
+	ForallClasses (Classes, ImportConst);
+	!yyAlloc, yyPoolFreePtr, yyPoolMaxPtr, yyNodeSize;!
+	!!
+      END;
+	WriteLine (TreeCodes^.Codes.GlobalLine);
+	WriteText (f, TreeCodes^.Codes.Global);
+	Node := Modules;
+	WHILE Node^.Kind = Tree.Module DO
+	   WriteLine (Node^.Module.TreeCodes^.Codes.GlobalLine);
+	   WriteText (f, Node^.Module.TreeCodes^.Codes.Global);
+	   Node := Node^.Module.Next;
+	END;
+	WriteLine (TreeCodes^.Codes.LocalLine);
+	WriteText (f, TreeCodes^.Codes.Local);
+	Node := Modules;
+	WHILE Node^.Kind = Tree.Module DO
+	   WriteLine (Node^.Module.TreeCodes^.Codes.LocalLine);
+	   WriteText (f, Node^.Module.TreeCodes^.Codes.Local);
+	   Node := Node^.Module.Next;
+	END;
+	@# include "yy@ WI (iModule); @.w"@
+	!!
+      IF NOT IsElement (ORD ('<'), Options) THEN
+	!CONST yyBlockSize = 20480;!
+	!!
+	!TYPE!
+	! yytBlockPtr	= POINTER TO yytBlock;!
+	! yytBlock	= RECORD!
+	!		     yyBlock	: ARRAY [1..yyBlockSize] OF CHAR;!
+	!		     yySuccessor: yytBlockPtr;!
+	!		  END;!
+	!!
+	!VAR yyBlockList	: yytBlockPtr;!
+	!VAR yyMaxSize, yyi	: SHORTCARD;!
+	!VAR yyTypeRange	: ARRAY [0..! WN (ClassCount); !] OF SHORTCARD;!
+	!!
+	!PROCEDURE yyAlloc (): ! WI (itTree); !;!
+	! VAR yyBlockPtr	: yytBlockPtr;!
+	! BEGIN!
+	!  yyBlockPtr	:= yyBlockList;!
+	!  yyBlockList	:= Memory.Alloc (SYSTEM.TSIZE (yytBlock));!
+	!  yyBlockList^.yySuccessor := yyBlockPtr;!
+	!  yyPoolFreePtr	:= SYSTEM.ADR (yyBlockList^.yyBlock);!
+	!  yyPoolMaxPtr	:= yyPoolFreePtr + yyBlockSize - yyMaxSize + 1;!
+	!  INC (HeapUsed, yyBlockSize);!
+	!  RETURN yyPoolFreePtr;!
+	! END yyAlloc;!
+	!!
+	!PROCEDURE Make! WI (iMain); ! (yyKind: SHORTCARD): ! WI (itTree); !;!
+	! VAR yyByteCount	: LONGINT;!
+	! VAR yyt	: ! WI (itTree); !;!
+	! BEGIN!
+	!  yyALLOC (yyt, yyNodeSize [yyKind])!
+	!  yyt^.yyHead.yyMark := 0;!
+	!  yyt^.Kind := yyKind;!
+	!  RETURN yyt;!
+	! END Make! WI (iMain); !;!
+	!!
+	!PROCEDURE IsType (yyTree: ! WI (itTree); !; yyKind: SHORTCARD): BOOLEAN;!
+	! BEGIN!
+	!  RETURN (yyTree # ! WI (iNoTree); !) AND (yyKind <= yyTree^.Kind) AND (yyTree^.Kind <= yyTypeRange [yyKind]);!
+	! END IsType;!
+	!!
+      END;
+      IF IsElement (ORD ('n'), Options) THEN
+	ForallClasses (Classes, ProcedureBodyn);
+      END;
+	!!
+      IF IsElement (ORD ('m'), Options) THEN
+	ForallClasses (Classes, ProcedureBodym);
+      END;
+	TreeIO (t);
+      IF IsElement (ORD ('f'), Options) THEN
+	!PROCEDURE Release! WI (iModule); ! (yyt: ! WI (itTree); !);!
+	! BEGIN!
+	!  yyMark (yyt);!
+	!  yyRelease! WI (iModule); ! (yyt);!
+	! END Release! WI (iModule); !;!
+	!!
+	!VAR yyChild	: ! WI (itTree); !;!
+	!!
+	!PROCEDURE yyRelease! WI (iModule); ! (yyt: ! WI (itTree); !);!
+	! BEGIN!
+	!  IF yyt = ! WI (iNoTree); ! THEN RETURN; END;!
+	!  CASE yyt^.Kind OF!
+	ForallClasses (Classes, ReleaseAttributes1);
+	!  ELSE!
+	!  END;!
+	!!
+	!  DEC (yyt^.yyHead.yyMark);!
+	!  IF yyt^.yyHead.yyMark = 0 THEN!
+	!   CASE yyt^.Kind OF!
+	ForallClasses (Classes, ReleaseAttributes2);
+	!   ELSE!
+	!   END;!
+	!   yyFREE (yyt, yyNodeSize [yyt^.Kind])!
+	!  END;!
+	! END yyRelease! WI (iModule); !;!
+	!!
+      END;
+      IF IsElement (ORD ('F'), Options) AND NOT IsElement (ORD ('<'), Options) THEN
+	!PROCEDURE Release! WI (iModule); !Module;!
+	! VAR yyBlockPtr	: yytBlockPtr;!
+	! BEGIN!
+	!  WHILE yyBlockList # NIL DO!
+	!   yyBlockPtr	:= yyBlockList;!
+	!   yyBlockList	:= yyBlockList^.yySuccessor;!
+	!   Memory.Free (SYSTEM.TSIZE (yytBlock), yyBlockPtr);!
+	!  END;!
+	!  yyPoolFreePtr	:= NIL;!
+	!  yyPoolMaxPtr	:= NIL;!
+	!  HeapUsed	:= 0;!
+	! END Release! WI (iModule); !Module;!
+	!!
+      END;
+      IF IsElement (ORD ('t'), Options) OR
+         IsElement (ORD ('b'), Options) THEN
+	!VAR yyProc	: tProcTree;!
+	!!
+      END;
+      IF IsElement (ORD ('t'), Options) THEN
+	!PROCEDURE Traverse! WI (iModule); !TD (yyt: ! WI (itTree); !; yyyProc: tProcTree);!
+	! BEGIN!
+	!  yyMark (yyt);!
+	!  yyProc := yyyProc;!
+	!  yyTraverse! WI (iModule); !TD (yyt);!
+	! END Traverse! WI (iModule); !TD;!
+	!!
+	!PROCEDURE yyTraverse! WI (iModule); !TD (yyt: ! WI (itTree); !);!
+	! BEGIN!
+	!  LOOP!
+	!   IF (yyt = ! WI (iNoTree); !) OR (yyt^.yyHead.yyMark = 0) THEN RETURN; END;!
+	!   yyt^.yyHead.yyMark := 0;!
+	!   yyProc (yyt);!
+	!!
+	!   CASE yyt^.Kind OF!
+	ForallClasses (Classes, TraverseTD);
+	!   ELSE RETURN;!
+	!   END;!
+	!  END;!
+	! END yyTraverse! WI (iModule); !TD;!
+	!!
+      END;
+      IF IsElement (ORD ('b'), Options) THEN
+	!PROCEDURE Traverse! WI (iModule); !BU (yyt: ! WI (itTree); !; yyyProc: tProcTree);!
+	! BEGIN!
+	!  yyMark (yyt);!
+	!  yyProc := yyyProc;!
+	!  yyTraverse! WI (iModule); !BU (yyt);!
+	! END Traverse! WI (iModule); !BU;!
+	!!
+	!PROCEDURE yyTraverse! WI (iModule); !BU (yyt: ! WI (itTree); !);!
+	! BEGIN!
+	!  IF (yyt = ! WI (iNoTree); !) OR (yyt^.yyHead.yyMark = 0) THEN RETURN; END;!
+	!  yyt^.yyHead.yyMark := 0;!
+	!!
+	!  CASE yyt^.Kind OF!
+	ForallClasses (Classes, TraverseBU);
+	!  ELSE!
+	!  END;!
+	!  yyProc (yyt);!
+	! END yyTraverse! WI (iModule); !BU;!
+	!!
+      END;
+      IF IsElement (ORD ('R'), Options) THEN
+	!PROCEDURE Reverse! WI (iModule); ! (yyOld: ! WI (itTree); !): ! WI (itTree); !;!
+	! VAR yyNew, yyNext, yyTail	: ! WI (itTree); !;!
+	! BEGIN!
+	!  yyNew	:= yyOld;!
+	!  yyTail	:= yyOld;!
+	!  LOOP!
+	!   CASE yyOld^.Kind OF!
+	ForallClasses (Classes, Reverse1);
+	!   ELSE EXIT;!
+	!   END;!
+	!   yyNew	:= yyOld;!
+	!   yyOld	:= yyNext;!
+	!  END;!
+	!  CASE yyTail^.Kind OF!
+	ForallClasses (Classes, Reverse2);
+	!  ELSE!
+	!  END;!
+	!  RETURN yyNew;!
+	! END Reverse! WI (iModule); !;!
+	!!
+      END;
+      IF IsElement (ORD ('y'), Options) THEN
+        !CONST yyInitOldToNewStoreSize	= 32;!
+	!!
+	!TYPE yytOldToNew = RECORD yyOld, yyNew: ! WI (itTree); !; END;!
+	!!
+        !VAR yyOldToNewStoreSize	: LONGINT;!
+	!VAR yyOldToNewStorePtr	: POINTER TO ARRAY [0..50000] OF yytOldToNew;!
+	!VAR yyOldToNewCount	: INTEGER;!
+	!!
+	!PROCEDURE yyStoreOldToNew (yyOld, yyNew: ! WI (itTree); !);!
+	! BEGIN!
+	!  INC (yyOldToNewCount);!
+	!  IF (yyOldToNewCount = yyOldToNewStoreSize) THEN!
+	!   DynArray.ExtendArray (yyOldToNewStorePtr, yyOldToNewStoreSize, SYSTEM.TSIZE (yytOldToNew));!
+	!  END;!
+	!  yyOldToNewStorePtr^[yyOldToNewCount].yyOld := yyOld;!
+	!  yyOldToNewStorePtr^[yyOldToNewCount].yyNew := yyNew;!
+	! END yyStoreOldToNew;!
+	!!
+	!PROCEDURE yyMapOldToNew (yyOld: ! WI (itTree); !): ! WI (itTree); !;!
+	! VAR yyi: INTEGER;!
+	! BEGIN!
+	!  FOR yyi := 1 TO yyOldToNewCount DO!
+	!   IF yyOldToNewStorePtr^[yyi].yyOld = yyOld THEN!
+	!    RETURN yyOldToNewStorePtr^[yyi].yyNew;!
+	!   END;!
+	!  END;!
+	! END yyMapOldToNew;!
+	!!
+	!PROCEDURE yyCopy! WI (iModule); ! (yyt: ! WI (itTree); !; yyNew: yyPtrtTree);!
+	! BEGIN!
+	!  LOOP!
+	!   IF yyt = ! WI (iNoTree); ! THEN yyNew^ := ! WI (iNoTree); !; RETURN; END;!
+	!   IF yyt^.yyHead.yyMark = 0 THEN yyNew^ := yyMapOldToNew (yyt); RETURN; END;!
+	!   yyNew^ := Make! WI (iMain); ! (yyt^.Kind);!
+	!   IF yyt^.yyHead.yyMark > 1 THEN yyStoreOldToNew (yyt, yyNew^); END;!
+	!   yyt^.yyHead.yyMark := 0;!
+	!!
+	!   CASE yyt^.Kind OF!
+	ForallClasses (Classes, Copy);
+	!   ELSE!
+	!   END;!
+	!  END;!
+	! END yyCopy! WI (iModule); !;!
+	!!
+	!PROCEDURE Copy! WI (iModule); ! (yyt: ! WI (itTree); !): ! WI (itTree); !;!
+	! VAR yyNew	: ! WI (itTree); !;!
+	! BEGIN!
+	!  yyMark (yyt);!
+	!  yyOldToNewCount := 0;!
+	!  yyCopy! WI (iModule); ! (yyt, SYSTEM.ADR (yyNew));!
+	!  RETURN yyNew;!
+	! END Copy! WI (iModule); !;!
+	!!
+      END;
+      IF IsElement (ORD ('k'), Options) THEN
+	!PROCEDURE Check! WI (iModule); ! (yyt: ! WI (itTree); !): BOOLEAN;!
+	! BEGIN!
+	!  yyMark (yyt);!
+	!  RETURN yyCheck! WI (iModule); ! (yyt);!
+	! END Check! WI (iModule); !;!
+	!!
+	!PROCEDURE yyCheckChild (yyParent, yyChild: ! WI (itTree); !; yyType: SHORTCARD; yySelector: ARRAY OF CHAR): BOOLEAN;!
+	! CONST yyf	= IO.StdError;!
+	! VAR yySuccess	: BOOLEAN;!
+	! BEGIN!
+	!  yySuccess := IsType (yyChild, yyType);!
+	!  IF NOT yySuccess THEN!
+	!   IO.WriteS (yyf, 'CheckTree: parent = ');!
+	!   Write! WI (iModule); !Node (yyf, yyParent);!
+	!   IO.WriteNl (yyf);!
+	!   IO.WriteS (yyf, 'selector: ');!
+	!   IO.WriteS (yyf, yySelector);!
+	!   IO.WriteS (yyf, ', child = ');!
+	!   Write! WI (iModule); !Node (yyf, yyChild);!
+	!   IO.WriteNl (yyf);!
+	!  END;!
+	!  RETURN yyCheck! WI (iModule); ! (yyChild) AND yySuccess;!
+	! END yyCheckChild;!
+	!!
+	!PROCEDURE yyCheck! WI (iModule); ! (yyt: ! WI (itTree); !): BOOLEAN;!
+	! VAR yyResult	: BOOLEAN;!
+	! BEGIN!
+	!  IF yyt = ! WI (iNoTree); ! THEN RETURN FALSE;!
+	!  ELSIF yyt^.yyHead.yyMark = 0 THEN RETURN TRUE;!
+	!  END;!
+	!  yyt^.yyHead.yyMark := 0;!
+	!!
+	!  yyResult := TRUE;!
+	!  CASE yyt^.Kind OF!
+	ForallClasses (Classes, CheckAttributes);
+	!  ELSE!
+	!  END;!
+	!  RETURN yyResult;!
+	! END yyCheck! WI (iModule); !;!
+	!!
+      END;
+      IF IsElement (ORD ('q'), Options) THEN
+	!CONST yyyWrite = 1; yyyRead = 2; yyyQuit = 3;!
+	!!
+	!VAR yyString	: ARRAY [0..31] OF CHAR;!
+	!VAR yyLength	: INTEGER;!
+	!VAR yyCh	: CHAR;!
+	!VAR yyState	: INTEGER;!
+	!!
+	!PROCEDURE yyyIsEqual (yya: ARRAY OF CHAR): BOOLEAN;!
+	! VAR yyi	: INTEGER;!
+	! BEGIN!
+	!  IF (yyLength >= 0) AND (yyString [yyLength] = ' ') THEN!
+	!   IF yyLength - 1 # INTEGER (HIGH (yya)) THEN RETURN FALSE; END;!
+	!   FOR yyi := 0 TO yyLength - 1 DO!
+	!    IF yyString [yyi] # yya [yyi] THEN RETURN FALSE; END;!
+	!   END;!
+	!  ELSE!
+	!   IF yyLength > INTEGER (HIGH (yya)) THEN RETURN FALSE; END;!
+	!   FOR yyi := 0 TO yyLength DO!
+	!    IF yyString [yyi] # yya [yyi] THEN RETURN FALSE; END;!
+	!   END;!
+	!  END;!
+	!  RETURN TRUE;!
+	! END yyyIsEqual;!
+	!!
+	!PROCEDURE Query! WI (iModule); ! (yyt: ! WI (itTree); !);!
+	! BEGIN!
+	!  yyState := yyyWrite;!
+	!  LOOP!
+	!   CASE yyState OF!
+	!   | yyyQuit	: RETURN;!
+	!   | yyyWrite	: Write! WI (iModule); !Node (IO.StdOutput, yyt); yyState := yyyRead;!
+	!   | yyyRead	: IO.WriteS (IO.StdOutput, '? '); yyLength := -1; yyCh := IO.ReadC (IO.StdInput);!
+	!    WHILE yyCh # 12C DO INC (yyLength); yyString [yyLength] := yyCh; yyCh := IO.ReadC (IO.StdInput); END;!
+	!    IF    yyyIsEqual ('parent') THEN yyState := yyyWrite; RETURN;!
+	!    ELSIF yyyIsEqual ('quit'  ) THEN yyState := yyyQuit ; RETURN;!
+	!    ELSIF yyt # ! WI (iNoTree); ! THEN!
+	!     CASE yyt^.Kind OF!
+	ForallClasses (Classes, QueryAttributes);
+	!     ELSE!
+	!     END;!
+	!    END;!
+	!   END;!
+	!  END;!
+	! END Query! WI (iModule); !;!
+	!!
+      END;
+      IF IsElement (ORD ('='), Options) THEN
+	!PROCEDURE yyIsEqual (yya, yyb: ARRAY OF SYSTEM.BYTE): BOOLEAN;!
+	! VAR yyi	: INTEGER;!
+	! BEGIN!
+	!  FOR yyi := 0 TO INTEGER (HIGH (yya)) DO!
+	!   IF yya [yyi] # yyb [yyi] THEN RETURN FALSE; END;!
+	!  END;!
+	!  RETURN TRUE;!
+	! END yyIsEqual;!
+	!!
+	!PROCEDURE IsEqual! WI (iModule); ! (yyt1, yyt2: ! WI (itTree); !): BOOLEAN;!
+	! BEGIN!
+	!  IF yyt1 = yyt2 THEN RETURN TRUE; END;!
+	!  IF (yyt1 = ! WI (iNoTree); !) OR (yyt2 = ! WI (iNoTree); !) OR (yyt1^.Kind # yyt2^.Kind) THEN RETURN FALSE; END;!
+	!  CASE yyt1^.Kind OF!
+	ForallClasses (Classes, IsEqualAttributes);
+	!  ELSE RETURN TRUE;!
+	!  END;!
+	! END IsEqual! WI (iModule); !;!
+	!!
+      END;
+      IF IsElement (ORD ('L'), Options) THEN
+	MaxBit := 0;
+	ForallClasses (Classes, CompMaxBit);
+	!PROCEDURE Init! WI (iModule); ! (yyt: ! WI (itTree); !);!
+	! BEGIN!
+	!  LOOP!
+	FOR i := 0 TO (MaxBit - 1) DIV BSS DO
+	   !   yyt^.yyHead.yyIsComp! WN (i); ! := {};!
+      IF IsElement (ORD ('5'), Options) THEN
+	   !   yyt^.yyHead.yyIsDone! WN (i); ! := {};!
+      END;
+	END;
+	!   CASE yyt^.Kind OF!
+	ForallClasses (Classes, InitAttributes);
+	!   ELSE RETURN;!
+	!   END;!
+	!  END;!
+	! END Init! WI (iModule); !;!
+	!!
+      END;
+	!PROCEDURE Begin! WI (iModule); !;!
+	! BEGIN!
+	WriteLine (TreeCodes^.Codes.BeginLine);
+	WriteText (f, TreeCodes^.Codes.Begin);
+	Node := Modules;
+	WHILE Node^.Kind = Tree.Module DO
+	   WriteLine (Node^.Module.TreeCodes^.Codes.BeginLine);
+	   WriteText (f, Node^.Module.TreeCodes^.Codes.Begin);
+	   Node := Node^.Module.Next;
+	END;
+	! END Begin! WI (iModule); !;!
+	!!
+	!PROCEDURE Close! WI (iModule); !;!
+	! BEGIN!
+	WriteLine (TreeCodes^.Codes.CloseLine);
+	WriteText (f, TreeCodes^.Codes.Close);
+	Node := Modules;
+	WHILE Node^.Kind = Tree.Module DO
+	   WriteLine (Node^.Module.TreeCodes^.Codes.CloseLine);
+	   WriteText (f, Node^.Module.TreeCodes^.Codes.Close);
+	   Node := Node^.Module.Next;
+	END;
+	! END Close! WI (iModule); !;!
+	!!
+      IF NOT IsElement (ORD ('<'), Options) THEN
+	!PROCEDURE xxExit;!
+	! BEGIN!
+	!  IO.CloseIO; System.Exit (1);!
+	! END xxExit;!
+	!!
+      END;
+	!BEGIN!
+      IF IsElement (ORD ('r'), Options) THEN
+	! yyIsInitialized := FALSE;!
+      END;
+      IF NOT IsElement (ORD ('<'), Options) THEN
+	! yyBlockList	:= NIL;!
+	! yyPoolFreePtr	:= NIL;!
+	! yyPoolMaxPtr	:= NIL;!
+	! HeapUsed	:= 0;!
+	! yyExit	:= xxExit;!
+	ForallClasses (Classes, InitNodeSize);
+	! yyMaxSize	:= 0;!
+	! FOR yyi := 1 TO ! WN (ClassCount); ! DO!
+	!  yyNodeSize [yyi] := LONGINT (BITSET (yyNodeSize [yyi] + CARDINAL (General.MaxAlign) - 1) * General.AlignMasks [General.MaxAlign]);!
+	!  yyMaxSize := General.Max (yyNodeSize [yyi], yyMaxSize);!
+	! END;!
+	ForallClasses (Classes, InitTypeRange);
+      END;
+      IF IsElement (ORD (';'), Options) THEN
+	! yyRecursionLevel := 0;!
+      	! yyTreeStoreSize := yyInitTreeStoreSize;!
+      	! DynArray.MakeArray (yyTreeStorePtr, yyTreeStoreSize, SYSTEM.TSIZE (! WI (itTree); !));!
+      END;
+      IF IsElement (ORD ('y'), Options) THEN
+        ! yyOldToNewStoreSize := yyInitOldToNewStoreSize;!
+      	! DynArray.MakeArray (yyOldToNewStorePtr, yyOldToNewStoreSize, SYSTEM.TSIZE (yytOldToNew));!
+      END;
+	! Begin! WI (iModule); !;!
+	!END ! WI (iModule); !.!
+}; .
+
+
+PROCEDURE ProcedureBodyn (t: Tree)
+
+Class (..) :- {
+	IF (NoCodeClass * Properties) = {} THEN
+	   !PROCEDURE n! WI (Name); ! (): ! WI (itTree); !;!
+	   ! VAR yyByteCount	: LONGINT;!
+	   ! VAR yyt	: ! WI (itTree); !;!
+	   ! BEGIN!
+	   !  yyALLOC (yyt, yyNodeSize [! WI (Name); !])!
+	   !  yyt^.yyHead.yyMark := 0;!
+	   !  yyt^.Kind := ! WI (Name); !;!
+	   iClassName := Name;
+	   ForallAttributes (t, ProcedureBodyn);
+	   !  RETURN yyt;!
+	   ! END n! WI (Name); !;!
+	   !!
+	END;
+}; .
+Child (..) :- {
+	!  begin! WI (itTree); !(yyt^.! WI (iClassName); !.! WI (Name); !)!
+}; .
+Attribute (..) :- {
+	IF (NoCodeAttr * Properties) = {} THEN 
+	   !  begin! WI (Type); !(yyt^.! WI (iClassName); !.! WI (Name); !)!
+	END;
+}; .
+
+
+PROCEDURE ProcedureBodym (t: Tree)
+
+Class (..) :- {
+	IF (NoCodeClass * Properties) = {} THEN
+	   ProcedureHeadingm (t);
+	   ! VAR yyByteCount	: LONGINT;!
+	   ! VAR yyt	: ! WI (itTree); !;!
+	   ! BEGIN!
+	   !  yyALLOC (yyt, yyNodeSize [! WI (Name); !])!
+	   !  yyt^.yyHead.yyMark := 0;!
+	   !  yyt^.Kind := ! WI (Name); !;!
+	   IF ({HasChildren, HasAttributes} * Properties) # {} THEN
+	      !  WITH yyt^.! WI (Name); ! DO!
+	      ForallAttributes (t, ProcedureBodym);
+	      !  END;!
+	   END;
+	   !  RETURN yyt;!
+	   ! END m! WI (Name); !;!
+	   !!
+	END;
+}; .
+Child (..) :- {
+	IF Input IN Properties THEN
+	   !   ! WI (Name); ! := p! WI (Name); !;!
+	ELSE
+	   !   begin! WI (itTree); !(! WI (Name); !)!
+	END;
+}; .
+Attribute (..) :- {
+	IF (NoCodeAttr * Properties) = {} THEN 
+	   IF Input IN Properties THEN
+	      !   ! WI (Name); ! := p! WI (Name); !;!
+	   ELSE
+	      !   begin! WI (Type); !(! WI (Name); !)!
+	   END;
+	END;
+}; .
+
+
+PROCEDURE ReleaseAttributes1 (t: Tree)
+
+Class (..) :- {
+	IF ((NoCodeClass * Properties) = {}) AND (HasChildren IN Properties) THEN
+	   !| ! WI (Name); !:!
+	   iClassName := Name;
+	   ForallAttributes (t, ReleaseAttributes1);
+	END;
+}; .
+Child (..) :- {
+	!close! WI (itTree); ! (yyt^.! WI (iClassName); !.! WI (Name); !)!
+}; .
+
+
+PROCEDURE ReleaseAttributes2 (t: Tree)
+
+Class (..) :- {
+	IF ((NoCodeClass * Properties) = {}) AND (HasAttributes IN Properties) THEN
+	   !| ! WI (Name); !:!
+	   iClassName := Name;
+	   ForallAttributes (t, ReleaseAttributes2);
+	END;
+}; .
+Attribute (..) :- {
+	IF (NoCodeAttr * Properties) = {} THEN 
+	   !close! WI (Type); ! (yyt^.! WI (iClassName); !.! WI (Name); !)!
+	END;
+}; .
+
+
+PROCEDURE TraverseTD (t: Tree)
+
+Class (..) :- {
+	IF ((NoCodeClass * Properties) = {}) AND (HasChildren IN Properties) THEN
+	   !| ! WI (Name); !:!
+	   GetIterator (t);
+	   iClassName := Name;
+	   ForallAttributes (t, TraverseTD);
+	   IF Iterator = NoTree THEN
+	      !RETURN;!
+	   ELSE
+	      !yyt := yyt^.! WI (iClassName); !.! WI (Iterator^.Child.Name); !;!
+	   END;
+	END;
+}; .
+Child (..) :- {
+	IF t # Iterator THEN
+	   !yyTraverse! WI (iModule); !TD (yyt^.! WI (iClassName); !.! WI (Name); !);!
+	END;
+}; .
+
+
+PROCEDURE TraverseBU (t: Tree)
+
+Class (..) :- {
+	IF ((NoCodeClass * Properties) = {}) AND (HasChildren IN Properties) THEN
+	   !| ! WI (Name); !:!
+	   GetIterator (t);
+	   iClassName := Name;
+	   ForallAttributes (t, TraverseBU);
+	   IF Iterator = NoTree THEN
+	      !RETURN;!
+	   ELSE
+	      !yyTraverse! WI (iModule); !BU (yyt^.! WI (iClassName); !.! WI (Iterator^.Child.Name); !);!
+	   END;
+	END;
+}; .
+Child (..) :- {
+	IF t # Iterator THEN
+	   !yyTraverse! WI (iModule); !BU (yyt^.! WI (iClassName); !.! WI (Name); !);!
+	END;
+}; .
+
+
+PROCEDURE Reverse1 (t: Tree)
+
+Class (..) :- {
+	IF (NoCodeClass * Properties) = {} THEN
+	   iClassName := Name;
+	   ForallAttributes (t, Reverse1);
+	END;
+}; .
+Child (..) :- {
+	IF Reverse IN Properties THEN
+	   !| ! WI (iClassName); !: yyNext := yyOld^.! WI (iClassName); !.! WI (Name); !;! 
+	   ! yyOld^.! WI (iClassName); !.! WI (Name); ! := yyNew;!
+	END;
+}; .
+
+
+PROCEDURE Reverse2 (t: Tree)
+
+Class (..) :- {
+	IF (NoCodeClass * Properties) = {} THEN
+	   iClassName := Name;
+	   ForallAttributes (t, Reverse2);
+	END;
+}; .
+Child (..) :- {
+	IF Reverse IN Properties THEN
+	   !| ! WI (iClassName); !: yyTail^.! WI (iClassName); !.! WI (Name); ! := yyOld;!
+	END;
+}; .
+
+
+PROCEDURE Copy (t: Tree)
+
+Class (..) :- {
+	IF (NoCodeClass * Properties) = {} THEN
+	   !| ! WI (Name); !: yyNew^^.! WI (Name); ! := yyt^.! WI (Name); !;!
+	   GetIterator (t);
+	   iClassName := Name;
+	   ForallAttributes (t, Copy);
+	   IF Iterator = NoTree THEN
+	      !RETURN;!
+	   ELSE
+	      !yyt := yyt^.! WI (Name); !.! WI (Iterator^.Child.Name); !;!
+	      !yyNew := SYSTEM.ADR (yyNew^^.! WI (Name); !.! WI (Iterator^.Child.Name); !);!
+	   END;
+	END;
+}; .
+Child (..) :- {
+	IF t # Iterator THEN
+	   !copy! WI (itTree); ! (yyNew^^.! WI (iClassName); !.! WI (Name); !, ! 
+	      !yyt^.! WI (iClassName); !.! WI (Name); !)!
+	END;
+}; .
+Attribute (..) :- {
+	IF (NoCodeAttr * Properties) = {} THEN 
+	   !copy! WI (Type); ! (yyNew^^.! WI (iClassName); !.! WI (Name); !, ! 
+	      !yyt^.! WI (iClassName); !.! WI (Name); !)!
+	END;
+}; .
+
+
+PROCEDURE CheckAttributes (t: Tree)
+
+Class (..) :- {
+	IF ((NoCodeClass * Properties) = {}) AND (HasChildren IN Properties) THEN
+	   !| ! WI (Name); !:!
+	   iClassName := Name;
+	   ForallAttributes (t, CheckAttributes);
+	END;
+}; .
+Child (..) :- {
+	!yyResult := yyCheckChild (yyt, yyt^.! WI (iClassName); !.! WI (Name); !, ! 
+	WI (Type); !, '! WI (Name); !') AND yyResult;!
+}; .
+
+
+PROCEDURE InitTypeRange (t: Tree)
+
+Class (..) :- {
+	IF (NoCodeClass * Properties) = {} THEN
+	   iRange := Name;
+	   ForallClasses (Extensions, InitTypeRange2);
+	   ! yyTypeRange [! WI (Name); !] := ! WI (iRange); !;!
+	END;
+}; .
+
+
+PROCEDURE InitTypeRange2 (t: Tree)
+
+Class (..) :- {
+	iRange := Name;
+}; .
+
+
+PROCEDURE QueryAttributes (t: Tree)
+
+Class (..) :- {
+	IF ((NoCodeClass * Properties) = {}) AND (HasChildren IN Properties) THEN
+	   !| ! WI (Name); !: IF FALSE THEN!
+	   iClassName := Name;
+	   ForallAttributes (t, QueryAttributes);
+	   !END;!
+	END;
+}; .
+Child (..) :- {
+	!ELSIF yyyIsEqual ('! WI (Name); !') THEN Query! WI (iModule);
+	! (yyt^.! WI (iClassName); !.! WI (Name); !);!
+}; .
+
+
+PROCEDURE IsEqualAttributes (t: Tree)
+
+Class (..) :- {
+	IF ((NoCodeClass * Properties) = {}) AND
+	   (({HasChildren, HasAttributes} * Properties) # {}) THEN
+	   !| ! WI (Name); !: RETURN TRUE!
+	   iClassName := Name;
+	   ForallAttributes (t, IsEqualAttributes);
+	END;
+}; .
+Child (..) :- {
+	!AND equal! WI (itTree); ! (yyt1^.! WI (iClassName); !.! WI (Name);
+	!, yyt2^.! WI (iClassName); !.! WI (Name); !)!
+}; .
+Attribute (..) :- {
+	IF (NoCodeAttr * Properties) = {} THEN 
+	   !AND (equal! WI (Type); ! (yyt1^.! WI (iClassName); !.! WI (Name);
+	   !, yyt2^.! WI (iClassName); !.! WI (Name); !))!
+	END;
+}; .
+
+
+PROCEDURE InitAttributes (t: Tree)
+
+Class (..) :-
+	((NoCodeClass * Properties) = {{}}) AND (HasChildren IN Properties);
+	!| ! WI (Name); !:!
+	GetIterator (t);
+	iClassName := Name;
+	gBitCount := BitCount;
+	ForallAttributes (t, InitAttributes);
+{	IF (Iterator = NoTree) OR NOT (Input IN Iterator^.Child.Properties) THEN
+	   !RETURN;!
+	ELSE
+	   !yyt := yyt^.! WI (iClassName); !.! WI (Iterator^.Child.Name); !;!
+	END;
+};	.
+Child (..) :-
+	Input IN Properties;
+	!WITH yyt^.! WI (iClassName); !.! WI (Name); !^.yyHead DO yyOffset := ! 
+	WN (gBitCount + BitOffset); !; yyParent := yyt; END;!
+	t # Iterator;
+	!Init! WI (iModule); ! (yyt^.! WI (iClassName); !.! WI (Name); !);!
+	.
+
+PROCEDURE InitNodeSize (t: Tree)
+
+Class (..) :-
+	(NoCodeClass * Properties) = {{}};
+	! yyNodeSize [! WI (Name); !] := SYSTEM.TSIZE (y! WI (Name); !);!
+	.
+
+PROCEDURE ImportList (t: Tree)
+
+Ag (..) :- {
+	!FROM ! WI (iMain); ! IMPORT!
+      IF NOT IsElement (ORD ('<'), Options) THEN
+	WI (iNoTree); !, ! WI (itTree); !, ! WI (iMain); !Root, Make! WI (iMain); !, IsType,!
+      END;
+	ForallClasses (Classes, ImportList);
+      IF IsElement (ORD ('f'), Options) THEN
+	!Release! WI (iModule); !,!
+      END;
+      IF IsElement (ORD ('F'), Options) AND NOT IsElement (ORD ('<'), Options) THEN
+	!Release! WI (iModule); !Module,!
+      END;
+      IF IsElement (ORD ('o'), Options) THEN
+	!Write! WI (iModule); !Node,!
+      END;
+      IF IsElement (ORD ('w'), Options) THEN
+	!Write! WI (iModule); !,!
+      END;
+      IF IsElement (ORD ('r'), Options) THEN
+	!Read! WI (iModule); !,!
+      END;
+      IF IsElement (ORD ('p'), Options) THEN
+	!Put! WI (iModule); !,!
+      END;
+      IF IsElement (ORD ('g'), Options) THEN
+	!Get! WI (iModule); !,!
+      END;
+      IF IsElement (ORD ('t'), Options) THEN
+	!Traverse! WI (iModule); !TD,!
+      END;
+      IF IsElement (ORD ('b'), Options) THEN
+	!Traverse! WI (iModule); !BU,!
+      END;
+      IF IsElement (ORD ('R'), Options) THEN
+	!Reverse! WI (iModule); !,!
+      END;
+      IF IsElement (ORD ('y'), Options) THEN
+	!Copy! WI (iModule); !,!
+      END;
+      IF IsElement (ORD ('k'), Options) THEN
+	!Check! WI (iModule); !,!
+      END;
+      IF IsElement (ORD ('q'), Options) THEN
+	!Query! WI (iModule); !,!
+      END;
+      IF IsElement (ORD ('='), Options) THEN
+	!IsEqual! WI (iModule); !,!
+      END;
+      IF IsElement (ORD ('L'), Options) THEN
+	!Init! WI (iModule); !,!
+      END;
+	!Begin! WI (iModule); !,!
+	!Close! WI (iModule); !;!
+}; .
+Class (..) :- {
+	IF (NoCodeClass * Properties) = {} THEN
+	   WI (Name); !, ! 
+      IF IsElement (ORD ('n'), Options) THEN
+	   !n! WI (Name); !, ! 
+      END;
+      IF IsElement (ORD ('m'), Options) THEN
+	   !m! WI (Name); !,!
+      END;
+      /* R.M.B. */
+      IF IsElement (ORD ('+'), Options) THEN
+	   WI (Name); !Max,!
+      END;
+      IF IsElement (ORD ('^'), Options) THEN
+	   !p! WI (Name); !,!
+      END;
+      /* R.M.B. end */
+	END;
+}; .
+
+
+PROCEDURE ImportConst (t: Tree)
+
+Class (..) :- {
+	IF (NoCodeClass * Properties) = {} THEN
+	   WI (Name); !, !
+	END;
+}; .
+
+PROCEDURE CompMaxBit (t: Tree)
+
+Class (..) :-
+	i := 1;
+	ForallAttributes (t, CompMaxBit);
+	MaxBit := Max (i, MaxBit);
+	.
+Child (..) ;
+Attribute (..) :-
+	({{Input, Test, Dummy}} * Properties = {{}});
+	INC (i);
+	.

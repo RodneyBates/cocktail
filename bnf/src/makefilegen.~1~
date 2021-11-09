@@ -1,0 +1,49 @@
+LIB	= $(INSTALLGMD)/lib
+BIN	= $(INSTALLGMD)/bin
+MC	= m2c
+MLIB	= ../../reuse/src
+FRONT	= ../../front/src
+MOCKAFLAGS	= -noindex -norange
+MOCKALIBS = -d $(FRONT) -d $(MLIB)
+
+#DEFSMC	= ArgCheck.md MakeBNF.md
+#MODSMC	= ArgCheck.mi bnf.mi MakeBNF.mi
+#DEFSM2C	= ArgCheck.def MakeBNF.def
+#MODSM2C	= ArgCheck.mod bnf.mod MakeBNF.mod
+MODULAGENS    =
+GENS    =
+EXE     = bnf
+
+bnf:	$(MC)
+
+include ../../makefilesrc.include
+
+install_modula:	bnf bnf.sh $(LIB)/lalr
+	if test $(LIB) = $(BIN); then echo error: BIN = LIB; false; else true; fi
+	sed 's;LIB;$(LIB);' < bnf.sh > $(BIN)/bnf
+	chmod a+rx $(BIN)/bnf
+	install -c -s -m 755 bnf $(LIB)/lalr
+
+# installation directories
+
+$(LIB)/lalr:	$(LIB)
+	sh -c "if test ! -d $(LIB)/lalr; then mkdir $(LIB)/lalr; else true; fi"
+
+clean:
+	rm -f core *.[dimor] *.def *.mod *.sym ERRORS LISTING _Debug *.bak
+
+.SUFFIXES:	.def .mod .md .mi
+
+.md.def:
+	ln $*.md $*.def
+
+.mi.mod:
+	ln $*.mi $*.mod
+
+
+
+
+
+
+
+

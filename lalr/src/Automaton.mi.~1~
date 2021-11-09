@@ -1,0 +1,813 @@
+(* handle LR automaton *)
+
+(* $Id: Automaton.mi,v 2.2 1992/08/07 15:22:49 grosch rel $ *)
+
+(* $Log: Automaton.mi,v $
+ * Revision 2.2  1992/08/07  15:22:49  grosch
+ * allow several scanner and parsers; extend module Errors
+ *
+ * Revision 2.1  1991/11/21  14:53:14  grosch
+ * new version of RCS on SPARC
+ *
+ * Revision 2.0  91/03/08  18:31:33  grosch
+ * turned tables into initialized arrays (in C)
+ * moved mapping tokens -> strings from Errors to Parser
+ * changed interface for source position
+ * 
+ * Revision 1.4  90/09/20  17:52:34  grosch
+ * calmed down lint
+ * 
+ * Revision 1.3  90/09/10  16:25:43  grosch
+ * added automatic alignment for ProdArray
+ * 
+ * Revision 1.2  90/06/12  16:53:36  grosch
+ * renamed main program to lalr, added { } for actions, layout improvements
+ * 
+ * Revision 1.1	 89/01/12  18:08:51  vielsack
+ * supply a line number for each action
+ * 
+ * Revision 1.0	 88/10/04  14:35:50  vielsack
+ * Initial revision
+ * 
+ *)
+
+IMPLEMENTATION MODULE Automaton;
+
+FROM Continue	IMPORT Value, ValueNonterms;
+FROM DynArray	IMPORT MakeArray, ExtendArray;
+FROM Errors	IMPORT eFatal, eError, eWarning, eInformation, eIdent, eString,
+			eInternal, ErrorMessage, ErrorMessageI;
+FROM Lists	IMPORT MakeList, tList;
+FROM Oper	IMPORT OperKind, InitPrioReading, GetPriority, GetOperator;
+FROM Rules	IMPORT Operation, Expression, InitRulesReading, GetNodeOperation,
+			GetRule, GetBracketNode, GetUnaryNode, GetBinaryNode,
+			GetLeafNode, GetActionNode, NoExpression;
+FROM Sets	IMPORT MakeSet, ReleaseSet, AssignEmpty, Include, Extract,
+			IsEmpty, IsElement, ForallDo, tSet;
+FROM Strings	IMPORT tString, ArrayToString;
+FROM Idents	IMPORT tIdent, MakeIdent;
+FROM SYSTEM	IMPORT WORD, TSIZE, ADR;
+FROM General	IMPORT MaxAlign;
+FROM Positions	IMPORT NoPosition;
+FROM TokenTab	IMPORT EndOfToken, MAXTerm, MINNonTerm, MAXNonTerm, cMAXNonTerm,
+			PosType, TokenError, Prio, Terminal, NonTerminal, Vocabulary,
+			TokenToSymbol, MakeVoc;
+
+  CONST
+    eNoBNF	= 60;
+    eActInside	= 61;
+
+    InitProdCount  = 1000;  (* Anfangsplatzgroesse fuer Produktionen in WORD *)
+    InitItemCount  = 200;   (* Anfangsplatzgroesse fuer Items *)
+    InitStateCount = 50;    (* Anfangsplatzgroesse fuer States *)
+    InitListCount  = 4;	    (* Anfangsplatzgroesse fuer ProdList *)
+    InitHashListCount = 4;  (* Anfangsplatzgroesse fuer HashList *)
+    InitStackCount = 10;    (* Anfangsplatzgroesse fuer ActionStack *)
+    InitRelationListCount = 10; (* Anfagsplatxgroesse fuer Relationlisten *)
+
+  TYPE
+    HashIndex = [0..99];
+
+    tDummyProduction =	       (* vgl. tProduction in Def.-Module *)
+      RECORD
+	ProdNo	: tIndex;
+	Reduce	: tIndexList;
+	Act	: tList;
+	ActPos	: PosType;
+	Ass	: tAss;
+	Pri	: Prio;
+	Len	: tIndex;
+	Left	: NonTerminal;
+      END;
+    
+    tDummyRight4 = ARRAY [1..4] OF SHORTCARD [0..cMAXNonTerm];
+    
+    tStackElmt = RECORD
+	Act	: tList;
+	ActPos	: PosType;
+	Voc	: Vocabulary; 
+      END;
+
+  VAR
+    ProdElmtCount  : LONGINT;		 (* aktuelle Feldgroesse *)
+    Production	   : tProduction;	 (* Index akt. bzw. naechsten P.*)
+    ItemElmtCount  : LONGINT;		 (* aktuelle Feldgroesse fuer I. *)
+    StateElmtCount : LONGINT;		 (* aktuelle Feldgroesse fuer S. *)
+    StateHashList  : ARRAY		 (* Hashtabelle fuer States	*)
+		     HashIndex OF tIndexList;
+    StackArrayPtr  : POINTER TO ARRAY	 (* Stack fuer nichtbearbeitete *)
+		     [1..Infinite] OF tStackElmt; (* NonTerminale, Aktionen *)
+    StackElmtCount : LONGINT;		 (* Stackgroesse *)
+    StackIndex	   : LONGINT;		 (* Index Top of Stack *)
+    
+    i	      : CARDINAL;  (* Schleifenzaehler *)
+    prio      : CARDINAL;  (* Prioritaet der aktuellen Produktion
+			      fuer InsertProductions und InsertRight *)
+    NonTermNo : CARDINAL;
+    ProdSet   : tSet;
+
+PROCEDURE InitAutomaton;
+
+  (* Initialisiert den Automat, d.h. die zur Automatenkonstruktion
+     noetigen Daten werden vom Module Rules uebernommen *)
+
+  BEGIN
+    IsBnf := TRUE;
+    InsertOperators;
+    InsertProductions;
+  END InitAutomaton;
+
+PROCEDURE MakeFirstState (): tStateIndex;
+  VAR 
+    new : BOOLEAN;
+    pi : tProdIndex;
+    prod : tProduction;
+    read : Vocabulary;
+  BEGIN
+
+    (* Bilde einen neun Zustand *)
+
+    NextState;
+    INC (StateArrayPtr^[StateIndex].Size);
+
+    pi := ProdList[StartSymbol].Array^[1].Index;
+    prod := ADR (ProdArrayPtr^[pi]);
+    read := prod^.Right [1];
+
+    (* Beschaffe neues Item *)
+
+    NextItem (read);
+
+    (* Trage die Produktion mit dem neuen Startsymbol ein *)
+
+    ItemArrayPtr^[ItemIndex].Prod := pi;
+    ItemArrayPtr^[ItemIndex].Pos  := 0;
+
+    (* Hilfsmenge fuer Closure *)
+
+    MakeSet (ProdSet, ProdCount);
+
+    (* Bilde Huelle *)
+
+    Closure (read);
+    RETURN UniqueState (new);
+  END MakeFirstState;
+
+PROCEDURE GotoSet (Index: tStateIndex; VAR Set: tSet);
+  VAR
+    v  : Vocabulary;
+    i  : tItemIndex;
+    pr : tProdIndex;
+    po : tIndex;
+    p : tProduction;
+  BEGIN
+    AssignEmpty (Set);
+    WITH StateArrayPtr^[Index] DO	  (* State *)
+      FOR i:= Items TO Items + Size - 1 DO
+
+      (* Symbol nach dem Punkt ist zu bearbeiten *)
+
+	v  := ItemArrayPtr^[i].Read;
+	IF (v <= MAXNonTerm) THEN   (* gibt es ein naechstes Symbol *)
+	  Include (Set,v);	    (* trage es ein *)
+	END;
+      END;
+    END;
+  END GotoSet;
+
+PROCEDURE Goto (Index: tStateIndex; Symbol: Vocabulary; VAR new: BOOLEAN): tStateIndex;
+  VAR
+    p : tProduction;
+    i : tItemIndex;
+    pr: tProdIndex;
+    po: tIndex;
+    s : tStateIndex;
+    prod : tProduction;
+    read : Vocabulary;
+  BEGIN
+    (* Beschaffe neuen State *)
+
+    NextState;
+
+    (* Set fuer Closure initialisieren *)
+
+    AssignEmpty (ProdSet);
+
+    WITH StateArrayPtr^[Index] DO	  (* State *)
+
+      (* Fuer alle Items *)
+
+      FOR i:=Items TO Items + Size - 1 DO
+
+	(* Mit Symbol nach den Punkt *)
+
+	IF (ItemArrayPtr^[i].Read = Symbol) THEN
+
+	  pr := ItemArrayPtr^[i].Prod;
+	  po := ItemArrayPtr^[i].Pos;
+	  p  := ADR(ProdArrayPtr^[pr]);
+
+	  (* erweitere den Zustand *)
+	  IF (po+1 < p^.Len) THEN
+	    read :=  p^.Right[po+2];
+	  ELSE
+	    read := MAXNonTerm + 1;
+	  END;
+
+	  INC (StateArrayPtr^[StateIndex].Size);
+	  NextItem (read);
+
+	  ItemArrayPtr^[ItemIndex].Prod := pr;
+	  ItemArrayPtr^[ItemIndex].Pos	:= po+1;
+
+	  IF (read >= MINNonTerm) AND (read <= MAXNonTerm) THEN
+	    Closure (p^.Right[po+2]);
+	  END;
+	END;
+      END;
+    END;			  (* State *)
+
+    s := UniqueState(new);
+
+   (* Trage den berechneten State in Next ein *)
+
+    WITH StateArrayPtr^[Index] DO	  (* State *)
+
+      (* Fuer alle Items *)
+
+      FOR i:=Items TO Items + Size - 1 DO
+
+      (* nach dem Punkt ist zu bearbeiten *)
+
+	(* Mit Symbol nach den Punkt *)
+
+	IF ItemArrayPtr^[i].Read = Symbol THEN
+	  
+	   (* Trage den Folgezustand ein *)
+
+	   ItemArrayPtr^[i].Next := s;
+	END;
+      END;
+    END;			  (* State *)
+    RETURN s;
+  END Goto;
+
+PROCEDURE Closure (Symbol: NonTerminal);
+  VAR
+    i,u : tIndex;
+    read : Vocabulary;
+    pr : tProdIndex;
+    po : tIndex;
+    exists : BOOLEAN;
+    p : tProduction;
+  BEGIN
+      WITH StateArrayPtr^[StateIndex] DO
+	WITH ProdList[Symbol] DO	  (* Production *) 
+	  u := Used;
+	  FOR i := 1 TO u DO
+	    
+	    (* Fuege ein Item hinzu, falls dies noch nicht vorhanden *)
+
+	    pr := Array^[i].Index;
+	    p := ADR (ProdArrayPtr^[pr]);
+
+	    IF NOT IsElement (p^.ProdNo, ProdSet) THEN
+	      Include (ProdSet, p^.ProdNo);
+	      INC(Size);
+
+	      (* read bestimmen *)
+
+	      WITH p^ DO
+		IF Len > 0 THEN
+		  read := Right [1];
+		ELSE
+		  read := MAXNonTerm + 1;
+		END;
+	      END;
+
+	      NextItem (read);
+	      WITH ItemArrayPtr^[ItemIndex] DO	(* Item *)
+		Prod := pr;
+		Pos  := 0;
+	      END;			(* Item *)
+
+	      (* Falls Punkt vor Nichtterminal steht
+		 ist dieser auch zu bearbeiten *)
+	      
+	      IF (read >= MINNonTerm) AND (read <= MAXNonTerm) THEN
+		Closure (read);
+	      END;
+	    END;
+	  END;
+	END;		   (* Production *)
+      END;		 (* State *)
+  END Closure;
+
+PROCEDURE UniqueState (VAR new: BOOLEAN): tStateIndex;
+  VAR
+    h: HashIndex;
+    i: LONGINT;
+  BEGIN
+    h := HashCode (StateIndex);
+    WITH StateHashList[h] DO
+      
+      (* Pruefe ob der State bereits vorhanden *)
+
+      FOR i:=1 TO Used DO
+	IF AreEqualStates (StateIndex,Array^[i]) THEN
+	  (* State ist bereits vorhanden *)
+
+	  (* Speicher freigeben *)
+
+	  (* Items freigeben *)
+	  DEC (ItemIndex, StateArrayPtr^[StateIndex].Size);
+
+	  (* State freigeben *)
+	  DEC (StateIndex);
+
+	  (* bereits bekannten State zurueckgeben *)
+
+	  new := FALSE;
+	  RETURN Array^[i];
+	END;
+      END;
+
+      (* neuen State in Hashtabelle eintragen *)
+
+      IF Used = 0 THEN
+	Count := InitHashListCount;
+	MakeArray (Array,Count,TSIZE(tIndex));
+      ELSIF Used >= Count THEN
+	ExtendArray (Array,Count,TSIZE(tIndex));
+      END;
+      INC (Used);
+      Array^[Used] := StateIndex;
+      new := TRUE;
+      RETURN StateIndex;
+    END;
+  END UniqueState;
+  
+PROCEDURE InsertOperators;
+
+  (* Einlesen des Abschnitts Oper, es werden steigende Prioritaeten zugeordnet *)
+
+  VAR
+    o : tOper;
+    t : Vocabulary;
+    kn : OperKind;
+    ps,cmp : PosType;
+    cm : tList;
+  BEGIN
+    o.Pri := 0;
+    InitPrioReading;
+      WHILE GetPriority (kn,ps,cm,cmp) DO
+	IF kn = Left THEN
+	  o.Ass := left;
+	ELSIF kn = Right THEN
+	  o.Ass := right;
+	ELSE
+	  o.Ass := nonassoc;
+	END;
+	INC (o.Pri);
+	WHILE GetOperator (t,ps) DO
+	  OperArray [t] := o;
+	END;
+      END;
+  END InsertOperators;
+
+PROCEDURE InsertProductions;
+
+  (* Die Produktionen werden vom Module Rules eingelesen *)
+
+  VAR
+    left  : NonTerminal;
+    lfp,clp,cmp,pnp,prp,prsp : PosType;
+    right : Expression;
+    cm	  : tList;
+    hpr	  : BOOLEAN;
+    prs	  : Terminal;
+    act	  : tList;
+    actpos: PosType;
+    voc	  : Vocabulary;
+    index : tProdIndex;
+    maxIndex : tProdIndex;
+    value : SHORTCARD;
+    prod  : tProduction;
+    i	  : SHORTCARD;
+  BEGIN
+
+    (* Lese erste Regel *)
+
+    InitRulesReading;
+    IF NOT GetRule (left,lfp,clp,right,cm, cmp,pnp,hpr,prp,prs,prsp) THEN
+      ERROR ('Automaton.InsertProduction');
+    END;
+
+    (* Fuehre ein neues Startsymbol ein *)
+
+    WITH Production^ DO
+      MakeList (Act);
+      ActPos := NoPosition;
+      Ass := none;
+      Pri := 0;
+      Len := 0;
+    END;
+    EnsureProdArray;
+    WITH Production^ DO
+      INC (Len);
+      Right[Len] := left;
+    END;
+    EnsureProdArray;
+    WITH Production^ DO
+      INC (Len);
+      Right[Len] := EndOfToken;
+    END;
+    StartSymbol := MakeNonTerm();
+    Production^.Left := StartSymbol;
+    NextProduction;
+
+    (* Uebertrage die Regeln *)
+
+    InitRulesReading;
+    WHILE GetRule (left,lfp,clp,right,cm,cmp,pnp,hpr,prp,prs,prsp) DO
+      WITH Production^ DO
+	MakeList (Act);
+	ActPos := NoPosition;
+	Ass := none;	 (* Initialisierung auf keine Associativitaet *)
+	Pri := 0;	 (* und minimale Prioritaet *)
+	Len := 0;
+      END;
+      InsertRight (right,TRUE);
+      WITH Production^ DO
+	Left := left;
+	prio := OperArray[prs].Pri;
+	IF hpr THEN
+	  (* explizite Prioritaet geht vor *)
+	  Pri := OperArray[prs].Pri;
+	  Ass := OperArray[prs].Ass;
+	END;
+      END;
+      NextProduction;
+    END;
+
+    (* Trage Regeln fuer innere semantische Ankopplungen nach *)
+
+    WHILE PopAction (act,voc,actpos) DO
+      WITH Production^ DO
+	Act := act;
+	ActPos := actpos;
+	Pri := 0;
+	Ass := none;
+	Len := 0;
+	Left := voc;
+      END;
+      NextProduction;
+    END;
+
+    ValueNonterms;
+
+    maxIndex := ProdIndex;
+    index := 0;
+    WHILE index < maxIndex DO
+      prod := ADR(ProdArrayPtr^[index]);
+      value := 0;
+      WITH prod^ DO
+	FOR i := 1 TO Len DO
+	  INC (value, Value[Right[i]]);
+	END;
+      END;
+      PutInProdList (index, value);
+      index := NextProdIndex(index);
+    END;
+  END InsertProductions;
+
+PROCEDURE InsertRight (Expr: Expression; Last: BOOLEAN);
+  
+  (* Uebertrage einen Teilbaum in die rechte Seite der Regel 
+     wenn eine Konstruktion angetroffen wird die nicht BNF 
+     d.h., die nicht zulaessig ist wird eine Fehlermeldung ausgegeben
+     und IsBnf auf false gesetzt *)
+
+  VAR
+    pos,secpos : PosType;
+    son,rson,lson : Expression;
+    art : Operation;
+    voc : Vocabulary;
+    act : tList;
+    sym : tIdent;
+    err : TokenError;
+  BEGIN
+    CASE GetNodeOperation(Expr) OF
+      Plus, Star :
+	IsBnf := FALSE;
+	GetUnaryNode (Expr,pos,son);
+	InsertRight (son,Last);
+	ErrorMessage (eNoBNF,eError,pos);
+    |  Bracket :
+	GetBracketNode (Expr,pos,secpos,son);
+	ErrorMessage (eNoBNF,eWarning,pos);
+	InsertRight (son,Last);
+    | Optional :
+	IsBnf := FALSE;
+	GetBracketNode (Expr,pos,secpos,son);
+	ErrorMessage (eNoBNF,eError,pos);
+    | Sequence :
+	GetBinaryNode (Expr,pos,lson,rson);
+	IF rson = NoExpression THEN
+	  InsertRight (lson,Last);
+	ELSE
+	  InsertRight (lson,FALSE);
+	END;
+	InsertRight (rson,Last);
+    | Separator, Alternative:
+	IsBnf := FALSE;
+	GetBinaryNode (Expr,pos,lson,rson);
+	InsertRight (lson,FALSE);
+	ErrorMessage (eNoBNF,eError,pos);
+	InsertRight (rson,FALSE);
+    | TermLeaf:
+	IF IsBnf THEN
+	  EnsureProdArray;
+	  GetLeafNode (Expr,voc,pos);
+	  WITH Production^ DO
+	    INC (Len);
+	    Right[Len] := voc;
+	    IF OperArray [voc].Ass # none THEN
+	      (* der letzte Operator innerhalb der Regel gilt *)
+	      Ass := OperArray[voc].Ass;
+	      Pri := OperArray[voc].Pri;
+	    END;
+	  END;
+	END;
+    | NonTermLeaf:
+	IF IsBnf THEN
+	  EnsureProdArray;
+	  GetLeafNode (Expr,voc,pos);
+	  WITH Production^ DO
+	    INC (Len);
+	    Right[Len] := voc;
+	  END;
+	END;
+    | Action:
+	IF IsBnf THEN
+	  GetActionNode (Expr,act,pos);
+	  IF Last THEN
+	    Production^.Act := act;
+	    Production^.ActPos := pos;
+	  ELSE
+	    EnsureProdArray;
+	    voc := MakeNonTerm ();
+	    sym := TokenToSymbol (voc,err);
+	    ErrorMessageI (eActInside, eInformation, pos, eIdent, ADR (sym));
+	    WITH Production^ DO
+	      INC (Len);
+	      Right[Len] := voc;
+	    END;
+	    PushAction (act,voc,pos);
+	  END;
+	END;
+    | NoOperation:
+    END;
+  END InsertRight;
+
+PROCEDURE PutInProdList (index: tProdIndex; value: SHORTCARD);
+
+  (* Die angegebene  Produktion wird gem. ihrer linken Seite in die
+     zugh. ProdList sortiert eingetragen *)
+  
+  VAR
+    prod : tProduction;
+    i	 : tIndex;
+  BEGIN
+    prod := ADR (ProdArrayPtr^[index]);
+    WITH ProdList[prod^.Left] DO
+      IF Used = 0 THEN
+	Count := InitListCount;
+	MakeArray (Array,Count,TSIZE(tProdListElmt));
+	INC (Used);
+	Array^[Used].Index := index; 
+	Array^[Used].Value := value; 
+      ELSE
+	IF Used >= Count THEN
+	  ExtendArray (Array,Count,TSIZE(tProdListElmt));
+	END;
+	(* laengere Produktionen nach hinten verschieben *)
+	i := Used;
+	WHILE (i > 0) AND (Array^[i].Value > value) DO
+	  Array^[i+1].Index := Array^[i].Index;
+	  Array^[i+1].Value := Array^[i].Value;
+	  DEC (i);
+	END;
+	INC (i);
+	(* neue Produktion eintragen *)
+	Array^[i].Index := index;
+	Array^[i].Value := value;
+	INC (Used);
+      END;
+    END;
+  END PutInProdList;
+
+PROCEDURE NextProduction;
+
+  (* Schalte die aktuelle Produktion weiter *)
+  (* wie immer nach dem ausfuellen einer Produktion aufgerufen *)
+
+  BEGIN
+    INC (ProdCount);
+    WITH Production^ DO
+      ProdNo := ProdCount;
+      Reduce.Used := 0;
+    END;
+    ProdIndex := NextProdIndex(ProdIndex);
+    IF (ProdIndex + (TSIZE(tDummyProduction) + MaxAlign - 1) DIV MaxAlign * MaxAlign) >= ProdElmtCount THEN
+      ExtendArray (ProdArrayPtr, ProdElmtCount, TSIZE(WORD));
+    END;
+    Production := ADR(ProdArrayPtr^[ProdIndex]);
+  END NextProduction;
+
+PROCEDURE NextProdIndex (Index: tProdIndex): tProdIndex;
+  VAR 
+    diff : CARDINAL;
+    prod : tProduction;
+  BEGIN
+    prod := ADR (ProdArrayPtr^[Index]);
+	    (* Platzbedarf fuer konstantlangen Teil *)
+    diff := CARDINAL ((TSIZE(tDummyProduction) + MaxAlign - 1) DIV MaxAlign * MaxAlign)
+	      (* Platzbedarf fuer variabellangen Teil *)
+	    + ((prod^.Len+3) DIV 4) * TSIZE(tDummyRight4);
+    RETURN Index + (diff-1) DIV TSIZE (WORD) + 1;
+  END NextProdIndex;
+
+PROCEDURE EnsureProdArray;
+
+  (* stelle sicher, dass in die rechte Seite der Produktion noch um
+     mindestes eins verlaengert werden kann *)
+
+  VAR diff : LONGINT;
+  BEGIN
+	    (* Platzbedarf fuer konstantlangen Teil *)
+    diff := CARDINAL ((TSIZE(tDummyProduction) + MaxAlign - 1) DIV MaxAlign * MaxAlign)
+	      (* Platzbedarf fuer variabellangen Teil *)
+	    + (((Production^.Len+1)+3) DIV 4) * TSIZE(tDummyRight4);
+    IF (ProdIndex + (diff-1) DIV TSIZE(WORD) + 1) >= ProdElmtCount THEN
+      ExtendArray (ProdArrayPtr, ProdElmtCount, TSIZE(WORD));
+      Production := ADR(ProdArrayPtr^[ProdIndex]);
+    END;
+  END EnsureProdArray;
+
+PROCEDURE NextItem (ReadSym: Vocabulary); (* Beschaffe das naechste Item *)
+  BEGIN
+    INC (ItemIndex);
+    IF ItemIndex > ItemElmtCount THEN
+      ExtendArray (ItemArrayPtr, ItemElmtCount, TSIZE(tItem));
+      IF ItemArrayPtr = NIL THEN HALT; END;
+    END;
+    WITH ItemArrayPtr^[ItemIndex] DO
+      EmptyReadSet := TRUE;
+      Relation.Used := 0;
+      Relation.Count := InitRelationListCount;
+      Read := ReadSym;
+      Rep := NoRep;
+      RepNo := Infinite;
+      Next := Infinite;
+      Number := 0;
+    END;
+  END NextItem;
+      
+PROCEDURE NextState ();
+
+  (* Beschaffe den naechsten State und initialisiere ihn mit
+     dem naechsten (aktuellen+1) Item *)
+
+  BEGIN
+    INC (StateIndex);
+    IF StateIndex > StateElmtCount THEN
+      ExtendArray (StateArrayPtr, StateElmtCount, TSIZE(tState));
+    END;
+    WITH StateArrayPtr^[StateIndex] DO
+      Size := 0;
+      Items := ItemIndex+1;
+      NewNumber := Infinite;
+      Kind := sNone;
+    END;
+  END NextState;
+  
+PROCEDURE MakeNonTerm (): NonTerminal; (* Erzeuge ein neues Nichtterminal *)
+  VAR
+    s : tString;
+    max,i,j : CARDINAL;
+    pos : PosType;
+    voc : Vocabulary;
+  BEGIN
+    s.Chars[1] := '_';
+    s.Length := 6;
+    max := MAXNonTerm;
+    REPEAT
+      i := NonTermNo;
+      FOR j:=5 TO 2 BY -1 DO
+	s.Chars[j]:=CHR(ORD('0')+(i MOD 10));
+	i := i DIV 10;
+      END;
+      s.Chars[6] := '_';
+      pos := NoPosition;
+      INC(NonTermNo);
+      voc := MakeVoc (MakeIdent (s),pos);
+    UNTIL max < MAXNonTerm;
+    RETURN voc;
+  END MakeNonTerm;
+
+PROCEDURE AreEqualStates (Index1, Index2: tStateIndex): BOOLEAN;
+  VAR
+    i1,i2 : tItemIndex;
+    l1,l2 : tItemIndex;
+  BEGIN
+    i1 := StateArrayPtr^[Index1].Items;
+    i2 := StateArrayPtr^[Index2].Items;
+    l1 := StateArrayPtr^[Index1].Size;
+    l2 := StateArrayPtr^[Index2].Size;
+    IF l1 # l2 THEN RETURN FALSE END;
+    INC (l1,i1);
+    INC (l2,i2);
+    WHILE (i1 < l1) AND (i2 < l2) DO
+      IF ItemArrayPtr^[i1].Prod # ItemArrayPtr^[i2].Prod THEN RETURN FALSE; END;
+      IF ItemArrayPtr^[i1].Pos	# ItemArrayPtr^[i2].Pos	 THEN RETURN FALSE; END;
+      INC (i1);
+      INC (i2);
+    END;
+    IF    (i1 < l1) THEN RETURN ItemArrayPtr^[i1].Pos = 0;
+    ELSIF (i2 < l2) THEN RETURN ItemArrayPtr^[i2].Pos = 0;
+    ELSE RETURN TRUE;
+    END;
+  END AreEqualStates;
+
+PROCEDURE HashCode (Index: tStateIndex): HashIndex;
+  BEGIN
+    WITH ItemArrayPtr^[StateArrayPtr^[Index].Items] DO
+      RETURN (Prod+Pos) MOD (MAX(HashIndex)-MIN(HashIndex)+1) + MIN(HashIndex);
+    END;
+  END HashCode;
+      
+PROCEDURE PushAction (act: tList; voc: Vocabulary; actpos: PosType);
+  BEGIN
+    INC (StackIndex);
+    IF StackElmtCount = 0 THEN
+      StackElmtCount := InitStackCount;
+      MakeArray (StackArrayPtr,StackElmtCount,TSIZE(tStackElmt));
+    ELSIF StackIndex > StackElmtCount THEN
+      ExtendArray (StackArrayPtr,StackElmtCount,TSIZE(tStackElmt));
+    END;
+    StackArrayPtr^[StackIndex].Act := act;
+    StackArrayPtr^[StackIndex].ActPos := actpos;
+    StackArrayPtr^[StackIndex].Voc := voc;
+  END PushAction;
+
+PROCEDURE PopAction (VAR act: tList; VAR voc: Vocabulary; VAR actpos: PosType): BOOLEAN;
+  BEGIN
+    IF StackIndex < 1 THEN RETURN FALSE; END;
+    act := StackArrayPtr^[StackIndex].Act;
+    actpos := StackArrayPtr^[StackIndex].ActPos;
+    voc := StackArrayPtr^[StackIndex].Voc;
+    DEC (StackIndex);
+    RETURN TRUE;
+  END PopAction;
+
+PROCEDURE ERROR (a: ARRAY OF CHAR);
+  VAR s: tString;
+  BEGIN
+    ArrayToString (a, s);
+    ErrorMessageI (eInternal, eFatal, NoPosition, eString, ADR (s));
+  END ERROR;
+
+BEGIN
+  ProdElmtCount := InitProdCount;
+  MakeArray (ProdArrayPtr, ProdElmtCount, TSIZE(WORD));
+
+  ItemElmtCount := InitItemCount;
+  MakeArray (ItemArrayPtr, ItemElmtCount, TSIZE(tItem));
+
+  StateElmtCount := InitStateCount;
+  MakeArray (StateArrayPtr, StateElmtCount, TSIZE(tState));
+
+  FOR i := MIN(NonTerminal) TO MAX(NonTerminal) DO
+    ProdList[i].Used := 0;
+  END;
+
+  FOR i := MIN(HashIndex) TO MAX(HashIndex) DO
+    StateHashList[i].Used := 0;
+  END;
+
+  FOR i:= MIN(Terminal) TO MAX (Terminal) DO
+    WITH OperArray[i] DO
+      Ass := none;
+      Pri := 0;
+    END;
+  END;
+
+  ProdCount := 0;
+  ProdIndex := 0;
+  Production := ADR(ProdArrayPtr^[ProdIndex]);
+  ItemIndex := 0;
+  StateIndex := 0;
+  StackElmtCount := 0;
+  StackIndex := 0;
+END Automaton.

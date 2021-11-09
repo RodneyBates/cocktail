@@ -1,0 +1,265 @@
+DEFINITION MODULE Tree;
+
+IMPORT SYSTEM, IO;
+(* line 3 "Tree.ast" *)
+
+
+FROM Idents	IMPORT	tIdent;
+FROM IO		IMPORT	tFile;
+FROM Environs	IMPORT	tFunction;
+FROM Patterns	IMPORT	tPattern;
+FROM Positions	IMPORT	tPosition;
+FROM Sets	IMPORT	tSet;
+FROM StringMem	IMPORT	tStringRef;
+FROM SYSTEM	IMPORT	ADDRESS;
+
+TYPE
+  tSelMode = (cNoSel, cSel, cTreeSel);
+  yyEstra = ADDRESS;
+
+
+CONST
+NoTree = NIL;
+
+spec = 1;
+Spec = 2;
+classes = 3;
+Class0 = 4;
+Class = 5;
+nodes = 6;
+Node0 = 7;
+Node = 8;
+sons = 9;
+Son0 = 10;
+Son = 11;
+attributes = 12;
+Attribute0 = 13;
+Attribute = 14;
+functions = 15;
+Function0 = 16;
+Function = 17;
+result = 18;
+NoResult = 19;
+Type = 20;
+domain = 21;
+Ident0 = 22;
+Ident = 23;
+directives = 24;
+Directive0 = 25;
+Directive = 26;
+pattern = 27;
+Pattern1 = 28;
+Pattern = 29;
+patterns = 30;
+Patterns0 = 31;
+Patterns = 32;
+condition = 33;
+CondD = 34;
+CondF = 35;
+costs = 36;
+CostD = 37;
+CostN = 38;
+CostF = 39;
+code = 40;
+CdStr = 41;
+CdId = 42;
+CdDot = 43;
+CdComma = 44;
+CdLPar = 45;
+CdRPar = 46;
+CdLBra = 47;
+CdRBra = 48;
+CdSpa = 49;
+CdCom = 50;
+CdRst = 51;
+CdEnd = 52;
+
+TYPE tTree = POINTER TO yyNode;
+tProcTree = PROCEDURE (tTree);
+
+
+
+
+TYPE
+yytNodeHead = RECORD yyKind, yyMark: SHORTCARD;  END;
+yspec = RECORD yyHead: yytNodeHead; END;
+ySpec = RECORD yyHead: yytNodeHead; name: tIdent; pos: tPosition; grna: tIdent; grpos: tPosition; export: tTree; global: tTree; begin: tTree; close: tTree; classes: tTree; functions: tTree; END;
+yclasses = RECORD yyHead: yytNodeHead; END;
+yClass0 = RECORD yyHead: yytNodeHead; END;
+yClass = RECORD yyHead: yytNodeHead; suid: tIdent; supos: tPosition; clid: tIdent; clpos: tPosition; nodes: tTree; classes: tTree; correct: BOOLEAN; END;
+ynodes = RECORD yyHead: yytNodeHead; END;
+yNode0 = RECORD yyHead: yytNodeHead; END;
+yNode = RECORD yyHead: yytNodeHead; name: tIdent; napos: tPosition; ident: tIdent; idpos: tPosition; sons: tTree; nodes: tTree; correct: BOOLEAN; END;
+ysons = RECORD yyHead: yytNodeHead; END;
+ySon0 = RECORD yyHead: yytNodeHead; END;
+ySon = RECORD yyHead: yytNodeHead; name: tIdent; napos: tPosition; ident: tIdent; idpos: tPosition; sons: tTree; correct: BOOLEAN; END;
+yattributes = RECORD yyHead: yytNodeHead; END;
+yAttribute0 = RECORD yyHead: yytNodeHead; END;
+yAttribute = RECORD yyHead: yytNodeHead; ident: tIdent; idpos: tPosition; mod: tIdent; mopos: tPosition; type: tIdent; typos: tPosition; attributes: tTree; END;
+yfunctions = RECORD yyHead: yytNodeHead; END;
+yFunction0 = RECORD yyHead: yytNodeHead; END;
+yFunction = RECORD yyHead: yytNodeHead; name: tIdent; napos: tPosition; in: tTree; out: tTree; result: tTree; domain: tTree; directives: tTree; functions: tTree; funct: tFunction; domainset: tSet; END;
+yresult = RECORD yyHead: yytNodeHead; END;
+yNoResult = RECORD yyHead: yytNodeHead; END;
+yType = RECORD yyHead: yytNodeHead; mod: tIdent; mopos: tPosition; type: tIdent; typos: tPosition; END;
+ydomain = RECORD yyHead: yytNodeHead; END;
+yIdent0 = RECORD yyHead: yytNodeHead; END;
+yIdent = RECORD yyHead: yytNodeHead; ident: tIdent; idpos: tPosition; domain: tTree; END;
+ydirectives = RECORD yyHead: yytNodeHead; END;
+yDirective0 = RECORD yyHead: yytNodeHead; END;
+yDirective = RECORD yyHead: yytNodeHead; pattern: tTree; condition: tTree; costs: tTree; decl: tTree; instr: tTree; directives: tTree; correct: BOOLEAN; number: INTEGER; pat: tPattern; iter: BOOLEAN; END;
+ypattern = RECORD yyHead: yytNodeHead; pos: tPosition; END;
+yPattern1 = RECORD yyHead: yytNodeHead; pos: tPosition; sel: tIdent; sepos: tPosition; ident: tIdent; idpos: tPosition; correct: BOOLEAN; END;
+yPattern = RECORD yyHead: yytNodeHead; pos: tPosition; sel: tIdent; sepos: tPosition; ident: tIdent; idpos: tPosition; patterns: tTree; correct: BOOLEAN; END;
+ypatterns = RECORD yyHead: yytNodeHead; END;
+yPatterns0 = RECORD yyHead: yytNodeHead; END;
+yPatterns = RECORD yyHead: yytNodeHead; pattern: tTree; patterns: tTree; END;
+ycondition = RECORD yyHead: yytNodeHead; END;
+yCondD = RECORD yyHead: yytNodeHead; END;
+yCondF = RECORD yyHead: yytNodeHead; code: tTree; END;
+ycosts = RECORD yyHead: yytNodeHead; END;
+yCostD = RECORD yyHead: yytNodeHead; END;
+yCostN = RECORD yyHead: yytNodeHead; value: INTEGER; vapos: tPosition; END;
+yCostF = RECORD yyHead: yytNodeHead; code: tTree; END;
+ycode = RECORD yyHead: yytNodeHead; pos: tPosition; END;
+yCdStr = RECORD yyHead: yytNodeHead; pos: tPosition; ident: tIdent; code: tTree; mode: tSelMode; END;
+yCdId = RECORD yyHead: yytNodeHead; pos: tPosition; ident: tIdent; code: tTree; mode: tSelMode; END;
+yCdDot = RECORD yyHead: yytNodeHead; pos: tPosition; code: tTree; END;
+yCdComma = RECORD yyHead: yytNodeHead; pos: tPosition; code: tTree; END;
+yCdLPar = RECORD yyHead: yytNodeHead; pos: tPosition; code: tTree; END;
+yCdRPar = RECORD yyHead: yytNodeHead; pos: tPosition; code: tTree; END;
+yCdLBra = RECORD yyHead: yytNodeHead; pos: tPosition; code: tTree; END;
+yCdRBra = RECORD yyHead: yytNodeHead; pos: tPosition; code: tTree; END;
+yCdSpa = RECORD yyHead: yytNodeHead; pos: tPosition; ref: tStringRef; code: tTree; END;
+yCdCom = RECORD yyHead: yytNodeHead; pos: tPosition; ref: tStringRef; code: tTree; END;
+yCdRst = RECORD yyHead: yytNodeHead; pos: tPosition; ref: tStringRef; code: tTree; END;
+yCdEnd = RECORD yyHead: yytNodeHead; pos: tPosition; END;
+
+yyNode = RECORD
+CASE : SHORTCARD OF
+| 0: Kind: SHORTCARD;
+| 53: yyHead: yytNodeHead;
+| spec: spec: yspec;
+| Spec: Spec: ySpec;
+| classes: classes: yclasses;
+| Class0: Class0: yClass0;
+| Class: Class: yClass;
+| nodes: nodes: ynodes;
+| Node0: Node0: yNode0;
+| Node: Node: yNode;
+| sons: sons: ysons;
+| Son0: Son0: ySon0;
+| Son: Son: ySon;
+| attributes: attributes: yattributes;
+| Attribute0: Attribute0: yAttribute0;
+| Attribute: Attribute: yAttribute;
+| functions: functions: yfunctions;
+| Function0: Function0: yFunction0;
+| Function: Function: yFunction;
+| result: result: yresult;
+| NoResult: NoResult: yNoResult;
+| Type: Type: yType;
+| domain: domain: ydomain;
+| Ident0: Ident0: yIdent0;
+| Ident: Ident: yIdent;
+| directives: directives: ydirectives;
+| Directive0: Directive0: yDirective0;
+| Directive: Directive: yDirective;
+| pattern: pattern: ypattern;
+| Pattern1: Pattern1: yPattern1;
+| Pattern: Pattern: yPattern;
+| patterns: patterns: ypatterns;
+| Patterns0: Patterns0: yPatterns0;
+| Patterns: Patterns: yPatterns;
+| condition: condition: ycondition;
+| CondD: CondD: yCondD;
+| CondF: CondF: yCondF;
+| costs: costs: ycosts;
+| CostD: CostD: yCostD;
+| CostN: CostN: yCostN;
+| CostF: CostF: yCostF;
+| code: code: ycode;
+| CdStr: CdStr: yCdStr;
+| CdId: CdId: yCdId;
+| CdDot: CdDot: yCdDot;
+| CdComma: CdComma: yCdComma;
+| CdLPar: CdLPar: yCdLPar;
+| CdRPar: CdRPar: yCdRPar;
+| CdLBra: CdLBra: yCdLBra;
+| CdRBra: CdRBra: yCdRBra;
+| CdSpa: CdSpa: yCdSpa;
+| CdCom: CdCom: yCdCom;
+| CdRst: CdRst: yCdRst;
+| CdEnd: CdEnd: yCdEnd;
+END;
+END;
+
+VAR TreeRoot	: tTree;
+VAR HeapUsed	: LONGCARD;
+VAR yyPoolFreePtr, yyPoolMaxPtr	: SYSTEM.ADDRESS;
+VAR yyNodeSize	: ARRAY [0..52] OF SHORTCARD;
+VAR yyExit	: PROC;
+
+PROCEDURE yyAlloc	(): tTree;
+PROCEDURE MakeTree	(Kind: SHORTCARD): tTree;
+PROCEDURE IsType	(Tree: tTree; Kind: SHORTCARD): BOOLEAN;
+
+PROCEDURE mspec (): tTree;
+PROCEDURE mSpec (pname: tIdent; ppos: tPosition; pgrna: tIdent; pgrpos: tPosition; pexport: tTree; pglobal: tTree; pbegin: tTree; pclose: tTree; pclasses: tTree; pfunctions: tTree): tTree;
+PROCEDURE mclasses (): tTree;
+PROCEDURE mClass0 (): tTree;
+PROCEDURE mClass (psuid: tIdent; psupos: tPosition; pclid: tIdent; pclpos: tPosition; pnodes: tTree; pclasses: tTree; pcorrect: BOOLEAN): tTree;
+PROCEDURE mnodes (): tTree;
+PROCEDURE mNode0 (): tTree;
+PROCEDURE mNode (pname: tIdent; pnapos: tPosition; pident: tIdent; pidpos: tPosition; psons: tTree; pnodes: tTree; pcorrect: BOOLEAN): tTree;
+PROCEDURE msons (): tTree;
+PROCEDURE mSon0 (): tTree;
+PROCEDURE mSon (pname: tIdent; pnapos: tPosition; pident: tIdent; pidpos: tPosition; psons: tTree; pcorrect: BOOLEAN): tTree;
+PROCEDURE mattributes (): tTree;
+PROCEDURE mAttribute0 (): tTree;
+PROCEDURE mAttribute (pident: tIdent; pidpos: tPosition; pmod: tIdent; pmopos: tPosition; ptype: tIdent; ptypos: tPosition; pattributes: tTree): tTree;
+PROCEDURE mfunctions (): tTree;
+PROCEDURE mFunction0 (): tTree;
+PROCEDURE mFunction (pname: tIdent; pnapos: tPosition; pin: tTree; pout: tTree; presult: tTree; pdomain: tTree; pdirectives: tTree; pfunctions: tTree): tTree;
+PROCEDURE mresult (): tTree;
+PROCEDURE mNoResult (): tTree;
+PROCEDURE mType (pmod: tIdent; pmopos: tPosition; ptype: tIdent; ptypos: tPosition): tTree;
+PROCEDURE mdomain (): tTree;
+PROCEDURE mIdent0 (): tTree;
+PROCEDURE mIdent (pident: tIdent; pidpos: tPosition; pdomain: tTree): tTree;
+PROCEDURE mdirectives (): tTree;
+PROCEDURE mDirective0 (): tTree;
+PROCEDURE mDirective (ppattern: tTree; pcondition: tTree; pcosts: tTree; pdecl: tTree; pinstr: tTree; pdirectives: tTree; pcorrect: BOOLEAN): tTree;
+PROCEDURE mpattern (ppos: tPosition): tTree;
+PROCEDURE mPattern1 (ppos: tPosition; psel: tIdent; psepos: tPosition; pident: tIdent; pidpos: tPosition; pcorrect: BOOLEAN): tTree;
+PROCEDURE mPattern (ppos: tPosition; psel: tIdent; psepos: tPosition; pident: tIdent; pidpos: tPosition; ppatterns: tTree; pcorrect: BOOLEAN): tTree;
+PROCEDURE mpatterns (): tTree;
+PROCEDURE mPatterns0 (): tTree;
+PROCEDURE mPatterns (ppattern: tTree; ppatterns: tTree): tTree;
+PROCEDURE mcondition (): tTree;
+PROCEDURE mCondD (): tTree;
+PROCEDURE mCondF (pcode: tTree): tTree;
+PROCEDURE mcosts (): tTree;
+PROCEDURE mCostD (): tTree;
+PROCEDURE mCostN (pvalue: INTEGER; pvapos: tPosition): tTree;
+PROCEDURE mCostF (pcode: tTree): tTree;
+PROCEDURE mcode (ppos: tPosition): tTree;
+PROCEDURE mCdStr (ppos: tPosition; pident: tIdent; pcode: tTree): tTree;
+PROCEDURE mCdId (ppos: tPosition; pident: tIdent; pcode: tTree): tTree;
+PROCEDURE mCdDot (ppos: tPosition; pcode: tTree): tTree;
+PROCEDURE mCdComma (ppos: tPosition; pcode: tTree): tTree;
+PROCEDURE mCdLPar (ppos: tPosition; pcode: tTree): tTree;
+PROCEDURE mCdRPar (ppos: tPosition; pcode: tTree): tTree;
+PROCEDURE mCdLBra (ppos: tPosition; pcode: tTree): tTree;
+PROCEDURE mCdRBra (ppos: tPosition; pcode: tTree): tTree;
+PROCEDURE mCdSpa (ppos: tPosition; pref: tStringRef; pcode: tTree): tTree;
+PROCEDURE mCdCom (ppos: tPosition; pref: tStringRef; pcode: tTree): tTree;
+PROCEDURE mCdRst (ppos: tPosition; pref: tStringRef; pcode: tTree): tTree;
+PROCEDURE mCdEnd (ppos: tPosition): tTree;
+
+PROCEDURE WriteTree	(f: IO.tFile; Tree: tTree);
+PROCEDURE ReverseTree	(Tree: tTree): tTree;
+PROCEDURE BeginTree;
+PROCEDURE CloseTree;
+
+END Tree.

@@ -1,0 +1,1030 @@
+ PARSER Parser
+GLOBAL {
+
+
+FROM StringMem  IMPORT GetString, PutString;
+FROM Strings    IMPORT tString, SubString, Length, ArrayToString, IntToString, Concatenate;
+FROM Idents     IMPORT tIdent, NoIdent, MakeIdent , GetStringRef ;
+FROM Texts      IMPORT tText, MakeText;
+FROM Scanner    IMPORT BeginScanner, tScanAttribute, Attribute, Warning;
+FROM Positions  IMPORT tPosition, NoPosition;
+
+IMPORT Tree ; 
+FROM Tree       IMPORT
+(* Note: We have no choice but to import unqualified from Tree,
+   since 'Tree' has also been used as the semantic attribute of
+   grammar symbols, and has the latter meaning in parse rules. *) 
+   mSpec                        , mAttrDesc     , mDesignator   ,
+   mLayoutAny   , mNoLayout     , mAnys         ,
+   mNoDesignator, mIdent        , mAny          , mNamedExpr    ,
+   mNoName      , mName         , mNoTreeName   , mTreeName     ,
+   mNoRoutine   , mPredicate    , mProcedure    , mFunction     ,
+   mType        , mNoParameter  , mParam        , mNoRule       ,
+   mRule        , mNoExpr       , mCompose      , mVarUse       ,
+   mOneExpr     ,
+   mDontCare1Explicit           , mDontCareExplicit             , 
+   mNoStatement , mAssignment   , mCall         , mBinaryCompound , 
+   mBinary      , mPreOperator  , mPostOperator , mParents      ,
+   mProcCall    , mReject       , mFail         , mNl           ,
+   mStringExpr  , mNil          , mIndex        , 
+   mOnePatternsList, mNoPatternsList    , OnePatternsList       ,
+   tTree        , Compose       , VarUse        , Nil           ,
+   Binary       , BinaryCompound, Index         , DontCare1     ,
+   Expr         , CopyTree      ,
+   TreeRoot     , MakeTree      , Codes         , ReverseTree   ,
+   Options      , IsType        ;
+FROM Assertions IMPORT Assert, AssertPos, CantHappen, CantHappenPos; 
+
+VAR
+   String1, String2     : tString;
+   NameCount            : INTEGER;
+   Line                 : tPosition;
+   nNoParameter, nNoName, nNoRule, nNoDesignator,
+   nNoStatement, nNoLayout, nNoPatternsList: tTree;
+
+PROCEDURE mTargetExpr ( pPos : tPosition ; pExpr : tTree ) : tTree
+
+  ; VAR LResult : tTree 
+
+  ; BEGIN 
+      LResult 
+        := Tree . mTargetExpr ( pPos , (* Selector := *) NoIdent , pExpr ) 
+    ; Sets . InitNullSet ( LResult ^ . TargetExpr . UsedNames ) 
+    ; RETURN LResult 
+    END mTargetExpr ; 
+
+PROCEDURE mTargetStmt 
+  ( pPos : tPosition ; pNext : tTree ; pParameters : tTree ; pStmt : tTree ) : tTree
+
+  ; VAR LResult : tTree 
+
+  ; BEGIN 
+      LResult := Tree . mTargetStmt ( pPos , pNext , pParameters , pStmt ) 
+    ; Sets . InitNullSet ( LResult ^ . TargetStmt . UsedNames ) 
+    ; RETURN LResult 
+    END mTargetStmt ; 
+
+PROCEDURE mCodes (): tTree;
+   VAR t: tTree;
+   BEGIN
+      t := MakeTree (Codes);
+      WITH t^.Codes DO
+         MakeText (Export);
+         MakeText (Import);
+         MakeText (Global);
+         MakeText (SpecWith);
+         MakeText (BodyWith);
+         MakeText (Local);
+         MakeText (Begin);
+         MakeText (Close);
+         ExportLine := NoPosition;
+         ImportLine := NoPosition;
+         GlobalLine := NoPosition;
+         SpecWithLine := NoPosition;
+         BodyWithLine := NoPosition;
+         LocalLine  := NoPosition;
+         BeginLine  := NoPosition;
+         CloseLine  := NoPosition;
+      END;
+      RETURN t;
+   END mCodes;
+
+PROCEDURE mRules 
+  (Line: tPosition; Patterns: tTree; (* Actually in class PatternsList *) 
+   Exprs, Expr, Statements, Next: tTree): tTree;
+   VAR Tree     : tTree;
+   BEGIN
+      Tree := mRule (Line, Patterns^.OnePatternsList.Patterns, Exprs, Expr, Statements, Next);
+      Patterns := Patterns^.OnePatternsList.Next;
+      WHILE Patterns^.Kind = OnePatternsList DO
+         Tree := mRule (Line, Patterns^.OnePatternsList.Patterns, CopyTree (Exprs),
+                        CopyTree (Expr), CopyTree (Statements), Tree);
+         Patterns := Patterns^.OnePatternsList.Next;
+      END;
+      RETURN Tree;
+   END mRules;
+
+TYPE
+yyTrafoName = RECORD Id: tIdent; 
+END;
+yyTreePart = RECORD Tree: tTree; 
+END;
+yyTreeNames = RECORD Tree: tTree; 
+END;
+yyPublicPart = RECORD Tree: tTree; 
+END;
+yyExternPart0 = RECORD Tree: tTree; 
+END;
+yyExternPart = RECORD Tree: tTree; 
+END;
+yyNames = RECORD Tree: tTree; 
+END;
+yyCodes = RECORD Tree: tTree; 
+END;
+yyRoutines = RECORD Tree: tTree; 
+END;
+yyOutParameters = RECORD Tree: tTree; 
+END;
+yyParameters = RECORD Tree: tTree; 
+END;
+yyMode = RECORD IsRef: BOOLEAN; 
+END;
+yyDeclarations = RECORD Tree: tTree; 
+END;
+yyType = RECORD Tree: tTree; 
+END;
+yyLocalCode = RECORD Text: tText; 
+Position: tPosition; 
+END;
+yyRules = RECORD Tree: tTree; 
+END;
+yyPatterns = RECORD Tree: tTree; 
+END;
+yyPatterns2 = RECORD Tree: tTree; 
+END;
+yyExprs = RECORD Tree: tTree; 
+END;
+yyNamedExprs = RECORD Tree: tTree; 
+END;
+yyExprs2 = RECORD Tree: tTree; 
+END;
+yyNamedExprs2 = RECORD Tree: tTree; 
+END;
+yyExpr = RECORD Tree: tTree; 
+END;
+yyPrefixExpr = RECORD Tree: tTree; 
+END;
+yyPostfixExpr = RECORD Tree: tTree; 
+END;
+yyPrimaryExpr = RECORD Tree: tTree; 
+END;
+yyStatements = RECORD Tree: tTree; 
+END;
+yyTargetCodes = RECORD Tree: tTree; 
+END;
+yyName0 = RECORD Id: tIdent; 
+Position: tPosition; 
+END;
+yyName1 = RECORD Id: tIdent; 
+Position: tPosition; 
+END;
+yySpace = RECORD Tree: tTree; 
+END;
+
+tParsAttribute = RECORD CASE : SHORTCARD OF
+  0: Scan: Scanner.tScanAttribute;
+| 1: TrafoName: yyTrafoName;
+| 2: TreePart: yyTreePart;
+| 3: TreeNames: yyTreeNames;
+| 4: PublicPart: yyPublicPart;
+| 5: ExternPart0: yyExternPart0;
+| 6: ExternPart: yyExternPart;
+| 7: Names: yyNames;
+| 8: Codes: yyCodes;
+| 9: Routines: yyRoutines;
+| 10: OutParameters: yyOutParameters;
+| 11: Parameters: yyParameters;
+| 12: Mode: yyMode;
+| 13: Declarations: yyDeclarations;
+| 14: Type: yyType;
+| 15: LocalCode: yyLocalCode;
+| 16: Rules: yyRules;
+| 17: Patterns: yyPatterns;
+| 18: Patterns2: yyPatterns2;
+| 19: Exprs: yyExprs;
+| 20: NamedExprs: yyNamedExprs;
+| 21: Exprs2: yyExprs2;
+| 22: NamedExprs2: yyNamedExprs2;
+| 23: Expr: yyExpr;
+| 24: PrefixExpr: yyPrefixExpr;
+| 25: PostfixExpr: yyPostfixExpr;
+| 26: PrimaryExpr: yyPrimaryExpr;
+| 27: Statements: yyStatements;
+| 28: TargetCodes: yyTargetCodes;
+| 29: Name0: yyName0;
+| 30: Name1: yyName1;
+| 31: Space: yySpace;
+ END ;
+END ;
+}
+
+EXPORT {
+}
+
+LOCAL {
+}
+
+BEGIN {
+
+   BeginScanner;
+   NameCount := 0;
+   nNoParameter         := mNoParameter         ();
+   nNoName              := mNoName              ();
+   nNoRule              := mNoRule              ();
+   nNoDesignator        := mNoDesignator        ();
+   nNoStatement         := mNoStatement         ();
+   nNoLayout            := mNoLayout            ();
+   nNoPatternsList      := mNoPatternsList      ();
+
+}
+
+CLOSE {
+}
+
+TOKEN
+
+Ident = 1
+Operator = 2
+IncOperator = 3
+CompoundOperator = 4
+TargetBlock = 5
+String = 6
+Number = 7
+TargetCode = 8
+WhiteSpace = 9
+'::' = 10
+'.' = 11
+'->' = 12
+TRAFO = 13
+'TREE' = 14
+',' = 15
+PUBLIC = 16
+EXTERN = 17
+';' = 18
+'SPECWITH' = 19
+'BODYWITH' = 20
+'EXPORT' = 21
+'IMPORT' = 22
+'GLOBAL' = 23
+'BEGIN' = 24
+'CLOSE' = 25
+PROCEDURE = 26
+'(' = 27
+REF = 28
+':' = 29
+'[' = 30
+']' = 31
+'=>' = 32
+')' = 33
+'LOCAL' = 34
+'..' = 35
+':>' = 36
+NIL = 37
+'_' = 38
+'{' = 39
+'}' = 40
+'^' = 41
+':=' = 42
+'?' = 43
+REJECT = 44
+FAIL = 45
+'VAR' = 46
+NL = 47
+RETURN = 48
+'FUNCTION' = 49
+PREDICATE = 50
+
+OPER
+
+NONE  '{'
+NONE  HIGH
+
+RULE
+
+Trafo : TrafoName TreePart PublicPart ExternPart0 Codes Routines { ;
+ TreeRoot := mSpec ($1.TrafoName.Id, $2.TreePart.Tree, $3.PublicPart.Tree,
+                 $4.ExternPart0.Tree, $5.Codes.Tree, ReverseTree ($6.Routines.Tree)); ;
+ ;
+} .
+TrafoName : { ArrayToString ("Trafo", String1); $$.TrafoName.Id := MakeIdent (String1); ;
+  ;
+} .
+TrafoName : TRAFO Name0 {$$.TrafoName.Id := $2.Name0.Id;
+} .
+TreePart : { ArrayToString ("Tree", String1);
+            $$.TreePart.Tree := mTreeName (MakeIdent (String1), Attribute.Position, mNoTreeName ()); ;
+ ;
+} .
+TreePart : 'TREE' TreeNames { $$.TreePart.Tree := ReverseTree ($2.TreeNames.Tree);
+ ;
+} .
+TreeNames : { $$.TreeNames.Tree := mNoTreeName ();
+ ;
+} .
+TreeNames : TreeNames ',' {$$.TreeNames.Tree := $1.TreeNames.Tree;
+} .
+TreeNames : TreeNames Name0 { $$.TreeNames.Tree := mTreeName ($2.Name0.Id, $2.Name0.Position, $1.TreeNames.Tree);
+ ;
+} .
+PublicPart : { $$.PublicPart.Tree := nNoName;
+ ;
+} .
+PublicPart : PUBLIC Names { $$.PublicPart.Tree := ReverseTree ($2.Names.Tree);
+ ;
+} .
+ExternPart0 : { $$.ExternPart0.Tree := nNoName;
+ ;
+} .
+ExternPart0 : EXTERN Names OptSemiColon { $$.ExternPart0.Tree := ReverseTree ($2.Names.Tree);
+ ;
+} .
+ExternPart : { $$.ExternPart.Tree := nNoName;
+ ;
+} .
+ExternPart : EXTERN Names ';' { $$.ExternPart.Tree := ReverseTree ($2.Names.Tree);
+ ;
+} .
+Names : { $$.Names.Tree := nNoName;
+ ;
+} .
+Names : Names ',' {$$.Names.Tree := $1.Names.Tree;
+} .
+Names : Names Name0 { $$.Names.Tree := mName ($2.Name0.Id, $2.Name0.Position, $1.Names.Tree);
+ ;
+} .
+Codes : { $$.Codes.Tree := mCodes();
+ ;
+} .
+Codes : Codes 'SPECWITH' TargetBlock { $$.Codes.Tree := $1.Codes.Tree;
+            $$.Codes.Tree^.Codes.SpecWith     := $3.Scan.TargetBlock.Text;
+            $$.Codes.Tree^.Codes.SpecWithLine := $3.Scan.Position; ;
+ ;
+} .
+Codes : Codes 'BODYWITH' TargetBlock { $$.Codes.Tree := $1.Codes.Tree;
+            $$.Codes.Tree^.Codes.BodyWith     := $3.Scan.TargetBlock.Text;
+            $$.Codes.Tree^.Codes.BodyWithLine := $3.Scan.Position; ;
+ ;
+} .
+Codes : Codes 'EXPORT' TargetBlock { $$.Codes.Tree := $1.Codes.Tree;
+            $$.Codes.Tree^.Codes.Export     := $3.Scan.TargetBlock.Text;
+            $$.Codes.Tree^.Codes.ExportLine := $3.Scan.Position; ;
+ ;
+} .
+Codes : Codes 'IMPORT' TargetBlock { $$.Codes.Tree := $1.Codes.Tree;
+            $$.Codes.Tree^.Codes.Import     := $3.Scan.TargetBlock.Text;
+            $$.Codes.Tree^.Codes.ImportLine := $3.Scan.Position; ;
+ ;
+} .
+Codes : Codes 'GLOBAL' TargetBlock { $$.Codes.Tree := $1.Codes.Tree;
+            $$.Codes.Tree^.Codes.Global     := $3.Scan.TargetBlock.Text;
+            $$.Codes.Tree^.Codes.GlobalLine := $3.Scan.Position; ;
+ ;
+} .
+Codes : Codes 'BEGIN' TargetBlock { $$.Codes.Tree := $1.Codes.Tree;
+            $$.Codes.Tree^.Codes.Begin      := $3.Scan.TargetBlock.Text;
+            $$.Codes.Tree^.Codes.BeginLine  := $3.Scan.Position; ;
+ ;
+} .
+Codes : Codes 'CLOSE' TargetBlock { $$.Codes.Tree := $1.Codes.Tree;
+            $$.Codes.Tree^.Codes.Close      := $3.Scan.TargetBlock.Text;
+            $$.Codes.Tree^.Codes.CloseLine  := $3.Scan.Position; ;
+ ;
+} .
+Routines : { $$.Routines.Tree := mNoRoutine ();
+ ;
+} .
+Routines : Routines PROCEDURE Name0 '(' Parameters OutParameters ')' ExternPart LocalCode Rules { $$.Routines.Tree := mProcedure ($1.Routines.Tree, $3.Name0.Id, $3.Name0.Position,
+               $5.Parameters.Tree, $6.OutParameters.Tree, $8.ExternPart.Tree, $9.LocalCode.Text,
+               $9.LocalCode.Position, ReverseTree ($10.Rules.Tree));
+ ;
+} .
+Routines : Routines 'FUNCTION' Name0 '(' Parameters OutParameters ')' Type ExternPart LocalCode Rules { $$.Routines.Tree := mFunction ($1.Routines.Tree, $3.Name0.Id, $3.Name0.Position,
+               $5.Parameters.Tree, $6.OutParameters.Tree, $9.ExternPart.Tree, $10.LocalCode.Text,
+               $10.LocalCode.Position, ReverseTree ($11.Rules.Tree),
+               mParam (FALSE, NoIdent, $8.Type.Tree^.Type.Pos, $8.Type.Tree, nNoParameter));
+ ;
+} .
+Routines : Routines 'FUNCTION' Name0 '(' Parameters OutParameters ')' ':' Type ExternPart LocalCode Rules { $$.Routines.Tree := mFunction ($1.Routines.Tree, $3.Name0.Id, $3.Name0.Position,
+               $5.Parameters.Tree, $6.OutParameters.Tree, $10.ExternPart.Tree, $11.LocalCode.Text,
+               $11.LocalCode.Position, ReverseTree ($12.Rules.Tree),
+               mParam (FALSE, NoIdent, $8.Scan.Position, $9.Type.Tree, nNoParameter));
+ ;
+} .
+Routines : Routines PREDICATE Name0 '(' Parameters OutParameters ')' ExternPart LocalCode Rules { $$.Routines.Tree := mPredicate ($1.Routines.Tree, $3.Name0.Id, $3.Name0.Position,
+               $5.Parameters.Tree, $6.OutParameters.Tree, $8.ExternPart.Tree, $9.LocalCode.Text,
+               $9.LocalCode.Position, ReverseTree ($10.Rules.Tree));
+ ;
+} .
+OutParameters : { $$.OutParameters.Tree := nNoParameter;
+ ;
+} .
+OutParameters : '=>' Parameters {$$.OutParameters.Tree := $2.Parameters.Tree;
+} .
+Parameters : { $$.Parameters.Tree := nNoParameter;
+ ;
+} PREC HIGH .
+Parameters : Mode Ident ':' Type { $$.Parameters.Tree := mParam ($1.Mode.IsRef, $2.Scan.Ident.Ident, $2.Scan.Position, $4.Type.Tree, nNoParameter);
+ ;
+} .
+Parameters : Mode Type { ArrayToString ("yyP", String1); INC (NameCount);
+               IntToString (NameCount, String2); Concatenate (String1, String2);
+               $$.Parameters.Tree := mParam ($1.Mode.IsRef, MakeIdent (String1), NoPosition, $2.Type.Tree, nNoParameter); ;
+ ;
+} .
+Parameters : Mode Ident ':' Type ',' Parameters { $$.Parameters.Tree := mParam ($1.Mode.IsRef, $2.Scan.Ident.Ident, $2.Scan.Position, $4.Type.Tree, $6.Parameters.Tree);
+ ;
+} .
+Parameters : Mode Type ',' Parameters { ArrayToString ("yyP", String1); INC (NameCount);
+               IntToString (NameCount, String2); Concatenate (String1, String2);
+               $$.Parameters.Tree := mParam ($1.Mode.IsRef, MakeIdent (String1), NoPosition, $2.Type.Tree, $4.Parameters.Tree); ;
+ ;
+} .
+Parameters : Mode Ident ':' Type ';' Parameters { $$.Parameters.Tree := mParam ($1.Mode.IsRef, $2.Scan.Ident.Ident, $2.Scan.Position, $4.Type.Tree, $6.Parameters.Tree);
+ ;
+} .
+Parameters : Mode Type ';' Parameters { ArrayToString ("yyP", String1); INC (NameCount);
+               IntToString (NameCount, String2); Concatenate (String1, String2);
+               $$.Parameters.Tree := mParam ($1.Mode.IsRef, MakeIdent (String1), NoPosition, $2.Type.Tree, $4.Parameters.Tree); ;
+ ;
+} .
+Mode : { $$.Mode.IsRef := FALSE ;
+ ;
+} .
+Mode : REF { $$.Mode.IsRef := TRUE ;
+ ;
+} .
+Declarations : Ident ':' Type { Warning ( "VAR needed" , $1.Scan.Position ) ;  
+                   $$.Declarations.Tree := mParam 
+                     ( FALSE , $1.Scan.Ident.Ident , $1.Scan.Position
+                     , $3.Type.Tree , nNoParameter
+                     ) ; 
+                 ;
+  
+          ;
+} .
+Declarations : Ident ':' Type ',' Declarations { Warning ( "VAR needed" , $1.Scan.Position ) ;  
+              $$.Declarations.Tree := mParam 
+                   ( FALSE , $1.Scan.Ident.Ident , $1.Scan.Position , $3.Type.Tree
+                   , $5.Declarations.Tree
+                   ) ;
+            ;
+  
+          ;
+} .
+Declarations : 'VAR' Ident ':' Type { $$.Declarations.Tree := mParam (FALSE, $2.Scan.Ident.Ident, $2.Scan.Position, $4.Type.Tree, nNoParameter);
+ ;
+} .
+Declarations : 'VAR' Ident ':' Type ',' Declarations { $$.Declarations.Tree := mParam (FALSE, $2.Scan.Ident.Ident, $2.Scan.Position, $4.Type.Tree, $6.Declarations.Tree);
+ ;
+} .
+Type : Ident { $$.Type.Tree := mType ($1.Scan.Ident.Ident, $1.Scan.Position, nNoName);
+ ;
+} .
+Type : Ident '.' Name0 { $$.Type.Tree := mType ($1.Scan.Ident.Ident, $1.Scan.Position, mName ($3.Name0.Id, $3.Name0.Position, nNoName));
+ ;
+} .
+Type : '[' Names ']' { $$.Type.Tree := mType (NoIdent, $1.Scan.Position, ReverseTree ($2.Names.Tree));
+ ;
+} .
+Type : Ident '.' '[' Names ']' { $$.Type.Tree := mType ($1.Scan.Ident.Ident, $1.Scan.Position, ReverseTree ($4.Names.Tree));
+ ;
+} .
+LocalCode : { MakeText ($$.LocalCode.Text); ;
+ $$.LocalCode.Position := NoPosition;
+ ;
+} .
+LocalCode : 'LOCAL' TargetBlock xx140 { $$.LocalCode := $3.LocalCode;
+$$.LocalCode.Position := $2.Scan.Position;
+} .
+xx140 : {$$.LocalCode.Text := $0.Scan.TargetBlock.Text;
+} .
+Rules : { $$.Rules.Tree := nNoRule;
+ ;
+} .
+Rules : Rules SetLine Patterns2 '.' { $$.Rules.Tree := mRules (Line, $3.Patterns2.Tree, mNoExpr ($4.Scan.Position),
+                   mNoExpr ($4.Scan.Position), nNoStatement, $1.Rules.Tree);
+ ;
+} .
+Rules : Rules SetLine Patterns '?' Statements '.' { $$.Rules.Tree := mRules (Line, $3.Patterns.Tree, mNoExpr ($6.Scan.Position),
+                   mNoExpr ($6.Scan.Position), ReverseTree ($5.Statements.Tree), $1.Rules.Tree);
+ ;
+} .
+Rules : Rules SetLine Patterns '=>' Exprs2 '.' { $$.Rules.Tree := mRules (Line, $3.Patterns.Tree, $5.Exprs2.Tree, mNoExpr ($6.Scan.Position),
+                   nNoStatement, $1.Rules.Tree);
+ ;
+} .
+Rules : Rules SetLine Patterns RETURN Expr ';' '.' { $$.Rules.Tree := mRules (Line, $3.Patterns.Tree, mNoExpr ($7.Scan.Position), $5.Expr.Tree,
+                   nNoStatement, $1.Rules.Tree);
+ ;
+} .
+Rules : Rules SetLine Patterns '=>' Exprs '?' Statements '.' { $$.Rules.Tree := mRules (Line, $3.Patterns.Tree, $5.Exprs.Tree, mNoExpr ($8.Scan.Position),
+                   ReverseTree ($7.Statements.Tree), $1.Rules.Tree);
+ ;
+} .
+Rules : Rules SetLine Patterns '?' Statements '=>' Exprs2 '.' { $$.Rules.Tree := mRules (Line, $3.Patterns.Tree, $7.Exprs2.Tree, mNoExpr ($8.Scan.Position),
+                   ReverseTree ($5.Statements.Tree), $1.Rules.Tree);
+ ;
+} .
+Rules : Rules SetLine Patterns '=>' Exprs RETURN Expr ';' '.' { $$.Rules.Tree := mRules (Line, $3.Patterns.Tree, $5.Exprs.Tree, $7.Expr.Tree,
+                   nNoStatement, $1.Rules.Tree);
+ ;
+} .
+Rules : Rules SetLine Patterns RETURN Expr OptSemiColon '?' Statements '.' { $$.Rules.Tree := mRules (Line, $3.Patterns.Tree, mNoExpr ($9.Scan.Position), $5.Expr.Tree,
+                   ReverseTree ($8.Statements.Tree), $1.Rules.Tree);
+ ;
+} .
+Rules : Rules SetLine Patterns '?' Statements RETURN Expr ';' '.' { $$.Rules.Tree := mRules (Line, $3.Patterns.Tree, mNoExpr ($9.Scan.Position), $7.Expr.Tree,
+                   ReverseTree ($5.Statements.Tree), $1.Rules.Tree);
+ ;
+} .
+Rules : Rules SetLine Patterns '=>' Exprs RETURN Expr OptSemiColon '?' Statements '.' { $$.Rules.Tree := mRules (Line, $3.Patterns.Tree, $5.Exprs.Tree, $7.Expr.Tree,
+                   ReverseTree ($10.Statements.Tree), $1.Rules.Tree);
+ ;
+} .
+Rules : Rules SetLine Patterns '=>' Exprs '?' Statements RETURN Expr ';' '.' { $$.Rules.Tree := mRules (Line, $3.Patterns.Tree, $5.Exprs.Tree, $9.Expr.Tree,
+                   ReverseTree ($7.Statements.Tree), $1.Rules.Tree);
+ ;
+} .
+Rules : Rules SetLine Patterns '?' Statements '=>' Exprs RETURN Expr ';' '.' { $$.Rules.Tree := mRules (Line, $3.Patterns.Tree, $7.Exprs.Tree, $9.Expr.Tree,
+                   ReverseTree ($5.Statements.Tree), $1.Rules.Tree);
+ ;
+} .
+SetLine : { ;
+ Line := Attribute.Position; ;
+ ;
+} .
+OptSemiColon : .
+OptSemiColon : ';' .
+Patterns : Exprs { $$.Patterns.Tree := mOnePatternsList ($1.Exprs.Tree, nNoPatternsList);
+ ;
+} .
+Patterns : Exprs ';' Patterns { $$.Patterns.Tree := mOnePatternsList ($1.Exprs.Tree, $3.Patterns.Tree);
+ ;
+} .
+Patterns2 : Exprs ';' { $$.Patterns2.Tree := mOnePatternsList ($1.Exprs.Tree, nNoPatternsList);
+ ;
+} .
+Patterns2 : Exprs ';' Patterns2 { $$.Patterns2.Tree := mOnePatternsList ($1.Exprs.Tree, $3.Patterns2.Tree);
+ ;
+} .
+Exprs : '..' { $$.Exprs.Tree := mOneExpr (mDontCareExplicit ($1.Scan.Position), mNoExpr (Attribute.Position));
+ ;
+} .
+Exprs : '..' ',' { $$.Exprs.Tree := mOneExpr (mDontCareExplicit ($1.Scan.Position), mNoExpr (Attribute.Position));
+ ;
+} .
+Exprs : Expr { $$.Exprs.Tree := mOneExpr ($1.Expr.Tree, mNoExpr (Attribute.Position));
+ ;
+} .
+Exprs : Expr ',' Exprs { $$.Exprs.Tree := mOneExpr ($1.Expr.Tree, $3.Exprs.Tree);
+ ;
+} .
+Exprs : NamedExprs {$$.Exprs.Tree := $1.NamedExprs.Tree;
+} .
+NamedExprs : { $$.NamedExprs.Tree := mNoExpr (Attribute.Position);
+ ;
+} .
+NamedExprs : '..' { $$.NamedExprs.Tree := mOneExpr (mDontCareExplicit ($1.Scan.Position), mNoExpr (Attribute.Position));
+ ;
+} .
+NamedExprs : '..' ',' { $$.NamedExprs.Tree := mOneExpr (mDontCareExplicit ($1.Scan.Position), mNoExpr (Attribute.Position));
+ ;
+} .
+NamedExprs : Ident ':=' Expr { $$.NamedExprs.Tree 
+              := mNamedExpr 
+                   ( $3.Expr.Tree
+                   , mNoExpr ( Attribute . Position )
+                   , $1.Scan.Ident.Ident
+                   , $1.Scan.Position 
+                   ) ;
+ 
+          ;
+} .
+NamedExprs : Ident ':=' Expr ',' NamedExprs { $$.NamedExprs.Tree 
+              := mNamedExpr 
+                   ( $3.Expr.Tree
+                   , $5.NamedExprs.Tree
+                   , $1.Scan.Ident.Ident
+                   , $1.Scan.Position 
+                   ) ;
+ 
+          ;
+} .
+Exprs2 : '..' { $$.Exprs2.Tree := mOneExpr (mDontCareExplicit ($1.Scan.Position), mNoExpr (Attribute.Position));
+ ;
+} .
+Exprs2 : '..' ',' { $$.Exprs2.Tree := mOneExpr (mDontCareExplicit ($1.Scan.Position), mNoExpr (Attribute.Position));
+ ;
+} .
+Exprs2 : Expr ',' Exprs2 { $$.Exprs2.Tree := mOneExpr ($1.Expr.Tree, $3.Exprs2.Tree);
+ ;
+} .
+Exprs2 : NamedExprs2 {$$.Exprs2.Tree := $1.NamedExprs2.Tree;
+} .
+NamedExprs2 : { $$.NamedExprs2.Tree := mNoExpr (Attribute.Position);
+ ;
+} .
+NamedExprs2 : '..' { $$.NamedExprs2.Tree := mOneExpr (mDontCareExplicit ($1.Scan.Position), mNoExpr (Attribute.Position));
+ ;
+} .
+NamedExprs2 : '..' ',' { $$.NamedExprs2.Tree := mOneExpr (mDontCareExplicit ($1.Scan.Position), mNoExpr (Attribute.Position));
+ ;
+} .
+NamedExprs2 : Ident ':=' Expr ',' NamedExprs2 { $$.NamedExprs2.Tree 
+              := mNamedExpr 
+                   ( $3.Expr.Tree 
+                   , $5.NamedExprs2.Tree
+                   , $1.Scan.Ident.Ident
+                   , $1.Scan.Position 
+                   ) ;
+ 
+          ;
+} .
+Expr : PrefixExpr {$$.Expr.Tree := $1.PrefixExpr.Tree;
+} .
+Expr : Expr Operator PrefixExpr { $$.Expr.Tree 
+              := mBinary 
+                   ( $2.Scan.Position
+                   ,  NoIdent
+                   , $1.Expr.Tree
+                   , $2.Scan.Operator.Ident
+                   , $3.PrefixExpr.Tree
+                   ,  FALSE 
+                   ) ;
+ 
+          ;
+} .
+Expr : Expr Operator CompoundOperator PrefixExpr { $$.Expr.Tree 
+              := mBinaryCompound 
+                   ( $2.Scan.Position
+                   ,  NoIdent
+                   , $1.Expr.Tree 
+                   , $2.Scan.Operator.Ident
+                   , $4.PrefixExpr.Tree 
+                   ,  FALSE 
+                   , $3.Scan.CompoundOperator.Ident 
+                   ) ;
+ 
+          ;
+} .
+PrefixExpr : PostfixExpr {$$.PrefixExpr.Tree := $1.PostfixExpr.Tree;
+} .
+PrefixExpr : Ident ':' PostfixExpr { $$.PrefixExpr.Tree := $3.PostfixExpr.Tree ;
+                   IF IsType ( $$.PrefixExpr.Tree , DontCare1 ) 
+                   THEN  
+                     $$.PrefixExpr.Tree ^ . DontCare1 . Selector := $1.Scan.Ident.Ident ;
+                   ELSIF IsType ( $$.PrefixExpr.Tree , Expr ) 
+                   THEN 
+                     $$.PrefixExpr.Tree ^ . Expr . Selector := $1.Scan.Ident.Ident ;
+                   ELSE 
+                     CantHappenPos 
+                       ( "Parser, Label on bad subtree." 
+                       , $2.Scan.Position 
+                       ) 
+                   END  ;   
+                 ;
+ 
+          ;
+} .
+PrefixExpr : Ident ':>' PostfixExpr { $$.PrefixExpr.Tree := $3.PostfixExpr.Tree ;
+                   IF IsType ( $$.PrefixExpr.Tree , DontCare1 ) 
+                   THEN  
+                     $$.PrefixExpr.Tree ^ . DontCare1 . Selector := $1.Scan.Ident.Ident ;
+                   ELSIF IsType ( $$.PrefixExpr.Tree , Expr ) 
+                   THEN 
+                     $$.PrefixExpr.Tree ^ . Expr . Selector := $1.Scan.Ident.Ident ;
+                   ELSE 
+                     CantHappenPos 
+                       ( "Parser, Label on bad subtree." 
+                       , $2.Scan.Position 
+                       ) 
+                   END  ;   
+                   CASE $$.PrefixExpr.Tree ^ . Kind 
+                   OF Compose : $$.PrefixExpr.Tree ^ . Compose . Widen := TRUE
+                   | Nil : $$.PrefixExpr.Tree ^ . Nil . Widen := TRUE 
+                   | VarUse : $$.PrefixExpr.Tree ^ . VarUse . Widen := TRUE 
+                   | Binary : $$.PrefixExpr.Tree ^ . Binary . Widen := TRUE 
+                   | BinaryCompound : $$.PrefixExpr.Tree ^ . Binary . Widen := TRUE 
+                   | Index : $$.PrefixExpr.Tree ^ . Index . Widen := TRUE 
+                   ELSE 
+                   END  
+                 ;
+ 
+          ;
+} .
+PrefixExpr : Operator PrefixExpr { $$.PrefixExpr.Tree 
+              := mPreOperator 
+                   ( $1.Scan.Position
+                   ,  NoIdent
+                   , $1.Scan.Operator.Ident
+                   , $2.PrefixExpr.Tree
+                   ) ;
+ 
+          ;
+} .
+PrefixExpr : IncOperator PrefixExpr { $$.PrefixExpr.Tree 
+              := mPreOperator 
+                   ( $1.Scan.Position
+                   ,  NoIdent
+                   , $1.Scan.IncOperator.Ident
+                   , $2.PrefixExpr.Tree
+                   ) ;
+ 
+          ;
+} .
+PostfixExpr : PrimaryExpr {$$.PostfixExpr.Tree := $1.PrimaryExpr.Tree;
+} .
+PostfixExpr : '[' Exprs ']' { $$.PostfixExpr.Tree 
+              := mIndex 
+                   ( $1.Scan.Position
+                   ,  NoIdent
+                   , mVarUse ( NoPosition , NoIdent , NoIdent , FALSE ) 
+                   , $2.Exprs.Tree
+                   ,  FALSE 
+                   ) ;
+ 
+          ;
+} .
+PostfixExpr : PostfixExpr '[' Exprs ']' { $$.PostfixExpr.Tree 
+              := mIndex 
+                   ( $2.Scan.Position
+                   ,  NoIdent
+                   , $1.PostfixExpr.Tree
+                   , $3.Exprs.Tree
+                   ,  FALSE 
+                   ) ;
+ 
+          ;
+} .
+PostfixExpr : PostfixExpr '.' '[' Exprs ']' { $$.PostfixExpr.Tree 
+              := mIndex 
+                   ( $3.Scan.Position
+                   ,  NoIdent
+                   , $1.PostfixExpr.Tree
+                   , $4.Exprs.Tree
+                   ,  FALSE 
+                   ) ;
+ 
+          ;
+} .
+PostfixExpr : PostfixExpr '(' ')' { $$.PostfixExpr.Tree 
+              := mCompose 
+                   ( $2.Scan.Position
+                   ,  NoIdent 
+                   , $1.PostfixExpr.Tree
+                   , mNoExpr ( $2.Scan.Position ) 
+                   ,  FALSE 
+                   ) ;
+ 
+          ;
+} .
+PostfixExpr : PostfixExpr '(' Exprs ')' { $$.PostfixExpr.Tree 
+              := mCompose 
+                   ( $2.Scan.Position
+                   ,  NoIdent 
+                   , $1.PostfixExpr.Tree
+                   , $3.Exprs.Tree
+                   ,  FALSE 
+                   ) ;
+ 
+          ;
+} .
+PostfixExpr : PostfixExpr '(' Exprs '=>' Exprs ')' { $$.PostfixExpr.Tree 
+              := mCall 
+                   ( $2.Scan.Position
+                   ,  NoIdent
+                   , $1.PostfixExpr.Tree
+                   , $3.Exprs.Tree
+                   , $5.Exprs.Tree
+                   ) ;
+ 
+          ;
+} .
+PostfixExpr : PostfixExpr '.' Ident { ArrayToString ( "." , String1 ) ;
+                   $$.PostfixExpr.Tree 
+                     := mBinary 
+                          ( $2.Scan.Position
+                          ,  NoIdent
+                          , $1.PostfixExpr.Tree 
+                          , MakeIdent (String1)
+                          , mVarUse 
+                              ( $3.Scan.Position 
+                              ,  NoIdent 
+                              , $3.Scan.Ident.Ident
+                              ,  FALSE
+                              )
+                          ,  FALSE 
+                          ) ; 
+                 ;
+ 
+          ;
+} .
+PostfixExpr : PostfixExpr '->' Ident { ArrayToString  ( "->" , String1 ) ;
+                   $$.PostfixExpr.Tree 
+                     := mBinary 
+                          ( $2.Scan.Position
+                          ,  NoIdent
+                          , $1.PostfixExpr.Tree
+                          , MakeIdent ( String1 )
+                          , mVarUse 
+                              ( $3.Scan.Position
+                              ,  NoIdent 
+                              , $3.Scan.Ident.Ident
+                              ,  FALSE
+                              )
+                          ,  FALSE 
+                          ) ; 
+                 ;
+ 
+          ;
+} .
+PostfixExpr : PostfixExpr '^' { ArrayToString ( "^" , String1 ) ;
+                   $$.PostfixExpr.Tree 
+                     := mPostOperator 
+                          ( $2.Scan.Position
+                          ,  NoIdent
+                          , MakeIdent ( String1 )
+                          , $1.PostfixExpr.Tree
+                          ) ; 
+                  ;
+ 
+          ;
+} .
+PostfixExpr : PostfixExpr IncOperator { $$.PostfixExpr.Tree 
+              := mPostOperator 
+                   ( $2.Scan.Position
+                   ,  NoIdent
+                   , $2.Scan.IncOperator.Ident
+                   , $1.PostfixExpr.Tree
+                   ) ;
+ 
+          ;
+} .
+PrimaryExpr : Ident { $$.PrimaryExpr.Tree := mVarUse ($1.Scan.Position, NoIdent, $1.Scan.Ident.Ident, FALSE );
+ ;
+} .
+PrimaryExpr : Ident ':' { $$.PrimaryExpr.Tree := mVarUse ($1.Scan.Position, $1.Scan.Ident.Ident, NoIdent, FALSE );
+ ;
+} .
+PrimaryExpr : Ident ':>' { $$.PrimaryExpr.Tree := mVarUse ($1.Scan.Position, $1.Scan.Ident.Ident, NoIdent, TRUE );
+ ;
+} .
+PrimaryExpr : NIL { $$.PrimaryExpr.Tree := mNil ( $1.Scan.Position , NoIdent , FALSE ) ;
+ ;
+} .
+PrimaryExpr : '_' { $$.PrimaryExpr.Tree := mDontCare1Explicit ( $1.Scan.Position , NoIdent ) ;
+ ;
+} .
+PrimaryExpr : Number { $$.PrimaryExpr.Tree 
+              := mTargetExpr 
+                   ( $1.Scan.Position
+                   , mAny ( $1.Scan.Number.StringRef , nNoDesignator )
+                   ) 
+        ;
+ ;
+} .
+PrimaryExpr : String { $$.PrimaryExpr.Tree 
+              := mStringExpr 
+                   ( $1.Scan.Position 
+                   ,  NoIdent 
+                   , $1.Scan.String.StringRef 
+                   ) ;
+ 
+          ;
+} .
+PrimaryExpr : Ident '::' Ident { $$.PrimaryExpr.Tree 
+              := mAttrDesc 
+                   ( $1.Scan.Position
+                   ,  NoIdent 
+                   , $1.Scan.Ident.Ident
+                   ,  FALSE
+                   , $3.Scan.Ident.Ident
+                   , $3.Scan.Position
+                   ) ;
+ 
+          ;
+} .
+PrimaryExpr : '{' TargetCodes '}' { $$.PrimaryExpr.Tree 
+              := mTargetExpr 
+                   ( $1.Scan.Position
+                   , ReverseTree ( $2.TargetCodes.Tree )
+                   );
+ 
+          ;
+} PREC '{' .
+PrimaryExpr : '(' Expr ')' { $$.PrimaryExpr.Tree 
+               := mParents 
+                    ( $1.Scan.Position ,  NoIdent , $2.Expr.Tree ) ;
+ 
+          ;
+} .
+Statements : { $$.Statements.Tree := nNoStatement;
+ ;
+} .
+Statements : Statements Expr ';' { $$.Statements.Tree := mProcCall ($2.Expr.Tree^.Expr.Pos, $1.Statements.Tree, $2.Expr.Tree);
+ ;
+} .
+Statements : Statements Expr ':=' Expr ';' { $$.Statements.Tree := mAssignment ($3.Scan.Position, $1.Statements.Tree, $2.Expr.Tree, $4.Expr.Tree);
+ ;
+} .
+Statements : Statements REJECT { $$.Statements.Tree := mReject ($2.Scan.Position, $1.Statements.Tree);
+ ;
+} .
+Statements : Statements FAIL { $$.Statements.Tree := mFail ($2.Scan.Position, $1.Statements.Tree);
+ ;
+} .
+Statements : Statements Declarations ';' { $$.Statements.Tree := mTargetStmt ($2.Declarations.Tree^.Param.Pos, $1.Statements.Tree, $2.Declarations.Tree, nNoDesignator);
+ ;
+} .
+Statements : Statements '{' TargetCodes '}' ';' { $$.Statements.Tree := mTargetStmt ($2.Scan.Position, $1.Statements.Tree, nNoParameter, ReverseTree ($3.TargetCodes.Tree));
+ ;
+} .
+Statements : Statements NL { $$.Statements.Tree := mNl ($2.Scan.Position, $1.Statements.Tree);
+ ;
+} .
+Statements : Statements ';' { $$.Statements.Tree  :=  $1.Statements.Tree;
+ ;
+} .
+TargetCodes : { $$.TargetCodes.Tree := nNoDesignator;
+ ;
+} .
+TargetCodes : TargetCodes Name1 Space '::' Space Ident { $$.TargetCodes.Tree 
+              := mDesignator 
+                   ( $2.Name1.Id 
+                   , $6.Scan.Ident.Ident 
+                   , $2.Name1.Position
+                   , $6.Scan.Position
+                   , $1.TargetCodes.Tree
+                   ) ;
+ 
+          ;
+} .
+TargetCodes : TargetCodes Name1 Space '::' Space {
+            $$.TargetCodes.Tree := mIdent ($2.Name1.Id, $2.Name1.Position, $1.TargetCodes.Tree);
+            $$.TargetCodes.Tree := mAnys (ReverseTree ($3.Space.Tree), $$.TargetCodes.Tree);
+            $$.TargetCodes.Tree := mAny ($4.Scan.yy10.StringRef, $$.TargetCodes.Tree);
+            $$.TargetCodes.Tree := mAnys (ReverseTree ($5.Space.Tree), $$.TargetCodes.Tree); ;
+ ;
+} .
+TargetCodes : TargetCodes '.' Space Ident {
+            $$.TargetCodes.Tree := mAny ($2.Scan.yy11.StringRef, $1.TargetCodes.Tree); 
+            $$.TargetCodes.Tree := mAnys (ReverseTree ($3.Space.Tree), $$.TargetCodes.Tree);
+            $$.TargetCodes.Tree := mAny ( GetStringRef ( $4.Scan.Ident.Ident ) , $$.TargetCodes.Tree); 
+          ;
+ ;
+} .
+TargetCodes : TargetCodes '.' Space TargetCode { 
+              $$.TargetCodes.Tree := mAny ( $2.Scan.yy11.StringRef , $1.TargetCodes.Tree ) ;  
+              $$.TargetCodes.Tree := mAnys (ReverseTree ($3.Space.Tree), $$.TargetCodes.Tree);
+              $$.TargetCodes.Tree := mAny ( $4.Scan.TargetCode.StringRef , $$.TargetCodes.Tree ) ; 
+            ;
+ 
+          ;
+} .
+TargetCodes : TargetCodes '->' Space Ident {
+            $$.TargetCodes.Tree := mAny ($2.Scan.yy12.StringRef, $1.TargetCodes.Tree); 
+            $$.TargetCodes.Tree := mAnys (ReverseTree ($3.Space.Tree), $$.TargetCodes.Tree);
+            $$.TargetCodes.Tree := mAny ( GetStringRef ( $4.Scan.Ident.Ident ) , $$.TargetCodes.Tree); 
+          ;
+ ;
+} .
+TargetCodes : TargetCodes '->' Space TargetCode { 
+              $$.TargetCodes.Tree := mAny ( $2.Scan.yy12.StringRef , $1.TargetCodes.Tree ) ;  
+              $$.TargetCodes.Tree := mAnys (ReverseTree ($3.Space.Tree), $$.TargetCodes.Tree);
+              $$.TargetCodes.Tree := mAny ( $4.Scan.TargetCode.StringRef , $$.TargetCodes.Tree ) ; 
+            ;
+ 
+          ;
+} .
+TargetCodes : TargetCodes Name1 Space {
+            $$.TargetCodes.Tree := mIdent ($2.Name1.Id, $2.Name1.Position, $1.TargetCodes.Tree);
+            $$.TargetCodes.Tree := mAnys (ReverseTree ($3.Space.Tree), $$.TargetCodes.Tree); ;
+ ;
+} .
+TargetCodes : TargetCodes '::' { $$.TargetCodes.Tree := mAny ($2.Scan.yy10.StringRef, $1.TargetCodes.Tree);
+ ;
+} .
+TargetCodes : TargetCodes TargetCode { $$.TargetCodes.Tree := mAny ($2.Scan.TargetCode.StringRef, $1.TargetCodes.Tree);
+ ;
+} .
+TargetCodes : TargetCodes WhiteSpace { $$.TargetCodes.Tree := mAny ($2.Scan.WhiteSpace.StringRef, $1.TargetCodes.Tree);
+ ;
+} .
+Name0 : Ident { $$.Name0.Id           :=  $1.Scan.Ident.Ident;
+
+            $$.Name0.Position     :=  $1.Scan.Position;
+ ;
+} .
+Name0 : String { GetString ($1.Scan.String.StringRef, String1);
+                             SubString (String1, 2, Length (String1) - 1, String2);
+                             $$.Name0.Id := MakeIdent (String2); ;
+
+            $$.Name0.Position     :=  $1.Scan.Position;
+ ;
+} .
+Name1 : Ident { $$.Name1.Id   :=  $1.Scan.Ident.Ident;
+
+            $$.Name1.Position     :=  $1.Scan.Position;
+ ;
+} .
+Name1 : String { GetString ($1.Scan.String.StringRef, String1); $$.Name1.Id := MakeIdent (String1); ;
+
+            $$.Name1.Position     :=  $1.Scan.Position;
+ ;
+} .
+Space : { $$.Space.Tree := nNoLayout;
+ ;
+} .
+Space : Space WhiteSpace { $$.Space.Tree := mLayoutAny ($2.Scan.WhiteSpace.StringRef, $1.Space.Tree);
+ ;
+} .

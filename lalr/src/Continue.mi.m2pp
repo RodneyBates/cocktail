@@ -1,0 +1,137 @@
+(* compute continuation for error recovery *) 
+(* $Id: Continue.mi,v 1.3 1991/11/21 14:53:14 grosch rel $ *) 
+(* $Log: Continue.mi,v $ 
+ * Revision 1.3  1991/11/21  14:53:14  grosch 
+ * new version of RCS on SPARC 
+ * 
+ * Revision 1.2  91/01/18  20:33:16  grosch 
+ * fixed problem with Continuation 
+ * 
+ * Revision 1.1  90/06/12  16:53:51  grosch 
+ * renamed main program to lalr, added { } for actions, layout improvements 
+ * 
+ * Revision 1.0  88/10/04  14:36:02  vielsack 
+ * Initial revision 
+ * 
+ *) 
+IMPLEMENTATION MODULE Continue 
+; FROM Automaton 
+  IMPORT tIndex , Infinite , tProduction , tProdIndex , ProdArrayPtr 
+  , ProdIndex 
+  , NextProdIndex , tStateKind , tStateIndex , StateArrayPtr , StateIndex 
+  , tRep , tItemIndex , ItemArrayPtr , ItemIndex 
+; FROM DynArray IMPORT MakeArray 
+; FROM Gen IMPORT ElmtSize , Continuation , ContinuationCount , LastReadState 
+; FROM Sets IMPORT Select 
+; FROM SYSTEM IMPORT ADR , TSIZE 
+; FROM TokenTab 
+  IMPORT MINTerm , MAXTerm , MINNonTerm , MAXNonTerm , Vocabulary 
+  , NonTerminal 
+
+; PROCEDURE MakeContinuation 
+
+  ; VAR state , maxState : tStateIndex 
+    ; MinProdNo : tIndex 
+    ; i : tIndex 
+    ; item , BestItem : tItemIndex 
+    ; prod : tProduction 
+
+  ; BEGIN (* MakeContinuation *) 
+      ContinuationCount := LastReadState + 1 
+    ; MakeArray ( Continuation , ContinuationCount , ElmtSize ) 
+    ; Continuation ^ [ 0 ] := 0 
+      (* Betrachte alle Zustaende *) 
+    ; maxState := StateIndex 
+    ; FOR state := 1 TO maxState 
+      DO 
+        WITH StateArrayPtr ^ [ state ] 
+        DO 
+          IF Kind = sRead 
+          THEN                  (* Read Zustaende *) 
+            MinProdNo := Infinite 
+          ; item := Items 
+          ; LOOP 
+              IF item >= Items + Size THEN EXIT END (* IF *) 
+            ; WITH ItemArrayPtr ^ [ item ] 
+              DO 
+              (* Nur Terminaluebergaenge und Reduktionen *) 
+                IF ( ItemArrayPtr ^ [ RepNo ] . Rep = TermRep ) 
+                   OR ( ItemArrayPtr ^ [ RepNo ] . Rep = RedRep ) 
+                THEN 
+                  prod := ADR ( ProdArrayPtr ^ [ Prod ] ) 
+                ; WITH prod ^ 
+                  DO 
+                    IF ProdNo < MinProdNo 
+                    THEN 
+                      MinProdNo := ProdNo 
+                    ; BestItem := RepNo 
+                    ; EXIT 
+                    END (* IF *) 
+                  END (* WHILE *) 
+                END (* IF *) 
+              END (* WHILE *) 
+            ; INC ( item ) 
+            END (* LOOP *) 
+          ; WITH ItemArrayPtr ^ [ BestItem ] 
+            DO 
+              IF Rep = TermRep 
+              THEN 
+                Continuation ^ [ NewNumber ] := Read 
+              ELSE      (* Waehle ein beliebiges Element aus *) 
+                Continuation ^ [ NewNumber ] := Select ( Set ) 
+              END (* IF *) 
+            END (* WHILE *) 
+          END (* IF *) 
+        END (* WHILE *) 
+      END (* FOR *) 
+    END MakeContinuation 
+
+; PROCEDURE ValueNonterms 
+
+  ; VAR voc : Vocabulary 
+    ; prod : tProduction 
+    ; index , maxIndex : tProdIndex 
+    ; success : BOOLEAN 
+    ; value : tIndex 
+    ; i : tIndex 
+
+  ; BEGIN (* ValueNonterms *) 
+      FOR voc := MINNonTerm TO MAXNonTerm 
+      DO (* initialisieren *) 
+        Value [ voc ] := Infinite 
+      END (* FOR *) 
+    ; FOR voc := MINTerm TO MAXTerm DO Value [ voc ] := 1 END (* FOR *) 
+    ; maxIndex := ProdIndex 
+    ; REPEAT 
+        success := FALSE 
+      ; index := 0 
+      ; WHILE index < maxIndex 
+        DO 
+          prod := ADR ( ProdArrayPtr ^ [ index ] ) 
+        ; value := 0 
+        ; WITH prod ^ 
+          DO 
+            FOR i := 1 TO Len 
+            DO 
+              voc := Right [ i ] 
+            ; IF ( value = Infinite ) OR ( Value [ voc ] = Infinite ) 
+              THEN 
+                value := Infinite 
+              ELSE 
+                INC ( value , Value [ voc ] ) 
+              END (* IF *) 
+            END (* FOR *) 
+          ; IF Value [ Left ] > value 
+            THEN 
+              Value [ Left ] := value 
+            ; success := TRUE 
+            END (* IF *) 
+          END (* WHILE *) 
+        ; index := NextProdIndex ( index ) 
+        END (* WHILE *) 
+      UNTIL NOT success 
+    END ValueNonterms 
+
+; 
+END Continue 
+. 

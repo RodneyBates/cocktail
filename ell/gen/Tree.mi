@@ -1,0 +1,1066 @@
+IMPLEMENTATION MODULE Tree;
+
+
+
+IMPORT SYSTEM, System, General, Memory, DynArray, IO, Layout, StringMem, Strings, Idents, Texts, Sets, Positions;
+(* line 26 "../src/ell.ast" *)
+
+FROM Idents	IMPORT	WriteIdent, tIdent, MakeIdent, NoIdent;
+FROM Strings	IMPORT	tString, ArrayToString;
+FROM StringMem	IMPORT	tStringRef;
+FROM Positions	IMPORT	tPosition;
+FROM Info	IMPORT	WriteIdentSet;
+FROM IO		IMPORT	tFile, WriteS, WriteI;
+
+
+
+VAR String	: tString;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CONST yyBlockSize = 20480;
+
+TYPE
+ yytBlockPtr   = POINTER TO yytBlock;
+ yytBlock      = RECORD
+                    yyBlock    : ARRAY [1..yyBlockSize] OF CHAR;
+                    yySuccessor: yytBlockPtr;
+                 END;
+
+VAR yyBlockList        : yytBlockPtr;
+VAR yyMaxSize, yyi     : SHORTCARD;
+VAR yyTypeRange        : ARRAY [0..42] OF SHORTCARD;
+
+PROCEDURE yyAlloc (): tTree;
+ VAR yyBlockPtr        : yytBlockPtr;
+ BEGIN
+  yyBlockPtr   := yyBlockList;
+  yyBlockList  := Memory.Alloc (SYSTEM.TSIZE (yytBlock));
+  yyBlockList^.yySuccessor := yyBlockPtr;
+  yyPoolFreePtr        := SYSTEM.ADR (yyBlockList^.yyBlock);
+  yyPoolMaxPtr := yyPoolFreePtr + yyBlockSize - yyMaxSize + 1;
+  INC (HeapUsed, yyBlockSize);
+  RETURN yyPoolFreePtr;
+ END yyAlloc;
+
+PROCEDURE MakeTree (yyKind: SHORTCARD): tTree;
+ VAR yyByteCount       : LONGINT;
+ VAR yyt       : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [yyKind] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := yyKind;
+  RETURN yyt;
+ END MakeTree;
+
+PROCEDURE IsType (yyTree: tTree; yyKind: SHORTCARD): BOOLEAN;
+ BEGIN
+  RETURN (yyTree # NoTree) AND (yyKind <= yyTree^.Kind) AND (yyTree^.Kind <= yyTypeRange [yyKind]);
+ END IsType;
+
+
+PROCEDURE mGrammar (psections: tTree; ptokens: tTree; prules: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Grammar] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Grammar;
+  WITH yyt^.Grammar DO
+   sections := psections;
+   tokens := ptokens;
+   rules := prules;
+  END;
+  RETURN yyt;
+ END mGrammar;
+
+PROCEDURE msections (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [sections] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := sections;
+  RETURN yyt;
+ END msections;
+
+PROCEDURE mSections0 (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Sections0] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Sections0;
+  RETURN yyt;
+ END mSections0;
+
+PROCEDURE mSections (psections: tTree; psection: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Sections] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Sections;
+  WITH yyt^.Sections DO
+   sections := psections;
+   section := psection;
+  END;
+  RETURN yyt;
+ END mSections;
+
+PROCEDURE msection (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [section] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := section;
+  RETURN yyt;
+ END msection;
+
+PROCEDURE mExport (pcodes: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Export] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Export;
+  WITH yyt^.Export DO
+   codes := pcodes;
+  END;
+  RETURN yyt;
+ END mExport;
+
+PROCEDURE mGlobal (pcodes: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Global] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Global;
+  WITH yyt^.Global DO
+   codes := pcodes;
+  END;
+  RETURN yyt;
+ END mGlobal;
+
+PROCEDURE mLocal (pcodes: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Local] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Local;
+  WITH yyt^.Local DO
+   codes := pcodes;
+  END;
+  RETURN yyt;
+ END mLocal;
+
+PROCEDURE mBegin (pcodes: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Begin] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Begin;
+  WITH yyt^.Begin DO
+   codes := pcodes;
+  END;
+  RETURN yyt;
+ END mBegin;
+
+PROCEDURE mClose (pcodes: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Close] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Close;
+  WITH yyt^.Close DO
+   codes := pcodes;
+  END;
+  RETURN yyt;
+ END mClose;
+
+PROCEDURE mcodes (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [codes] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := codes;
+  RETURN yyt;
+ END mcodes;
+
+PROCEDURE mCodes0 (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Codes0] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Codes0;
+  RETURN yyt;
+ END mCodes0;
+
+PROCEDURE mCodes (pcodes: tTree; pcode: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Codes] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Codes;
+  WITH yyt^.Codes DO
+   codes := pcodes;
+   code := pcode;
+  END;
+  RETURN yyt;
+ END mCodes;
+
+PROCEDURE mCode (ppos: tPosition; pref: tStringRef): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Code] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Code;
+  WITH yyt^.Code DO
+   pos := ppos;
+   ref := pref;
+  END;
+  RETURN yyt;
+ END mCode;
+
+PROCEDURE mcode (ppos: tPosition; pref: tStringRef): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [code] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := code;
+  WITH yyt^.code DO
+   pos := ppos;
+   ref := pref;
+  END;
+  RETURN yyt;
+ END mcode;
+
+PROCEDURE mtokens (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [tokens] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := tokens;
+  RETURN yyt;
+ END mtokens;
+
+PROCEDURE mTokens0 (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Tokens0] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Tokens0;
+  RETURN yyt;
+ END mTokens0;
+
+PROCEDURE mTokens (ptokens: tTree; ptoken: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Tokens] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Tokens;
+  WITH yyt^.Tokens DO
+   tokens := ptokens;
+   token := ptoken;
+  END;
+  RETURN yyt;
+ END mTokens;
+
+PROCEDURE mToken (pid: tTree; pnumber: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Token] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Token;
+  WITH yyt^.Token DO
+   id := pid;
+   number := pnumber;
+  END;
+  RETURN yyt;
+ END mToken;
+
+PROCEDURE mtoken (pid: tTree; pnumber: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [token] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := token;
+  WITH yyt^.token DO
+   id := pid;
+   number := pnumber;
+  END;
+  RETURN yyt;
+ END mtoken;
+
+PROCEDURE mId (ppos: tPosition; pident: tIdent; pisstring: BOOLEAN): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Id] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Id;
+  WITH yyt^.Id DO
+   pos := ppos;
+   ident := pident;
+   isstring := pisstring;
+  END;
+  RETURN yyt;
+ END mId;
+
+PROCEDURE mid (ppos: tPosition; pident: tIdent; pisstring: BOOLEAN): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [id] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := id;
+  WITH yyt^.id DO
+   pos := ppos;
+   ident := pident;
+   isstring := pisstring;
+  END;
+  RETURN yyt;
+ END mid;
+
+PROCEDURE mNumber (ppos: tPosition; pvalue: INTEGER): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Number] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Number;
+  WITH yyt^.Number DO
+   pos := ppos;
+   value := pvalue;
+  END;
+  RETURN yyt;
+ END mNumber;
+
+PROCEDURE mnumber (ppos: tPosition; pvalue: INTEGER): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [number] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := number;
+  WITH yyt^.number DO
+   pos := ppos;
+   value := pvalue;
+  END;
+  RETURN yyt;
+ END mnumber;
+
+PROCEDURE mrules (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [rules] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := rules;
+  RETURN yyt;
+ END mrules;
+
+PROCEDURE mRules0 (): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Rules0] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Rules0;
+  RETURN yyt;
+ END mRules0;
+
+PROCEDURE mRules (prules: tTree; prule: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Rules] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Rules;
+  WITH yyt^.Rules DO
+   rules := prules;
+   rule := prule;
+  END;
+  RETURN yyt;
+ END mRules;
+
+PROCEDURE mRule (ppos: tPosition; pid: tTree; pcodes: tTree; pexpr: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Rule] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Rule;
+  WITH yyt^.Rule DO
+   pos := ppos;
+   id := pid;
+   codes := pcodes;
+   expr := pexpr;
+    
+  END;
+  RETURN yyt;
+ END mRule;
+
+PROCEDURE mrule (ppos: tPosition; pid: tTree; pcodes: tTree; pexpr: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [rule] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := rule;
+  WITH yyt^.rule DO
+   pos := ppos;
+   id := pid;
+   codes := pcodes;
+   expr := pexpr;
+    
+  END;
+  RETURN yyt;
+ END mrule;
+
+PROCEDURE mexpr (ppos: tPosition): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [expr] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := expr;
+  WITH yyt^.expr DO
+   pos := ppos;
+    
+    
+    
+    
+    
+    
+    
+    
+    
+  END;
+  RETURN yyt;
+ END mexpr;
+
+PROCEDURE mOption (ppos: tPosition; pexpr: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Option] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Option;
+  WITH yyt^.Option DO
+   pos := ppos;
+    
+    
+    
+    
+    
+    
+    
+    
+    
+   expr := pexpr;
+  END;
+  RETURN yyt;
+ END mOption;
+
+PROCEDURE mTimes (ppos: tPosition; pexpr: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Times] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Times;
+  WITH yyt^.Times DO
+   pos := ppos;
+    
+    
+    
+    
+    
+    
+    
+    
+    
+   expr := pexpr;
+  END;
+  RETURN yyt;
+ END mTimes;
+
+PROCEDURE mPlus (ppos: tPosition; pexpr: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Plus] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Plus;
+  WITH yyt^.Plus DO
+   pos := ppos;
+    
+    
+    
+    
+    
+    
+    
+    
+    
+   expr := pexpr;
+  END;
+  RETURN yyt;
+ END mPlus;
+
+PROCEDURE mList (ppos: tPosition; pbody: tTree; psep: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [List] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := List;
+  WITH yyt^.List DO
+   pos := ppos;
+    
+    
+    
+    
+    
+    
+    
+    
+    
+   body := pbody;
+   sep := psep;
+  END;
+  RETURN yyt;
+ END mList;
+
+PROCEDURE mAction (ppos: tPosition; pcodes: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Action] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Action;
+  WITH yyt^.Action DO
+   pos := ppos;
+    
+    
+    
+    
+    
+    
+    
+    
+    
+   codes := pcodes;
+  END;
+  RETURN yyt;
+ END mAction;
+
+PROCEDURE mLeaf (ppos: tPosition; pid: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Leaf] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Leaf;
+  WITH yyt^.Leaf DO
+   pos := ppos;
+    
+    
+    
+    
+    
+    
+    
+    
+    
+   id := pid;
+    
+    
+  END;
+  RETURN yyt;
+ END mLeaf;
+
+PROCEDURE malternative (ppos: tPosition): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [alternative] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := alternative;
+  WITH yyt^.alternative DO
+   pos := ppos;
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+  END;
+  RETURN yyt;
+ END malternative;
+
+PROCEDURE mAlternative0 (ppos: tPosition): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Alternative0] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Alternative0;
+  WITH yyt^.Alternative0 DO
+   pos := ppos;
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    default  := NoTree; 
+  END;
+  RETURN yyt;
+ END mAlternative0;
+
+PROCEDURE mAlternative (ppos: tPosition; palternative: tTree; pexpr: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Alternative] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Alternative;
+  WITH yyt^.Alternative DO
+   pos := ppos;
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+   alternative := palternative;
+   expr := pexpr;
+  END;
+  RETURN yyt;
+ END mAlternative;
+
+PROCEDURE msequence (ppos: tPosition): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [sequence] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := sequence;
+  WITH yyt^.sequence DO
+   pos := ppos;
+    
+    
+    
+    
+    
+    
+    
+    
+    
+  END;
+  RETURN yyt;
+ END msequence;
+
+PROCEDURE mSequence0 (ppos: tPosition): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Sequence0] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Sequence0;
+  WITH yyt^.Sequence0 DO
+   pos := ppos;
+    
+    
+    
+    
+    
+    
+    
+    
+    
+  END;
+  RETURN yyt;
+ END mSequence0;
+
+PROCEDURE mSequence (ppos: tPosition; psequence: tTree; pexpr: tTree): tTree;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Sequence] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Sequence;
+  WITH yyt^.Sequence DO
+   pos := ppos;
+    
+    
+    
+    
+    
+    
+    
+    
+    
+   sequence := psequence;
+   expr := pexpr;
+  END;
+  RETURN yyt;
+ END mSequence;
+
+TYPE yyPtrtTree        = POINTER TO tTree;
+
+VAR yyf        : IO.tFile;
+VAR yyLabel    : SHORTCARD;
+VAR yyKind     : SHORTCARD;
+VAR yyc        : CHAR;
+VAR yys        : Strings.tString;
+
+CONST yyNil    = 374C;
+CONST yyNoLabel        = 375C;
+CONST yyLabelDef       = 376C;
+CONST yyLabelUse       = 377C;
+
+PROCEDURE ReverseTree (yyOld: tTree): tTree;
+ VAR yyNew, yyNext, yyTail     : tTree;
+ BEGIN
+  yyNew        := yyOld;
+  yyTail       := yyOld;
+  LOOP
+   CASE yyOld^.Kind OF
+| Sections: yyNext := yyOld^.Sections.sections; yyOld^.Sections.sections := yyNew;
+| Codes: yyNext := yyOld^.Codes.codes; yyOld^.Codes.codes := yyNew;
+| Tokens: yyNext := yyOld^.Tokens.tokens; yyOld^.Tokens.tokens := yyNew;
+| Rules: yyNext := yyOld^.Rules.rules; yyOld^.Rules.rules := yyNew;
+| Alternative: yyNext := yyOld^.Alternative.alternative; yyOld^.Alternative.alternative := yyNew;
+| Sequence: yyNext := yyOld^.Sequence.sequence; yyOld^.Sequence.sequence := yyNew;
+   ELSE EXIT;
+   END;
+   yyNew       := yyOld;
+   yyOld       := yyNext;
+  END;
+  CASE yyTail^.Kind OF
+| Sections: yyTail^.Sections.sections := yyOld;
+| Codes: yyTail^.Codes.codes := yyOld;
+| Tokens: yyTail^.Tokens.tokens := yyOld;
+| Rules: yyTail^.Rules.rules := yyOld;
+| Alternative: yyTail^.Alternative.alternative := yyOld;
+| Sequence: yyTail^.Sequence.sequence := yyOld;
+  ELSE
+  END;
+  RETURN yyNew;
+ END ReverseTree;
+
+PROCEDURE BeginTree;
+ BEGIN
+(* line 39 "../src/ell.ast" *)
+
+   ScannerName := NoIdent;
+   ArrayToString ("Parser" , String); ParserName  := MakeIdent (String);
+
+ END BeginTree;
+
+PROCEDURE CloseTree;
+ BEGIN
+ END CloseTree;
+
+PROCEDURE xxExit;
+ BEGIN
+  IO.CloseIO; System.Exit (1);
+ END xxExit;
+
+BEGIN
+ yyBlockList   := NIL;
+ yyPoolFreePtr := NIL;
+ yyPoolMaxPtr  := NIL;
+ HeapUsed      := 0;
+ yyExit        := xxExit;
+ yyNodeSize [Grammar] := SYSTEM.TSIZE (yGrammar);
+ yyNodeSize [sections] := SYSTEM.TSIZE (ysections);
+ yyNodeSize [Sections0] := SYSTEM.TSIZE (ySections0);
+ yyNodeSize [Sections] := SYSTEM.TSIZE (ySections);
+ yyNodeSize [section] := SYSTEM.TSIZE (ysection);
+ yyNodeSize [Export] := SYSTEM.TSIZE (yExport);
+ yyNodeSize [Global] := SYSTEM.TSIZE (yGlobal);
+ yyNodeSize [Local] := SYSTEM.TSIZE (yLocal);
+ yyNodeSize [Begin] := SYSTEM.TSIZE (yBegin);
+ yyNodeSize [Close] := SYSTEM.TSIZE (yClose);
+ yyNodeSize [codes] := SYSTEM.TSIZE (ycodes);
+ yyNodeSize [Codes0] := SYSTEM.TSIZE (yCodes0);
+ yyNodeSize [Codes] := SYSTEM.TSIZE (yCodes);
+ yyNodeSize [Code] := SYSTEM.TSIZE (yCode);
+ yyNodeSize [code] := SYSTEM.TSIZE (ycode);
+ yyNodeSize [tokens] := SYSTEM.TSIZE (ytokens);
+ yyNodeSize [Tokens0] := SYSTEM.TSIZE (yTokens0);
+ yyNodeSize [Tokens] := SYSTEM.TSIZE (yTokens);
+ yyNodeSize [Token] := SYSTEM.TSIZE (yToken);
+ yyNodeSize [token] := SYSTEM.TSIZE (ytoken);
+ yyNodeSize [Id] := SYSTEM.TSIZE (yId);
+ yyNodeSize [id] := SYSTEM.TSIZE (yid);
+ yyNodeSize [Number] := SYSTEM.TSIZE (yNumber);
+ yyNodeSize [number] := SYSTEM.TSIZE (ynumber);
+ yyNodeSize [rules] := SYSTEM.TSIZE (yrules);
+ yyNodeSize [Rules0] := SYSTEM.TSIZE (yRules0);
+ yyNodeSize [Rules] := SYSTEM.TSIZE (yRules);
+ yyNodeSize [Rule] := SYSTEM.TSIZE (yRule);
+ yyNodeSize [rule] := SYSTEM.TSIZE (yrule);
+ yyNodeSize [expr] := SYSTEM.TSIZE (yexpr);
+ yyNodeSize [Option] := SYSTEM.TSIZE (yOption);
+ yyNodeSize [Times] := SYSTEM.TSIZE (yTimes);
+ yyNodeSize [Plus] := SYSTEM.TSIZE (yPlus);
+ yyNodeSize [List] := SYSTEM.TSIZE (yList);
+ yyNodeSize [Action] := SYSTEM.TSIZE (yAction);
+ yyNodeSize [Leaf] := SYSTEM.TSIZE (yLeaf);
+ yyNodeSize [alternative] := SYSTEM.TSIZE (yalternative);
+ yyNodeSize [Alternative0] := SYSTEM.TSIZE (yAlternative0);
+ yyNodeSize [Alternative] := SYSTEM.TSIZE (yAlternative);
+ yyNodeSize [sequence] := SYSTEM.TSIZE (ysequence);
+ yyNodeSize [Sequence0] := SYSTEM.TSIZE (ySequence0);
+ yyNodeSize [Sequence] := SYSTEM.TSIZE (ySequence);
+ yyMaxSize     := 0;
+ FOR yyi := 1 TO 42 DO
+  yyNodeSize [yyi] := LONGINT (BITSET (yyNodeSize [yyi] + CARDINAL (General.MaxAlign) - 1) * General.AlignMasks [General.MaxAlign]);
+  yyMaxSize := General.Max (yyNodeSize [yyi], yyMaxSize);
+ END;
+ yyTypeRange [Grammar] := Grammar;
+ yyTypeRange [sections] := Sections;
+ yyTypeRange [Sections0] := Sections0;
+ yyTypeRange [Sections] := Sections;
+ yyTypeRange [section] := Close;
+ yyTypeRange [Export] := Export;
+ yyTypeRange [Global] := Global;
+ yyTypeRange [Local] := Local;
+ yyTypeRange [Begin] := Begin;
+ yyTypeRange [Close] := Close;
+ yyTypeRange [codes] := Codes;
+ yyTypeRange [Codes0] := Codes0;
+ yyTypeRange [Codes] := Codes;
+ yyTypeRange [Code] := code;
+ yyTypeRange [code] := code;
+ yyTypeRange [tokens] := Tokens;
+ yyTypeRange [Tokens0] := Tokens0;
+ yyTypeRange [Tokens] := Tokens;
+ yyTypeRange [Token] := token;
+ yyTypeRange [token] := token;
+ yyTypeRange [Id] := id;
+ yyTypeRange [id] := id;
+ yyTypeRange [Number] := number;
+ yyTypeRange [number] := number;
+ yyTypeRange [rules] := Rules;
+ yyTypeRange [Rules0] := Rules0;
+ yyTypeRange [Rules] := Rules;
+ yyTypeRange [Rule] := rule;
+ yyTypeRange [rule] := rule;
+ yyTypeRange [expr] := Sequence;
+ yyTypeRange [Option] := Option;
+ yyTypeRange [Times] := Times;
+ yyTypeRange [Plus] := Plus;
+ yyTypeRange [List] := List;
+ yyTypeRange [Action] := Action;
+ yyTypeRange [Leaf] := Leaf;
+ yyTypeRange [alternative] := Alternative;
+ yyTypeRange [Alternative0] := Alternative0;
+ yyTypeRange [Alternative] := Alternative;
+ yyTypeRange [sequence] := Sequence;
+ yyTypeRange [Sequence0] := Sequence0;
+ yyTypeRange [Sequence] := Sequence;
+ BeginTree;
+END Tree.

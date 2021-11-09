@@ -1,0 +1,1 @@
+sh -c "for file in `ls *.zoo`; do zoolist $file; done"

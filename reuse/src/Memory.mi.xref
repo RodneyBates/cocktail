@@ -1,0 +1,363 @@
+     1 (* $Id: Memory.mi,v 1.8 1992/06/24 12:25:33 grosch rel $ *)
+     2 
+     3 (* $Log: Memory.mi,v $
+c    4 
+c    5  * RMB 93/10/12 Various type conversions.
+c    6 
+c    7  * Revision 1.8  1992/06/24  12:25:33  grosch
+c    8  * changed cNoMoreSpace from -1 to 0
+c    9  *
+c   10  * Revision 1.7  1992/03/24  13:31:43  grosch
+c   11  * suppress warning message during compilation of C version
+c   12  *
+c   13  * Revision 1.6  1992/01/30  13:23:29  grosch
+c   14  * redesign of interface to operating system
+c   15  *
+c   16  * Revision 1.5  1991/11/21  14:33:17  grosch
+c   17  * new version of RCS on SPARC
+c   18  *
+c   19  * Revision 1.4  90/12/19  11:36:26  grosch
+c   20  * inlined procedure PoolAlloc
+c   21  * 
+c   22  * Revision 1.3  90/03/02  17:36:07  grosch
+c   23  * automized handling of machine independent alignment
+c   24  * 
+c   25  * Revision 1.2  90/02/28  22:07:02  grosch
+c   26  * comment for alignment on SPARC
+c   27  * 
+c   28  * Revision 1.1  89/12/08  20:12:45  grosch
+c   29  * introduced a machine dependent variant for MIPS
+c   30  * 
+c   31  * Revision 1.0  88/10/04  11:47:11  grosch
+c   32  * Initial revision
+c   33  * 
+c   34  *)
+    35 
+    36 (* Ich, Doktor Josef Grosch, Informatiker, Juli 1986 *)
+    37 
+    38 IMPLEMENTATION MODULE Memory;                                                 *     *
+    39 
+    40 FROM SYSTEM     IMPORT ADDRESS, ADR;                                          *     *     *
+    41 FROM General    IMPORT Log2, MaxAlign, AlignMasks;                            *     *     *     *
+    42 FROM System     IMPORT SysAlloc;                                              *     *
+    43 (* FROM IO      IMPORT StdOutput, WriteI, WriteC, WriteN, WriteS, WriteNl; *)
+    44 
+    45 CONST
+    46    MinSizeSmallBlock    = 4     ;                                             *
+    47    MaxSizeSmallBlock    = 62    ;   (* 64 - 2     *)                          *
+    48    MinSizeLargeBlockLog = 6     ;   (* Log2 64    *)                          *
+    49    MaxSizeLargeBlockLog = 24    ;   (* Log2 2**24 *)                          *
+    50    PoolSize             = 10240 ;                                             *
+    51 
+    52 TYPE
+    53    tBlockPtr            = POINTER TO tBlock;                                  *     *
+    54    tBlock               = RECORD                                              *
+    55                              Successor  : tBlockPtr     ;                     *    53
+    56                              Size       : LONGINT       ;                     *     *
+    57                           END;
+    58    tSmallBlockRange     = [MinSizeSmallBlock    .. MaxSizeSmallBlock   ];     *    46    47
+    59    tLargeBlockRange     = [MinSizeLargeBlockLog .. MaxSizeLargeBlockLog];     *    48    49
+    60 
+    61 VAR
+    62    SmallChain   : ARRAY tSmallBlockRange OF ADDRESS;                          *    58    40
+    63    LargeChain   : ARRAY tLargeBlockRange OF ADDRESS;                          *    59    40
+    64    PoolFreePtr  : ADDRESS;                                                    *    40
+    65    PoolEndPtr   : ADDRESS;                                                    *    40
+    66    i            : tSmallBlockRange;                                           *    58
+    67    j            : tLargeBlockRange;                                           *    59
+    68 
+    69 (* Returns a pointer to dynamically allocated   *)
+    70 (* space of size 'ByteCount' bytes.             *)
+    71 
+    72 PROCEDURE Alloc (ByteCount: LONGINT)            : ADDRESS;                    *     *     *    40
+    73 VAR
+    74    BlockPtr             ,                                                     *
+    75    CurrentBlock         ,                                                     *
+    76    PreviousBlock        ,                                                     *
+    77    BestBlock            ,                                                     *
+    78    PredecessorBlock     : tBlockPtr;                                          *    53
+    79    ChainNumber          : CARDINAL;                                           *     *
+    80    CurrentBlockSize     ,                                                     *
+    81    BestBlockSize        : LONGINT;                                            *     *
+    82    j                    : tLargeBlockRange;                                  67    59
+    83 BEGIN
+    84    ByteCount                                                                 72
+    85      := LONGINT                                                               *
+    86           (BITSET (ByteCount + VAL ( LONGINT , MaxAlign ) - 1)                *    72     *     *    41
+    87            * AlignMasks [MaxAlign]                                           41    41
+    88           );
+    89 
+    90    IF ByteCount <= MaxSizeSmallBlock THEN       (* handle small block *)     72    47
+    91       IF ByteCount < MinSizeSmallBlock THEN ByteCount := MinSizeSmallBlock; END;         72    46    72    46
+    92       IF SmallChain [ VAL ( tSmallBlockRange , ByteCount ) ] # NIL           62     *    58    72     *
+    93       THEN      (* obtain block from freelist *)
+    94          BlockPtr := SmallChain [ VAL ( tSmallBlockRange , ByteCount ) ];    74    62     *    58    72
+    95          SmallChain [ VAL ( tSmallBlockRange , ByteCount ) ]                 62     *    58    72
+    96            := BlockPtr^.Successor;                                           74    55
+    97          RETURN BlockPtr;                                                    74
+    98       ELSE (* obtain block from storage pool *)
+    99          IF LONGINT (PoolEndPtr - PoolFreePtr) < ByteCount THEN               *    65    64    72
+   100                                                 (* release old pool *)
+   101             IF LONGCARD (PoolEndPtr - PoolFreePtr) >= MinSizeSmallBlock THEN        *    65    64    46
+   102                Free (LONGINT (PoolEndPtr - PoolFreePtr), PoolFreePtr);        *     *    65    64    64
+   103             END;
+   104             PoolFreePtr := Alloc (PoolSize);    (* allocate new pool *)      64    72    50
+   105             PoolEndPtr  := PoolFreePtr + PoolSize;                           65    64    50
+   106          END;
+   107          INC (PoolFreePtr, ADDRESS (ByteCount));                              *    64    40    72
+   108          RETURN PoolFreePtr - ADDRESS (ByteCount);                           64    40    72
+   109       END;
+   110    ELSE                                         (* handle large block *)
+   111 
+   112       (* 1. search in LargeChain [Log2 (ByteCount)] using BEST FIT *)
+   113 
+   114       ChainNumber       := Log2 (ByteCount);                                 79    41    72
+   115       CurrentBlock      := LargeChain [ChainNumber];                         75    63    79
+   116       PreviousBlock     := ADR (LargeChain [ChainNumber]);                   76    40    63    79
+   117       BestBlock         := NIL;                                              77     *
+   118       BestBlockSize     := 1000000000;                                       81
+   119 
+   120       WHILE CurrentBlock # NIL DO                                            75     *
+   121          CurrentBlockSize := CurrentBlock^.Size;                             80    75    56
+   122          IF CurrentBlockSize >= ByteCount THEN  (* exact match *)            80    72
+   123             IF CurrentBlockSize = ByteCount THEN                             80    72
+   124                PreviousBlock^.Successor := CurrentBlock^.Successor;          76    55    75    55
+   125                RETURN CurrentBlock;                                          75
+   126             END;
+   127 
+   128             IF CurrentBlockSize < BestBlockSize                              80    81
+   129             THEN        (* improve approximation *)
+   130                BestBlock        := CurrentBlock;                             77    75
+   131                BestBlockSize    := CurrentBlockSize;                         81    80
+   132                PredecessorBlock := PreviousBlock;                            78    76
+   133             END;
+   134          END;
+   135          PreviousBlock  := CurrentBlock;                                     76    75
+   136          CurrentBlock   := CurrentBlock^.Successor;                          75    75    55
+   137       END;
+   138 
+   139       IF BestBlock # NIL THEN                                                77     *
+   140          PredecessorBlock^.Successor := BestBlock^.Successor;                78    55    77    55
+   141          IF BestBlockSize - ByteCount >= MinSizeSmallBlock THEN              81    72    46
+   142             Free (BestBlockSize - ByteCount,                                  *    81    72
+   143                   ADDRESS (BestBlock) + ADDRESS (ByteCount));                40    77    40    72
+   144          END;
+   145          RETURN BestBlock;                                                   77
+   146       END;
+   147 
+   148       (* 2. search in LargeChain [j], j > Log2 (ByteCount), using FIRST FIT *)
+   149 
+   150       FOR j := ChainNumber+1 TO MaxSizeLargeBlockLog DO                      82    79    49
+   151          CurrentBlock := LargeChain [j];                                     75    63    82
+   152          IF CurrentBlock # NIL THEN                                          75     *
+   153             LargeChain [j] := CurrentBlock^.Successor;                       63    82    75    55
+   154             IF CurrentBlock^.Size - ByteCount >= MinSizeSmallBlock THEN      75    56    72    46
+   155                Free (CurrentBlock^.Size - ByteCount,                          *    75    56    72
+   156                      ADDRESS (CurrentBlock) + ADDRESS (ByteCount));          40    75    40    72
+   157             END;
+   158             RETURN CurrentBlock;                                             75
+   159          END;
+   160       END;
+   161 
+   162       IF ByteCount < PoolSize THEN      (* 3. obtain block from storage pool *)    72    50
+   163          IF LONGINT (PoolEndPtr - PoolFreePtr) < ByteCount THEN               *    65    64    72
+   164                                                 (* release old pool *)
+   165             IF LONGCARD (PoolEndPtr - PoolFreePtr) >= MinSizeSmallBlock THEN        *    65    64    46
+   166                Free (LONGINT (PoolEndPtr - PoolFreePtr), PoolFreePtr);        *     *    65    64    64
+   167             END;
+   168             PoolFreePtr := Alloc (PoolSize);    (* allocate new pool *)      64    72    50
+   169             PoolEndPtr  := PoolFreePtr + PoolSize;                           65    64    50
+   170          END;
+   171          INC (PoolFreePtr, ADDRESS (ByteCount));                              *    64    40    72
+   172          RETURN PoolFreePtr - ADDRESS (ByteCount);                           64    40    72
+   173 
+   174       ELSE                              (* 4. allocate individual block *)
+   175          BlockPtr := SysAlloc (ByteCount);                                   74    42    72
+   176          INC (MemoryUsed, VAL ( LONGCARD , ByteCount ) );                     *     *     *     *    72
+   177          RETURN BlockPtr;                                                    74
+   178       END;
+   179    END;
+   180 END Alloc;                                                                   72
+   181 
+   182 (* The dynamically allocated space starting at  *)
+   183 (* address 'a' of size 'ByteCount' bytes is     *)
+   184 (* released.                                    *)
+   185 
+   186 PROCEDURE Free  (ByteCount: LONGINT; a: ADDRESS);                             *    72     *     *    40
+   187 VAR
+   188    BlockPtr     : tBlockPtr;                                                 74    53
+   189    ChainNumber  : tLargeBlockRange;                                          79    59
+   190 BEGIN
+   191    ByteCount                                                                186
+   192      := LONGINT                                                               *
+   193           (BITSET (ByteCount + VAL ( LONGINT , MaxAlign ) - 1)                *   186     *     *    41
+   194            * AlignMasks [MaxAlign]                                           41    41
+   195           );
+   196 
+   197    BlockPtr := a;                                                           188   186
+   198    IF ByteCount <= MaxSizeSmallBlock THEN                                   186    47
+   199       IF ByteCount < MinSizeSmallBlock THEN ByteCount := MinSizeSmallBlock; END;        186    46   186    46
+   200       BlockPtr^.Successor                                                   188    55
+   201         := SmallChain [ VAL ( tSmallBlockRange , ByteCount ) ];              62     *    58   186
+   202       SmallChain [ VAL ( tSmallBlockRange , ByteCount ) ]                    62     *    58   186
+   203         := BlockPtr;                                                        188
+   204    ELSE
+   205       ChainNumber               := Log2 (ByteCount);                        189    41   186
+   206       BlockPtr^.Successor       := LargeChain [ChainNumber];                188    55    63   189
+   207       BlockPtr^.Size            := ByteCount;                               188    56   186
+   208       LargeChain [ChainNumber]  := BlockPtr;                                 63   189   188
+   209    END;
+   210 END Free;                                                                   186
+   211 
+   212 (*
+c  213 PROCEDURE WriteMemory;
+c  214    VAR
+c  215       BlockPtr  : tBlockPtr;
+c  216       Count     : INTEGER;
+c  217    BEGIN
+c  218       WriteS (StdOutput, "PoolFreePtr, PoolEndPtr = ");
+c  219       WriteN (StdOutput, INTEGER (PoolFreePtr), 8, 16);
+c  220       WriteN (StdOutput, INTEGER (PoolEndPtr ), 8, 16);
+c  221       WriteNl (StdOutput);
+c  222       WriteNl (StdOutput);
+c  223 
+c  224       WriteS (StdOutput, "SmallChain:");
+c  225       WriteNl (StdOutput);
+c  226       FOR i := MinSizeSmallBlock TO MaxSizeSmallBlock BY 2 DO
+c  227          WriteI (StdOutput, i, 3);
+c  228          WriteC (StdOutput, ':');
+c  229          Count := 0;
+c  230          BlockPtr := SmallChain [i];
+c  231          WHILE BlockPtr # NIL DO
+c  232             IF Count = 8 THEN
+c  233                WriteNl (StdOutput);
+c  234                WriteS (StdOutput, "    ");
+c  235                Count := 0;
+c  236             END;
+c  237             INC (Count);
+c  238             WriteC (StdOutput, ' ');
+c  239             WriteN (StdOutput, INTEGER (BlockPtr), 8, 16);
+c  240             BlockPtr := BlockPtr^.Successor;
+c  241          END;
+c  242          WriteNl (StdOutput);
+c  243       END;
+c  244       WriteNl (StdOutput);
+c  245 
+c  246       WriteS (StdOutput, "LargeChain:");
+c  247       WriteNl (StdOutput);
+c  248       FOR j := MinSizeLargeBlockLog TO MaxSizeLargeBlockLog DO
+c  249          WriteI (StdOutput, j, 3);
+c  250          WriteC (StdOutput, ':');
+c  251          Count := 0;
+c  252          BlockPtr := LargeChain [j];
+c  253          WHILE BlockPtr # NIL DO
+c  254             IF Count = 5 THEN
+c  255                WriteNl (StdOutput);
+c  256                WriteS (StdOutput, "    ");
+c  257                Count := 0;
+c  258             END;
+c  259             INC (Count);
+c  260             WriteC (StdOutput, ' ');
+c  261             WriteN (StdOutput, INTEGER (BlockPtr), 8, 16);
+c  262             WriteI (StdOutput, BlockPtr^.Size, 5);
+c  263             BlockPtr := BlockPtr^.Successor;
+c  264          END;
+c  265          WriteNl (StdOutput);
+c  266       END;
+c  267       WriteNl (StdOutput);
+c  268    END WriteMemory;
+c  269 *)
+   270 
+   271 BEGIN
+   272    FOR i := MinSizeSmallBlock TO MaxSizeSmallBlock BY 2 DO                   66    46    47
+   273       SmallChain [i] := NIL;                                                 62    66     *
+   274    END;
+   275    FOR j := MinSizeLargeBlockLog TO MaxSizeLargeBlockLog DO                  82    48    49
+   276       LargeChain [j] := NIL;                                                 63    82     *
+   277    END;
+   278    PoolFreePtr  := NIL;                                                      64     *
+   279    PoolEndPtr   := NIL;                                                      65     *
+   280    MemoryUsed   := 0;                                                         *
+   281 END Memory.                                                                  38
+Cross reference: * is declaration, = is assignment
+
+-A-
+ a                              186*  197 
+ ADDRESS                         40*   62    63    64    65    72   107   108   143   143   156   156   171   172   186 
+ ADR                             40*  116 
+ AlignMasks                      41*   87   194 
+ Alloc                           72*  104   168   180 
+
+-B-
+ BestBlock                       77*  117=  130=  139   140   143   145 
+ BestBlockSize                   81*  118=  128   131=  141   142 
+ BITSET                          86   193 
+ BlockPtr                        74*   94=   96    97   175=  177   188*  197=  200=  203   206=  207=  208 
+ ByteCount                       72*   84=   86    90    91    91=   92    94    95    99   107   108   114   122   123   141   142 
+                                143   154   155   156   162   163   171   172   175   176   186*  191=  193   198   199   199=  201 
+                                202   205   207 
+
+-C-
+ CARDINAL                        79 
+ ChainNumber                     79*  114=  115   116   150   189*  205=  206   208 
+ CurrentBlock                    75*  115=  120   121   124   125   130   135   136=  136   151=  152   153   154   155   156   158 
+ CurrentBlockSize                80*  121=  122   123   128   131 
+
+-F-
+ Free                           102   142   155   166   186*  210 
+
+-G-
+ General                         41*
+
+-I-
+ i                               66*  272=  273 
+ IMPLEMENTATION                  38*
+ INC                            107   171   176 
+
+-J-
+ j                               67*   82*  150=  151   153   275=  276 
+
+-L-
+ LargeChain                      63*  115   116   151   153=  206   208=  276=
+ Log2                            41*  114   205 
+ LONGCARD                       101   165   176 
+ LONGINT                         56    72    81    85    86    99   102   163   166   186   192   193 
+
+-M-
+ MaxAlign                        41*   86    87   193   194 
+ MaxSizeLargeBlockLog            49*   59   150   275 
+ MaxSizeSmallBlock               47*   58    90   198   272 
+ Memory                          38*  281 
+ MemoryUsed                     176   280=
+ MinSizeLargeBlockLog            48*   59   275 
+ MinSizeSmallBlock               46*   58    91    91   101   141   154   165   199   199   272 
+
+-N-
+ NIL                             92   117   120   139   152   273   276   278   279 
+
+-P-
+ PoolEndPtr                      65*   99   101   102   105=  163   165   166   169=  279=
+ PoolFreePtr                     64*   99   101   102   102   104=  105   107   108   163   165   166   166   168=  169   171   172 
+                                278=
+ PoolSize                        50*  104   105   162   168   169 
+ PredecessorBlock                78*  132=  140=
+ PreviousBlock                   76*  116=  124=  132   135=
+
+-S-
+ Size                            56*  121   154   155   207=
+ SmallChain                      62*   92    94    95=  201   202=  273=
+ Successor                       55*   96   124=  124   136   140=  140   153   200=  206=
+ SysAlloc                        42*  175 
+ SYSTEM                          40*
+ System                          42*
+
+-T-
+ tBlock                          53    54*
+ tBlockPtr                       53*   55    78   188 
+ tLargeBlockRange                59*   63    67    82   189 
+ tSmallBlockRange                58*   62    66    92    94    95   201   202 
+
+-V-
+ VAL                             86    92    94    95   176   193   201   202 
+
+end cross reference, 307 occurrences of 48 identifiers.

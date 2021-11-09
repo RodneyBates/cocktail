@@ -1,0 +1,46 @@
+(* compute LR(0) automaton *) 
+(* $Id: LR.mi,v 1.1 1991/11/21 14:53:14 grosch rel $ *) 
+(* $Log: LR.mi,v $ 
+ * Revision 1.1  1991/11/21  14:53:14  grosch 
+ * new version of RCS on SPARC 
+ * 
+ * Revision 1.0  88/10/04  14:36:34  vielsack 
+ * Initial revision 
+ * 
+ *) 
+IMPLEMENTATION MODULE LR 
+; FROM Automaton IMPORT tStateIndex , MakeFirstState , GotoSet , Goto 
+; FROM Sets IMPORT tSet , MakeSet , ReleaseSet , IsEmpty , Extract 
+; FROM TokenTab IMPORT MAXNonTerm , Vocabulary 
+
+; PROCEDURE ComputeLR 
+
+  ; VAR s : tStateIndex 
+
+  ; BEGIN (* ComputeLR *) 
+      s := MakeFirstState ( ) 
+    ; ComputeNext ( s ) 
+    END ComputeLR 
+
+; PROCEDURE ComputeNext ( s : tStateIndex ) 
+
+  ; VAR t : tStateIndex 
+    ; g : tSet 
+    ; v : Vocabulary 
+    ; n : BOOLEAN 
+
+  ; BEGIN (* ComputeNext *) 
+      MakeSet ( g , MAXNonTerm ) 
+    ; GotoSet ( s , g ) 
+    ; WHILE NOT IsEmpty ( g ) 
+      DO 
+        v := Extract ( g ) 
+      ; t := Goto ( s , v , n ) 
+      ; IF n THEN ComputeNext ( t ) END (* IF *) 
+      END (* WHILE *) 
+    ; ReleaseSet ( g ) 
+    END ComputeNext 
+
+; 
+END LR 
+. 

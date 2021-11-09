@@ -1,0 +1,1127 @@
+     1 
+     2 (* file mod0.puma: cg generation of input to rex and lalr. *) 
+     3 
+     4 (* Modified Rodney M. Bates: 
+c    5   10-95: Put new line after each record field
+c    6          of generated node types, so as to not choke lalr with input
+c    7          lines longer that 255 chars.
+c    8   11-95: Wrote modified parser generator procedure GrammarDep and its
+c    9          subordinate procedures ClassListDep, ChildDep, ActionsDep, 
+c   10          which respect attribute dependencies. However, it is not
+c   11          clear this is what is wanted, since they can then perform
+c   12          semantic actions in an order which violates their placement 
+c   13          in the rules.  
+c   14          -e option uses the new generation method. 
+c   15    9-97: Changed to use IOUtils.WriteBackslash 
+c   16   10-97: Removed unused IMPORT of TreeIO
+c   17   10-97: Eliminated the record variants in parse and scan attributes for 
+c   18          Modula-3 (i.e. flatten the records)
+c   19   
+c   20 *)
+    21 
+    22 TRAFO GramMod                                                                 *     *
+    23 TREE Tree                                                                     *     *
+    24 PUBLIC ParsSpec ScanSpec                                                      *     *     *
+    25 
+    26 GLOBAL {                                                                      *
+    27 
+    28 FROM IO         IMPORT WriteS, WriteNl;                                       *     *     *     *     *
+    29 FROM Strings    IMPORT tString, ArrayToString;                               28     *    28     *     *
+    30 FROM StringMem  IMPORT WriteString;                                          29     *    29     *
+    31 FROM Idents     IMPORT NoIdent, tIdent, MakeIdent;                           30     *    30     *     *     *
+    32 FROM Texts      IMPORT WriteText;                                            31     *    31     *
+    33 FROM Sets       IMPORT IsElement, Include;                                   32     *    32     *     *
+    34 FROM SYSTEM     IMPORT ADR;                                                  33     *    33     *
+    35 FROM IOUtils    IMPORT WriteBackslash ;                                      34     *    34     *
+    36 
+    37 FROM Tree       IMPORT Left , Right , First , Dummy ,                        35    23    35     *     *     *     *
+    38    NoTree       , tTree         , Input         , Reverse       ,             *     *     *     *
+    39    Class        , NoClass       , Child         , Attribute     ,             *     *     *     *
+    40    ActionPart   , HasSelector   , HasAttributes , NoCodeAttr    ,             *     *     *     *
+    41    Referenced   , Options       , TreeRoot      , QueryTree     ,             *     *     *     *
+    42    ClassCount   , iNoTree       , itTree        , Generated     ,             *     *     *     *
+    43    f            , WI, WE, WN    , ForallClasses , ForallAttributes,           *     *     *     *     *     *
+    44    Nonterminal  , Terminal      , IdentifyAttribute,                          *     *     *
+    45    String       , iPosition     ;                                             *     *
+    46 
+    47 IMPORT Strings;                                                              37    29
+    48 
+    49 VAR                                                                           *
+    50    Node, ActClass, TheClass, TheAttr    : tTree;                              *     *     *     *    38
+    51    iOper, iLeft, iRight, iNone, iPrec, iRule    : tIdent;                     *     *     *     *     *     *    31
+    52    ActActionIndex, PrevActionIndex, i   : SHORTCARD;                          *     *     *     *
+    53    IsImplicit                           : BOOLEAN;                            *     *
+    54    s                                    : tString;                            *    29
+    55 
+    56 PROCEDURE GetBaseClass (Class: tTree): tTree;                                 *     *    39    50     *
+    57    BEGIN                                                                      *
+    58       WHILE Class^.Class.BaseClass^.Kind # NoClass DO                         *    56     *     *     *    39     *
+    59          Class := Class^.Class.BaseClass;                                    58     *     *    58
+    60       END;                                                                    *
+    61       RETURN Class;                                                           *    59
+    62    END GetBaseClass;                                                         60    56
+    63 
+    64 PROCEDURE IsLast (Class, Action: tTree): BOOLEAN;                            56     *    61     *    56    53
+    65    VAR Found, Last: BOOLEAN;                                                 49     *     *    64
+    66    BEGIN                                                                     57
+    67       IsLast2 (Class, Action, Found, Last);                                   *    64    64    65    65
+    68       RETURN Last;                                                           61    67
+    69    END IsLast;                                                               62    64
+    70 
+    71 PROCEDURE IsLast2 (t, Action: tTree; VAR pFound, pLast: BOOLEAN);            64    67     *    67    64    65     *     *
+                                                                                    65
+    72    VAR Found, Last: BOOLEAN;                                                 71    67    68    71
+    73    BEGIN                                                                     66
+    74       CASE t^.Kind OF                                                         *    71    58     *
+    75       | Class:                                                               67
+    76             IsLast2 (t^.Class.Attributes, Action, pFound, pLast);            71    74    75     *    71    71    71
+    77             IF pFound OR NOT pLast THEN RETURN; END;                          *    76     *     *    76     *    68    69
+    78             IsLast2 (t^.Class.BaseClass, Action, pFound, pLast);             76    76    76    59    76    77    77
+    79       | Child:                                                               39
+    80             IsLast2 (t^.Child.Next, Action, Found, Last);                    78    78    79     *    78    72    72
+    81             pFound := Found;                                                 78    80
+    82             IF Found THEN                                                    77    81    77
+    83                pLast := Last;                                                78    80
+    84             ELSE                                                              *
+    85                pLast := FALSE;                                               83     *
+    86             END;                                                             77
+    87       | Attribute:                                                           39
+    88             IsLast2 (t^.Attribute.Next, Action, pFound, pLast);              80    80    87    80    80    81    85
+    89       | ActionPart:                                                          40
+    90             IsLast2 (t^.ActionPart.Next, Action, Found, Last);               88    88    89    88    88    82    83
+    91             pFound := Found OR (Action = t);                                 88    90    77    90    90
+    92             IF Found THEN                                                    82    91    82
+    93                pLast := Last;                                                88    90
+    94             ELSE                                                             84
+    95                pLast := Last AND (Action = t);                               93    93     *    91    91
+    96             END;                                                             86
+    97       ELSE                                                                   94
+    98             pFound := FALSE;                                                 91    85
+    99             pLast  := TRUE;                                                  95     *
+   100       END;                                                                   96
+   101    END IsLast2;                                                             100    90
+   102 }
+   103 
+   104 BEGIN {                                                                      73
+   105    ArrayToString ("OPER"        , s); iOper     := MakeIdent (s);            29    54    51    31     *
+   106    ArrayToString ("RIGHT"       , s); iRight    := MakeIdent (s);           105   105    51   105     *
+   107    ArrayToString ("LEFT"        , s); iLeft     := MakeIdent (s);           106   106    51   106     *
+   108    ArrayToString ("NONE"        , s); iNone     := MakeIdent (s);           107   107    51   107     *
+   109    ArrayToString ("PREC"        , s); iPrec     := MakeIdent (s);           108   108    51   108     *
+   110    ArrayToString ("RULE"        , s); iRule     := MakeIdent (s);           109   109    51   109     *
+   111 }
+   112 
+   113 PROCEDURE ParsSpec (t: Tree)                                                 71    24    95    37
+   114 
+   115 Ag (..) :- {                                                                  *
+   116         IF ScannerName # NoIdent THEN                                        92     *    31    92
+   117            !SCANNER ! WI (ScannerName);                                       *    43   116
+   118         END;                                                                101
+   119         ! PARSER ! WI (ParserName); !!                                        *   117     *
+   120         !GLOBAL {!                                                           26
+   121         WriteText (f, ParserCodes^.Codes.Global);                            32    43     *     *     *
+   122         Node := Modules;                                                     50     *
+   123         WHILE Node^.Kind = Tree.Module DO                                    58   122    74   113     *    58
+   124            WriteText (f, Node^.Module.ParserCodes^.Codes.Global);           121   121   123   123   121   121   121
+   125            Node := Node^.Module.Next;                                       124     *   124    90
+   126         END;                                                                118
+   127         !TYPE!                                                                *
+   128         ParsVariant (Classes);                                                *     *
+   129         !!
+   130        IF IsElement ( ORD ( 'K' ) , Options ) THEN (* Modula-3 *)           116    33     *    41   116
+   131         !tParsAttribute = RECORD!                                             *     *
+   132        ELSE                                                                  97
+   133         !tParsAttribute = RECORD CASE : SHORTCARD OF!                       131   131    74    52    74
+   134         !  0: Scan: !                                                         *
+   135        END;                                                                 126
+   136         IF ScannerName # NoIdent THEN WI (ScannerName); ELSE !Scanner! END;       130   117   116   130   119     *   132
+                                                                                     *   135
+   137         !.tScanAttribute;!                                                    *
+   138         i := 0;                                                              52
+   139         Node := Classes;                                                    125   128
+   140         WHILE Node^.Kind = Class DO                                         123   139   123    78   123
+   141           WITH Node^.Class DO                                                 *   140   140   140
+   142              IF {Nonterminal, Referenced, HasAttributes} <= Properties THEN       136    44    41    40     *   136
+   143                INC (i);                                                       *   138
+   144                IF NOT IsElement ( ORD ( 'K' ) , Options ) THEN (* NOT Modula-3 *)       142    77   130   130   130   142
+   145                  !| ! WN (i); !: !                                           43   143
+   146                END ;                                                        136
+   147                IF (String IN Properties) AND NOT (HasSelector IN Properties) THEN       144    45     *   142    95   144
+                                                                                    40     *     *   144
+   148                  !(* ! WE (Name); ! *) yy! WN (Name);                         *   145     *
+   149                  !: yy! WN (Name); !;!                                      148   148   148
+   150                ELSE                                                         136
+   151                  WI (Selector); !: yy! WI (Selector); !;!                   136     *   149     *     *
+   152                END;                                                         146
+   153              END;                                                           152
+   154              Node := Next;                                                  141   125
+   155           END;                                                              153
+   156         END;                                                                155
+   157         IF NOT IsElement ( ORD ( 'K' ) , Options ) THEN (* NOT Modula-3 *)        147   147   144   144   144   147
+   158          ! END ;!                                                           156
+   159         END ;                                                               158
+   160         !END ;!                                                             159
+   161         !}!
+   162         !!
+   163         !EXPORT {!                                                            *
+   164         WriteText (f, ParserCodes^.Codes.Export);                           124   124   124   124     *
+   165         Node := Modules;                                                    154   122
+   166         WHILE Node^.Kind = Tree.Module DO                                   140   165   140   123   125   141
+   167           WriteText (f, Node^.Module.ParserCodes^.Codes.Export);            164   164   166   166   164   164   164
+   168           Node := Node^.Module.Next;                                        167     *   167   154
+   169         END;                                                                160
+   170         !}!
+   171         !!
+   172         !LOCAL {!                                                             *
+   173         WriteText (f, ParserCodes^.Codes.Local);                            167   167   167   167     *
+   174         Node := Modules;                                                    168   165
+   175         WHILE Node^.Kind = Tree.Module DO                                   166   174   166   166   168   166
+   176           WriteText (f, Node^.Module.ParserCodes^.Codes.Local);             173   173   175   175   173   173   173
+   177           Node := Node^.Module.Next;                                        176     *   176   168
+   178         END;                                                                169
+   179         !}!
+   180         !!
+   181         !BEGIN {!                                                           104
+   182         WriteText (f, ParserCodes^.Codes.Begin);                            176   176   176   176     *
+   183         Node := Modules;                                                    177   174
+   184         WHILE Node^.Kind = Tree.Module DO                                   175   183   175   175   177   175
+   185           WriteText (f, Node^.Module.ParserCodes^.Codes.Begin);             182   182   184   184   182   182   182
+   186           Node := Node^.Module.Next;                                        185     *   185   177
+   187         END;                                                                178
+   188         !}!
+   189         !!
+   190         !CLOSE {!                                                             *
+   191         WriteText (f, ParserCodes^.Codes.Close);                            185   185   185   185     *
+   192         Node := Modules;                                                    186   183
+   193         WHILE Node^.Kind = Tree.Module DO                                   184   192   184   184   186   184
+   194           WriteText (f, Node^.Module.ParserCodes^.Codes.Close);             191   191   193   193   191   191   191
+   195           Node := Node^.Module.Next;                                        194     *   194   186
+   196         END;                                                                187
+   197         !}!
+   198         !!
+   199         !TOKEN!                                                               *
+   200         !!
+   201         ForallClasses (Classes, Token);                                      43   139     *
+   202         !!
+   203         !OPER!                                                                *
+   204         !!
+   205         PrecDefs (Precs);                                                     *     *
+   206         !!
+   207         !RULE!                                                                *
+   208         !!
+   209         ForallClasses (Classes, ParsSpec);                                  201   201   113
+   210 }; .
+   211 Class (..) :- {                                                             141
+   212         IF {Nonterminal, Referenced} <= Properties THEN                     157   142   142   147   157
+   213            TheClass := t;                                                    50   113
+   214            IF IsElement ( ORD ( 'e' ) , Options )                           212   157   157   157
+   215            THEN                                                             212
+   216              GrammarDep (t)                                                   *   213
+   217            ELSE                                                             150
+   218              Grammar (t)                                                      *   216
+   219            END                                                              196
+   220         END;                                                                219
+   221 }; .
+   222 
+   223 
+   224 PROCEDURE ScanSpec (t: Tree)                                                113    24   218   193
+   225 
+   226 Ag (..) :- {                                                                115
+   227         !m!                                                                   *
+   228         !TYPE!                                                              127
+   229         ForallClasses (Classes, ScanVariant);                               209   209     *
+   230         !!
+   231         !tScanAttribute = RECORD!                                           137   133
+   232         !Position: tPosition;!                                                *     *
+   233         IF IsElement ( ORD ( 'K' ) , Options ) THEN (* Modula-3 *)          214   214   214   214   215
+   234          ForallClasses (Classes, ScanAttr);                                 229   229     *
+   235         ELSE                                                                217
+   236          !CASE : SHORTCARD OF!                                              133   133   133
+   237          ForallClasses (Classes, ScanAttr);                                 234   234   234
+   238          ! END ;!                                                           220
+   239         END ;                                                               238
+   240         !END ;!                                                             239
+   241         !!
+   242         !PROCEDURE ErrorAttribute (Token: INTEGER; VAR pAttribute: tScanAttribute);!    224     *   201     *    72     *
+                                                                                   231
+   243         !%%!
+   244         !PROCEDURE ErrorAttribute (Token: INTEGER; VAR pAttribute: tScanAttribute);!    242   242   242   242   242   242
+                                                                                   242
+   245         !BEGIN!                                                             181
+   246         ! pAttribute.Position := Attribute.Position;!                       244   232    88     *
+   247         ! CASE Token OF!                                                    236   244   236
+   248         ForallClasses (Classes, ErrorActions);                              237   237     *
+   249         ! ELSE!                                                             235
+   250         ! END;!                                                             240
+   251         !END ErrorAttribute;!                                               250   244
+   252         !%%!
+   253         ForallClasses (Classes, ScanSpec);                                  248   248   224
+   254 }; .
+   255 Class (..) :- {                                                             211
+   256         IF {Terminal, Referenced} <= Properties THEN                        233    44   212   212   233
+   257            WN (Code);                                                       149     *
+   258            IF HasAttributes IN Properties THEN  ! S !                       256   142   147   256   256     *
+   259            ELSE                                 ! N !                       249     *
+   260            END;                                                             251
+   261            IF (String IN Properties) AND NOT (HasSelector IN Properties) THEN     258   147   258   258   147   157   147
+                                                                                     *     *   258
+   262               !yy! WN (Code);                                               151   257   257
+   263            ELSE                                                             259
+   264               WI (Selector);                                                151   151
+   265            END;                                                             260
+   266            ! ! WI (Name); !!                                                264   149
+   267         END;                                                                265
+   268 }; .
+   269 
+   270 
+   271 PROCEDURE ErrorActions (t: Tree)                                            244   248   224   224
+   272 
+   273 Class (..) :- {                                                             255
+   274         IF {Terminal, Referenced, HasAttributes} <= Properties THEN         261   256   256   258   261   261
+   275           ! | (* ! WE (Name); ! *) ! WN (Code); !: !                        262   262
+   276           TheClass := t;                                                    213   271
+   277           ForallAttributes (t, ErrorActions);                                43   276   271
+   278         END;                                                                267
+   279 }; .
+   280 ActionPart (..) :- {                                                         90
+   281         ErrorActions (Actions);                                             277     *
+   282 }; .
+   283 Assign (..) :- {                                                              *
+   284         ErrorActions (Results); !:=! ErrorActions (Arguments); !;!          281     *     *     *
+   285         ErrorActions (Next);                                                284   195
+   286 }; .
+   287 Copy (..) :- {                                                                *
+   288         ErrorActions (Results); ! := ! ErrorActions (Arguments); !;!        285   284     *   284
+   289         ErrorActions (Next);                                                288   285
+   290 }; .
+   291 TargetCode (..) :- {                                                          *
+   292         ErrorActions (Code); !;!                                            289   275
+   293         ErrorActions (Next);                                                292   289
+   294 }; .
+   295 Order (..) :- {                                                               *
+   296         ErrorActions (Next);                                                293   293
+   297 }; .
+   298 Check (..) :- {                                                               *
+   299         IF Statement # NoTree THEN                                          274     *    38   274
+   300            IF Condition # NoTree THEN                                       299     *   299   299
+   301               !IF NOT (! ErrorActions (Condition); !) THEN ! ErrorActions (Statement\   300   261   296   300   300     *
+                                                                                   299
+      \); !; END;!                                                                 278
+   302            ELSE                                                             263
+   303               ErrorActions (Statement); !;!                                 301   301
+   304            END;                                                             301
+   305         ELSE                                                                302
+   306            !IF ! ErrorActions (Condition); ! THEN END;!                     301   303   301   301   304
+   307         END;                                                                306
+   308         ErrorActions (Next);                                                306   296
+   309 }; .
+   310 Designator (..) :- {                                                          *
+   311         WI (Selector); !:! WI (Attribute);                                  266   264     *   246
+   312         ErrorActions (Next);                                                308   308
+   313 }; .
+   314 Ident (..) :- {                                                               *
+   315         TheAttr := IdentifyAttribute (TheClass, Attribute);                  50    44   276   311
+   316         IF TheAttr # NoTree THEN                                            306   315   300   306
+   317            !pAttribute!                                                     246
+   318            IF Attribute = iPosition THEN                                    316   315    45   316
+   319            ELSIF (String IN TheClass^.Class.Properties) AND NOT (HasSelector IN TheC\     *   261   261   315   273   274
+                                                                                   261   301   261     *
+      \lass^.Class.Properties) THEN                                                  *     *     *   318
+   320               !.yy! WN (TheClass^.Class.Code);                              262   275   319   319   292
+   321            ELSE                                                             305
+   322               !.! WI (TheClass^.Class.Selector);                            311   320   320   311
+   323            END;                                                             307
+   324            !.! 
+   325         END;                                                                323
+   326         WI (Attribute);                                                     322   318
+   327         ErrorActions (Next);                                                312   312
+   328 }; .
+   329 Any (..) :- {                                                                 *
+   330         WriteString (f, Code);                                               30   194   320
+   331         ErrorActions (Next);                                                327   327
+   332 }; .
+   333 Anys (..) :- {                                                                *
+   334         ErrorActions (Layouts);                                             331     *
+   335         ErrorActions (Next);                                                334   331
+   336 }; .
+   337 LayoutAny (..) :- {                                                           *
+   338         WriteString (f, Code);                                              330   330   330
+   339         ErrorActions (Next);                                                335   335
+   340 }; .
+   341 
+   342 
+   343 PROCEDURE ScanVariant (t: Tree)                                             271   229   277   271
+   344 
+   345 Class (..) :- {                                                             322
+   346         IF {Terminal, Referenced, HasAttributes} <= Properties THEN         318   274   274   274   319   319
+   347           IF (String IN Properties) AND NOT (HasSelector IN Properties) THEN      346   319   319   346   319   319   319
+                                                                                     *     *   346
+   348             !(* ! WE (Name); ! *) yy! WN (Code); ! = RECORD !               320   320   338   231
+   349           ELSE                                                              321
+   350             !yy! WI (Selector); ! = RECORD !                                348   326   322   348
+   351           END;                                                              325
+   352           TheClass := t;                                                    322   343
+   353           ForallAttributes (t, RecordField);                                277   352     *
+   354           !END;!                                                            351
+   355         END;                                                                354
+   356 }; .
+   357 
+   358 
+   359 PROCEDURE ScanAttr (t: Tree)                                                343   237   353   343
+   360 
+   361 Class (..) :- {                                                             345
+   362         IF {Terminal, Referenced, HasAttributes} <= Properties THEN         347   346   346   346   347   347
+   363           IF NOT IsElement ( ORD ( 'K' ) , Options ) THEN (* NOT Modula-3 *)      362   347   233   233   233   362
+   364            !| ! WN (Code); !: !                                             348   348
+   365           END ;                                                             355
+   366           IF (String IN Properties) AND NOT (HasSelector IN Properties) THEN      363   347   347   362   347   363   347
+                                                                                     *     *   363
+   367             !(* ! WE (Name); ! *) yy! WN (Code); !: yy! WN (Code); !;!      350   364   364     *     *     *
+   368           ELSE                                                              349
+   369             WI (Selector); !: yy! WI (Selector); !;!                        350   350   367     *     *
+   370           END;                                                              365
+   371         END;                                                                370
+   372 }; .
+   373 
+   374 
+   375 PROCEDURE ParsVariant (t: Tree)                                             359   128   359   359
+   376 
+   377 Class (..) :- {                                                             361
+   378         IF {Nonterminal, Referenced, HasAttributes} <= Properties THEN      366   212   362   362   366   366
+   379           IF (String IN Properties) AND NOT (HasSelector IN Properties) THEN      378   366   366   378   366   366   366
+                                                                                     *     *   378
+   380             !(* ! WE (Name); ! *) yy! WN (Name); ! = RECORD !               369   367   266   350
+   381           ELSE                                                              368
+   382             !yy! WI (Selector); ! = RECORD !                                380   369   369   380
+   383           END;                                                              371
+   384           TheClass := t;                                                    352   375
+   385           GenExt (Extensions);                                                *     *
+   386           ForallAttributes (Attributes, RecordField);                       353    76   353
+   387           !END;!                                                            383
+   388         END;                                                                387
+   389         ParsVariant (Next);                                                 375   339
+   390 }; .
+   391 
+   392 
+   393 PROCEDURE GenExt (t: Tree)                                                  375   385   384   375
+   394 
+   395 Class (..) :- {                                                             377
+   396         ForallAttributes (Attributes, RecordField);                         386   386   386
+   397         GenExt (Extensions);                                                393   385
+   398         GenExt (Next);                                                      397   389
+   399 }; .
+   400 
+   401 
+   402 PROCEDURE Token (t: Tree)                                                   393   247   393   393
+   403 
+   404 Class (..) :- {                                                             395
+   405         IF {Terminal, Referenced} <= Properties THEN                        379   362   378   379   379
+   406            WriteName (Name); ! = ! WN (Code); !!                              *   380   380   367
+   407         END;                                                                388
+   408 }; .
+   409 
+   410 
+   411 PROCEDURE RecordField   /* TheClass     */ (t: Tree)                        402   396   402   402
+   412 
+   413 Attribute (..) :- {                                                         326
+   414         IF (NoCodeAttr * Properties) = {} THEN                              405    40   405   405
+   415            IF (Nonterminal IN TheClass^.Class.Properties) OR (Name # iPosition) THEN    414   378   379   384   404   414
+                                                                                    91   406   318   414
+   416               WI (Name); !: ! WI (Type); !; !                               382   415     *     *
+   417            END;                                                             407
+   418         END;                                                                417
+   419 }; .
+   420 
+   421 
+   422 PROCEDURE PrecDefs (t: Tree)                                                411   205   411   411
+   423 
+   424 LeftAssoc (..) :- {                                                           *
+   425         !LEFT ! PrecDefs (Names); !!                                          *   422     *
+   426         PrecDefs (Next);                                                    425   398
+   427 }; .
+   428 RightAssoc (..) :- {                                                          *
+   429         !RIGHT! PrecDefs (Names); !!                                          *   426   425
+   430         PrecDefs (Next);                                                    429   426
+   431 }; .
+   432 NonAssoc (..) :- {                                                            *
+   433         !NONE ! PrecDefs (Names); !!                                          *   430   429
+   434         PrecDefs (Next);                                                    433   430
+   435 }; .
+   436 Name (..) :- {                                                              416
+   437         ! ! WI (Name);                                                      416   436
+   438         PrecDefs (Next);                                                    434   434
+   439 }; .
+   440 
+   441 
+   442 /* Original Grammar, Rule, Implicit: */
+   443 
+   444 PROCEDURE Grammar (t: Tree)                                                 422   218   422   422
+   445 
+   446 Class (..) :- {                                                             415
+   447         IF Extensions^.Kind = Tree.NoClass THEN         (* Low ? *)         415   397   193   444    58   415
+   448            WITH TheClass^.Class DO                                          141   415   446   193
+   449               IF String IN Properties THEN !yy! WN (Name); ELSE WriteName (Name); EN\   447   379   415   415   447   382
+                                                                                   406   437   381   406     *
+      \D;                                                                          418
+   450            END;                                                             449
+   451            ! : ! 
+   452            ActClass := t;                                                    50   444
+   453            PrevActionIndex := 0;                                             52
+   454            IsImplicit := FALSE;                                              53    98
+   455            ForallAttributes (t, Rule);                                      396   452     *
+   456            IF Prec # NoIdent THEN !PREC ! WI (Prec); ! ! END;               449     *   136   449     *   437     *   450
+   457            !.!
+   458            PrevActionIndex := 0;                                            453
+   459            IsImplicit := TRUE;                                              454    99
+   460            ForallAttributes (t, Implicit);                                  455   455     *
+   461         ELSE                                                                449
+   462            Rule (Extensions);                                               455   447
+   463         END;                                                                456
+   464 }; .
+   465 
+   466 
+   467 PROCEDURE Rule (t: Tree)                                                    444   462   460   447
+   468 
+   469 Class (..) :- {                                                             448
+   470         Grammar (t);                                                        444   467
+   471         Rule (Next);                                                        467   438
+   472 }; .
+   473 Child (..) :- {                                                              80
+   474         IF {String, Nonterminal} <= Class^.Class.Properties THEN !yy! WN (Type); ELS\   456   449   415   469     *   449
+                                                                                   456   449   449   416
+      \E WriteName (Type); END; ! !                                                461   449     *   463
+   475 }; .
+   476 ActionPart (..) :- {                                                        280
+   477         IF IsLast (ActClass, t) THEN                                        474    69   452   470   474
+   478            !{! 
+   479            IF PrevActionIndex # 0 THEN                                      477   458   477
+   480               Node := GetBaseClass (TheClass);                              195    62   448
+   481               WITH Node^.Class DO                                           448   480   474   448
+   482                  IF HasAttributes IN Properties THEN                        479   378   449   474   479
+   483                     ! $$.! 
+   484                     IF String IN Properties THEN !yy! WN (Name); ELSE WI (Name); END\   482   474   482   482   482   474
+                                                                                   474   449   474   456     *   474
+      \;
+   485                     ! := $! WN (PrevActionIndex); !.!                       484   479
+   486                     IF String IN Properties THEN !yy! WN (Name); ELSE WI (Name); END\   484   484   484   484   484   484
+                                                                                   485   484   484   484     *   484
+      \;
+   487                     !;!
+   488                  END;                                                       486
+   489               END;                                                          488
+   490            END;                                                             489
+   491            Rule (Actions);                                                  471   281
+   492            !} ! 
+   493         ELSE                                                                486
+   494            !xx! WN (Name); ! !                                                *   486   486
+   495         END;                                                                490
+   496         PrevActionIndex := ParsIndex;                                       485     *
+   497 }; .
+   498 Assign (..) :- {                                                            283
+   499         Rule (Results); !:=! Rule (Arguments); !;!                          491   288     *   288
+   500         Rule (Next);                                                        499   471
+   501 }; .
+   502 Copy (..) :- {                                                              287
+   503         Rule (Results); ! := ! Rule (Arguments); !;!                        500   499     *   499
+   504         Rule (Next);                                                        503   500
+   505 }; .
+   506 TargetCode (..) :- {                                                        291
+   507         Rule (Code); !;!                                                    504   406
+   508         Rule (Next);                                                        507   504
+   509 }; .
+   510 Order (..) :- {                                                             295
+   511         Rule (Next);                                                        508   508
+   512 }; .
+   513 Check (..) :- {                                                             298
+   514         IF Statement # NoTree THEN                                          486   303   316   486
+   515            IF Condition # NoTree THEN                                       514   306   514   514
+   516               !IF NOT (! Rule (Condition); !) THEN ! Rule (Statement); !; END;!   515   379   511   515   515     *   514
+                                                                                   495
+   517            ELSE                                                             493
+   518               Rule (Statement); !;!                                         516   516
+   519            END;                                                             516
+   520         ELSE                                                                517
+   521            !IF ! Rule (Condition); ! THEN END;!                             516   518   516   516   519
+   522         END;                                                                521
+   523         Rule (Next);                                                        521   511
+   524 }; .
+   525 Designator (..) :- {                                                        310
+   526         TheAttr := IdentifyAttribute (ActClass, Selector);                  316   315   477   382
+   527         IF TheAttr # NoTree THEN                                            521   526   515   521
+   528           Node := TheAttr^.Child.Class;                                     481   527   473   481
+   529           IF Node # NoTree THEN                                             527   528   527   527
+   530             !$! 
+   531             IF NOT IsImplicit THEN                                          529   516   459   529
+   532                WN (TheAttr^.Child.ParsIndex);                               494   528   528   496
+   533             ELSE                                                            520
+   534                WN (SHORTINT (TheAttr^.Child.ParsIndex + 1 - ActActionIndex));     532     *   532   532   532    52
+   535             END;                                                            522
+   536             IF Nonterminal IN Node^.Class.Properties THEN       (* nonterminal *)       531   474   486   529   528   486
+                                                                                   531
+   537               Node := GetBaseClass (Node);                                  536   480     *
+   538               IF (String IN Node^.Class.Properties) AND NOT (HasSelector IN Node^.Cl\   536   486   536   537   536   536
+                                                                                   379   531   379     *     *
+      \ass.Properties) THEN                                                          *     *   536
+   539                 !.yy! WN (Node^.Class.Name);                                486   534   538   538   494
+   540               ELSE                                                          533
+   541                 !.! WI (Node^.Class.Name);                                  486   539   539   539
+   542               END;                                                          535
+   543             ELSE                                                (* terminal *)    540
+   544               !.Scan!                                                       134
+   545               IF Attribute = iPosition THEN                                 538   413   415   538
+   546               ELSIF (String IN Node^.Class.Properties) AND NOT (HasSelector IN Node^\   319   538   538   541   541   538
+                                                                                   538   538   538     *     *
+      \.Class.Properties) THEN                                                       *     *   545
+   547                 !.yy! WN (Node^.Class.Code);                                539   539   546   546   507
+   548               ELSE                                                          543
+   549                 !.! WI (Node^.Class.Selector);                              541   547   547   526
+   550               END;                                                          542
+   551             END;                                                            550
+   552             !.! WI (Attribute);                                             549   545
+   553           ELSE                                                              548
+   554             WI (Selector); !:! WI (Attribute);                              552   549     *   552
+   555           END;                                                              551
+   556         ELSE                                                                553
+   557           WI (Selector); !:! WI (Attribute);                                554   554     *   554
+   558         END;                                                                555
+   559         Rule (Next);                                                        523   523
+   560 }; .
+   561 Ident (..) :- {                                                             314
+   562         TheAttr := IdentifyAttribute (ActClass, Attribute);                 534   526   526   557
+   563         Node := GetBaseClass (TheClass);                                    549   537   480
+   564         IF TheAttr # NoTree THEN                                            545   562   529   546
+   565           IF (String IN Node^.Class.Properties) AND NOT (HasSelector IN Node^.Class.\   564   546   546   563   549   546
+                                                                                   546   546   546     *     *     *
+      \Properties) THEN                                                              *   564
+   566             !$$.yy! WN (Node^.Class.Name); !.! WI (Attribute);              547   547   565   565   541   557   562
+   567           ELSE                                                              556
+   568             !$$.! WI (Node^.Class.Name); !.! WI (Attribute);                566   566   566   566     *   566
+   569           END;                                                              558
+   570         ELSE                                                                567
+   571           WI (Attribute);                                                   568   568
+   572         END;                                                                569
+   573         Rule (Next);                                                        559   559
+   574 }; .
+   575 Any (..) :- {                                                               329
+   576         WriteString (f, Code);                                              338   338   547
+   577         Rule (Next);                                                        573   573
+   578 }; .
+   579 Anys (..) :- {                                                              333
+   580         Rule (Layouts);                                                     577   334
+   581         Rule (Next);                                                        580   577
+   582 }; .
+   583 LayoutAny (..) :- {                                                         337
+   584         WriteString (f, Code);                                              576   576   576
+   585         Rule (Next);                                                        581   581
+   586 }; .
+   587 
+   588 
+   589 PROCEDURE Implicit (t: Tree)                                                467   460   477   467
+   590 
+   591 ActionPart (..) :- {                                                        476
+   592         IF NOT (Generated IN Properties) AND NOT IsLast (ActClass, t) THEN        565   565    42   565   565   565     *
+                                                                                   477   562   589   565
+   593            INCL (Properties, Generated);                                      *   592   592
+   594            ActActionIndex := ParsIndex;                                     534   534
+   595            !xx! WN (Name); ! : {!                                           494   566   568
+   596            IF PrevActionIndex # 0 THEN                                      592   496   592
+   597               Node := GetBaseClass (TheClass);                              568   563   563
+   598               WITH Node^.Class DO                                           481   597   568   481
+   599                  IF HasAttributes IN Properties THEN                        596   482   592   593   596
+   600                     ! $$.! 
+   601                     IF String IN Properties THEN !yy! WN (Name); ELSE WI (Name); END\   599   565   599   599   599   566
+                                                                                   595   595   570   571     *   572
+      \;
+   602                     ! := $! WN (SHORTINT (PrevActionIndex + 1 - ActActionIndex)); !.\   601   534   596   594
+      \! 
+   603                     IF String IN Properties THEN !yy! WN (Name); ELSE WI (Name); END\   601   601   601   601   601   601
+                                                                                   602   601   601   601     *   601
+      \;
+   604                     !;!
+   605                  END;                                                       603
+   606               END;                                                          605
+   607            END;                                                             606
+   608            Rule (Actions);                                                  585   491
+   609            !} .!
+   610         END;                                                                607
+   611         PrevActionIndex := ParsIndex;                                       602   594
+   612 }; .
+   613 
+   614 /* New GrammarDep, ClassListDep, ChildDep, ActionsDep: */
+   615 
+   616 PROCEDURE ClassListDep (t: Tree)                                            589     *   592   589
+   617 
+   618 Class (..) :- {                                                             598
+   619         GrammarDep (t);                                                     216   616
+   620         ClassListDep (Next);                                                616   585
+   621 }; .
+   622 
+   623 PROCEDURE GrammarDep (t: Tree)                                              616   619   619   616
+   624 
+   625 LOCAL { VAR i : SHORTCARD ; VAR BracesGenerated : BOOLEAN ; }               172   244   145   236     *     *    72
+   626 
+   627 Class (..) :- {                                                             618
+   628         IF Extensions^.Kind = Tree.NoClass THEN         (* Low ? *)         603   462   447   623   447   603
+   629            WITH TheClass^.Class DO                                          598   597   627   598
+   630               IF String IN Properties                                       628   603   603   603
+   631               THEN !yy! WN (Name); ELSE WriteName (Name); END;              628   603   603   603   603   474     *   610
+   632            END;                                                             631
+   633            ! : ! 
+   634            ForallAttributes (t, ChildDep);                                  460   623     *
+   635            !!
+   636            BracesGenerated := FALSE ;                                       625   454
+   637            FOR i := 1 TO InstCount                                            *   625     *     *
+   638            DO                                                               629
+   639              WITH Instance ^ [ Instance ^ [ i ] . Order ]                   629     *     *   637   510
+   640              DO                                                             638
+   641                IF ( { Left , First } <= Properties )                        630    37    37   630
+   642                   AND NOT ( Dummy IN Properties )                           592   592    37   630   641
+   643                   AND ( Action <> ADR ( Action ) )                          642    95    34     *
+   644                THEN                                                         631
+   645                  ActClass := t ;                                            592   634
+   646                  IF BracesGenerated                                         641   636
+   647                  THEN                                                       644
+   648                    !   ! 
+   649                  ELSE                                                       631
+   650                    ! { ! 
+   651                    BracesGenerated := TRUE ;                                646   459
+   652                  END ;                                                      632
+   653                  ActionsDep ( Action ) ;                                      *   643
+   654                  !!
+   655                END                                                          652
+   656              END                                                            655
+   657            END ;                                                            656
+   658            IF BracesGenerated                                               646   651
+   659            THEN                                                             647
+   660              ! } !
+   661            END ;                                                            657
+   662            IF Prec # NoIdent THEN !PREC ! WI (Prec); ! ! END;               658   456   456   659   456   603     *   661
+   663            !.!
+   664         ELSE                                                                649
+   665            ClassListDep (Extensions);                                       620   628
+   666         END;                                                                662
+   667 }; .
+   668 
+   669 
+   670 PROCEDURE ChildDep (t: Tree)                                                623   634   645   628
+   671 
+   672 Child (..) :- {                                                             534
+   673         IF {String, Nonterminal} <= Class^.Class.Properties                 662   630   536   629     *   642
+   674         THEN !yy! WN (Type); ELSE WriteName (Type); END; ! !                662   631   631   474   664   631     *   666
+   675 }; .
+   676 
+   677 PROCEDURE ActionsDep (t: Tree)                                              670   653   670   670
+   678 
+   679 Assign (..) :- {                                                            498
+   680         ActionsDep (Results); !:=! ActionsDep (Arguments); !;!              677   503     *   503
+   681         ActionsDep (Next);                                                  680   620
+   682 }; .
+   683 Copy (..) :- {                                                              502
+   684         ActionsDep (Results); ! := ! ActionsDep (Arguments); !;!            681   680     *   680
+   685         ActionsDep (Next);                                                  684   681
+   686 }; .
+   687 TargetCode (..) :- {                                                        506
+   688         ActionsDep (Code); !;!                                              685   584
+   689         ActionsDep (Next);                                                  688   685
+   690 }; .
+   691 Order (..) :- {                                                             639
+   692         ActionsDep (Next);                                                  689   689
+   693 }; .
+   694 Check (..) :- {                                                             513
+   695         IF Statement # NoTree THEN                                          673   518   564   674
+   696            IF Condition # NoTree THEN                                       695   521   695   695
+   697               !IF NOT (! ActionsDep (Condition); !) THEN ! ActionsDep (Statement); !\   696   642   692   696   696     *
+                                                                                   695
+      \; END;!                                                                     674
+   698            ELSE                                                             674
+   699               ActionsDep (Statement); !;!                                   697   697
+   700            END;                                                             697
+   701         ELSE                                                                698
+   702            !IF ! ActionsDep (Condition); ! THEN END;!                       697   699   697   697   700
+   703         END;                                                                702
+   704         ActionsDep (Next);                                                  702   692
+   705 }; .
+   706 Designator (..) :- {                                                        525
+   707         TheAttr := IdentifyAttribute (ActClass, Selector);                  564   562   645   557
+   708         IF TheAttr # NoTree THEN                                            702   707   696   702
+   709           Node := TheAttr^.Child.Class;                                     598   708   672   673
+   710           IF Node # NoTree THEN                                             708   709   708   708
+   711             !$! 
+   712             WN ( TheAttr^.Child.ChildIndex ) ;                              674   709   709     *
+   713             IF Nonterminal IN Node^.Class.Properties THEN  (* nonterminal *)      710   673   642   710   709   673   710
+   714               Node := GetBaseClass (Node);                                  713   597     *
+   715               IF (String IN Node^.Class.Properties)                         713   673   713   714   713   713
+   716                  AND NOT (HasSelector IN Node^.Class.Properties) THEN       643   697   565   715   715   715   715   713
+   717                 !.yy! WN (Node^.Class.Name);                                674   712   716   716   631
+   718               ELSE                                                          701
+   719                 !.! WI (Node^.Class.Name);                                  662   717   717   717
+   720               END;                                                          703
+   721             ELSE                                                (* terminal *)    718
+   722               !.Scan!                                                       544
+   723               IF Attribute = iPosition THEN                                 715   571   545   716
+   724               ELSIF (String IN Node^.Class.Properties)                      546   715   716   719   719   716
+   725                     AND NOT (HasSelector IN Node^.Class.Properties) THEN    716   716   716   724   724   724   724   723
+   726                 !.yy! WN (Node^.Class.Code);                                717   717   725   725   688
+   727               ELSE                                                          721
+   728                 !.! WI (Node^.Class.Selector);                              719   726   726   707
+   729               END;                                                          720
+   730             END;                                                            729
+   731             !.! WI (Attribute);                                             728   723
+   732           ELSE                                                              727
+   733             WI (Selector); !:! WI (Attribute);                              731   728     *   731
+   734           END;                                                              730
+   735         ELSE                                                                732
+   736           WI (Selector); !:! WI (Attribute);                                733   733     *   733
+   737         END;                                                                734
+   738         ActionsDep (Next);                                                  704   704
+   739 }; .
+   740 Ident (..) :- {                                                             561
+   741         TheAttr := IdentifyAttribute (ActClass, Attribute);                 712   707   707   736
+   742         IF TheAttr # NoTree THEN                                            723   741   710   725
+   743           Node := GetBaseClass (TheClass);                                  728   714   629
+   744           IF (String IN Node^.Class.Properties)                             742   724   725   743   728   725
+   745              AND NOT (HasSelector IN Node^.Class.Properties) THEN           725   725   725   744   744   744   744   742
+   746             !$$.yy! WN (Node^.Class.Name); !.! WI (Attribute);              726   726   745   745   719   736   741
+   747           ELSE                                                              735
+   748             !$$.! WI (Node^.Class.Name); !.! WI (Attribute);                746   746   746   746     *   746
+   749           END;                                                              737
+   750         ELSE                                                                747
+   751           WI (Attribute);                                                   748   748
+   752         END;                                                                749
+   753         ActionsDep (Next);                                                  738   738
+   754 }; .
+   755 Any (..) :- {                                                               575
+   756         WriteString (f, Code);                                              584   584   726
+   757         ActionsDep (Next);                                                  753   753
+   758 }; .
+   759 Anys (..) :- {                                                              579
+   760         ActionsDep (Layouts);                                               757   580
+   761         ActionsDep (Next);                                                  760   757
+   762 }; .
+   763 LayoutAny (..) :- {                                                         583
+   764         WriteString (f, Code);                                              756   756   756
+   765         ActionsDep (Next);                                                  761   761
+   766 }; .
+   767 
+   768 
+   769 PROCEDURE WriteName (Name: tIdent)                                          677   674   748    51
+   770 
+   771 (iOper);                                                                    105
+   772 (iLeft);                                                                    107
+   773 (iRight);                                                                   106
+   774 (iNone);                                                                    108
+   775 (iPrec);                                                                    109
+   776 (iRule) :-          WriteBackslash ( f ) ;  WI (Name); .                    110    35   764   751   769
+   777 _       :-          WI (Name); .                                              *   776   776
+   778 
+Cross reference: 
+
+-A-
+ ActActionIndex                  52   534   594   602 
+ ActClass                        50   452   477   526   562   592   645   707   741 
+ Action                          64    67    71    76    78    80    88    90    91    95   643   643   653 
+ ActionPart                      40    89    90   280   476   591 
+ Actions                        281   491   608 
+ ActionsDep                     653   677   680   680   681   684   684   685   688   689   692   697   697   699   702   704   738 
+                                753   757   760   761   765 
+ ADR                             34   643 
+ Ag                             115   226 
+ AND                             95   147   261   319   347   366   379   538   546   565   592   642   643   716   725   745 
+ Any                            329   575   755 
+ Anys                           333   579   759 
+ Arguments                      284   288   499   503   680   684 
+ ArrayToString                   29   105   106   107   108   109   110 
+ Assign                         283   498   679 
+ Attribute                       39    87    88   246   311   315   318   326   413   545   552   554   557   562   566   568   571 
+                                723   731   733   736   741   746   748   751 
+ Attributes                      76   386   396 
+
+-B-
+ BaseClass                       58    59    78 
+ BEGIN                           57    66    73   104   181   245 
+ Begin                          182   185 
+ BOOLEAN                         53    64    65    71    72   625 
+ BracesGenerated                625   636   646   651   658 
+
+-C-
+ CASE                            74   133   236   247 
+ Check                          298   513   694 
+ Child                           39    79    80   473   528   532   534   672   709   712 
+ ChildDep                       634   670 
+ ChildIndex                     712 
+ Class                           39    56    58    58    59    59    59    61    64    67    75    76    78   140   141   211   255 
+                                273   319   319   320   322   345   361   377   395   404   415   446   448   469   474   474   481 
+                                528   536   538   538   539   541   546   546   547   549   565   565   566   568   598   618   627 
+                                629   673   673   709   713   715   716   717   719   724   725   726   728   744   745   746   748 
+ ClassCount                      42 
+ Classes                        128   139   201   209   229   234   237   248   253 
+ ClassListDep                   616   620   665 
+ CLOSE                          190 
+ Close                          191   194 
+ Code                           257   262   275   292   320   330   338   348   364   367   367   406   507   547   576   584   688 
+                                726   756   764 
+ Codes                          121   124   164   167   173   176   182   185   191   194 
+ Condition                      300   301   306   515   516   521   696   697   702 
+ Copy                           287   502   683 
+
+-D-
+ Designator                     310   525   706 
+ DO                              58   123   140   141   166   175   184   193   448   481   598   629   638   640 
+ Dummy                           37   642 
+
+-E-
+ ELSE                            84    94    97   132   136   150   217   235   249   259   263   302   305   321   349   368   381 
+                                449   461   474   484   486   493   517   520   533   540   543   548   553   556   567   570   601 
+                                603   631   649   664   674   698   701   718   721   727   732   735   747   750 
+ ELSIF                          319   546   724 
+ END                             60    62    69    77    86    96   100   101   118   126   135   136   146   152   153   155   156 
+                                158   159   160   169   178   187   196   219   220   238   239   240   250   251   260   265   267 
+                                278   301   304   306   307   323   325   351   354   355   365   370   371   383   387   388   407 
+                                417   418   449   450   456   463   474   484   486   488   489   490   495   516   519   521   522 
+                                535   542   550   551   555   558   569   572   601   603   605   606   607   610   631   632   652 
+                                655   656   657   661   662   666   674   697   700   702   703   720   729   730   734   737   749 
+                                752 
+ ErrorActions                   248   271   277   281   284   284   285   288   288   289   292   293   296   301   301   303   306 
+                                308   312   327   331   334   335   339 
+ ErrorAttribute                 242   244   251 
+ EXPORT                         163 
+ Export                         164   167 
+ Extensions                     385   397   447   462   628   665 
+
+-F-
+ f                               43   121   124   164   167   173   176   182   185   191   194   330   338   576   584   756   764 
+                                776 
+ FALSE                           85    98   454   636 
+ First                           37   641 
+ FOR                            637 
+ ForallAttributes                43   277   353   386   396   455   460   634 
+ ForallClasses                   43   201   209   229   234   237   248   253 
+ Found                           65    67    72    80    81    82    90    91    92 
+ FROM                            28    29    30    31    32    33    34    35    37 
+
+-G-
+ Generated                       42   592   593 
+ GenExt                         385   393   397   398 
+ GetBaseClass                    56    62   480   537   563   597   714   743 
+ GLOBAL                          26   120 
+ Global                         121   124 
+ Grammar                        218   444   470 
+ GrammarDep                     216   619   623 
+ GramMod                         22 
+
+-H-
+ HasAttributes                   40   142   258   274   346   362   378   482   599 
+ HasSelector                     40   147   261   319   347   366   379   538   546   565   716   725   745 
+
+-I-
+ i                               52   138   143   145   625   637   639 
+ Ident                          314   561   740 
+ IdentifyAttribute               44   315   526   562   707   741 
+ Idents                          31 
+ IF                              77    82    92   116   130   136   142   144   147   157   212   214   233   256   258   261   274 
+                                299   300   301   306   316   318   346   347   362   363   366   378   379   405   414   415   447 
+                                449   456   474   477   479   482   484   486   514   515   516   521   527   529   531   536   538 
+                                545   564   565   592   596   599   601   603   628   630   641   646   658   662   673   695   696 
+                                697   702   708   710   713   715   723   742   744 
+ iLeft                           51   107   772 
+ Implicit                       460   589 
+ IMPORT                          28    29    30    31    32    33    34    35    37    47 
+ IN                             147   147   258   261   261   319   319   347   347   366   366   379   379   415   449   482   484 
+                                486   536   538   538   546   546   565   565   592   599   601   603   630   642   713   715   716 
+                                724   725   744   745 
+ INC                            143 
+ INCL                           593 
+ Include                         33 
+ iNone                           51   108   774 
+ iNoTree                         42 
+ Input                           38 
+ Instance                       639   639 
+ InstCount                      637 
+ INTEGER                        242   244 
+ IO                              28 
+ iOper                           51   105   771 
+ IOUtils                         35 
+ iPosition                       45   318   415   545   723 
+ iPrec                           51   109   775 
+ iRight                          51   106   773 
+ iRule                           51   110   776 
+ IsElement                       33   130   144   157   214   233   363 
+ IsImplicit                      53   454   459   531 
+ IsLast                          64    69   477   592 
+ IsLast2                         67    71    76    78    80    88    90   101 
+ itTree                          42 
+
+-K-
+ Kind                            58    74   123   140   166   175   184   193   447   628 
+
+-L-
+ Last                            65    67    68    72    80    83    90    93    95 
+ LayoutAny                      337   583   763 
+ Layouts                        334   580   760 
+ LEFT                           425 
+ Left                            37   641 
+ LeftAssoc                      424 
+ LOCAL                          172   625 
+ Local                          173   176 
+
+-M-
+ m                              227 
+ MakeIdent                       31   105   106   107   108   109   110 
+ Module                         123   124   125   166   167   168   175   176   177   184   185   186   193   194   195 
+ Modules                        122   165   174   183   192 
+
+-N-
+ N                              259 
+ Name                           148   149   266   380   406   415   416   436   437   449   449   484   484   486   486   494   539 
+                                541   566   568   595   601   601   603   603   631   631   717   719   746   748   769   776   777 
+ Names                          425   429   433 
+ Next                            80    88    90   125   154   168   177   186   195   285   289   293   296   308   312   327   331 
+                                335   339   389   398   426   430   434   438   471   500   504   508   511   523   559   573   577 
+                                581   585   620   681   685   689   692   704   738   753   757   761   765 
+ NoClass                         39    58   447   628 
+ NoCodeAttr                      40   414 
+ Node                            50   122   123   124   125   125   139   140   141   154   165   166   167   168   168   174   175 
+                                176   177   177   183   184   185   186   186   192   193   194   195   195   480   481   528   529 
+                                536   537   537   538   538   539   541   546   546   547   549   563   565   565   566   568   597 
+                                598   709   710   713   714   714   715   716   717   719   724   725   726   728   743   744   745 
+                                746   748 
+ NoIdent                         31   116   136   456   662 
+ NonAssoc                       432 
+ NONE                           433 
+ Nonterminal                     44   142   212   378   415   474   536   673   713 
+ NOT                             77   144   147   157   261   301   319   347   363   366   379   516   531   538   546   565   592 
+                                592   642   697   716   725   745 
+ NoTree                          38   299   300   316   514   515   527   529   564   695   696   708   710   742 
+
+-O-
+ OF                              74   133   236   247 
+ OPER                           203 
+ Options                         41   130   144   157   214   233   363 
+ OR                              77    91   415 
+ ORD                            130   144   157   214   233   363 
+ Order                          295   510   639   691 
+
+-P-
+ PARSER                         119 
+ ParserCodes                    121   124   164   167   173   176   182   185   191   194 
+ ParserName                     119 
+ ParsIndex                      496   532   534   594   611 
+ ParsSpec                        24   113   209 
+ ParsVariant                    128   375   389 
+ pAttribute                     242   244   246   317 
+ pFound                          71    76    77    78    81    88    91    98 
+ pLast                           71    76    77    78    83    85    88    93    95    99 
+ Position                       232   246   246 
+ PREC                           456   662 
+ Prec                           456   456   662   662 
+ PrecDefs                       205   422   425   426   429   430   433   434   438 
+ Precs                          205 
+ PrevActionIndex                 52   453   458   479   485   496   596   602   611 
+ PROCEDURE                       56    64    71   113   224   242   244   271   343   359   375   393   402   411   422   444   467 
+                                589   616   623   670   677   769 
+ Properties                     142   147   147   212   256   258   261   261   274   319   319   346   347   347   362   366   366 
+                                378   379   379   405   414   415   449   474   482   484   486   536   538   538   546   546   565 
+                                565   592   593   599   601   603   630   641   642   673   713   715   716   724   725   744   745 
+ PUBLIC                          24 
+
+-Q-
+ QueryTree                       41 
+
+-R-
+ RECORD                         131   133   231   348   350   380   382 
+ RecordField                    353   386   396   411 
+ Referenced                      41   142   212   256   274   346   362   378   405 
+ Results                        284   288   499   503   680   684 
+ RETURN                          61    68    77 
+ Reverse                         38 
+ RIGHT                          429 
+ Right                           37 
+ RightAssoc                     428 
+ RULE                           207 
+ Rule                           455   462   467   471   491   499   499   500   503   503   504   507   508   511   516   516   518 
+                                521   523   559   573   577   580   581   585   608 
+
+-S-
+ S                              258 
+ s                               54   105   105   106   106   107   107   108   108   109   109   110   110 
+ Scan                           134   544   722 
+ ScanAttr                       234   237   359 
+ SCANNER                        117 
+ Scanner                        136 
+ ScannerName                    116   117   136   136 
+ ScanSpec                        24   224   253 
+ ScanVariant                    229   343 
+ Selector                       151   151   264   311   322   350   369   369   382   526   549   554   557   707   728   733   736 
+ Sets                            33 
+ SHORTCARD                       52   133   236   625 
+ SHORTINT                       534   602 
+ Statement                      299   301   303   514   516   518   695   697   699 
+ String                          45   147   261   319   347   366   379   449   474   484   486   538   546   565   601   603   630 
+                                673   715   724   744 
+ StringMem                       30 
+ Strings                         29    47 
+ SYSTEM                          34 
+
+-T-
+ t                               71    74    76    78    80    88    90    91    95   113   213   216   218   224   271   276   277 
+                                343   352   353   359   375   384   393   402   411   422   444   452   455   460   467   470   477 
+                                589   592   616   619   623   634   645   670   677 
+ TargetCode                     291   506   687 
+ Terminal                        44   256   274   346   362   405 
+ Texts                           32 
+ TheAttr                         50   315   316   526   527   528   532   534   562   564   707   708   709   712   741   742 
+ TheClass                        50   213   276   315   319   319   320   322   352   384   415   448   480   563   597   629   743 
+ THEN                            77    82    92   116   130   136   142   144   147   157   212   215   233   256   258   261   274 
+                                299   300   301   306   316   318   319   346   347   362   363   366   378   379   405   414   415 
+                                447   449   456   474   477   479   482   484   486   514   515   516   521   527   529   531   536 
+                                538   545   546   564   565   592   596   599   601   603   628   631   644   647   659   662   674 
+                                695   696   697   702   708   710   713   716   723   725   742   745 
+ tIdent                          31    51   769 
+ TO                             637 
+ TOKEN                          199 
+ Token                          201   242   244   247   402 
+ tParsAttribute                 131   133 
+ tPosition                      232 
+ TRAFO                           22 
+ TREE                            23 
+ Tree                            23    37   113   123   166   175   184   193   224   271   343   359   375   393   402   411   422 
+                                444   447   467   589   616   623   628   670   677 
+ TreeRoot                        41 
+ TRUE                            99   459   651 
+ tScanAttribute                 137   231   242   244 
+ tString                         29    54 
+ tTree                           38    50    56    56    64    71 
+ TYPE                           127   228 
+ Type                           416   474   474   674   674 
+
+-V-
+ VAR                             49    65    71    72   242   244   625   625 
+
+-W-
+ WE                              43 
+ WHILE                           58   123   140   166   175   184   193 
+ WI                              43   117   119   136   151   151   264   266   311   311   322   326   350   369   369   382   416 
+                                416   437   456   484   486   541   549   552   554   554   557   557   566   568   568   571   601 
+                                603   662   719   728   731   733   733   736   736   746   748   748   751   776   777 
+ WITH                           141   448   481   598   629   639 
+ WN                              43   145   148   149   257   262   275   320   348   364   367   367   380   406   449   474   484 
+                                485   486   494   532   534   539   547   566   595   601   602   603   631   674   712   717   726 
+                                746 
+ WriteBackslash                  35   776 
+ WriteName                      406   449   474   631   674   769 
+ WriteNl                         28 
+ WriteS                          28 
+ WriteString                     30   330   338   576   584   756   764 
+ WriteText                       32   121   124   164   167   173   176   182   185   191   194 
+
+-X-
+ xx                             494   595 
+
+-Y-
+ yy                             148   149   151   262   320   348   350   367   367   369   380   382   449   474   484   486   539 
+                                547   566   601   603   631   674   717   726   746 
+
+-_-
+ _                              777 
+
+end cross reference, 1805 occurrences of 213 identifiers.

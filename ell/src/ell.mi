@@ -1,0 +1,92 @@
+(*
+ *	ell2 - a redesign of ell
+ *
+ *	$RCSfile: ell.mi,v $
+ *	
+ *	purpose:	main program
+ *
+ *	$Author: grosch $
+ *	$Date: 1992/10/15 18:27:20 $
+ *)
+
+MODULE ell;
+
+FROM System	IMPORT	Exit;
+FROM ArgCheck	IMPORT	CheckArgs, tLanguage, LANGUAGE, DEF, IMP, ERR, SCA, PAR;
+FROM CodeC	IMPORT	BeginCodeC, DoCodeC, CloseCodeC, CodeCTabName;
+FROM CodeM2	IMPORT	BeginCodeM2, DoCodeM2, CloseCodeM2, CodeM2TabName;
+FROM Errors	IMPORT	ErrorTable, SaveProc, WriteProc, BeginErrors, CloseErrors, InError;
+FROM Info	IMPORT	SaveInfo, WriteInfo;
+FROM IO		IMPORT	CloseIO;
+FROM Parser	IMPORT	ParsTabName, Parser, CloseParser;
+FROM Path	IMPORT	InsertPath;
+FROM Scanner	IMPORT	ScanTabName;
+FROM Tree	IMPORT	TreeRoot;
+FROM Semantics	IMPORT	BeginSemantics, DoSemantics, CloseSemantics, SemanticsTabName;
+FROM SupC	IMPORT	ErrC, ParC, ScaC;
+FROM SupM2	IMPORT	ErrM2, ParM2, ScaM2;
+
+(* ELL_ )*
+FROM ArgCheck	IMPORT	TABLE, CODES, TREE, QUERY;
+FROM Codes	IMPORT	WriteCodes;
+FROM IO		IMPORT	StdOutput;
+FROM Table	IMPORT	WriteTable;
+FROM Tree	IMPORT	WriteTree, QueryTree;
+*( _ELL *)
+
+VAR Errors : INTEGER;
+
+BEGIN
+  SaveProc  := SaveInfo;
+  WriteProc := WriteInfo;
+  InsertPath (ErrorTable);
+  InsertPath (ScanTabName);
+  InsertPath (ParsTabName);
+  InsertPath (SemanticsTabName);
+  InsertPath (CodeCTabName);
+  InsertPath (CodeM2TabName);
+  BeginErrors;
+  CheckArgs;
+
+  IF DEF OR IMP THEN
+    Errors := Parser (); 
+    CloseParser;
+    BeginSemantics;
+    DoSemantics (TreeRoot);
+    CloseSemantics;
+
+    (* ELL_ )*
+    IF CODES THEN WriteCodes (StdOutput); END;
+    IF TABLE THEN WriteTable (StdOutput); END;
+    IF TREE  THEN WriteTree  (StdOutput, TreeRoot); END;
+    IF QUERY THEN QueryTree  (TreeRoot); END;
+    *( _ELL *)
+  END;
+
+  IF InError THEN CloseErrors; CloseIO; Exit (1); END;
+
+  CASE LANGUAGE OF
+  | C:
+    IF DEF OR IMP THEN
+      BeginCodeC;
+      DoCodeC (TreeRoot);
+      CloseCodeC;
+    END;
+    IF ERR THEN ErrC; END;
+    IF SCA THEN ScaC; END;
+    IF PAR THEN ParC; END;
+
+  | MODULA2:
+    IF DEF OR IMP THEN
+      BeginCodeM2;
+      DoCodeM2 (TreeRoot);
+      CloseCodeM2;
+    END;
+    IF ERR THEN ErrM2; END;
+    IF SCA THEN ScaM2; END;
+    IF PAR THEN ParM2; END;
+  END;
+
+  CloseErrors;
+  CloseIO;
+END ell.

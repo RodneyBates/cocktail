@@ -1,0 +1,4 @@
+#!/bin/sh
+#script gmdrm
+#called by Cocktail tools 
+rm -f $1

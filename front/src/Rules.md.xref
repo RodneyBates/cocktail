@@ -1,0 +1,379 @@
+     1 (* handle rule section *)
+     2 
+     3 (* $Id: Rules.md,v 1.3 1991/11/21 14:47:50 grosch rel $ *)
+     4 
+     5 (* $Log: Rules.md,v $
+c    6  * Revision 1.3  1991/11/21  14:47:50  grosch
+c    7  * new version of RCS on SPARC
+c    8  *
+c    9  * Revision 1.2  90/06/11  18:45:23  grosch
+c   10  * layout improvements
+c   11  * 
+c   12  * Revision 1.1  89/01/23  15:47:43  vielsack
+c   13  * by using AppendArtificialNode instead of MakeArtificialNode
+c   14  * the tree order is the same as that of the input,
+c   15  * this is necessary to handle LL(1) conflicts correctly
+c   16  * 
+c   17  * Revision 1.0  88/10/04  14:27:07  vielsack
+c   18  * Initial revision
+c   19  * 
+c   20  *)
+    21 
+    22 DEFINITION MODULE Rules;                                                      *
+    23 
+    24   FROM Lists    IMPORT tList;                                                 *     *
+    25   FROM TokenTab IMPORT Terminal, NonTerminal, Vocabulary,PosType;             *     *     *     *     *
+    26   FROM SYSTEM   IMPORT ADDRESS;                                               *     *
+    27   FROM Idents   IMPORT tIdent;                                                *     *
+    28 
+    29   TYPE
+    30     Operation = (Plus, Star, Optional, Bracket, Sequence, Separator, Alternative,         *     *     *     *     *     *
+                                                                                     *     *
+    31        ArtAlternative, Action, TermLeaf, NonTermLeaf,NoOperation);            *     *     *     *     *
+    32 
+    33     UnaryOperation = [Plus..Star];                                            *    30    30
+    34     BracketOperation = [Optional..Bracket];                                   *    30    30
+    35     BinaryOperation = [Sequence..Alternative];                                *    30    30
+    36     ArtificialOperation = [ArtAlternative..ArtAlternative];                   *    31    31
+    37     LeafOperation = [TermLeaf..NonTermLeaf];                                  *    31    31
+    38     Expression;         (* eine rechte Seite *)                               *
+    39     MRules;             (* Regeln *)                                          *
+    40 
+    41   VAR NoExpression : Expression;        (* NIL *)                             *    38
+    42 
+    43   PROCEDURE MakeLeafNode                                                      *
+    44     (Sym: tIdent;                                                             *    27
+    45      Pos: PosType) : Expression;                                              *    25    38
+    46  
+    47   (* Lege neuen Blattknoten an und liefere den Zeiger auf ihn
+c   48      zurueck. *)
+    49 
+    50 
+    51   PROCEDURE MakeActionNode                                                    *
+    52     (Act: tList;                                                              *    24
+    53      Pos: PosType) : Expression;                                             45    25    38
+    54   
+    55   (* Lege neuen Actionknoten an und liefere den Zeiger auf ihn
+c   56      zurueck *)
+    57 
+    58   
+    59   PROCEDURE MakeUnaryNode                                                     *
+    60     (Art: UnaryOperation;                                                     *    33
+    61      Pos: PosType;                                                           53    25
+    62      Son: Expression) : Expression;                                           *    38    38
+    63 
+    64   (* Bilde neuen Knoten der angegebenen Art mit gegebenem Sohn,
+c   65      und liefere den Zeiger auf ihn zurueck *)
+    66   
+    67 
+    68   PROCEDURE MakeBracketNode                                                   *
+    69     (Art: BracketOperation;                                                  60    34
+    70      Pos,                                                                    61
+    71      SecPos : PosType;                                                        *    25
+    72      Son: Expression) : Expression;                                          62    38    38
+    73 
+    74   (* Bilde neuen Knoten der angegebenen Art mit gegebenem Sohn,
+c   75      und liefere den Zeiger auf ihn zurueck *)
+    76   
+    77 
+    78   PROCEDURE MakeBinaryNode                                                    *
+    79     (Art : BinaryOperation;                                                  69    35
+    80      Pos : PosType;                                                          70    25
+    81      LSon,                                                                    *
+    82      RSon: Expression) : Expression;                                          *    38    38
+    83 
+    84   (* Bilde neuen Knoten der angegebenen Art mit gegebenen Soehnen,
+c   85      und liefere den Zeiger auf ihn zurueck *)
+    86 
+    87 
+    88   PROCEDURE MakePrioAlternativeNode                                           *
+    89     (Pos        : PosType;                                                   80    25
+    90      LSon,                                                                   81
+    91      RSon       : Expression;                                                82    38
+    92      HasPrio    : BOOLEAN;                                                    *     *
+    93      PRIOPos    : PosType;                                                    *    25
+    94      PrioSym    : tIdent;                                                     *    27
+    95      PrioSymPos : PosType) : Expression;                                      *    25    38
+    96   
+    97   (* entspricht MakeBinaryNode (Alternative,...) jedoch wird zusaetzlich
+c   98      eine Prioritaet abgespeichert *)
+    99 
+   100 
+   101   PROCEDURE AppendArtificialNode                                              *
+   102     (Pos, SecPos : PosType;                                                  89    71    25
+   103      VAR Expr: Expression;                                                    *    38
+   104      New: Expression);                                                        *    38
+   105 
+   106   PROCEDURE PutNodeSpecial                                                    *
+   107     (Exp:  Expression;                                                        *    38
+   108      Spec: ADDRESS);                                                          *    26
+   109   
+   110   (* Trage Knotensonderinformation ein *)
+   111      
+   112 
+   113   PROCEDURE MakeRule                                                          *
+   114     (Left       : tIdent;                                                     *    27
+   115      LeftPos    : PosType;                                                    *    25
+   116      ColonPos   : PosType;                                                    *    25
+   117      Right      : Expression;                                                 *    38
+   118      Comment    : tList;                                                      *    24
+   119      CommPos    : PosType;                                                    *    25
+   120      PointPos   : PosType;                                                    *    25
+   121      HasPrio    : BOOLEAN;                                                   92     *
+   122      PRIOPos    : PosType;                                                   93    25
+   123      PrioSym    : tIdent;                                                    94    27
+   124      PrioSymPos : PosType);                                                  95    25
+   125 
+   126   (* Trage eine neue Regel in die Datenstruktur ein *)
+   127 
+   128 
+   129   PROCEDURE MakeRulesHeader                                                   *
+   130     (RULESPos   : PosType;                                                    *    25
+   131      Comment    : tList;                                                    118    24
+   132      CommPos    : PosType);                                                 119    25
+   133 
+   134   (* Speichere globale Information zum Abschnitt RULES ab *)
+   135 
+   136 
+   137   PROCEDURE InitRulesReading();                                               *
+   138 
+   139   (* Setze Lesezeiger auf Anfang der Liste. Gibt nach Schreib-
+c  140      zugriff Lesen am Anfang der Liste wieder frei. *)
+   141       
+   142 
+   143   PROCEDURE GetNodeOperation (Exp: Expression): Operation;                    *   107    38    30
+   144 
+   145   (* Hole Typinformation ueber Expression. Bei leerer Liste wird
+c  146      NoOperation zurueckgeliefert *)
+   147 
+   148 
+   149   PROCEDURE GetLeafNode                                                       *
+   150     (    Exp: Expression;                                                   143    38
+   151      VAR Voc: Vocabulary;                                                     *    25
+   152      VAR Pos: PosType);                                                     102    25
+   153  
+   154   (* Liefere Information aus Blattknoten. *)
+   155 
+   156 
+   157   PROCEDURE GetActionNode                                                     *
+   158     (    Expr:Expression;                                                   103    38
+   159      VAR Act: tList;                                                         52    24
+   160      VAR Pos: PosType);                                                     152    25
+   161   
+   162   (* Liefere Information aus Actionknoten *)
+   163 
+   164   
+   165   PROCEDURE GetUnaryNode                                                      *
+   166     (    Expr:Expression;                                                   158    38
+   167      VAR Pos: PosType;                                                      160    25
+   168      VAR Son: Expression);                                                   72    38
+   169 
+   170   (* Liefere Information aus unaerem Knoten *) 
+   171   
+   172 
+   173   PROCEDURE GetBracketNode                                                    *
+   174     (    Expr:Expression;                                                   166    38
+   175      VAR Pos,                                                               167
+   176          SecPos : PosType;                                                  102    25
+   177      VAR Son: Expression);                                                  168    38
+   178 
+   179   (* Liefere Information aus Klammer-Knoten *) 
+   180   
+   181 
+   182   PROCEDURE GetBinaryNode                                                     *
+   183     (    Expr: Expression;                                                  174    38
+   184      VAR Pos : PosType;                                                     175    25
+   185      VAR LSon,                                                               90
+   186      RSon: Expression);                                                      91    38
+   187 
+   188   (* Liefere Information aus binaerem Knoten *)
+   189 
+   190   PROCEDURE GetPrioAlternativeNode                                            *
+   191     (    Expr       : Expression;                                           183    38
+   192      VAR Pos        : PosType;                                              184    25
+   193      VAR LSon       : Expression;                                           185    38
+   194      VAR RSon       : Expression;                                           186    38
+   195      VAR HasPrio    : BOOLEAN;                                              121     *
+   196      VAR PRIOPos    : PosType;                                              122    25
+   197      VAR PrioSym    : tIdent;                                               123    27
+   198      VAR PrioSymPos : PosType);                                             124    25
+   199   
+   200   (* entspricht MakeBinaryNode (Alternative,...) jedoch wird zusaetzlich
+c  201      eine Prioritaet abgespeichert *)
+   202 
+   203 
+   204   PROCEDURE GetArtificialNode                                                 *
+   205     (    Expr: Expression;                                                  191    38
+   206      VAR Pos : PosType;                                                     192    25
+   207      VAR SecPos : PosType;                                                  176    25
+   208      VAR LSon,                                                              193
+   209      RSon: Expression);                                                     194    38
+   210 
+   211   (* Liefere Information aus kuenstlichem Knoten *)
+   212 
+   213 
+   214   PROCEDURE GetNodeSpecial                                                    *
+   215     (Exp:  Expression) : ADDRESS;                                           150    38    26
+   216   
+   217   (* Liefere Knotensonderinformation *)
+   218      
+   219 
+   220   PROCEDURE GetRule                                                           *
+   221     (VAR Left       : NonTerminal;                                          114    25
+   222      VAR LeftPos    : PosType;                                              115    25
+   223      VAR ColonPos   : PosType;                                              116    25
+   224      VAR Right      : Expression;                                           117    38
+   225      VAR Comment    : tList;                                                131    24
+   226      VAR CommPos    : PosType;                                              132    25
+   227      VAR PointPos   : PosType;                                              120    25
+   228      VAR HasPrio    : BOOLEAN;                                              195     *
+   229      VAR PRIOPos    : PosType;                                              196    25
+   230      VAR PrioSym    : Terminal;                                             197    25
+   231      VAR PrioSymPos : PosType) : BOOLEAN;                                   198    25     *
+   232 
+   233   (* Liefere naechste Regel bzw. FALSE falls es keine naechste Regel
+c  234      mehr gibt. Die erste Regel kann nach Aufruf von InitRulesReading
+c  235      gelesen werden. Kann in Wechsel mit GetEsentialRule verwendet 
+c  236      werden. *)
+   237 
+   238   PROCEDURE GetEssentialRule                                                  *
+   239     (VAR Left       : NonTerminal;                                          221    25
+   240      VAR Right      : Expression;                                           224    38
+   241      VAR HasPrio    : BOOLEAN) : BOOLEAN;                                   228     *     *
+   242 
+   243   (* Liefere naechste Regel bzw. FALSE falls es keine naechste Regel
+c  244      mehr gibt. Die erste Regel kann nach Aufruf von InitRulesReading
+c  245      gelesen werden.Kann im Wechsel mit GetRule verwendet werden *)
+   246 
+   247   PROCEDURE GetRulesHeader                                                    *
+   248     (VAR RULESPos   : PosType;                                              130    25
+   249      VAR Comment    : tList;                                                225    24
+   250      VAR CommPos    : PosType);                                             226    25
+   251 
+   252   (* Liefere globale Information zum Abschnitt RULES und initialisiere
+c  253      fuer das Lesen mit GetRule *)
+   254   
+   255 
+   256 END Rules.                                                                   22
+Cross reference: * is declaration, = is assignment
+
+-A-
+ Act                             52*  159*
+ Action                          31*
+ ADDRESS                         26*  108   215 
+ Alternative                     30*   35 
+ AppendArtificialNode           101*
+ Art                             60*   69*   79*
+ ArtAlternative                  31*   36    36 
+ ArtificialOperation             36*
+
+-B-
+ BinaryOperation                 35*   79 
+ BOOLEAN                         92   121   195   228   231   241   241 
+ Bracket                         30*   34 
+ BracketOperation                34*   69 
+
+-C-
+ ColonPos                       116*  223*
+ Comment                        118*  131*  225*  249*
+ CommPos                        119*  132*  226*  250*
+
+-E-
+ Exp                            107*  143*  150*  215*
+ Expr                           103*  158*  166*  174*  183*  191*  205*
+ Expression                      38*   41    45    53    62    62    72    72    82    82    91    95   103   104   107   117   143 
+                                150   158   166   168   174   177   183   186   191   193   194   205   209   215   224   240 
+
+-G-
+ GetActionNode                  157*
+ GetArtificialNode              204*
+ GetBinaryNode                  182*
+ GetBracketNode                 173*
+ GetEssentialRule               238*
+ GetLeafNode                    149*
+ GetNodeOperation               143*
+ GetNodeSpecial                 214*
+ GetPrioAlternativeNode         190*
+ GetRule                        220*
+ GetRulesHeader                 247*
+ GetUnaryNode                   165*
+
+-H-
+ HasPrio                         92*  121*  195*  228*  241*
+
+-I-
+ Idents                          27*
+ InitRulesReading               137*
+
+-L-
+ LeafOperation                   37*
+ Left                           114*  221*  239*
+ LeftPos                        115*  222*
+ Lists                           24*
+ LSon                            81*   90*  185*  193*  208*
+
+-M-
+ MakeActionNode                  51*
+ MakeBinaryNode                  78*
+ MakeBracketNode                 68*
+ MakeLeafNode                    43*
+ MakePrioAlternativeNode         88*
+ MakeRule                       113*
+ MakeRulesHeader                129*
+ MakeUnaryNode                   59*
+ MRules                          39*
+
+-N-
+ New                            104*
+ NoExpression                    41*
+ NonTerminal                     25*  221   239 
+ NonTermLeaf                     31*   37 
+ NoOperation                     31*
+
+-O-
+ Operation                       30*  143 
+ Optional                        30*   34 
+
+-P-
+ Plus                            30*   33 
+ PointPos                       120*  227*
+ Pos                             45*   53*   61*   70*   80*   89*  102*  152*  160*  167*  175*  184*  192*  206*
+ PosType                         25*   45    53    61    71    80    89    93    95   102   115   116   119   120   122   124   130 
+                                132   152   160   167   176   184   192   196   198   206   207   222   223   226   227   229   231 
+                                248   250 
+ PRIOPos                         93*  122*  196*  229*
+ PrioSym                         94*  123*  197*  230*
+ PrioSymPos                      95*  124*  198*  231*
+ PutNodeSpecial                 106*
+
+-R-
+ Right                          117*  224*  240*
+ RSon                            82*   91*  186*  194*  209*
+ Rules                           22*  256*
+ RULESPos                       130*  248*
+
+-S-
+ SecPos                          71*  102*  176*  207*
+ Separator                       30*
+ Sequence                        30*   35 
+ Son                             62*   72*  168*  177*
+ Spec                           108*
+ Star                            30*   33 
+ Sym                             44*
+ SYSTEM                          26*
+
+-T-
+ Terminal                        25*  230 
+ TermLeaf                        31*   37 
+ tIdent                          27*   44    94   114   123   197 
+ tList                           24*   52   118   131   159   225   249 
+ TokenTab                        25*
+
+-U-
+ UnaryOperation                  33*   60 
+
+-V-
+ Voc                            151*
+ Vocabulary                      25*  151 
+
+end cross reference, 253 occurrences of 82 identifiers.

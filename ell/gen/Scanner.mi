@@ -1,0 +1,1150 @@
+
+(* $Id: Scanner.mi,v 2.11 1992/09/24 13:14:00 grosch rel $ *)
+
+(* Modified Rodney M. Bates 
+   Mar 94 to compile under WRL 
+   Mar 96 to fix a bug in PROCEDURE input 
+   Mar 96 to add functions UpperCase and LowerCase, to exploit
+          the arrays yyToUpper and yyToLower, already there.
+   Apr 96 to add yyTotalLineCount and TotalLineCount. 
+*) 
+
+IMPLEMENTATION MODULE Scanner;
+ 
+IMPORT SYSTEM, Checks, System, General, Positions, IO, DynArray, Strings, Source;
+(* line 37 "../src/ell.rex" *)
+
+FROM Strings	IMPORT tString, Concatenate, AssignEmpty, ArrayToString,
+		       StringToInt, SubString, Append, Length, Char;
+FROM Idents	IMPORT MakeIdent;
+FROM StringMem	IMPORT PutString;
+FROM Errors	IMPORT ErrorMessage;
+FROM ArgCheck	IMPORT tLanguage, LANGUAGE;
+
+CONST
+  SymEqual	= 1;
+  SymColon	= 2;
+  SymPoint	= 3;
+  SymOr		= 4;
+  SymStar	= 5;
+  SymPlus	= 6;
+  SymList	= 7;
+  SymLBrace	= 8;
+  SymRBrace	= 9;
+  SymLBracket	= 10;
+  SymRBracket	= 11;
+  SymEXPORT	= 12;
+  SymGLOBAL	= 13;
+  SymLOCAL	= 14;
+  SymBEGIN	= 15;
+  SymCLOSE	= 16;
+  SymTOKEN	= 17;
+  SymOPER	= 18;
+  SymNONE	= 19;
+  SymLEFT	= 20;
+  SymRIGHT	= 21;
+  SymRULE	= 22;
+  SymPREC	= 23;
+  SymNumber	= 24;
+  SymAction	= 25;
+  SymActionEnd	= 26;
+  SymIdent	= 27;
+  SymString	= 28;
+  SymSCANNER	= 29;
+  SymPARSER	= 30;
+
+  eStringExceedsInput	= 20;
+  eCommentNotClosed	= 21;
+  eActionNotClosed	= 22;
+  eStringExceedsLine	= 23;
+  eBackSlashInAct	= 24;
+  eIllegalChar		= 25;
+
+  eError		= 3;
+
+VAR 
+  Level		: INTEGER;
+  TargetCode, s	: tString;
+
+PROCEDURE ErrorAttribute (Token : INTEGER; VAR Attribute : tScanAttribute);
+  BEGIN
+    CASE Token OF
+    | SymNumber : Attribute.value := NoValue;
+    | SymAction, SymActionEnd : Attribute.ref := NoString;
+    | SymIdent, SymString : Attribute.ident := NoIdent;
+    ELSE
+    END;
+  END ErrorAttribute;
+
+ 
+CONST
+   yyTabSpace		= 8;
+   yyDNoState		= 0;
+   yyFileStackSize	= 16;
+   yyInitBufferSize	= 1024 * 8 + 256;
+yyFirstCh	= 0C;
+yyLastCh	= 177C;
+yyEolCh	= 12C;
+yyEobCh	= 177C;
+yyDStateCount	= 153;
+yyTableSize	= 1650;
+yyEobState	= 41;
+yyDefaultState	= 42;
+STD	= 1;
+Action	= 3;
+Str1	= 5;
+Str2	= 7;
+CStr1	= 9;
+CStr2	= 11;
+Comment1	= 13;
+Comment2	= 15;
+ 
+TYPE
+   yyTableElmt		= SHORTCARD;
+   yyStateRange		= yyTableElmt [0 .. yyDStateCount];
+   yyTableRange		= yyTableElmt [0 .. yyTableSize];
+   yyCombType		= RECORD Check, Next: yyStateRange; END;
+   yyCombTypePtr	= POINTER TO yyCombType;
+   yytChBufferPtr	= POINTER TO ARRAY [0 .. 1000000] OF CHAR;
+   yyChRange		= [yyFirstCh .. yyLastCh];
+   yyFileStackPtrTyp    = SHORTCARD;
+   yyFileStackSubscript = yyFileStackPtrTyp [1 .. yyFileStackSize];
+
+VAR
+   yyBasePtr		: ARRAY yyStateRange	OF LONGCARD	;
+   yyDefault		: ARRAY yyStateRange	OF yyStateRange	;
+   yyComb		: ARRAY yyTableRange	OF yyCombType	;
+   yyEobTrans		: ARRAY yyStateRange	OF yyStateRange	;
+   yyToLower, yyToUpper	: ARRAY yyChRange	OF CHAR		;
+
+   yyStateStack		: POINTER TO ARRAY [0 .. 1000000] OF yyStateRange;
+   yyStateStackSize	: LONGINT;
+   yyStartState		: yyStateRange;
+   yyPreviousStart	: yyStateRange;
+   yyCh			: CHAR;
+ 
+   yySourceFile		: System.tFile;
+   yyEof		: BOOLEAN;
+   yyChBufferPtr	: yytChBufferPtr;
+   yyChBufferStart	: INTEGER;
+   yyChBufferSize	: LONGINT;
+   yyChBufferIndex	: INTEGER;
+   yyBytesRead		: INTEGER;
+   yyLineCount		: SHORTCARD; (* Number of the current line,
+                                        of the current file. *) 
+   yyTotalLineCount	: CARDINAL;  (* Number of lines already read,
+                                        of all files. *) 
+   yyLineStart		: INTEGER;
+
+   yyFileStackPtr	: yyFileStackPtrTyp;
+   yyFileStack		: ARRAY yyFileStackSubscript OF RECORD
+   			     SourceFile		: System.tFile;
+			     Eof		: BOOLEAN;
+   			     ChBufferPtr	: yytChBufferPtr;
+			     ChBufferStart	: INTEGER;
+			     ChBufferSize	: LONGINT;
+   			     ChBufferIndex	: INTEGER;
+   			     BytesRead		: INTEGER;
+   			     LineCount		: SHORTCARD;
+   			     LineStart		: INTEGER;
+			  END;
+
+PROCEDURE GetToken (): INTEGER;
+   VAR
+      yyState		: yyStateRange;
+      yyTablePtr	: yyCombTypePtr;
+      yyRestartFlag	: BOOLEAN;
+      yyi, yySource, yyTarget : INTEGER;
+      yyChBufferFree	: LONGINT;
+
+(* line 101 "../src/ell.rex" *)
+ VAR String, Word: tString; 
+BEGIN
+   LOOP
+      yyState		:= yyStartState;
+      TokenLength 	:= 0;
+ 
+      (* ASSERT yyChBuffer [yyChBufferIndex] = first character *)
+ 
+      LOOP		(* eventually restart after sentinel *)
+	 LOOP		(* execute as many state transitions as possible *)
+	    					(* determine next state *)
+	    yyTablePtr := yyCombTypePtr (yyBasePtr [yyState] +
+	       VAL(LONGCARD,ORD (yyChBufferPtr^ [yyChBufferIndex]) )
+               * VAL(LONGCARD, SYSTEM.TSIZE (yyCombType)) );
+	    IF yyTablePtr^.Check # yyState THEN
+	       yyState := yyDefault [yyState];
+	       IF yyState = yyDNoState THEN EXIT; END;
+	    ELSE
+	       yyState := yyTablePtr^.Next;
+	       INC (TokenLength);
+	       yyStateStack^ [TokenLength] := yyState;	(* push state *)
+	       INC (yyChBufferIndex);		(* get next character *)
+	    END;
+	 END;
+ 
+	 LOOP					(* search for last final state *)
+CASE yyStateStack^ [TokenLength] OF
+|153
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 142 "../src/ell.rex" *)
+ RETURN SymEqual	; 
+yyRestartFlag := FALSE; EXIT;
+|152
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 143 "../src/ell.rex" *)
+ RETURN SymColon	; 
+yyRestartFlag := FALSE; EXIT;
+|151
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 144 "../src/ell.rex" *)
+ RETURN SymPoint	; 
+yyRestartFlag := FALSE; EXIT;
+|147
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 145 "../src/ell.rex" *)
+ RETURN SymOr	; 
+yyRestartFlag := FALSE; EXIT;
+|150
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 146 "../src/ell.rex" *)
+ RETURN SymStar	; 
+yyRestartFlag := FALSE; EXIT;
+|149
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 147 "../src/ell.rex" *)
+ RETURN SymPlus	; 
+yyRestartFlag := FALSE; EXIT;
+|148
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 148 "../src/ell.rex" *)
+ RETURN SymList	; 
+yyRestartFlag := FALSE; EXIT;
+|74
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 149 "../src/ell.rex" *)
+ RETURN SymLBrace	; 
+yyRestartFlag := FALSE; EXIT;
+|146
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 150 "../src/ell.rex" *)
+ RETURN SymRBrace	; 
+yyRestartFlag := FALSE; EXIT;
+|145
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 151 "../src/ell.rex" *)
+ RETURN SymLBracket	; 
+yyRestartFlag := FALSE; EXIT;
+|144
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 152 "../src/ell.rex" *)
+ RETURN SymRBracket	; 
+yyRestartFlag := FALSE; EXIT;
+|143
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 153 "../src/ell.rex" *)
+ RETURN SymBEGIN	; 
+yyRestartFlag := FALSE; EXIT;
+|138
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 154 "../src/ell.rex" *)
+ RETURN SymCLOSE	; 
+yyRestartFlag := FALSE; EXIT;
+|133
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 155 "../src/ell.rex" *)
+ RETURN SymEXPORT	; 
+yyRestartFlag := FALSE; EXIT;
+|127
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 156 "../src/ell.rex" *)
+ RETURN SymGLOBAL	; 
+yyRestartFlag := FALSE; EXIT;
+|121
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 157 "../src/ell.rex" *)
+ RETURN SymLEFT	; 
+yyRestartFlag := FALSE; EXIT;
+|118
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 158 "../src/ell.rex" *)
+ RETURN SymLOCAL	; 
+yyRestartFlag := FALSE; EXIT;
+|113
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 159 "../src/ell.rex" *)
+ RETURN SymNONE	; 
+yyRestartFlag := FALSE; EXIT;
+|109
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 160 "../src/ell.rex" *)
+ RETURN SymOPER	; 
+yyRestartFlag := FALSE; EXIT;
+|105
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 161 "../src/ell.rex" *)
+ RETURN SymPARSER	; 
+yyRestartFlag := FALSE; EXIT;
+|100
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 162 "../src/ell.rex" *)
+ RETURN SymPREC	; 
+yyRestartFlag := FALSE; EXIT;
+|96
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 163 "../src/ell.rex" *)
+ RETURN SymRIGHT	; 
+yyRestartFlag := FALSE; EXIT;
+|92
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 164 "../src/ell.rex" *)
+ RETURN SymRULE	; 
+yyRestartFlag := FALSE; EXIT;
+|88
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 165 "../src/ell.rex" *)
+ RETURN SymSCANNER	; 
+yyRestartFlag := FALSE; EXIT;
+|81
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 166 "../src/ell.rex" *)
+ RETURN SymTOKEN	; 
+yyRestartFlag := FALSE; EXIT;
+|27
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 168 "../src/ell.rex" *)
+
+		GetWord (Word);
+		Attribute.value := StringToInt (Word);
+		RETURN SymNumber;
+		
+yyRestartFlag := FALSE; EXIT;
+|30
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 174 "../src/ell.rex" *)
+
+		GetWord (Word);
+		SubString (Word, 2, Length (Word), String);
+		Attribute.ident := MakeIdent (String);
+		RETURN SymIdent;
+		
+yyRestartFlag := FALSE; EXIT;
+|28
+,77
+,78
+,79
+,80
+,82
+,83
+,84
+,85
+,86
+,87
+,89
+,90
+,91
+,93
+,94
+,95
+,97
+,98
+,99
+,101
+,102
+,103
+,104
+,106
+,107
+,108
+,110
+,111
+,112
+,114
+,115
+,116
+,117
+,119
+,120
+,122
+,123
+,124
+,125
+,126
+,128
+,129
+,130
+,131
+,132
+,134
+,135
+,136
+,137
+,139
+,140
+,141
+,142
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 181 "../src/ell.rex" *)
+
+		GetWord (Word);
+		Attribute.ident := MakeIdent (Word);
+		RETURN SymIdent;
+		
+yyRestartFlag := FALSE; EXIT;
+|29
+:
+(* line 187 "../src/ell.rex" *)
+
+yyRestartFlag := FALSE; EXIT;
+|76
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 189 "../src/ell.rex" *)
+ Level := 0; yyStart (Action); AssignEmpty (TargetCode); 
+yyRestartFlag := FALSE; EXIT;
+|75
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 190 "../src/ell.rex" *)
+ Level := 0; yyStart (Comment1); 
+yyRestartFlag := FALSE; EXIT;
+|73
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 191 "../src/ell.rex" *)
+ yyStart (Comment2); 
+yyRestartFlag := FALSE; EXIT;
+|26
+,36
+,72
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 192 "../src/ell.rex" *)
+ ErrorMessage (eIllegalChar, eError, Attribute.Position); 
+yyRestartFlag := FALSE; EXIT;
+|71
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 194 "../src/ell.rex" *)
+ GetWord (String);
+		    IF LANGUAGE = C
+		    THEN yyStart (CStr1);
+		    ELSE yyStart (Str1);
+		    END;
+yyRestartFlag := FALSE; EXIT;
+|70
+:
+Attribute.Position.Line   := yyLineCount;
+Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);
+(* line 200 "../src/ell.rex" *)
+ GetWord (String);
+		    IF LANGUAGE = C
+		    THEN yyStart (CStr2);
+		    ELSE yyStart (Str2);
+		    END;
+yyRestartFlag := FALSE; EXIT;
+|23
+,35
+,47
+:
+(* line 209 "../src/ell.rex" *)
+GetWord (Word); Concatenate (String, Word);
+yyRestartFlag := FALSE; EXIT;
+|21
+,33
+,48
+:
+(* line 209 "../src/ell.rex" *)
+GetWord (Word); Concatenate (String, Word);
+yyRestartFlag := FALSE; EXIT;
+|20
+,32
+,38
+,49
+:
+(* line 209 "../src/ell.rex" *)
+GetWord (Word); Concatenate (String, Word);
+yyRestartFlag := FALSE; EXIT;
+|19
+,31
+,37
+,50
+:
+(* line 209 "../src/ell.rex" *)
+GetWord (Word); Concatenate (String, Word);
+yyRestartFlag := FALSE; EXIT;
+|69
+:
+(* line 212 "../src/ell.rex" *)
+GetWord (Word); Concatenate (String, Word); yyEol (0);
+yyRestartFlag := FALSE; EXIT;
+|68
+:
+(* line 212 "../src/ell.rex" *)
+GetWord (Word); Concatenate (String, Word); yyEol (0);
+yyRestartFlag := FALSE; EXIT;
+|66
+,67
+:
+(* line 215 "../src/ell.rex" *)
+Append (String, Char (String, 1));
+			    yyPrevious;
+			    IF yyStartState = Action THEN
+			       Concatenate (TargetCode, String);
+			    ELSE
+			       Attribute.ident := MakeIdent (String);
+			       RETURN SymString;
+			    END;
+yyRestartFlag := FALSE; EXIT;
+|34
+,65
+:
+(* line 215 "../src/ell.rex" *)
+Append (String, Char (String, 1));
+			    yyPrevious;
+			    IF yyStartState = Action THEN
+			       Concatenate (TargetCode, String);
+			    ELSE
+			       Attribute.ident := MakeIdent (String);
+			       RETURN SymString;
+			    END;
+yyRestartFlag := FALSE; EXIT;
+|64
+:
+(* line 224 "../src/ell.rex" *)
+Append (String, 11C); yyTab;
+yyRestartFlag := FALSE; EXIT;
+|63
+:
+(* line 226 "../src/ell.rex" *)
+
+			    ErrorMessage (eStringExceedsLine, eError, Attribute.Position);
+			    Append (String, Char (String, 1));
+			    yyEol (0); yyPrevious;
+			    IF yyStartState = Action THEN
+			       Concatenate (TargetCode, String);
+			    ELSE
+			       Attribute.ident := MakeIdent (String);
+			       RETURN SymString;
+			    END;
+yyRestartFlag := FALSE; EXIT;
+|24
+,46
+:
+(* line 237 "../src/ell.rex" *)
+ GetWord (Word); Concatenate (TargetCode, Word); 
+yyRestartFlag := FALSE; EXIT;
+|62
+:
+(* line 239 "../src/ell.rex" *)
+
+		GetWord (Word);
+		Concatenate (TargetCode, Word);
+		Attribute.ref := PutString (TargetCode);
+		AssignEmpty (TargetCode);
+		yyEol (0);
+		RETURN (SymAction);
+		
+yyRestartFlag := FALSE; EXIT;
+|61
+:
+(* line 248 "../src/ell.rex" *)
+ yyTab; GetWord (Word); Concatenate (TargetCode, Word); 
+yyRestartFlag := FALSE; EXIT;
+|25
+:
+(* line 250 "../src/ell.rex" *)
+ GetWord (Word); Append (TargetCode, Char (Word, 2)); 
+yyRestartFlag := FALSE; EXIT;
+|22
+:
+(* line 252 "../src/ell.rex" *)
+ ErrorMessage (eBackSlashInAct, eError, Attribute.Position); 
+yyRestartFlag := FALSE; EXIT;
+|60
+:
+(* line 254 "../src/ell.rex" *)
+ INC (Level); GetWord (Word); Concatenate (TargetCode, Word); 
+yyRestartFlag := FALSE; EXIT;
+|59
+:
+(* line 256 "../src/ell.rex" *)
+
+		IF Level = 0 THEN
+		  Attribute.ref := PutString (TargetCode);
+		  yyStart (STD);
+		  RETURN (SymActionEnd);
+		ELSE
+		  DEC (Level);
+		  GetWord (Word);
+		  Concatenate (TargetCode, Word);
+		END;
+		
+yyRestartFlag := FALSE; EXIT;
+|18
+,51
+:
+(* line 268 "../src/ell.rex" *)
+
+yyRestartFlag := FALSE; EXIT;
+|57
+:
+(* line 269 "../src/ell.rex" *)
+
+yyRestartFlag := FALSE; EXIT;
+|55
+:
+(* line 270 "../src/ell.rex" *)
+
+yyRestartFlag := FALSE; EXIT;
+|58
+:
+(* line 271 "../src/ell.rex" *)
+ INC (Level); 
+yyRestartFlag := FALSE; EXIT;
+|56
+:
+(* line 272 "../src/ell.rex" *)
+ IF Level = 0 THEN yyStart (STD); ELSE DEC (Level); END; 
+yyRestartFlag := FALSE; EXIT;
+|17
+,52
+:
+(* line 274 "../src/ell.rex" *)
+
+yyRestartFlag := FALSE; EXIT;
+|53
+:
+(* line 275 "../src/ell.rex" *)
+
+yyRestartFlag := FALSE; EXIT;
+|54
+:
+(* line 276 "../src/ell.rex" *)
+ yyStart (STD); 
+yyRestartFlag := FALSE; EXIT;
+|45
+:
+(* BlankAction *)
+WHILE yyChBufferPtr^ [yyChBufferIndex] = ' ' DO INC (yyChBufferIndex); END;
+yyRestartFlag := FALSE; EXIT;
+|44
+:
+(* TabAction *)
+DEC (yyLineStart, 7 - (yyChBufferIndex - yyLineStart - 2) MOD 8);
+yyRestartFlag := FALSE; EXIT;
+|43
+:
+(* EolAction *)
+INC (yyLineCount);
+yyLineStart := yyChBufferIndex - 1;
+yyRestartFlag := FALSE; EXIT;
+|1
+,2
+,3
+,4
+,5
+,6
+,7
+,8
+,9
+,10
+,11
+,12
+,13
+,14
+,15
+,16
+,39
+,40
+:
+	    (* non final states *)
+		  DEC (yyChBufferIndex);	(* return character *)
+		  DEC (TokenLength)		(* pop state *)
+ 
+| 42:
+		  Attribute.Position.Line   := yyLineCount;
+		  Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart);
+		  INC (yyChBufferIndex);
+		  TokenLength := 1;
+IO.WriteC (IO.StdOutput, yyChBufferPtr^ [yyChBufferIndex-1]);
+	          yyRestartFlag := FALSE; EXIT;
+
+	    |  yyDNoState	:		(* automatic initialization *)
+		  yyGetTables;
+		  yyStateStack^ [0] := yyDefaultState; (* stack underflow sentinel *)
+		  IF yyFileStackPtr = 0 THEN
+		     yyInitialize;
+		     yySourceFile := System.StdInput;
+		  END;
+	          yyRestartFlag := FALSE; EXIT;
+
+| 41:
+		  DEC (yyChBufferIndex);	(* undo last state transition *)
+		  DEC (TokenLength);		(* get previous state *)
+		  IF TokenLength = 0 THEN
+		     yyState := yyStartState;
+		  ELSE
+		     yyState := yyStateStack^ [TokenLength];
+		  END;
+
+		  IF yyChBufferIndex # yyChBufferStart + yyBytesRead THEN
+		     yyState := yyEobTrans [yyState];	(* end of buffer sentinel in buffer *)
+		     IF yyState # yyDNoState THEN
+			INC (yyChBufferIndex);
+			INC (TokenLength);
+			yyStateStack^ [TokenLength] := yyState;
+			yyRestartFlag := TRUE; EXIT;
+		     END;
+		  ELSE				(* end of buffer reached *)
+
+		     (* copy initial part of token in front of input buffer *)
+
+		     yySource := yyChBufferIndex - TokenLength - 1;
+		     yyTarget := General.MaxAlign - TokenLength MOD General.MaxAlign - 1;
+		     IF yySource # yyTarget THEN
+			FOR yyi := 1 TO TokenLength DO
+			   yyChBufferPtr^ [yyTarget + yyi] := yyChBufferPtr^ [yySource + yyi];
+			END;
+			DEC (yyLineStart, yySource - yyTarget);
+			yyChBufferStart := yyTarget + TokenLength + 1;
+		     ELSE
+			yyChBufferStart := yyChBufferIndex;
+		     END;
+
+		     IF NOT yyEof THEN		(* read buffer and restart *)
+			yyChBufferFree 
+                          := VAL( LONGINT 
+                                , General.Exp2 
+                                  (General.Log2 
+                                     (yyChBufferSize - 4 - VAL(LONGINT,General.MaxAlign) -VAL(LONGINT, TokenLength))
+                                  )
+                                );
+			IF yyChBufferFree < yyChBufferSize DIV 8 THEN
+			   DynArray.ExtendArray (yyChBufferPtr, yyChBufferSize, SYSTEM.TSIZE (CHAR));
+			   IF yyChBufferPtr = NIL THEN yyErrorMessage (1); END;
+			   yyChBufferFree 
+                             := VAL ( LONGINT
+                                    , General.Exp2 
+                                        (General.Log2 
+                                           (yyChBufferSize - 4 - VAL(LONGINT,General.MaxAlign) - VAL(LONGINT,TokenLength))
+                                        )
+                                    );
+			   IF yyStateStackSize < yyChBufferSize THEN
+			      DynArray.ExtendArray (yyStateStack, yyStateStackSize, SYSTEM.TSIZE (yyStateRange));
+			      IF yyStateStack = NIL THEN yyErrorMessage (1); END;
+			   END;
+			END;
+			yyChBufferIndex := yyChBufferStart;
+			yyBytesRead := Source.GetLine 
+                                 (yySourceFile
+                                  , SYSTEM.ADR (yyChBufferPtr^ [yyChBufferIndex])
+                                  , VAL ( CARDINAL , yyChBufferFree )
+                                  );
+			IF yyBytesRead <= 0 THEN yyBytesRead := 0; yyEof := TRUE; END;
+			yyChBufferPtr^ [yyChBufferStart + yyBytesRead    ] := yyEobCh;
+			yyChBufferPtr^ [yyChBufferStart + yyBytesRead + 1] := 0C;
+			yyRestartFlag := TRUE; EXIT;
+		     END;
+
+		     IF TokenLength = 0 THEN	(* end of file reached *)
+			Attribute.Position.Line   := yyLineCount;
+			Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart);
+			CloseFile;
+			IF yyFileStackPtr = 0 THEN
+(* line 110 "../src/ell.rex" *)
+
+CASE yyStartState OF
+| CStr1, CStr2, Str1, Str2 :
+    ErrorMessage (eStringExceedsInput, eError, Attribute.Position);
+    Append (String, Char (String, 1));
+    Attribute.ident := MakeIdent (String);
+    yyStart (STD);
+    yyEol (0);
+    RETURN SymString;
+| Comment1, Comment2 :
+    ErrorMessage (eCommentNotClosed, eError, Attribute.Position);
+| Action :
+    ErrorMessage (eActionNotClosed, eError, Attribute.Position);
+    Attribute.ref := PutString (TargetCode);
+    yyStart (STD);
+    RETURN (SymActionEnd);
+ELSE
+END;
+
+			END;
+			IF yyFileStackPtr = 0 THEN RETURN EofToken; END;
+			yyRestartFlag := FALSE; EXIT;
+		     END;
+		  END;
+	    ELSE
+	       yyErrorMessage (0);
+	    END;
+	 END;
+	 IF yyRestartFlag THEN ELSE EXIT; END;
+      END;
+   END;
+   END GetToken;
+ 
+PROCEDURE BeginFile (FileName: ARRAY OF CHAR);
+   BEGIN
+      IF yyStateStack^ [0] = yyDNoState THEN	(* have tables been read in ? *)
+	 yyGetTables;
+	 yyStateStack^ [0] := yyDefaultState;	(* stack underflow sentinel *)
+      END;
+      yyInitialize;
+      yySourceFile := Source.BeginSource (FileName);
+      IF yySourceFile < 0 THEN yyErrorMessage (5); END;
+   END BeginFile;
+
+PROCEDURE yyInitialize;
+   BEGIN
+      IF yyFileStackPtr >= yyFileStackSize THEN yyErrorMessage (3); END;
+      INC (yyFileStackPtr);			(* push file *)
+      WITH yyFileStack [yyFileStackPtr] DO
+	 SourceFile	:= yySourceFile		;
+	 Eof		:= yyEof		;
+	 ChBufferPtr	:= yyChBufferPtr	;
+	 ChBufferStart	:= yyChBufferStart	;
+	 ChBufferSize	:= yyChBufferSize	;
+	 ChBufferIndex	:= yyChBufferIndex	;
+	 BytesRead	:= yyBytesRead		;
+	 LineCount	:= yyLineCount		;
+	 LineStart	:= yyLineStart		;
+      END;
+						(* initialize file state *)
+      yyChBufferSize	:= yyInitBufferSize;
+      DynArray.MakeArray (yyChBufferPtr, yyChBufferSize, SYSTEM.TSIZE (CHAR));
+      IF yyChBufferPtr = NIL THEN yyErrorMessage (1); END;
+      yyChBufferStart	:= General.MaxAlign;
+      yyChBufferPtr^ [yyChBufferStart - 1] := yyEolCh; (* begin of line indicator *)
+      yyChBufferPtr^ [yyChBufferStart    ] := yyEobCh; (* end of buffer sentinel *)
+      yyChBufferPtr^ [yyChBufferStart + 1] := 0C;
+      yyChBufferIndex	:= yyChBufferStart;
+      yyEof		:= FALSE;
+      yyBytesRead	:= 0;
+      yyLineCount	:= 1;
+      yyTotalLineCount	:= 0;
+      yyLineStart	:= yyChBufferStart - 1;
+   END yyInitialize;
+
+PROCEDURE CloseFile;
+   BEGIN
+      IF yyFileStackPtr = 0 THEN yyErrorMessage (4); END;
+      Source.CloseSource (yySourceFile);
+      DynArray.ReleaseArray (yyChBufferPtr, yyChBufferSize, SYSTEM.TSIZE (CHAR));
+      WITH yyFileStack [yyFileStackPtr] DO	(* pop file *)
+	 yySourceFile	:= SourceFile		;
+	 yyEof		:= Eof			;
+	 yyChBufferPtr	:= ChBufferPtr		;
+	 yyChBufferStart:= ChBufferStart	;
+	 yyChBufferSize	:= ChBufferSize		;
+	 yyChBufferIndex:= ChBufferIndex	;
+	 yyBytesRead	:= BytesRead		;
+	 yyLineCount	:= LineCount		;
+	 yyLineStart	:= LineStart		;
+      END;
+      DEC (yyFileStackPtr);		
+   END CloseFile;
+
+PROCEDURE GetWord (VAR Word: Strings.tString);
+   VAR i, WordStart	: INTEGER;
+   BEGIN
+      WordStart := yyChBufferIndex - TokenLength - 1;
+      FOR i := 1 TO TokenLength DO
+	 Word.Chars [VAL(Strings.tStringIndex,i)] 
+           := yyChBufferPtr^ [WordStart + i];
+      END;
+      Word.Length := VAL(SHORTCARD,TokenLength);
+   END GetWord;
+ 
+PROCEDURE GetLower (VAR Word: Strings.tString);
+   VAR i, WordStart	: INTEGER;
+   BEGIN
+      WordStart := yyChBufferIndex - TokenLength - 1;
+      FOR i := 1 TO TokenLength DO
+	 Word.Chars [VAL(Strings.tStringIndex,i)] 
+           := yyToLower [yyChBufferPtr^ [WordStart + i]];
+      END;
+      Word.Length := VAL(SHORTCARD,TokenLength);
+   END GetLower;
+ 
+PROCEDURE GetUpper (VAR Word: Strings.tString);
+   VAR i, WordStart	: INTEGER;
+   BEGIN
+      WordStart := yyChBufferIndex - TokenLength - 1;
+      FOR i := 1 TO TokenLength DO
+	 Word.Chars [VAL(Strings.tStringIndex,i)] 
+           := yyToUpper [yyChBufferPtr^ [WordStart + i]];
+      END;
+      Word.Length := VAL(SHORTCARD,TokenLength);
+   END GetUpper;
+ 
+PROCEDURE yyStart (State: yyStateRange);
+   BEGIN
+      yyPreviousStart	:= yyStartState;
+      yyStartState	:= State;
+   END yyStart;
+ 
+PROCEDURE yyPrevious;
+   VAR s	: yyStateRange;
+   BEGIN
+      s		      := yyStartState;
+      yyStartState    := yyPreviousStart;
+      yyPreviousStart := s;
+   END yyPrevious;
+ 
+PROCEDURE yyEcho;
+   VAR i	: INTEGER;
+   BEGIN
+      FOR i := yyChBufferIndex - TokenLength TO yyChBufferIndex - 1 DO
+	 IO.WriteC (IO.StdOutput, yyChBufferPtr^ [i]);
+      END;
+   END yyEcho;
+ 
+PROCEDURE yyLess (n: INTEGER);
+   BEGIN
+      DEC (yyChBufferIndex, TokenLength - n);
+      TokenLength := n;
+   END yyLess;
+ 
+PROCEDURE yyTab;
+   BEGIN
+      DEC (yyLineStart, yyTabSpace - 1 - (yyChBufferIndex - yyLineStart - 2) MOD yyTabSpace);
+   END yyTab;
+
+PROCEDURE yyTab1 (a: INTEGER);
+   BEGIN
+      DEC (yyLineStart, yyTabSpace - 1 - (yyChBufferIndex - yyLineStart - TokenLength + a - 1) MOD yyTabSpace);
+   END yyTab1;
+
+PROCEDURE yyTab2 (a, b: INTEGER);
+   BEGIN
+      DEC (yyLineStart, yyTabSpace - 1 - (yyChBufferIndex - yyLineStart - TokenLength + a - 1) MOD yyTabSpace);
+   END yyTab2;
+
+PROCEDURE yyEol (Column: INTEGER);
+   BEGIN
+      INC (yyLineCount);
+      INC (yyTotalLineCount);
+      yyLineStart := yyChBufferIndex - 1 - Column;
+   END yyEol;
+
+PROCEDURE output (c: CHAR);
+   BEGIN
+      IO.WriteC (IO.StdOutput, c);
+   END output;
+
+PROCEDURE unput (c: CHAR);
+   BEGIN
+      DEC (yyChBufferIndex);
+      yyChBufferPtr^ [yyChBufferIndex] := c;
+   END unput;
+
+PROCEDURE input (): CHAR;
+   BEGIN
+      IF yyChBufferIndex = yyChBufferStart + yyBytesRead THEN
+	 IF NOT yyEof THEN
+	    DEC (yyLineStart, yyBytesRead);
+	    DEC (yyLineStart, yyChBufferStart); (* RMB *)
+	    yyChBufferIndex := 0;
+	    yyChBufferStart := 0;
+	    yyBytesRead := Source.GetLine 
+                    (yySourceFile, yyChBufferPtr
+                    , VAL(CARDINAL,General.Exp2 (General.Log2 (yyChBufferSize)))
+                    );
+	    IF yyBytesRead <= 0 THEN yyBytesRead := 0; yyEof := TRUE; END;
+	    yyChBufferPtr^ [yyBytesRead    ] := yyEobCh;
+	    yyChBufferPtr^ [yyBytesRead + 1] := 0C;
+	 END;
+      END;
+      IF yyChBufferIndex = yyChBufferStart + yyBytesRead THEN
+	 RETURN 0C;
+      ELSE
+	 INC (yyChBufferIndex);
+	 RETURN yyChBufferPtr^ [yyChBufferIndex - 1];
+      END
+   END input;
+
+(* VISIBLE: *) 
+PROCEDURE UpperCase ( Ch : CHAR ) : CHAR ; 
+   BEGIN
+     RETURN yyToUpper [ Ch ]; 
+   END UpperCase;
+
+(* VISIBLE: *) 
+PROCEDURE LowerCase ( Ch : CHAR ) : CHAR ; 
+   BEGIN
+     RETURN yyToLower [ Ch ]; 
+   END LowerCase;
+
+(* VISIBLE *) 
+PROCEDURE TotalLineCount ( ) : CARDINAL ;  
+   BEGIN
+     RETURN yyTotalLineCount 
+   END TotalLineCount;  
+
+PROCEDURE BeginScanner;
+   BEGIN
+(* line 103 "../src/ell.rex" *)
+
+ArrayToString ('_Epsilon'	, s); Epsilon	:= MakeIdent (s);
+ArrayToString ('_EndOfFile'	, s); EndOfToken:= MakeIdent (s);
+ArrayToString ('_ErrorId'	, s); NoIdent	:= MakeIdent (s);
+ArrayToString ('_ErrorStr'	, s); NoString	:= PutString (s);
+
+   END BeginScanner;
+ 
+PROCEDURE CloseScanner;
+   BEGIN
+   END CloseScanner;
+ 
+PROCEDURE yyGetTables;
+   VAR
+      BlockSize, j, n	: CARDINAL;
+      TableFile	: System.tFile;
+      i		: yyStateRange;
+      Base	: ARRAY yyStateRange OF yyTableRange;
+   BEGIN
+      BlockSize	:= 64000 DIV SYSTEM.TSIZE (yyCombType);
+      TableFile := System.OpenInput (ScanTabName);
+      Checks.ErrorCheck ("yyGetTables.OpenInput", TableFile);
+      IF (yyGetTable (TableFile, SYSTEM.ADR (Base      )) DIV SYSTEM.TSIZE (yyTableElmt) - 1 
+         # yyDStateCount) OR
+         (yyGetTable (TableFile, SYSTEM.ADR (yyDefault )) DIV SYSTEM.TSIZE (yyTableElmt) - 1 
+         # yyDStateCount) OR
+         (yyGetTable (TableFile, SYSTEM.ADR (yyEobTrans)) DIV SYSTEM.TSIZE (yyTableElmt) - 1 
+         # yyDStateCount)
+	 THEN
+	 yyErrorMessage (2);
+      END;
+      n := 0;
+      j := 0;
+      WHILE j <= yyTableSize DO
+         INC (n, yyGetTable (TableFile, SYSTEM.ADR (yyComb [VAL(SHORTCARD,j)])) DIV SYSTEM.TSIZE (yyCombType));
+         INC (j, BlockSize);
+      END;
+      IF n # yyTableSize + 1 THEN yyErrorMessage (2); END;
+      System.Close (TableFile);
+
+      FOR i := 0 TO yyDStateCount DO
+	 yyBasePtr [i] := LONGCARD (SYSTEM.ADR (yyComb [Base [i]]));
+      END;
+   END yyGetTables;
+ 
+PROCEDURE yyGetTable (TableFile: System.tFile; Address: SYSTEM.ADDRESS): CARDINAL;
+   VAR
+      N		: INTEGER;
+      Length	: yyTableElmt;
+   BEGIN
+      N := System.Read (TableFile, SYSTEM.ADR (Length), SYSTEM.TSIZE (yyTableElmt));
+      Checks.ErrorCheck ("yyGetTable.Read1", N);
+      N := System.Read (TableFile, Address, VAL(INTEGER,Length));
+      Checks.ErrorCheck ("yyGetTable.Read2", N);
+      RETURN VAL(CARDINAL,Length);
+   END yyGetTable;
+ 
+PROCEDURE yyErrorMessage (ErrorCode: SHORTCARD);
+   BEGIN
+      Positions.WritePosition (IO.StdError, Attribute.Position);
+      CASE ErrorCode OF
+   | 0: IO.WriteS (IO.StdError, ": Scanner: internal error");
+   | 1: IO.WriteS (IO.StdError, ": Scanner: out of memory");
+   | 2: IO.WriteS (IO.StdError, ": Scanner: table mismatch");
+   | 3: IO.WriteS (IO.StdError, ": Scanner: too many nested include files");
+   | 4: IO.WriteS (IO.StdError, ": Scanner: file stack underflow (too many calls of CloseFile)");
+   | 5: IO.WriteS (IO.StdError, ": Scanner: cannot open input file");
+      END;
+      IO.WriteNl (IO.StdError); Exit;
+   END yyErrorMessage;
+ 
+PROCEDURE yyExit;
+   BEGIN
+      IO.CloseIO; System.Exit (1);
+   END yyExit;
+
+BEGIN
+   ScanTabName		:= "Scanner.Tab";
+   Exit			:= yyExit;
+   yyFileStackPtr	:= 0;
+   yyStartState		:= 1;			(* set up for auto init *)
+   yyPreviousStart	:= 1;
+   yyBasePtr [yyStartState] := LONGCARD (SYSTEM.ADR (yyComb [0]));
+   yyDefault [yyStartState] := yyDNoState;
+   yyComb [0].Check	:= yyDNoState;
+   yyChBufferPtr	:= SYSTEM.ADR (yyComb [0]);	(* dirty trick *)
+   yyChBufferIndex	:= 1;				(* dirty trick *)
+   yyStateStackSize	:= yyInitBufferSize;
+   DynArray.MakeArray (yyStateStack, yyStateStackSize, SYSTEM.TSIZE (yyStateRange));
+   yyStateStack^ [0]	:= yyDNoState;
+   
+   FOR yyCh := yyFirstCh TO yyLastCh DO yyToLower [yyCh] := yyCh; END;
+   yyToUpper := yyToLower;
+   FOR yyCh := 'A' TO 'Z' DO
+      yyToLower [yyCh] := CHR (ORD (yyCh) - ORD ('A') + ORD ('a'));
+   END;
+   FOR yyCh := 'a' TO 'z' DO
+      yyToUpper [yyCh] := CHR (ORD (yyCh) - ORD ('a') + ORD ('A'));
+   END;
+END Scanner.

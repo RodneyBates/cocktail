@@ -1,0 +1,31 @@
+#
+# Makefile for ./common/src
+# RMB modified 92/10/19
+#
+
+MAKEINCLUDE = .
+
+MC      = mocka_mtc
+MODULAGENS    =
+GENS    =
+EXE     = Main
+MOCKALIBS = -d ../../reuse/gen
+MOCKAFLAGS = -noindex -norange
+
+MODULASOURCES = \
+   Character.md Character.mi Checks.md Checks.mi \
+   Convert.md Convert.mi Errors.md Errors.mi \
+   Listing.md Listing.mi Main.mi Path.md Path.mi \
+   Queues.md Queues.mi Stack.md Stack.mi \
+   SysError.md SysError.mi
+
+OTHERSOURCES = 
+SOURCES = $(MODULASOURCES) $(OTHERSOURCES)
+
+include $(MAKEINCLUDE)/make.include
+
+install_modula:
+#       no installation work
+
+clean:
+	rm -f *.[dimor]

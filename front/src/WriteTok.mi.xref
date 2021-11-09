@@ -1,0 +1,158 @@
+     1 (* generate output procedure for tokens *)
+     2 
+     3 (* $Id: WriteTok.mi,v 2.1 1991/11/21 14:47:50 grosch rel $ *)
+     4 
+     5 (* $Log: WriteTok.mi,v $
+c    6  * Revision 2.1  1991/11/21  14:47:50  grosch
+c    7  * new version of RCS on SPARC
+c    8  *
+c    9  * Revision 2.0  91/03/08  18:26:45  grosch
+c   10  * turned tables into initialized arrays (in C)
+c   11  * moved mapping tokens -> strings from Errors to Parser
+c   12  * changed interface for source position
+c   13  * 
+c   14  * Revision 1.3  91/01/18  17:46:25  grosch
+c   15  * calmed down lint
+c   16  * 
+c   17  * Revision 1.2  90/06/11  18:45:52  grosch
+c   18  * layout improvements
+c   19  * 
+c   20  * Revision 1.1  89/01/12  17:45:56  vielsack
+c   21  * supply source file name
+c   22  * 
+c   23  * Revision 1.0  88/10/04  14:27:30  vielsack
+c   24  * Initial revision
+c   25  * 
+c   26  *)
+    27 
+    28 IMPLEMENTATION MODULE WriteTok;                                               *     *
+    29 
+    30 FROM IO         IMPORT WriteC, WriteI, WriteNl, WriteS, tFile;                *     *     *     *     *     *
+    31 FROM Strings    IMPORT Length, Char, tString;                                 *     *     *     *
+    32 FROM Idents     IMPORT GetString, tIdent, WriteIdent;                         *     *     *     *
+    33 FROM TokenTab   IMPORT MAXTerm, MINTerm, Terminal, TokenError, GetTokenType,        *     *     *     *     *     *
+    34                         TokenType, TokenToSymbol;                             *     *
+    35 
+    36   PROCEDURE GenWrTo (f : tFile);                                              *     *    30
+    37     VAR
+    38       t         : Terminal;                                                   *    33
+    39       sym       : tIdent;                                                     *    32
+    40       s         : tString;                                                    *    31
+    41       error     : TokenError;                                                 *    33
+    42       l         : CARDINAL;                                                   *     *
+    43       del       : CHAR;                                                       *     *
+    44     BEGIN
+    45       FOR t := MINTerm TO MAXTerm DO                                         38    33    33
+    46         IF GetTokenType (t) = Term THEN                                      33    38     *
+    47           sym := TokenToSymbol (t, error);                                   39    34    38    41
+    48           GetString (sym, s);                                                32    39    40
+    49           IF Language = Modula2 THEN                                          *     *
+    50             WriteS (f, '      | ');                                          30    36
+    51             WriteI (f, t, 0);                                                30    36    38
+    52             WriteS (f, ': Copy (');                                          30    36
+    53             del := Char (s, 1);                                              43    31    40
+    54             IF (del = '"') OR (del = "'") THEN                               43    43
+    55               WriteIdent (f, sym);                                           32    36    39
+    56             ELSE
+    57               WriteC (f, '"');                                               30    36
+    58               WriteIdent (f, sym);                                           32    36    39
+    59               WriteC (f, '"');                                               30    36
+    60             END;
+    61             WriteS (f, ', Name);');                                          30    36
+    62             WriteNl (f);                                                     30    36
+    63           ELSE (* Language = C *)
+    64             WriteS (f, '"');                                                 30    36
+    65             IF (Char (s, 1) = '"') OR (Char (s, 1) = "'") THEN               31    40    31    40
+    66               FOR l := 2 TO Length (s) - 1 DO                                42    31    40
+    67                 IF (Char (s, l) = '\') OR (Char (s, l) = '"') THEN WriteC (f, '\'); \    31    40    42    31    40    42
+                                                                                    30    36
+      \END;
+    68                 WriteC (f, Char (s, l));                                     30    36    31    40    42
+    69               END;
+    70             ELSE
+    71               FOR l := 1 TO Length (s) DO                                    42    31    40
+    72                 IF (Char (s, l) = '\') OR (Char (s, l) = '"') THEN WriteC (f, '\'); \    31    40    42    31    40    42
+                                                                                    30    36
+      \END;
+    73                 WriteC (f, Char (s, l));                                     30    36    31    40    42
+    74               END;
+    75             END;
+    76             WriteS (f, '",');                                                30    36
+    77             WriteNl (f);                                                     30    36
+    78           END;
+    79         ELSIF Language = C THEN                                               *     *
+    80           WriteS (f, '0,');                                                  30    36
+    81           WriteNl (f);                                                       30    36
+    82         END;
+    83       END;
+    84     END GenWrTo;                                                             36
+    85 
+    86 BEGIN
+    87   Language := Modula2;                                                        *     *
+    88   SourceFileName := ' ';                                                      *
+    89 END WriteTok.                                                                28
+Cross reference: * is declaration, = is assignment
+
+-C-
+ C                               79 
+ CARDINAL                        42 
+ CHAR                            43 
+ Char                            31*   53    65    65    67    67    68    72    72    73 
+
+-D-
+ del                             43*   53=   54    54 
+
+-E-
+ error                           41*   47 
+
+-F-
+ f                               36*   50    51    52    55    57    58    59    61    62    64    67    68    72    73    76    77 
+                                 80    81 
+
+-G-
+ GenWrTo                         36*   84 
+ GetString                       32*   48 
+ GetTokenType                    33*   46 
+
+-I-
+ Idents                          32*
+ IMPLEMENTATION                  28*
+ IO                              30*
+
+-L-
+ l                               42*   66=   67    67    68    71=   72    72    73 
+ Language                        49    79    87=
+ Length                          31*   66    71 
+
+-M-
+ MAXTerm                         33*   45 
+ MINTerm                         33*   45 
+ Modula2                         49    87 
+
+-S-
+ s                               40*   48    53    65    65    66    67    67    68    71    72    72    73 
+ SourceFileName                  88=
+ Strings                         31*
+ sym                             39*   47=   48    55    58 
+
+-T-
+ t                               38*   45=   46    47    51 
+ Term                            46 
+ Terminal                        33*   38 
+ tFile                           30*   36 
+ tIdent                          32*   39 
+ TokenError                      33*   41 
+ TokenTab                        33*
+ TokenToSymbol                   34*   47 
+ TokenType                       34*
+ tString                         31*   40 
+
+-W-
+ WriteC                          30*   57    59    67    68    72    73 
+ WriteI                          30*   51 
+ WriteIdent                      32*   55    58 
+ WriteNl                         30*   62    77    81 
+ WriteS                          30*   50    52    61    64    76    80 
+ WriteTok                        28*   89 
+
+end cross reference, 133 occurrences of 39 identifiers.

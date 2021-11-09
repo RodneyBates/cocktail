@@ -1,0 +1,855 @@
+(* generate the parser *)
+
+(* $Id: Gen.mi,v 2.6 1992/08/12 07:04:48 grosch rel $ *)
+
+(* $Log: Gen.mi,v $
+ * Revision 2.6  1992/08/12  07:04:48  grosch
+ * extend parse table TComb over 65535 bytes
+ *
+ * Revision 2.5  1992/08/12  06:53:34  grosch
+ * extend parse table TComb over 65535 bytes
+ *
+ * Revision 2.4  1992/08/07  15:22:49  grosch
+ * allow several scanner and parsers; extend module Errors
+ *
+ * Revision 2.3  1992/01/30  14:08:30  grosch
+ * redesign of interface to operating system
+ *
+ * Revision 2.2  1991/12/04  16:23:39  grosch
+ * unified escape conventions for all tools
+ *
+ * Revision 2.1  1991/11/21  14:53:14  grosch
+ * new version of RCS on SPARC
+ *
+ * Revision 2.0  91/03/08  18:31:42  grosch
+ * turned tables into initialized arrays (in C)
+ * moved mapping tokens -> strings from Errors to Parser
+ * changed interface for source position
+ * 
+ * Revision 1.4  90/12/20  19:26:39  grosch
+ * removed time stamp from tables
+ * 
+ * Revision 1.3  90/06/12  17:17:20  grosch
+ * layout improvements
+ * 
+ * Revision 1.2  90/06/12  16:54:10  grosch
+ * renamed main program to lalr, added { } for actions, layout improvements
+ * 
+ * Revision 1.1	 89/10/18  19:41:35  grosch
+ * renamed ScanTab and ParsTab to Scan.Tab and Pars.Tab because of PCTE
+ * 
+ * Revision 1.0	 88/10/04  14:36:17  vielsack
+ * Initial revision
+ * 
+ *)
+
+IMPLEMENTATION MODULE Gen;
+
+  FROM Actions IMPORT tActionMode, PutAction, WriteActions, ScannerName, ParserName;
+  FROM ArgCheck IMPORT ExpandLine, MakeFileName, Scanner, Parser, ExtDef, ExtImp, LineFlag;
+
+  FROM Automaton IMPORT
+    Infinite,
+    tStateKind,
+    tRep,
+    tIndex,
+    tProdIndex,
+    tProduction,
+    ProdArrayPtr, ProdIndex,
+    NextProdIndex,
+    ProdCount,
+    ProdList,
+    tStateIndex,
+    StateArrayPtr, StateIndex,
+    tItemIndex,
+    ItemArrayPtr,
+    StartSymbol;
+  
+  FROM Compress IMPORT
+    InitCompressTable,
+    CompressTableLine,
+    InitCompressNTable,
+    CompressNTableLine,
+    TableSize,
+    NTableSize,
+    Base,
+    NBase,
+    Control,
+    NNext,
+    Default;
+
+  FROM Continue	IMPORT MakeContinuation;
+  FROM Checks	IMPORT CheckWriteOpen;
+
+  FROM Default	IMPORT
+    CreateDefaultList,
+    PutInDefaultList,
+    ComputeDefaults,
+    GetNextState,
+    GetTSortState,
+    GetNSortState,
+    GetDefaultTableLine;
+
+  FROM DynArray	IMPORT MakeArray, ExtendArray, ReleaseArray;
+  FROM Errors	IMPORT eString, eError;
+  FROM Final	IMPORT MakeFinalToProd;
+  FROM General	IMPORT Min;
+  FROM GenLang	IMPORT WriteConstants, WriteReduceCode;
+  FROM IO	IMPORT StdOutput, EndOfFile, WriteOpen, WriteClose, WriteC, WriteS,
+    WriteI, WriteCard, WriteNl;
+  
+  FROM Lists	IMPORT MakeList, tList;
+  IMPORT Lists;
+  FROM Sets	IMPORT tSet, MakeSet, ReleaseSet, Extract, Assign, IsEmpty;
+  IMPORT Strings; (* Length *)
+  FROM StringMem	IMPORT PutString;
+  FROM Strings	IMPORT Char, tString, ArrayToString, Append, ReadL, WriteL, SubString;
+  FROM Idents	IMPORT tIdent, GetString;
+  FROM SysError	IMPORT StatIsBad, SysErrorMessageI;
+  FROM SYSTEM	IMPORT ADDRESS, ADR, TSIZE;
+  IMPORT System; (* Close *)
+  FROM System	IMPORT tFile, OpenOutput, Write;
+  FROM Times	IMPORT StepTime;
+
+  FROM TokenTab	IMPORT
+    MINNonTerm,
+    MAXNonTerm,
+    MAXTerm,
+    PosType,
+    TokenType,
+    TokenError,
+    Vocabulary,
+    Terminal,
+    GetTokenType,
+    TokenToSymbol;
+  
+  FROM WriteTok IMPORT tLanguage, Language, GenWrTo;
+
+  CONST EOL		= 12C;
+  CONST InitReduceCount	= 4;
+
+  TYPE ControlType	= RECORD Check, Next : TableElmt; END;
+
+  VAR TableLine	: tTableLine;
+  VAR StateCnt	: tStateIndex;
+  VAR FileName	: ARRAY [0..128] OF CHAR;
+
+  PROCEDURE GenDefaultActions;
+  VAR
+    act: tList;
+    pos: PosType;
+    com: tList;
+    cpos: PosType;
+    s: tString;
+  BEGIN
+    MakeList (act); pos.Line := 0;	pos.Column := 0;
+    MakeList (com); cpos.Line := 0;	cpos.Column := 0;
+
+    IF Language = Modula2 THEN
+      ArrayToString ('{', s);
+	Append (s,EOL); Lists.Append (act, ADDRESS (PutString (s)));
+      ArrayToString ('TYPE', s);
+	Append (s,EOL); Lists.Append (act, ADDRESS (PutString (s)));
+      ArrayToString ('   tParsAttribute = RECORD', s);
+	Append (s,EOL); Lists.Append (act, ADDRESS (PutString (s)));
+      ArrayToString ('                       Scan: Scanner.tScanAttribute', s);
+	Append (s,EOL); Lists.Append (act, ADDRESS (PutString (s)));
+      ArrayToString ('                    END;', s);
+	Append (s,EOL); Lists.Append (act, ADDRESS (PutString (s)));
+      ArrayToString ('}', s);
+	Lists.Append (act, ADDRESS (PutString (s)));
+    ELSE (* Language = C *)
+      ArrayToString ('{', s);
+	Append (s,EOL); Lists.Append (act, ADDRESS (PutString (s)));
+      ArrayToString ('typedef struct    { tScanAttribute Scan; } tParsAttribute;', s);
+	Append (s,EOL); Lists.Append (act, ADDRESS (PutString (s)));
+      ArrayToString ('}', s);
+	Lists.Append (act, ADDRESS (PutString (s)));
+    END;
+    PutAction (Global, act, pos, com, cpos);
+  END GenDefaultActions;
+
+  PROCEDURE GenCode (Pars: tFile; Def: tFile);
+    VAR
+      out  : tFile;
+      line, rest, String1, String2: tString;
+      N	   : INTEGER;
+    BEGIN
+      FindKind;
+      MakeNumbers;
+      MakeLength;
+      MakeLeftHandSide;
+      MakeContinuation;
+      MakeFinalToProd;
+
+      IF Trace THEN
+	WriteS (StdOutput,' Time :');
+	WriteI (StdOutput,StepTime(),5);
+	WriteNl (StdOutput);
+      END;
+
+      MakeTable;
+
+      IF Trace THEN
+	WriteS (StdOutput,' Time :');
+	WriteI (StdOutput,StepTime(),5);
+	WriteNl (StdOutput);
+      END;
+
+      (* Erzeuge Zerteilertabelle *)
+
+      INC (TableSize, LastTerminal);
+      INC (NTableSize, LastSymbol);
+      IF Language = Modula2 THEN
+	 MakeFileName (ParserName, Parser, ".Tab", FileName);
+	 out := OpenOutput (FileName);
+	 IF StatIsBad (out) THEN
+	   ArrayToString (FileName, String1);
+	   SysErrorMessageI (out, eError, eString, ADR (String1));
+	 ELSE
+	   PutTables (out);
+	   System.Close (out);
+	 END;
+      END;
+
+      (* Mische den generierten Text in den Rahmen *)
+
+      MakeFileName (ParserName, Parser, ExtImp, FileName);
+      out := WriteOpen (FileName);
+      CheckWriteOpen (out, FileName);
+	
+      WHILE NOT EndOfFile (Pars) DO
+	ReadL (Pars, line);
+	IF (Strings.Length (line) >= 2) AND (Char (line, 1) = '$') THEN
+	  CASE Char (line, 2) OF
+	  | 'G' : WriteActions  (Global,out, LineFlag);
+	  | 'T' : WriteConstants(out);
+	  | 'L' : WriteActions  (Local,out, LineFlag);
+	  | 'R' : PrepareReduceCode;
+		  WriteReduceCode (out);
+	  | 'B' : WriteActions  (Begin,out, LineFlag);
+	  | 'C' : WriteActions  (Close,out, LineFlag);
+	  | 'X' : IF CaseFlag THEN
+		    SubString	(line,3,Strings.Length(line),rest);
+		    WriteL	(out,rest);
+		  END;
+	  | 'W' : GenWrTo	(out);
+	  | 'P' : PutBase	(out);
+	  | 'Q' : PutNBase	(out);
+	  | 'D' : PutDefault	(out);
+	  | 'M' : PutControl	(out);
+	  | 'N' : PutNNext	(out);
+	  | 'K' : PutLength	(out);
+	  | 'H' : PutLeftHandSide	(out);
+	  | 'O' : PutContinuation	(out);
+	  | 'F' : PutFinalToProd	(out);
+	  | '@' : ExpandLine (out, line);
+          END;
+        ELSE
+	  WriteL (out,line);
+	END;
+      END;
+      WriteClose (out);
+
+      (* Mische Abschnitt EXPORT in Rahmen *)
+
+      IF NOT EndOfFile (Def) THEN
+	 MakeFileName (ParserName, Parser, ExtDef, FileName);
+	 out := WriteOpen (FileName);
+	 CheckWriteOpen (out, FileName);
+	 WHILE NOT EndOfFile (Def) DO
+	    ReadL (Def, line);
+	    IF (Strings.Length (line) >= 2) AND (Char (line, 1) = '$') THEN
+	       CASE Char (line, 2) OF
+	       | 'E' : WriteActions  (Export, out, LineFlag);
+	       | '@' : ExpandLine (out, line);
+	       END;
+	    ELSE
+	       WriteL (out, line);
+	    END;
+	 END;
+	 WriteClose (out);
+      END;
+    END GenCode;
+
+  PROCEDURE FindKind; (* Zustaende klassifizieren und mit einer neuen Nummer versehen *)
+    VAR
+      maxState,
+      state : tStateIndex;
+      prod : tProduction;
+      item : tItemIndex;
+      RepCount : CARDINAL;
+      LastItem : tItemIndex;
+    BEGIN
+      maxState := StateIndex;
+      FOR state := 1 TO maxState DO	(* Betrachte alle Zustaende *)
+	WITH StateArrayPtr^[state] DO
+	  IF Size = 1 THEN
+	    RepCount := 1;
+	    item := Items;
+	  ELSE
+	    RepCount := 0;
+	    FOR item := Items TO Items + Size - 1 DO
+	    WITH ItemArrayPtr^[item] DO
+	      IF Rep # NoRep THEN
+		INC (RepCount);
+		LastItem := item;
+	      END;
+	    END;
+	    END;
+	    item := LastItem;
+	  END;
+
+	  IF RepCount = 1 THEN		(* Zustand enthaelt nur ein Item *)
+	    WITH ItemArrayPtr^[item] DO
+	      IF Rep = RedRep THEN	(* es handelt sich um eine Reduktion *)
+		prod := ADR (ProdArrayPtr^[Prod]); (* beschaffe zugh. Produktion *)
+		WITH prod^ DO
+		  IF Right[Len] > MAXTerm THEN (* letztes Symbol war ein Nichtterminal *)
+		    Kind := sNonterm;
+		  ELSE			(* letztes Symbol war ein Terminal *)
+		    Kind := sTerm;
+		  END;
+		END;
+	      ELSE			(* es handelt sich um einen Read-Zustand *)
+		Kind := sRead;
+	      END;
+	    END;
+	  ELSE				(* Zustand mit mehreren Items, die Repraesanten sind,
+					   muss ein Read-Zustand sein *)
+	    Kind := sRead;
+	  END;
+	END;
+      END;
+    END FindKind;
+
+  PROCEDURE MakeNumbers;
+  VAR
+    maxState, state : tStateIndex;
+    prod : tProduction;
+    remember : tStateIndex;
+  BEGIN
+      FirstTerminal := FindFirstTerminal();
+      LastTerminal  := FindLastTerminal();
+      NonTermOffset := MINNonTerm - LastTerminal - 1;
+      FirstSymbol   := FirstTerminal;
+      LastSymbol    := FindLastSymbol()-NonTermOffset;
+      StateCnt	    := 0;
+      maxState	    := StateIndex;
+      FirstState    := 1;
+
+      (* Trage neue Nummern fuer ReadStates ein *)
+
+      FirstReadState := StateCnt+1;
+      FOR state := 1 TO maxState DO
+	WITH StateArrayPtr^[state] DO
+	  IF Kind = sRead THEN
+	    INC(StateCnt);
+	    NewNumber := StateCnt;
+	  END;
+	END;
+      END;
+      LastReadState := StateCnt;
+
+      (* Trage neue Nummern fuer ReadTermStates ein *)
+
+      FirstReadTermState := StateCnt+1;
+      FOR state := 1 TO maxState DO
+	WITH StateArrayPtr^[state] DO
+	  IF Kind = sTerm THEN
+	    prod := ADR (ProdArrayPtr^[ItemArrayPtr^[Items].Prod]);
+	    IF prod^.Left = StartSymbol THEN
+	      remember := state;   (* Stopzustand kommt in andere Gruppe *)
+	    ELSE
+	      INC(StateCnt);
+	      NewNumber := StateCnt;
+	    END;
+	  END;
+	END;
+      END;
+      LastReadTermState := StateCnt;
+
+      (* Trage neue Nummern fuer ReadNonTermStates ein *)
+
+      FirstReadNonTermState := StateCnt+1;
+      FOR state := 1 TO maxState DO
+	WITH StateArrayPtr^[state] DO
+	  IF Kind = sNonterm THEN
+	    INC(StateCnt);
+	    NewNumber := StateCnt;
+	  END;
+	END;
+      END;
+      LastReadNonTermState := StateCnt;
+
+      (* Nummern fuer ReduceStates *)
+
+      ReduceOffset := StateCnt;
+      WITH StateArrayPtr^[remember] DO
+	prod := ADR(ProdArrayPtr^[ItemArrayPtr^[Items].Prod]);
+	NewNumber := prod^.ProdNo + ReduceOffset;
+      END;
+
+      FirstReduceState	:= StateCnt+1;
+      LastReduceState	:= ReduceOffset+ProdCount;
+      StopState		:= FirstReduceState;
+      LastState		:= LastReduceState;
+    END MakeNumbers;
+
+  PROCEDURE MakeTable;
+    VAR
+      maxState : tStateIndex;
+      state    : tStateIndex;
+      index    : tStateIndex;
+      NewNum   : tStateIndex;
+      DefaultState  : tStateIndex;
+    BEGIN
+
+      (* Erstellen der Listen fuer Defaultberechnung *)
+
+      CreateDefaultList;
+      maxState := StateIndex;
+      FOR state := 1 TO maxState DO
+	InitTableLine;
+	NewNum := MakeTableLine (state);
+	IF NewNum <= LastReadState THEN
+	  PutInDefaultList (NewNum, TableLine);
+	END;
+      END;
+
+      (* Berechnung der Defaults *)
+
+      ComputeDefaults;
+
+      (* Comprimieren der Tabelle *)
+
+(* - - - alternative 1a 
+      InitCompressTable;
+      NewNum := GetNextState (NoState);
+      WHILE NewNum # NoState DO
+	GetDefaultTableLine (NewNum, TableLine, DefaultState);
+	CompressTableLine (NewNum, DefaultState, TableLine);
+	NewNum := GetNextState (NewNum);
+      END;
+ - - - *)
+
+(* - - - alternative 1b *)
+      InitCompressTable;
+      FOR index := 1 TO LastReadState DO
+	NewNum := GetTSortState (index);
+	GetDefaultTableLine (NewNum, TableLine, DefaultState);
+	CompressTableLine (NewNum, DefaultState, TableLine);
+      END;
+(*- - - *)
+
+(* - - -  alternative  2a 
+      InitCompressNTable;
+      NewNum := GetNextState (NoState);
+      WHILE NewNum # NoState DO
+	GetDefaultTableLine (NewNum, TableLine, DefaultState);
+	CompressNTableLine (NewNum, TableLine);
+	NewNum := GetNextState (NewNum);
+      END;
+ - - - *)
+
+(* - - -  alternative  2b *)
+      InitCompressNTable;
+      FOR index := 1 TO LastReadState DO
+	NewNum := GetNSortState (index);
+	GetDefaultTableLine (NewNum, TableLine, DefaultState);
+	CompressNTableLine (NewNum, TableLine);
+      END;
+(* - - - *)
+    END MakeTable;
+
+  PROCEDURE InitTableLine;
+    VAR
+      state : tStateIndex;
+      symbol : Vocabulary;
+    BEGIN
+      FOR symbol := FirstSymbol TO LastSymbol DO
+	TableLine[symbol] := NoState;
+      END;
+    END InitTableLine;
+  
+  PROCEDURE MakeTableLine (state : tStateIndex) : tStateIndex;
+    VAR
+      RedState : tStateIndex;
+      maxState : tStateIndex;
+      item : tItemIndex;
+      prod : tProduction;
+      Look : tSet;
+      t : Terminal;
+    BEGIN
+      MakeSet (Look, MAXTerm);
+
+      (* alle States *)
+
+      WITH StateArrayPtr^[state] DO
+
+	(* nur ReadStates *)
+
+	IF Kind = sRead THEN
+
+	  (* alle Items *)
+
+	  FOR item := Items TO Items + Size - 1 DO
+	  WITH ItemArrayPtr^[item] DO
+	    CASE Rep OF
+	    | TermRep:
+		TableLine[Read] := StateArrayPtr^[Next].NewNumber;
+	    | NonTermRep:
+		TableLine[Read-NonTermOffset] := StateArrayPtr^[Next].NewNumber;
+	    | RedRep:
+		prod := ADR(ProdArrayPtr^[Prod]);
+		RedState := ReduceOffset + prod^.ProdNo;
+		Assign (Look,Set);
+		WHILE NOT IsEmpty (Look) DO
+		  t := Extract(Look);
+		  TableLine[t] := RedState;
+		END;
+	      ELSE
+	    END;
+	  END;
+	  END;
+	END;
+
+	ReleaseSet (Look);
+	RETURN (NewNumber);
+      END;
+    END MakeTableLine;
+
+  PROCEDURE MakeLength;
+    VAR
+      prod : tProduction;
+      index,prodno: tProdIndex;
+    BEGIN
+      LengthCount := ProdCount;
+      MakeArray (Length,LengthCount,ElmtSize);
+      index := 0;
+      FOR prodno := 1 TO ProdCount DO
+	prod := ADR(ProdArrayPtr^[index]);
+	Length^[prodno] := prod^.Len;
+	index := NextProdIndex(index);
+      END;
+    END MakeLength;  
+
+  PROCEDURE MakeLeftHandSide;
+    VAR
+      prod : tProduction;
+      index,prodno: tProdIndex;
+    BEGIN
+      LeftHandSideCount := ProdCount;
+      MakeArray (LeftHandSide,LeftHandSideCount,ElmtSize);
+      index := 0;
+      FOR prodno := 1 TO ProdCount DO
+	prod := ADR(ProdArrayPtr^[index]);
+	LeftHandSide^[prodno] := prod^.Left - NonTermOffset;
+	index := NextProdIndex(index);
+      END;
+    END MakeLeftHandSide;  
+
+  PROCEDURE FindFirstTerminal ():Vocabulary;
+    BEGIN
+      RETURN 0;			(* EndOfToken wird immer mit 0 codiert *)
+    END FindFirstTerminal;
+
+  PROCEDURE FindLastTerminal ():Vocabulary;
+    VAR sym : Vocabulary;
+    BEGIN
+      sym := MAXTerm;
+      LOOP
+	IF GetTokenType (sym) = Term THEN RETURN sym END;
+	DEC (sym);
+      END;
+    END FindLastTerminal;
+
+  PROCEDURE FindLastSymbol ():Vocabulary;
+    VAR sym : Vocabulary;
+    BEGIN
+      sym := MAXNonTerm;
+      LOOP
+	IF GetTokenType (sym) # None THEN RETURN sym END;
+	DEC (sym);
+      END;
+    END FindLastSymbol;
+
+  PROCEDURE StartState ():CARDINAL;
+    BEGIN
+      RETURN StateArrayPtr^[1].NewNumber;
+    END StartState;
+
+  PROCEDURE PrepareReduceCode;
+    VAR
+      index : tProdIndex;
+      prod  : tProduction;
+      maxState,state : tStateIndex;
+      maxProdIndex : tProdIndex;
+      u : LONGINT;
+      item : tItemIndex;
+    BEGIN
+      (* Felder fuer Statelisten initialisieren *)
+
+      index := 0;
+      state := ReduceOffset;
+      maxProdIndex := ProdIndex;
+      WHILE index < maxProdIndex DO
+	INC (state);
+	prod := ADR (ProdArrayPtr^[index]);
+	WITH prod^.Reduce DO
+	  Count := InitReduceCount;
+	  MakeArray (Array, Count, TSIZE(tIndex));
+	  Used := 1;
+	  Array^[1] := state; (* Reduce State *)
+	END;
+	index := NextProdIndex(index);
+      END;
+
+      (* Felder ausfuellen *)
+
+      maxState := StateIndex;
+      FOR state := 1 TO maxState DO
+	WITH StateArrayPtr^[state] DO
+	  IF (Kind = sTerm) OR (Kind = sNonterm) THEN
+
+	    (* Read-Terminal- bzw. Read-Nonterminal-Reducee *)
+	    (* Finde erste Item, das Repraesentant ist *)
+
+	    item := Items;
+	    LOOP
+	      IF ItemArrayPtr^[item].Rep # NoRep THEN
+		EXIT;
+	      END;
+	      INC (item);
+	    END;
+
+	    (* bestimme zugh. Produktion *)
+
+	    IF NewNumber <= ReduceOffset THEN
+	    (* StopState ausfiltern *)
+
+	      index := ItemArrayPtr^[item].Prod;
+	      prod := ADR (ProdArrayPtr^[index]);
+	      WITH prod^.Reduce DO
+		INC (Used);
+		IF Used > Count THEN
+		  ExtendArray (Array,Count,TSIZE(tIndex));
+		END;
+		Array^[Used] := NewNumber;
+	      END;
+	    END;
+	  END;
+	END;
+      END;
+    END PrepareReduceCode;
+
+PROCEDURE PutTables (TableFile: tFile);
+  VAR InError		: BOOLEAN;
+      BlockSize	, i	: CARDINAL;
+
+    PROCEDURE PutTable (Length: TableElmt; Address: ADDRESS);
+       VAR
+	  N	: INTEGER;
+	  string: tString;
+       BEGIN
+	  N := Write (TableFile, ADR (Length), ElmtSize);
+	  IF StatIsBad (N) THEN
+	    ArrayToString (FileName, string);
+	    SysErrorMessageI (N, eError, eString, ADR (string));
+	    InError := TRUE;
+	    RETURN;
+	  END;
+	  N := Write (TableFile, Address, Length);
+	  IF StatIsBad (N) THEN
+	    ArrayToString (FileName, string);
+	    SysErrorMessageI (N, eError, eString, ADR (string));
+	    InError := TRUE;
+	    RETURN;
+	  END;
+       END PutTable;
+
+   BEGIN
+      BlockSize	:= 64000 DIV TSIZE (ControlType);
+      InError := FALSE;
+      PutTable ((LastReadState + 1) * ElmtSize, Base);
+      IF InError THEN RETURN END;
+      PutTable ((LastReadState + 1) * ElmtSize, NBase);
+      IF InError THEN RETURN END;
+      PutTable ((LastReadState + 1) * ElmtSize, Default);
+      IF InError THEN RETURN END;
+      PutTable ((NTableSize - LastTerminal) * TSIZE (TableElmt), ADR (NNext^[LastTerminal + 1]));
+      IF InError THEN RETURN END;
+      PutTable ((LastReduceState - FirstReduceState + 1) * ElmtSize, Length);
+      IF InError THEN RETURN END;
+      PutTable ((LastReduceState - FirstReduceState + 1) * ElmtSize, LeftHandSide);
+      IF InError THEN RETURN END;
+      PutTable ((LastReadState + 1) * ElmtSize, Continuation);
+      IF InError THEN RETURN END;
+      PutTable ((LastReadNonTermState - FirstReadTermState + 1) * ElmtSize, FinalToProd);
+      IF InError THEN RETURN END;
+
+      i := 0;
+      WHILE i <= TableSize DO
+	 PutTable (Min (BlockSize, TableSize + 1 - i) * TSIZE (ControlType), ADR (Control^[i]));
+	 IF InError THEN RETURN END;
+         INC (i, BlockSize);
+      END;
+   END PutTables;
+
+PROCEDURE PutBase	(File: tFile);
+   VAR i: tStateIndex;
+   BEGIN
+      FOR i := 0 TO LastReadState DO
+	 WriteS (File, '& yyTComb [');
+	 WriteI (File, Base^[i], 0); WriteS (File, '],'); WriteNl (File);
+      END;
+   END PutBase;
+
+PROCEDURE PutNBase	(File: tFile);
+   VAR i: tStateIndex;
+   BEGIN
+      FOR i := 0 TO LastReadState DO
+	 WriteS (File, '& yyNComb [');
+	 WriteI (File, SHORTINT (NBase^[i]) - SHORTINT (LastTerminal) - 1, 0);
+	 WriteS (File, '],'); WriteNl (File);
+      END;
+   END PutNBase;
+
+PROCEDURE PutDefault	(File: tFile);
+   VAR i: tStateIndex;
+   BEGIN
+      FOR i := 0 TO LastReadState DO
+	 WriteI (File, Default^[i], 0); WriteC (File, ','); WriteNl (File);
+      END;
+   END PutDefault;
+
+PROCEDURE PutControl	(File: tFile);
+   VAR i: CARDINAL;
+   BEGIN
+      FOR i := 0 TO TableSize DO
+	 WriteC (File, '{');
+	 WriteI (File, Control^[i].Check, 0); WriteS (File, ', ');
+	 WriteI (File, Control^[i].Next , 0); WriteS (File, '},'); WriteNl (File);
+      END;
+   END PutControl;
+
+PROCEDURE PutNNext	(File: tFile);
+   VAR i: tStateIndex;
+   BEGIN
+      FOR i := LastTerminal + 1 TO NTableSize DO
+	 WriteI (File, NNext^[i], 0); WriteC (File, ','); WriteNl (File);
+      END;
+   END PutNNext;
+
+PROCEDURE PutLength	(File: tFile);
+   VAR i: tStateIndex;
+   BEGIN
+      FOR i := 1 TO ProdCount DO
+	 WriteI (File, Length^[i], 0); WriteC (File, ','); WriteNl (File);
+      END;
+   END PutLength;
+
+PROCEDURE PutLeftHandSide	(File: tFile);
+   VAR i: tStateIndex;
+   BEGIN
+      FOR i := 1 TO ProdCount DO
+	 WriteI (File, LeftHandSide^[i], 0); WriteC (File, ','); WriteNl (File);
+      END;
+   END PutLeftHandSide;
+
+PROCEDURE PutContinuation	(File: tFile);
+   VAR i: tStateIndex;
+   BEGIN
+      FOR i := 0 TO LastReadState DO
+	 WriteI (File, Continuation^[i], 0); WriteC (File, ','); WriteNl (File);
+      END;
+   END PutContinuation;
+
+PROCEDURE PutFinalToProd	(File: tFile);
+   VAR i: tStateIndex;
+   BEGIN
+      FOR i := FirstReadTermState TO LastReadNonTermState DO
+	
+	 WriteI (File, FinalToProd^[i - FirstReadTermState], 0);
+	 WriteC (File, ','); WriteNl (File);
+      END;
+   END PutFinalToProd;
+
+(* +++ 
+
+  PROCEDURE PrintTable;
+    VAR maxState, state, NewNum : tStateIndex;
+    BEGIN
+      WriteS (StdOutput,'***** Table ***** ');
+      WriteNl (StdOutput);
+      maxState := StateIndex;
+      FOR state := 1 TO maxState DO
+	InitTableLine;
+	NewNum := MakeTableLine (state);
+	IF NewNum <= LastReadState THEN
+	  PrintTableLine (NewNum);
+	END;
+      END;
+    END PrintTable;
+
+  PROCEDURE PrintTableLine (state:tStateIndex);
+    VAR
+      nextstate : tStateIndex;
+      symbol : Vocabulary;
+    BEGIN
+      WriteS (StdOutput,'State ');
+      WriteCard (StdOutput,state,1);
+      WriteC (StdOutput,':');
+      FOR symbol := FirstSymbol TO LastSymbol DO
+	nextstate := TableLine [symbol];
+	IF nextstate # NoState THEN
+	  WriteS (StdOutput,' (');
+	  IF symbol > LastTerminal THEN
+	    PrintToken (symbol+NonTermOffset);
+	  ELSE
+	    PrintToken (symbol);
+	  END;
+	  WriteC (StdOutput,',');
+	  WriteCard (StdOutput,nextstate,1);
+	  WriteC (StdOutput,')');
+	END;
+      END;
+      WriteNl (StdOutput);
+    END PrintTableLine;
+
+  PROCEDURE PrintLength;
+    VAR prodno : tProdIndex;
+    BEGIN
+      WriteS (StdOutput,'***** Length ***** ');
+      WriteNl (StdOutput);
+      FOR prodno := 1 TO ProdCount DO
+	WriteS (StdOutput,'Length (');
+	WriteCard (StdOutput,prodno,1);
+	WriteS (StdOutput,') = ');
+	WriteCard (StdOutput,Length^[prodno],1);
+	WriteNl (StdOutput);
+      END;
+      WriteNl (StdOutput);
+    END PrintLength;
+
+  PROCEDURE PrintLeftHandSide;
+    VAR prodno : tProdIndex;
+    BEGIN
+      WriteS (StdOutput,'***** LeftHandSide ***** ');
+      WriteNl (StdOutput);
+      FOR prodno := 1 TO ProdCount DO
+	WriteS (StdOutput,'LeftHandSide (');
+	WriteCard (StdOutput,prodno,1);
+	WriteS (StdOutput,') = ');
+	PrintToken (LeftHandSide^[prodno]);
+	WriteNl (StdOutput);
+      END;
+      WriteNl (StdOutput);
+    END PrintLeftHandSide;
+ --- *)
+
+BEGIN
+  ElmtSize	:= TSIZE (TableElmt);
+  Trace		:= FALSE;
+  CaseFlag	:= FALSE;
+END Gen.

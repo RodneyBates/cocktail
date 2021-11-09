@@ -1,0 +1,477 @@
+     1 (* map tokens to internal representation *)
+     2 
+     3 (* $Id: TokenTab.mi,v 2.2 1992/08/07 15:13:51 grosch rel $ *)
+     4 
+     5 (* $Log: TokenTab.mi,v $
+c    6  * Revision 2.2  1992/08/07  15:13:51  grosch
+c    7  * allow several scanner and parsers; extend module Errors
+c    8  *
+c    9  * Revision 2.1  1991/11/21  14:47:50  grosch
+c   10  * new version of RCS on SPARC
+c   11  *
+c   12  * Revision 2.0  91/03/08  18:26:41  grosch
+c   13  * turned tables into initialized arrays (in C)
+c   14  * moved mapping tokens -> strings from Errors to Parser
+c   15  * changed interface for source position
+c   16  * 
+c   17  * Revision 1.2  90/06/11  18:45:44  grosch
+c   18  * layout improvements
+c   19  * 
+c   20  * Revision 1.1  89/01/26  19:03:26  vielsack
+c   21  * better position handling for nonterminals
+c   22  * 
+c   23  * Revision 1.0  88/10/04  14:27:23  vielsack
+c   24  * Initial revision
+c   25  * 
+c   26  *)
+    27 
+    28 IMPLEMENTATION MODULE TokenTab;                                               *     *
+    29 
+    30 (* Umsetzung der Vokabularzeichen (tIdent) in eine interne Darstellung
+c   31    (Vocabulary). Zusaetzlich besteht die Moeglichkeit, weitere Information
+c   32    ueber ein Vokabularzeichen aufzunehmen (Special). *)
+    33 
+    34 FROM SYSTEM     IMPORT ADR, ADDRESS;                                          *     *     *
+    35 FROM Strings    IMPORT ArrayToString, tString;                                *     *     *
+    36 FROM Idents     IMPORT MakeIdent,tIdent,GetString;                            *     *     *     *
+    37 FROM Errors     IMPORT eFatal, eRestriction, eIdent, eString, eInternal, ErrorMessag\     *     *     *     *     *     *
+      \eI;                                                                           *
+    38 FROM Positions  IMPORT NoPosition;                                            *     *
+    39 
+    40 CONST
+    41     eNoIntCode          = 25;                                                 *
+    42     eTokenOverflow      = 26;                                                 *
+    43 
+    44      (* Von der Symboltabelle duerfen nur Werte bis zu dieser Groesse geliefert werd\
+c     \en. *)
+    45 
+    46     MaxTokens           = cMAXNonTerm;                                        *     *
+    47     NoValue             = MaxTokens;                                          *    46
+    48     DefValue            = MaxTokens + 1;                                      *    46
+    49 
+    50 TYPE Symbols            = [0..MaxTokens];                                     *    46
+    51 
+    52 VAR 
+    53     (* Unter ExToInt[i] steht die interne Darstellung des Eintrags i der Symboltabel\
+c     \le *)
+    54 
+    55     ExToInt     : ARRAY Symbols OF Vocabulary;                                *    50     *
+    56 
+    57     (* Unter IntToEx[i] steht der Eintrag in der Symboltabelle, die
+c   58        der internen Darstellung i entspricht *)
+    59     
+    60     ExToPos     : ARRAY Symbols OF PosType;                                   *    50     *
+    61     ExPosSet    : ARRAY Symbols OF BOOLEAN;                                   *    50     *
+    62 
+    63     (* Fuer jedes Symbol wird die kleinste Position an der es auftritt festgehalten \
+c     \*)
+    64 
+    65     IntToEx     : ARRAY Vocabulary OF Symbols;                                *     *    50
+    66 
+    67     (* Eintrag der aktuellen Prioritaet eines Vocabularzeichens. Auf 0 initialisiert\
+c     \. *)
+    68 
+    69     PrioField   : ARRAY Vocabulary OF Prio;                                   *     *     *
+    70 
+    71     (* DefaultVoc enthaelt das zuletzt und damit hoechste mit Default-
+c   72        nummer eingetragene Terminal *)
+    73 
+    74     DefaultVoc  : [0..cMAXTerm+1];                                            *     *
+    75     i           : CARDINAL;                                                   *     *
+    76 
+    77     GetNextNonTerminalAllowed   : BOOLEAN;                                    *     *
+    78     Actualnt    : [MINNonTerm..cMAXNonTerm];                                  *     *     *
+    79 
+    80     (* Variablen fuer main section *)
+    81     ter         : Terminal;                                                   *     *
+    82     err         : TokenError;                                                 *     *
+    83     s           : tString;                                                    *    35
+    84     pos         : PosType;                                                    *     *
+    85 
+    86   PROCEDURE MakeTerm (sym: tIdent; VAR ter: Terminal; VAR Error: TokenError; pos: Po\     *     *    36    81     *     *
+                                                                                     *    84
+      \sType);                                                                       *
+    87   
+    88   (* Fuege sym als NEUES Terminal in TokenTab mit vorgegebener Codierung
+c   89      ter ein. Falls s bereits in der TokenTab steht, wird der alte Code
+c   90      zurueckgeliefert und Error auf SymbolExists gesetzt.
+c   91      Error = CodeExists, falls der angegebene Code bereits vergeben ist . *)
+    92 
+    93   BEGIN
+    94     IF sym > cMAXNonTerm THEN                                                86     *
+    95       Error := OutOfRange;                                                   86     *
+    96     ELSIF ExToInt[sym] <> NoValue THEN                                       55    86    47
+    97       (* Es wurde schon ein Eintrag  mit vorgenommen *)
+    98       Error:= SymbolExists;                                                  86     *
+    99       ter  := ExToInt[sym];                                                  86    55    86
+   100     ELSIF IntToEx[ter] <> NoValue THEN                                       65    86    47
+   101       (* Es wurde einEintrag mit MakeDefTerm gemacht *)
+   102       Error := CodeExists;                                                   86     *
+   103     ELSE
+   104       ExToInt[sym]      := ter;                                              55    86    86
+   105       IntToEx[ter]      := sym;                                              65    86    86
+   106       Error             := NoError;                                          86     *
+   107       ExToPos[sym]      := pos;                                              60    86    86
+   108       IF ter > MAXTerm THEN                                                  86     *
+   109         MAXTerm := ter;                                                       *    86
+   110       END;
+   111     END;
+   112   END MakeTerm;                                                              86
+   113 
+   114   PROCEDURE MakeDefTerm (VAR sym: tIdent; VAR Error: TokenError; pos: PosType);     *    86    36    86     *    86     *
+   115 
+   116   (* Fuege sym als NEUES Terminal in TokenTab ohne interne Codierung
+c  117      ein. Die Codierung muss nach Abschluss aller Eintraege in die
+c  118      TokenTab mit CompleteDefTerm nachgeholt werden. 
+c  119      Falls s bereits in der TokenTab steht, wird der alte Code zurueck-
+c  120      geliefert und Error auf SymbolExists gesetzt. *)
+   121 
+   122   BEGIN
+   123     IF (ExToInt [sym] <> NoValue) THEN                                       55   114    47
+   124      (* sym steht bereits in der TokenTab  *) 
+   125       Error := SymbolExists;                                                114     *
+   126     ELSE
+   127       ExToInt[sym]     := DefValue;                                          55   114    48
+   128       Error            := NoError;                                          114     *
+   129       ExToPos[sym]     := pos;                                               60   114   114
+   130     END;
+   131   END MakeDefTerm;                                                          114
+   132 
+   133   PROCEDURE CompleteDefTerm (sym: tIdent; VAR Error: TokenError);             *   114    36   114     *
+   134 
+   135   (* Traegt die interne Codierung fuer bereits mit MakeDefTerm eingetragene
+c  136      Terminale nach .Moegliche Fehler:
+c  137      Error = NotExists     Noch gar nicht eingetragen
+c  138              CodeExists    Schon vollstaendig eingetragen
+c  139              NonTerm   sym ist Codierung fuer Nichtterminal; *)
+   140   
+   141   BEGIN
+   142     IF ExToInt[sym] = NoValue THEN                                           55   133    47
+   143       (* Symbol noch gar nicht eingetragen *)
+   144       Error := NotExists;                                                   133     *
+   145     ELSIF ExToInt[sym] <> DefValue THEN                                      55   133    48
+   146       (* Symbol schon vollstaendig eingetragen *)
+   147       IF GetTokenType(ExToInt[sym]) = NonTerm THEN                            *    55   133     *
+   148         Error := NotTerm;                                                   133     *
+   149       ELSE
+   150         Error := CodeExists;                                                133     *
+   151       END;
+   152     ELSE
+   153       (* alles ok *)
+   154       NextDefault; (* DefaultVoc weiterschalten *)                            *
+   155       IF DefaultVoc <= cMAXTerm THEN                                         74     *
+   156         ExToInt[sym] := DefaultVoc;                                          55   133    74
+   157         IntToEx[DefaultVoc] := sym;                                          65    74   133
+   158         IF DefaultVoc > MAXTerm THEN                                         74     *
+   159            MAXTerm := DefaultVoc;                                             *    74
+   160         END;
+   161         Error              := NoError;                                      133     *
+   162       ELSE
+   163         ErrorMessageI(eTokenOverflow,eRestriction,NoPosition,eIdent,ADR(sym));     37    42    37    38    37    34   133
+   164       END;
+   165     END;
+   166   END CompleteDefTerm;                                                      133
+   167   
+   168   PROCEDURE MakeVoc (sym: tIdent; symPos: PosType): Vocabulary;               *   133    36     *     *     *
+   169 
+   170   (* falls s bereits vorhanden:
+c  171         die Codierung von sym wird zurueckgeliefert
+c  172      sonst:
+c  173         s wird als NichtTerminal in die TokenTab eingetragen und die
+c  174         Codierung zurueckgeliefert.
+c  175      Bei Tabellenueberlauf wird Error = TokenOverflow. *)
+   176 
+   177   BEGIN
+   178     IF ExToInt[sym] = DefValue THEN                                          55   168    48
+   179       ErrorMessageI(eNoIntCode,eFatal,symPos, eIdent, ADR(sym));             37    41    37   168    37    34   168
+   180     ELSIF
+   181       ExToInt[sym] # NoValue THEN (* s bereits vorhanden *)                  55   168    47
+   182 
+   183       (* ist neue Position kleiner als bisher bekannte? *)
+   184 
+   185       IF (ExToPos[sym].Line > symPos.Line) OR                                60   168     *   168     *
+   186          (   (ExToPos[sym].Line = symPos.Line)                               60   168     *   168     *
+   187          AND (ExToPos[sym].Column > symPos.Column) ) THEN                    60   168     *   168     *
+   188         
+   189         (* ist neue Position gueltig? *)
+   190 
+   191         IF (symPos.Line # 0) AND (symPos.Column # 0) THEN                   168     *   168     *
+   192 
+   193           (* halte Positon fuer evtl. Fehlermeldungen fest *)
+   194 
+   195           ExToPos[sym] := symPos                                             60   168   168
+   196 
+   197         END;
+   198       END;
+   199 
+   200       RETURN ExToInt[sym];                                                   55   168
+   201     ELSE
+   202       (* Noch kein Eintrag *)
+   203       INC(MAXNonTerm);                                                        *     *
+   204       IF MAXNonTerm >= MaxTokens THEN                                         *    46
+   205         ErrorMessageI (eTokenOverflow,eRestriction,symPos, eIdent, ADR(sym));      37    42    37   168    37    34   168
+   206       ELSE
+   207         ExToPos[sym] := symPos;                                              60   168   168
+   208         ExToInt[sym] := MAXNonTerm;                                          55   168     *
+   209         IntToEx[MAXNonTerm] := sym ;                                         65     *   168
+   210         RETURN MAXNonTerm;                                                    *
+   211       END;
+   212     END;
+   213   END MakeVoc;                                                              168
+   214 
+   215   PROCEDURE SetNontermPos (sym: tIdent; pos: PosType);                        *   168    36   114     *
+   216 
+   217   (* setze Position eines Nichtterminals *)
+   218 
+   219   BEGIN
+   220     IF NOT ExPosSet [sym] THEN                                               61   215
+   221       ExToPos [sym] := pos;                                                  60   215   215
+   222       ExPosSet [sym] := TRUE;                                                61   215     *
+   223     END;
+   224   END SetNontermPos;                                                        215
+   225  
+   226   PROCEDURE GetTokenType (voc: Vocabulary): TokenType;                        *     *     *     *
+   227 
+   228   (* liefert den Typ des Tokens voc zurueck *)
+   229   BEGIN
+   230     IF (IntToEx[voc] = NoValue) OR (voc >= MaxTokens) THEN                   65   226    47   226    46
+   231       RETURN None;                                                            *
+   232     ELSIF voc <= cMAXTerm THEN                                              226     *
+   233       RETURN Term;                                                            *
+   234     ELSE
+   235       RETURN NonTerm;                                                         *
+   236     END;
+   237   END GetTokenType;                                                         226
+   238 
+   239 PROCEDURE SymbolToToken (sym: tIdent; VAR Error: TokenError): Vocabulary;     *   215    36   133     *     *
+   240   
+   241   (* liefert die zum SymboltabellenEintrag sym gehoerige interne Darstellung*)
+   242   (* Moegliche Fehler:
+c  243      Error = NotExists    Es existiert ueberhaupt kein Eintrag
+c  244      Error = NoIntCode    Code muss noch mit CompleteDefToken eingetragen
+c  245                           werden.
+c  246      Error = NoError      Alles in Ordnung    *)
+   247 
+   248 BEGIN 
+   249   IF ExToInt[sym] = NoValue THEN                                             55   239    47
+   250     Error := NotExists;                                                     239     *
+   251   ELSIF ExToInt[sym] = DefValue THEN                                         55   239    48
+   252     Error := NoIntCode;                                                     239     *
+   253   ELSE
+   254     Error := NoError;                                                       239     *
+   255   END;
+   256   RETURN ExToInt[sym];                                                       55   239
+   257 END SymbolToToken;                                                          239
+   258 
+   259 PROCEDURE  TokenToSymbol (voc: Vocabulary; VAR Error: TokenError):tIdent;     *   226     *   239     *    36
+   260   
+   261   (* liefert die zum TokenTabeintrag voc gehoerige Darstellung
+c  262      in der Symboltabelle *)
+   263   (* Moegliche Fehler:
+c  264      Error = NotExists    Es existiert ueberhaupt kein Eintrag
+c  265                           werden.
+c  266      Error = NoError      Alles in Ordnung    *)
+   267 
+   268 BEGIN 
+   269   IF IntToEx[voc] = NoValue THEN                                             65   259    47
+   270     Error := NotExists;                                                     259     *
+   271   ELSE
+   272     Error := NoError;                                                       259     *
+   273   END;
+   274   RETURN IntToEx[voc];                                                       65   259
+   275 END TokenToSymbol;                                                          259
+   276   
+   277 PROCEDURE GetTokenPos (voc: Vocabulary; VAR pos: PosType);                    *   259     *   215     *
+   278 VAR sym: tIdent;                                                            239    36
+   279 BEGIN
+   280   sym := IntToEx[voc];                                                      278    65   277
+   281   IF sym = NoValue THEN                                                     278    47
+   282     pos.Line := 0;                                                          277     *
+   283     pos.Column := 0;                                                        277     *
+   284   ELSE
+   285     pos := ExToPos [sym];                                                   277    60   278
+   286   END;
+   287 END GetTokenPos;                                                            277
+   288   
+   289   PROCEDURE PutPrio (voc: Vocabulary; p: Prio);                               *   277     *     *     *
+   290 
+   291   (* Setzen der Prioritaet von voc auf p *)
+   292   BEGIN
+   293     PrioField[voc] := p;                                                     69   289   289
+   294   END PutPrio;                                                              289
+   295 
+   296   PROCEDURE GetPrio (voc: Vocabulary):Prio;                                   *   289     *     *
+   297 
+   298   (* liefert die mit PutPriority eingetragene Prioritaet von voc.
+c  299      Ist nichts eingetragen, wird 0 zurueckgegeben. *)
+   300   BEGIN
+   301     RETURN PrioField[voc];                                                   69   296
+   302   END GetPrio;                                                              296
+   303 
+   304   PROCEDURE NextDefault;                                                      *
+   305   BEGIN
+   306     WHILE (IntToEx[DefaultVoc] <> NoValue) AND                               65    74    47
+   307           (DefaultVoc < (cMAXTerm+1)) DO                                     74     *
+   308       INC(DefaultVoc);                                                        *    74
+   309     END;
+   310   END NextDefault;                                                          304
+   311 
+   312   PROCEDURE InitTokenTable;                                                   *
+   313   BEGIN
+   314     GetNextNonTerminalAllowed := FALSE;                                      77     *
+   315     FOR i := 0 TO MaxTokens DO                                               75    46
+   316       IntToEx[i] := NoValue;                                                 65    75    47
+   317       ExToInt[i] := NoValue;                                                 55    75    47
+   318       ExPosSet[i] := FALSE;                                                  61    75     *
+   319       PrioField[i] := 0;                                                     69    75
+   320     END;
+   321     DefaultVoc := 1;                                                         74
+   322     MAXNonTerm := cMAXTerm;                                                   *     *
+   323     ArrayToString ('_EndOfFile', s);                                         35    83
+   324     ter := EndOfToken;                                                       86     *
+   325     pos.Line := 0;                                                          277     *
+   326     pos.Column := 0;                                                        277     *
+   327     MakeTerm (MakeIdent(s),ter,err,pos);                                     86    36    83    86    82   277
+   328     IF err # NoError THEN                                                    82     *
+   329       ERROR ('TokenTab.InitTokenTable');                                      *
+   330     END;
+   331     MAXTerm := 0;                                                             *
+   332   END InitTokenTable;                                                       312
+   333 
+   334   PROCEDURE ERROR (a: ARRAY OF CHAR);                                         *     *     *
+   335   VAR s: tString;                                                            83    35
+   336   BEGIN
+   337     ArrayToString (a, s);                                                    35   334   335
+   338     ErrorMessageI (eInternal, eFatal, NoPosition, eString, ADR (s));         37    37    37    38    37    34   335
+   339   END ERROR;                                                                334
+   340 
+   341 END TokenTab.                                                                28
+Cross reference: * is declaration, = is assignment
+
+-A-
+ a                              334*  337 
+ Actualnt                        78*
+ ADDRESS                         34*
+ ADR                             34*  163   179   205   338 
+ ArrayToString                   35*  323   337 
+
+-B-
+ BOOLEAN                         61    77 
+
+-C-
+ CARDINAL                        75 
+ CHAR                           334 
+ cMAXNonTerm                     46    78    94 
+ cMAXTerm                        74   155   232   307   322 
+ CodeExists                     102   150 
+ Column                         187   187   191   283=  326=
+ CompleteDefTerm                133*  166 
+
+-D-
+ DefaultVoc                      74*  155   156   157   158   159   306   307   308   321=
+ DefValue                        48*  127   145   178   251 
+
+-E-
+ eFatal                          37*  179   338 
+ eIdent                          37*  163   179   205 
+ eInternal                       37*  338 
+ EndOfToken                     324 
+ eNoIntCode                      41*  179 
+ eRestriction                    37*  163   205 
+ err                             82*  327   328 
+ ERROR                          329   334*  339 
+ Error                           86*   95=   98=  102=  106=  114*  125=  128=  133*  144=  148=  150=  161=  239*  250=  252=  254=
+                                259*  270=  272=
+ ErrorMessageI                   37*  163   179   205   338 
+ Errors                          37*
+ eString                         37*  338 
+ eTokenOverflow                  42*  163   205 
+ ExPosSet                        61*  220   222=  318=
+ ExToInt                         55*   96    99   104=  123   127=  142   145   147   156=  178   181   200   208=  249   251   256 
+                                317=
+ ExToPos                         60*  107=  129=  185   186   187   195=  207=  221=  285 
+
+-F-
+ FALSE                          314   318 
+
+-G-
+ GetNextNonTerminalAllowed       77*  314=
+ GetPrio                        296*  302 
+ GetString                       36*
+ GetTokenPos                    277*  287 
+ GetTokenType                   147   226*  237 
+
+-I-
+ i                               75*  315=  316   317   318   319 
+ Idents                          36*
+ IMPLEMENTATION                  28*
+ INC                            203   308 
+ InitTokenTable                 312*  332 
+ IntToEx                         65*  100   105=  157=  209=  230   269   274   280   306   316=
+
+-L-
+ Line                           185   185   186   186   191   282=  325=
+
+-M-
+ MakeDefTerm                    114*  131 
+ MakeIdent                       36*  327 
+ MakeTerm                        86*  112   327 
+ MakeVoc                        168*  213 
+ MAXNonTerm                     203   204   208   209   210   322=
+ MAXTerm                        108   109=  158   159=  331=
+ MaxTokens                       46*   47    48    50   204   230   315 
+ MINNonTerm                      78 
+
+-N-
+ NextDefault                    154   304*  310 
+ NoError                        106   128   161   254   272   328 
+ NoIntCode                      252 
+ None                           231 
+ NonTerm                        147   235 
+ NoPosition                      38*  163   338 
+ NotExists                      144   250   270 
+ NotTerm                        148 
+ NoValue                         47*   96   100   123   142   181   230   249   269   281   306   316   317 
+
+-O-
+ OutOfRange                      95 
+
+-P-
+ p                              289*  293 
+ pos                             84*   86*  107   114*  129   215*  221   277*  282=  283=  285=  325=  326=  327 
+ Positions                       38*
+ PosType                         60    84    86   114   168   215   277 
+ Prio                            69   289   296 
+ PrioField                       69*  293=  301   319=
+ PutPrio                        289*  294 
+
+-S-
+ s                               83*  323   327   335*  337   338 
+ SetNontermPos                  215*  224 
+ Strings                         35*
+ sym                             86*   94    96    99   104   105   107   114*  123   127   129   133*  142   145   147   156   157 
+                                163   168*  178   179   181   185   186   187   195   200   205   207   208   209   215*  220   221 
+                                222   239*  249   251   256   278*  280=  281   285 
+ SymbolExists                    98   125 
+ Symbols                         50*   55    60    61    65 
+ SymbolToToken                  239*  257 
+ symPos                         168*  179   185   186   187   191   191   195   205   207 
+ SYSTEM                          34*
+
+-T-
+ ter                             81*   86*   99=  100   104   105   108   109   324=  327 
+ Term                           233 
+ Terminal                        81    86 
+ tIdent                          36*   86   114   133   168   215   239   259   278 
+ TokenError                      82    86   114   133   239   259 
+ TokenTab                        28*  341 
+ TokenToSymbol                  259*  275 
+ TokenType                      226 
+ TRUE                           222 
+ tString                         35*   83   335 
+
+-V-
+ voc                            226*  230   230   232   259*  269   274   277*  280   289*  293   296*  301 
+ Vocabulary                      55    65    69   168   226   239   259   277   289   296 
+
+end cross reference, 401 occurrences of 90 identifiers.

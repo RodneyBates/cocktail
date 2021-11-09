@@ -1,0 +1,494 @@
+/* Ich, Doktor Josef Grosch, Informatiker, 10.12.1991 */
+
+(* Rodney M. Bates Modifications: 
+
+   RMB Nov 96 made the minimum number of alternatives for conversion
+              of IF statments to a CASE statement a named constant
+              (MinCases) and set the value to 2. 
+
+   RMB Dec 96 fixed bug in ElimDeadTests. It was changing the Types
+              in the test in the original Tests list, while leaving
+              Types in the new test in the Decisions tree unchanged,
+              which is backwards.  Tests is not used after this, while
+              Decisions is. 
+   RMB May 97 Minor changes to match changes to puma.cg, name change
+              of Mod to M2
+
+*)
+
+TRAFO Optimize PUBLIC Optimize RuleProperties NeedsTempo NeedsMatch NeedsNoFinale GetRule
+
+GLOBAL {
+
+FROM IO		IMPORT StdOutput, WriteB, WriteS, WriteI, WriteNl;
+FROM Idents	IMPORT WriteIdent;
+FROM M2 	IMPORT ImplMod;
+FROM Tree	IMPORT tTree, NoTree, mTestIsType, mNodeTypes;
+FROM Scanner	IMPORT Warning;
+FROM Positions	IMPORT tPosition;
+
+FROM Sets	IMPORT
+   tSet		, MakeSet	, ReleaseSet	, AssignEmpty	,
+   IsEmpty	, Difference	, IsSubset	, Assign	,
+   IsEqual	, IsNotEqual	, Intersection	, Union		,
+   Size		, WriteSet	;
+
+IMPORT Sets;
+
+CONST MinCases = 2 ; 
+
+VAR
+   gHasExit, gHasAssign, gHasTargetCode, gHasRejectOrFail: BOOLEAN;
+   gRule, nNoDecision, nNoTest	: tTree;
+
+PROCEDURE IsDisjoint (s1, s2: tSet): BOOLEAN;
+   VAR s: tSet; Result: BOOLEAN;
+   BEGIN
+      MakeSet (s, Size (s1));
+      Assign (s, s1);
+      Intersection (s, s2);
+      Result := IsEmpty (s);
+      ReleaseSet (s);
+      RETURN Result;
+   END IsDisjoint;
+}
+
+PROCEDURE Optimize (t: Tree)
+
+Spec (..) :-
+   nNoDecision	:= NoDecision ();
+   nNoTest	:= NoTest ();
+   Optimize (Routines);
+   .
+Routine (..) :-
+   RuleProperties (Rules);
+   CollectTests (Rules, InForm);
+   BuildTree (Rules, nNoDecision => decisions);
+   Decisions := decisions;
+   ElimDeadTests (Decisions, _, (FALSE), _);
+   FindCases (Decisions => _, n, s2);
+   MarkCases (Decisions, n, s2);
+   Optimize (Next);
+   .
+
+PROCEDURE RuleProperties (Tree)
+
+Spec (..) :-
+   RuleProperties (Routines);
+   .
+Routine (..) :-
+   RuleProperties (Rules);
+   RuleProperties (Next);
+   .
+Rule (..) :-
+   gHasExit	  := FALSE;
+   gHasAssign	  := FALSE;
+   gHasTargetCode := FALSE;
+   gHasRejectOrFail := FALSE;
+   RuleProperties (Statements);
+   RuleProperties (Exprs);
+   RuleProperties (Expr);
+   HasExit	  := gHasExit;
+   HasAssign	  := gHasAssign;
+   HasTargetCode  := gHasTargetCode;
+   HasRejectOrFail := gHasRejectOrFail;
+   RuleProperties (Next);
+   .
+ProcCall (..) :-
+   RuleProperties (Call);
+   RuleProperties (Next);
+   .
+Assignment (..) :-
+   gHasAssign	  := TRUE;
+   RuleProperties (Adr);
+   RuleProperties (Expr);
+   RuleProperties (Next);
+   .
+Condition (..) :-
+   gHasExit	  := TRUE;
+   RuleProperties (Next);
+   .
+Reject (..) :-
+   gHasExit	  := TRUE;
+   gHasRejectOrFail := TRUE;
+   RuleProperties (Next);
+   .
+Fail (..) :-
+   gHasRejectOrFail := TRUE;
+   RuleProperties (Next);
+   .
+TargetStmt (..) :-
+   gHasTargetCode := TRUE;
+   RuleProperties (Next);
+   .
+Statement (..) :-
+   RuleProperties (Next);
+   .
+OneExpr (..) :-
+   RuleProperties (Expr);
+   RuleProperties (Next);
+   .
+Expr:Expr (..) :-
+   gHasExit := gHasExit OR NeedsMatch (Expr);
+   .
+
+PREDICATE NeedsMatch ([Tests, Exprs, Expr])
+
+TestValue (..) :- NeedsMatch (Expr) OR NeedsMatch (Next);
+   .
+OneTest	(..) :- NeedsMatch (Next);
+   .
+OneExpr	(..) :- NeedsMatch (Expr) OR NeedsMatch (Next);
+   .
+Compose (..) :- NeedsMatch (Exprs);
+   .
+Call	(..) :- NeedsMatch (Expr) OR NeedsMatch (Exprs) OR
+		(Object # NoTree) AND NeedsMatch2 (Patterns, Object^.Routine.OutForm);
+   .
+Binary	(..) :- NeedsMatch (Lop) OR NeedsMatch (Rop);
+   .
+Parents	(..) ;
+PreOperator	(..) ;
+PostOperator	(..) :- NeedsMatch (Expr);
+   .
+Index	(..) :- NeedsMatch (Expr) OR NeedsMatch (Exprs);
+   .
+
+PREDICATE NeedsMatch2 ([Patterns, Pattern], Formal)
+
+OnePattern (..), Formals :-
+   NeedsMatch2 (Pattern, Formals) OR
+   NeedsMatch2 (Next, Formals^.Formal.Next);
+   .
+Decompose (..), Formal (_, _, typeDesc, _) :-
+   (typeDesc^.Kind = Tree.UserType) OR
+   IsNotEqual (Object^.Class.TypeDesc^.NodeTypes.Types, typeDesc^.NodeTypes.Types) OR
+   NeedsMatch2 (Patterns, Object^.Class.Formals);
+   .
+VarDef	(..), _ :- Object # NoTree; .
+NilTest	(..), _ :- .
+Value	(..), _ :- .
+
+PREDICATE NeedsTempo (Decisions => Rule)
+
+Decision (Then, ..) => Rule :- NeedsTempo (Then => Rule); .
+Decided (_, rule:Rule (HasTempos := (TRUE))) => rule :- .
+
+PREDICATE NeedsNoFinale (Decisions)
+
+Decision (_, Else, ..) :- NeedsNoFinale (Else); .
+Decided (_, Rule (HasExit := (FALSE))) :- .
+Decided (Else, _) :- NeedsNoFinale (Else); .
+
+PROCEDURE GetRule (Decisions => Rule)
+
+Decision (Then, ..) => Rule :- GetRule (Then => Rule); .
+Decided (_, Rule) => Rule :- .
+
+PROCEDURE CollectTests (Rules, Formals)
+
+Rule (..), Formals :-
+   CollectTests2 (Patterns, Formals, nNoTest => tests);
+   Tests := tests;
+   CollectTests (Next, Formals);
+   .
+
+PROCEDURE CollectTests2 (Tree, Formals, Tests => Tests)
+
+OnePattern (Pattern, NextP), Formals:Formal (NextF, ..),
+   TestsIn => TestsOut :-
+   CollectTests2 (NextP, NextF, TestsIn => Tests);
+   CollectTests2 (Pattern, Formals, Tests => TestsOut);
+   .
+Decompose (..), Formal (_, _, typeDesc, _),
+   TestsIn => TestsOut :-
+   (typeDesc^.Kind # Tree.UserType) AND
+      IsEqual (Object^.Class.TypeDesc^.NodeTypes.Types, typeDesc^.NodeTypes.Types);
+   CollectTests2 (Patterns, Object^.Class.Formals, TestsIn => TestsOut);
+   .
+Decompose (_, _, _, Path, _, _, Patterns, _, Object), Formal (_, _, typeDesc, _),
+   TestsIn => TestKind (TestsOut, Path, Object^.Class.TypeDesc, Object^.Class.Name) :-
+   Object^.Class.Extensions^.Kind = Tree.NoClass;	/* Low ? */
+   CollectTests2 (Patterns, Object^.Class.Formals, TestsIn => TestsOut);
+   .
+Decompose (_, _, _, Path, _, _, Patterns, _, Object), _,
+   TestsIn => TestIsType (TestsOut, Path, Object^.Class.TypeDesc, Object^.Class.Name) :-
+   CollectTests2 (Patterns, Object^.Class.Formals, TestsIn => TestsOut);
+   .
+VarDef (Path := path), _,
+   Tests => TestNonlin (Tests, Object^.Formal.Path, path, Object^.Formal.TypeDesc) :-
+   Object # NoTree;
+   .
+NilTest (_, _, _, Path, _), _,
+   Tests => TestNil (Tests, Path) :-
+   .
+Value (_, _, _, Path, Expr), Formals:Formal,
+   Tests => TestValue (Tests, Path, Expr, Formals^.Formal.TypeDesc) :-
+   .
+_, _, Tests => Tests :-
+   .
+
+PREDICATE IsSamePath (Path, Path)
+
+Var (Name, ..)		, Var (Name, ..)	:- .
+ConsType (Path1, Name)	, ConsType (Path2, Name);
+Field (Path1, Name)	, Field (Path2, Name)	:- IsSamePath (Path1, Path2); .
+
+PREDICATE IsSameType (TypeDesc, TypeDesc)
+
+NodeTypes (TreeName (Name, ..), Types), NodeTypes (TreeName (Name, ..), Types) :- .
+UserType (Type), UserType (Type) :- .
+
+PREDICATE IsSameTest (Tests, Tests)
+
+TestKind   (_, Path1, TypeDesc1, _), TestKind   (_, Path2, TypeDesc2, _) ;
+TestIsType (_, Path1, TypeDesc1, _), TestIsType (_, Path2, TypeDesc2, _) :-
+   IsSamePath (Path1, Path2);
+   IsSameType (TypeDesc1, TypeDesc2);
+   .
+TestNil (_, Path1), TestNil (_, Path2) :-
+   IsSamePath (Path1, Path2);
+   .
+TestNonlin (_, Path11, Path12, _), TestNonlin (_, Path21, Path22, _) :-
+   IsSamePath (Path11, Path21);
+   IsSamePath (Path12, Path22);
+   .
+
+PROCEDURE BuildTree (Rules, Decisions => Decisions)
+
+r:Rule (..), DecisionsIn => DecisionsOut :-
+   gRule := r;
+   BuildTree2 (Tests, DecisionsIn => Decisions);
+   UpdateChange (Decisions, gRule);
+   BuildTree (Next, Decisions => DecisionsOut);
+   .
+NoRule (..), Decisions => Decisions :-
+   .
+
+PROCEDURE BuildTree2 (t: Tests, d: Decisions => Decisions)
+
+o:OneTest (Next, _), NoDecision () => Decision (Decisions, d, o, 0, TRUE) :-
+   BuildTree2 (Next, d => Decisions);
+   UpdateChange (Decisions, gRule);
+   .
+OneTest (Next, _), Decision (Then, Else, Test, _, (TRUE)) => d /* Decision (Decisions, Else, Test, 0, TRUE) */ :-
+   IsSameTest (t, Test);
+   NOT HasInterference (t, Else);
+   BuildTree2 (Next, Then => Decisions);
+   Then := Decisions;
+   UpdateChange (Decisions, gRule);
+   .
+OneTest (..), Decision (Then, Else, Test, _, _) => d /* Decision (Then, Decisions, Test, 0, TRUE) */ :-
+   BuildTree2 (t, Else => Decisions);
+   Else := Decisions;
+   UpdateChange (Decisions, gRule);
+   .
+OneTest (..), Decided (Else, Rule) => d /* Decided (Decisions, Rule) */ :-
+   BuildTree2 (t, Else => Decisions);
+   Else := Decisions;
+   UpdateChange (Decisions, gRule);
+   .
+NoTest (), NoDecision () => Decided (d, gRule) :-
+   .
+NoTest (), Decision (Then, Else, Test, _, _) => d /* Decision (Then, Decisions, Test, 0, TRUE) */ :-
+   BuildTree2 (t, Else => Decisions);
+   Else := Decisions;
+   .
+NoTest (), Decided (Else, Rule) => d /* Decided (Decisions, Rule) */ :-
+   BuildTree2 (t, Else => Decisions);
+   Else := Decisions;
+   .
+
+PREDICATE HasInterference (Tests, Decisions)
+
+_, Decided (..) :- .
+		   TestKind   (_, Path1, NodeTypes (_, Types1), _),
+   Decision (_, _, TestKind   (_, Path2, NodeTypes (_, Types2), _), ..) ;
+		   TestKind   (_, Path1, NodeTypes (_, Types1), _),
+   Decision (_, _, TestIsType (_, Path2, NodeTypes (_, Types2), _), ..) ;
+		   TestIsType (_, Path1, NodeTypes (_, Types1), _),
+   Decision (_, _, TestKind   (_, Path2, NodeTypes (_, Types2), _), ..) ;
+		   TestIsType (_, Path1, NodeTypes (_, Types1), _),
+   Decision (_, _, TestIsType (_, Path2, NodeTypes (_, Types2), _), ..) :-
+   IsSamePath (Path1, Path2);
+   NOT IsDisjoint (Types1, Types2);
+   .
+t, Decision (_, Else, ..) :- HasInterference (t, Else); .
+
+PROCEDURE UpdateChange (Decisions, Rule)
+
+Decision (_, _, TestKind (_, Path, ..), _, IsUnchanged),
+   Rule (HasExit := (TRUE), HasAssign := (TRUE), Statements := s) ;
+Decision (_, _, TestIsType (_, Path, ..), _, IsUnchanged),
+   Rule (HasExit := (TRUE), HasAssign := (TRUE), Statements := s) :-
+   IsChanged (Path, s);
+   IsUnchanged := FALSE;
+   .
+
+PREDICATE IsChanged (Path, Statements)
+
+path, Assignment (Object := Object) :- Object # NIL; IsSamePath (path, Object^.Formal.Path); .
+Path, Statement (_, Next) :- IsChanged (Path, Next); .
+
+PROCEDURE FindCases (Decisions => Path, SHORTCARD, tSet)
+
+Decision (Then, Else, TestKind (_, Path, NodeTypes (
+   TreeName (_, _, _, _, ClassCount, _), Types), _), _, _) ;
+Decision (Then, Else, TestIsType (_, Path, NodeTypes (
+   TreeName (_, _, _, _, ClassCount, _), Types), _), _, _) => Path, k, s :-
+   FindCases (Then => _, m, s1);
+   MarkCases (Then, m, s1);
+   FindCases (Else => Path2, n, s2);
+k: SHORTCARD, s: tSet;
+{
+   IF n = 0 THEN
+      k := 1;
+      MakeSet (s, ClassCount);
+      Assign (s, Types);
+   ELSIF IsSamePath (Path, Path2) AND IsDisjoint (s2, Types) THEN
+      k := n + 1;
+      s := s2;
+      Union (s, Types);
+   ELSE
+      MarkCases (Else, n, s2);
+      k := 1;
+      MakeSet (s, ClassCount);
+      Assign (s, Types);
+   END;
+};
+   .
+Decision (Then, Else, _, _, _) => _, 0, _ :-
+   FindCases (Then => _, m, s1);
+   MarkCases (Then, m, s1);
+   FindCases (Else => _, n, s2);
+   MarkCases (Else, n, s2);
+   .
+Decided (Else, _) => _, 0, _ :-
+   FindCases (Else => _, n, s2);
+   MarkCases (Else, n, s2);
+   .
+NoDecision () => _, 0, _ :- .
+
+PROCEDURE MarkCases (Decisions, SHORTCARD, tSet)
+
+Decision (_, _, _, Cases, _), n, s 
+   :- n >= ( MinCases ) ; Cases := n; ReleaseSet (s); .
+
+PROCEDURE ElimDeadTests (Decisions, Path, BOOLEAN, tSet)
+
+Decision (Then, Else, TestKind (_, Path, NodeTypes (
+   TreeName (_, _, _, _, ClassCount, _), Types), _), _, _), _, (FALSE), _ ;
+Decision (Then, Else, TestIsType (_, Path, NodeTypes (
+   TreeName (_, _, _, _, ClassCount, _), Types), _), _, _), _, (FALSE), _ :-
+
+s: tSet;
+{  MakeSet (s, ClassCount); IF IsDeadEnd (Then) THEN Assign (s, Types); END; };
+   ElimDeadTests (Else, Path, (TRUE), s);
+   ElimDeadTests (Then, _, (FALSE), _);
+   .
+Decision (Then, Else, Test:TestKind (Next, Path, NodeTypes (
+   Tree:TreeName (_, _, _, _, ClassCount, _), Types), Name), _, _), Path2, b, s ;
+Decision (Then, Else, Test:TestIsType (Next, Path, NodeTypes (
+   Tree:TreeName (_, _, _, _, ClassCount, _), Types), Name), _, _), Path2, b, s :-
+
+LTypes: tSet, s2: tSet;
+{
+   s2 := s;
+   IF IsSamePath (Path, Path2) THEN
+      IF NOT IsDisjoint (Types, s) THEN
+	 MakeSet (LTypes, ClassCount);
+	 Assign (LTypes, Types);
+	 Difference (LTypes, s);
+	 Test := mTestIsType (Next, Path, mNodeTypes (Tree, LTypes), Name);
+      END;
+   ELSE
+      AssignEmpty (s2);
+   END;
+   IF IsDeadEnd (Then) THEN Union (s2, Types); END;
+(* 
+   s2 := s;
+   IF IsSamePath (Path, Path2) THEN
+      IF NOT IsDisjoint (Types, s) THEN
+	 types := Types;
+	 Test := mTestIsType (Next, Path, mNodeTypes (Tree, types), Name);
+	 MakeSet (Types, ClassCount);
+	 Assign (Types, types);
+	 Difference (Types, s);
+      END;
+   ELSE
+      AssignEmpty (s2);
+   END;
+   IF IsDeadEnd (Then) THEN Union (s2, Types); END;
+*)
+};
+   ElimDeadTests (Else, Path, (TRUE), s2);
+   ElimDeadTests (Then, _, (FALSE), _);
+   .
+Decision (Then, Else, _, _, _), _, b, s :-
+{  IF b THEN ReleaseSet (s); END; };
+   ElimDeadTests (Else, _, (FALSE), _);
+   ElimDeadTests (Then, _, (FALSE), _);
+   .
+Decided (Else, Rule (HasExit := HasExit)), _, b, s :-
+{  IF b THEN ReleaseSet (s); END; };
+{  IF NOT HasExit THEN ReportWarning (Else); END; };
+   ElimDeadTests (Else, _, (FALSE), _);
+   .
+NoDecision (), _, (TRUE), s :-
+   ReleaseSet (s);
+   .
+
+PREDICATE IsDeadEnd (Decisions)
+
+Decided (Else, Rule (HasExit := HasExit)) :- NOT HasExit OR IsDeadEnd (Else); .
+
+PROCEDURE ReportWarning (Decisions)
+
+Decided (Else, Rule (Pos, ..)) :-
+   Warning ("unreachable code", Pos);
+   ReportWarning (Else);
+   .
+Decision (Then, Else, ..) :-
+   ReportWarning (Then);
+   ReportWarning (Else);
+   .
+
+/*
+PROCEDURE WriteTests (Tests)
+
+o:OneTest (Next, _) :- WriteTest (o); WriteTests (Next); .
+
+PROCEDURE WriteTest (OneTest)
+
+TestKind (Next, Path, TypeDesc, _) :-
+   "TestKind	"; ImplMod (Path); "	"; WriteType (TypeDesc); NL .
+TestIsType (Next, Path, TypeDesc, _) :-
+   "TestIsType	"; ImplMod (Path); "	"; WriteType (TypeDesc); NL .
+TestNil (Next, Path) :-
+   "TestNil	"; ImplMod (Path); "	"; NL .
+TestNonlin (Next, Path, Path2, _) :-
+   "TestNonlin	"; ImplMod (Path); "	"; ImplMod (Path2); NL .
+TestValue (Next, ..) :-
+   "TestValue	"; NL .
+
+PROCEDURE WriteType (TypeDesc)
+
+NodeTypes (TreeName (Name, ..), Types) :-
+   WriteIdent (StdOutput, Name); WriteSet (StdOutput, Types); .
+UserType (Type) :-
+   WriteIdent (StdOutput, Type); .
+
+PROCEDURE WriteDecisions (Decisions, SHORTCARD) LOCAL { VAR i: SHORTCARD; }
+
+Decision (Then, Else, Test, _, _), n :-
+   { FOR i := 1 TO n DO WriteS (StdOutput, "	"); END; };
+   WriteTest (Test);
+   WriteDecisions (Then, n + 1);
+   WriteDecisions (Else, n);
+   .
+Decided (Else, rule), n :-
+   { FOR i := 1 TO n DO WriteS (StdOutput, "	"); END; };
+   WriteI (StdOutput, rule^.Rule.Line, 3); NL
+   WriteDecisions (Else, n);
+   .
+*/

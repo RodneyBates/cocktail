@@ -1,0 +1,370 @@
+     1 (* compress parse table *)
+     2 
+     3 (* $Id: Compress.mi,v 2.2 1992/08/07 15:22:49 grosch rel $ *)
+     4 
+     5 (* $Log: Compress.mi,v $
+c    6  * Revision 2.2  1992/08/07  15:22:49  grosch
+c    7  * allow several scanner and parsers; extend module Errors
+c    8  *
+c    9  * Revision 2.1  1991/11/21  14:53:14  grosch
+c   10  * new version of RCS on SPARC
+c   11  *
+c   12  * Revision 2.0  91/03/08  18:31:39  grosch
+c   13  * turned tables into initialized arrays (in C)
+c   14  * moved mapping tokens -> strings from Errors to Parser
+c   15  * changed interface for source position
+c   16  * 
+c   17  * Revision 1.1  90/06/12  16:53:48  grosch
+c   18  * renamed main program to lalr, added { } for actions, layout improvements
+c   19  * 
+c   20  * Revision 1.0  88/10/04  14:35:59  vielsack
+c   21  * Initial revision
+c   22  * 
+c   23  *)
+    24 
+    25 IMPLEMENTATION MODULE Compress;                                               *     *
+    26 
+    27 FROM Automaton  IMPORT tIndex, tStateIndex;                                   *     *     *
+    28 FROM DynArray   IMPORT MakeArray, ExtendArray;                                *     *     *
+    29 FROM Gen        IMPORT tTableLine, NoState, LastReadState, FirstTerminal, LastTermin\     *     *     *     *     *
+      \al, FirstSymbol, LastSymbol;                                                  *     *     *
+    30 FROM General    IMPORT Max, Min;                                              *     *     *
+    31 FROM SYSTEM     IMPORT TSIZE;                                                 *     *
+    32 FROM TokenTab   IMPORT Vocabulary;                                            *     *
+    33 
+    34   CONST
+    35     InitTableMax = 1500;                                                      *
+    36     InitNTableMax = 500;                                                      *
+    37 
+    38 PROCEDURE InitCompressTable;                                                  *
+    39    VAR
+    40       b         : tIndex;                                                     *    27
+    41       State     : tStateIndex;                                                *    27
+    42    BEGIN
+    43       BaseCount    := LastReadState+1;                                        *    29
+    44       MakeArray (Base,BaseCount,ElmtSize);                                   28     *     *     *
+    45 
+    46       DefaultCount := LastReadState+1;                                        *    29
+    47       MakeArray (Default,DefaultCount,ElmtSize);                             28     *     *     *
+    48 
+    49       ControlCount := LastSymbol+InitTableMax;                                *    29    35
+    50       MakeArray (Control,ControlCount,TSIZE(ControlType));                   28     *     *    31     *
+    51 
+    52       TableMax := ControlCount - 1;                                           *     *
+    53 
+    54       FOR State := 0 TO LastReadState DO                                     41    29
+    55          Base^ [State] := 0;                                                  *    41
+    56          Default^ [State] := NoState;                                         *    41    29
+    57       END;
+    58 
+    59       FOR b := 0 TO TableMax DO                                              40     *
+    60          Control^ [b].Next  := NoState;                                       *    40     *    29
+    61          Control^ [b].Check := NoState;                                       *    40     *    29
+    62       END;
+    63 
+    64       TableSize := 0;                                                         *
+    65     END InitCompressTable;                                                   38
+    66 
+    67 PROCEDURE CompressTableLine (State: tStateIndex; DefaultState: tStateIndex; VAR Tabl\     *    41    27     *    27
+      \eLine: tTableLine);                                                           *    29
+    68 
+    69 (* Terminale komprimieren *)
+    70 
+    71    VAR
+    72       b         : tIndex;                                                    40    27
+    73       Success   : BOOLEAN;                                                    *     *
+    74       Symbol    : Vocabulary;                                                 *    32
+    75       index     : tIndex;                                                     *    27
+    76       OldTableMax : tIndex;                                                   *    27
+    77       NextSym   : ARRAY Vocabulary OF Vocabulary;                             *    32    32
+    78       StartSym  ,                                                             *
+    79       StopSym   ,                                                             *
+    80       PrevSym   : Vocabulary;                                                 *    32
+    81    
+    82    BEGIN
+    83 
+    84       Default^ [State] := DefaultState;                                       *    67    67
+    85 
+    86       (* solution 2 *)
+    87  
+    88       (* turn the row Table [State, ...] into a list *)
+    89  
+    90       Symbol := FirstTerminal;                                               74    29
+    91       Success := FALSE;                                                      73     *
+    92       LOOP
+    93          IF Symbol > LastTerminal THEN EXIT; END;                            74    29
+    94          IF (TableLine [Symbol] # NoState) THEN                              67    74    29
+    95             StartSym := Symbol;                                              78    74
+    96             PrevSym  := Symbol;                                              80    74
+    97             Success  := TRUE;                                                73     *
+    98             EXIT;
+    99          END;
+   100          INC (Symbol);                                                        *    74
+   101       END;
+   102       INC (Symbol);                                                           *    74
+   103  
+   104       LOOP
+   105          IF Symbol > LastTerminal THEN EXIT; END;                            74    29
+   106          IF (TableLine [Symbol] # NoState) THEN                              67    74    29
+   107             NextSym [PrevSym] := Symbol;                                     77    80    74
+   108             PrevSym := Symbol;                                               80    74
+   109          END;
+   110          INC (Symbol);                                                        *    74
+   111       END;
+   112       StopSym := PrevSym;                                                    79    80
+   113  
+   114       (* search for a usable base b *)
+   115  
+   116       b := 0;                                                                72
+   117       IF Success THEN                                                        73
+   118          LOOP
+   119             Success := TRUE;                                                 73     *
+   120             Symbol := StartSym;                                              74    78
+   121             LOOP
+   122                IF (Control^ [b + Symbol].Check  # NoState) THEN               *    72    74     *    29
+   123                   Success := FALSE;                                          73     *
+   124                   EXIT;
+   125                END;
+   126                IF Symbol = StopSym THEN EXIT; END;                           74    79
+   127                Symbol := NextSym [Symbol];                                   74    77    74
+   128             END;
+   129  
+   130             IF Success THEN EXIT; END;                                       73
+   131             INC (b);                                                          *    72
+   132             IF b + LastTerminal > TableMax THEN                              72    29     *
+   133                OldTableMax := TableMax;                                      76     *
+   134                ExtendArray (Control,ControlCount,TSIZE(ControlType));        28     *     *    31     *
+   135                TableMax := ControlCount - 1;                                  *     *
+   136                FOR index := OldTableMax+1 TO TableMax DO                     75    76     *
+   137                   Control^ [index].Next  := NoState;                          *    75     *    29
+   138                   Control^ [index].Check := NoState;                          *    75     *    29
+   139                END;
+   140             END;
+   141          END;
+   142       ELSE
+   143          Success := TRUE;                                                    73     *
+   144       END;
+   145  
+   146       Base^ [State] := b;                                                     *    67    72
+   147       TableSize := Max (TableSize, b);                                        *    30     *    72
+   148       FOR Symbol := FirstTerminal TO LastTerminal DO                         74    29    29
+   149          IF (TableLine [Symbol] # NoState) THEN                              67    74    29
+   150             Control^ [b + Symbol].Check := State;                             *    72    74     *    67
+   151             Control^ [b + Symbol].Next  := TableLine [Symbol];                *    72    74     *    67    74
+   152             INC (Filling);                                                    *     *
+   153          END;
+   154       END;
+   155    END CompressTableLine;                                                    67
+   156  
+   157 
+   158 PROCEDURE InitCompressNTable;                                                 *
+   159    VAR
+   160       b         : tIndex;                                                    72    27
+   161       State     : tStateIndex;                                               67    27
+   162    BEGIN
+   163       NBaseCount := LastReadState+1;                                          *    29
+   164       MakeArray (NBase,NBaseCount,ElmtSize);                                 28     *     *     *
+   165       NNextCount := LastSymbol+InitNTableMax;                                 *    29    36
+   166       MakeArray (NNext,NNextCount,TSIZE(TableElmt));                         28     *     *    31     *
+   167       NTableMax := NNextCount - 1;                                            *     *
+   168       FOR State := 0 TO LastReadState DO NBase^ [State] := 0; END;          161    29     *   161
+   169       FOR b := 0 TO NTableMax DO NNext^ [b] := NoState; END;                160     *     *   160    29
+   170       NTableSize := 0;                                                        *
+   171     END InitCompressNTable;                                                 158
+   172 
+   173 PROCEDURE CompressNTableLine (State: tStateIndex; VAR TableLine: tTableLine);       *   161    27    67    29
+   174 
+   175 (* Nichtterminale komprimieren *)
+   176 
+   177    VAR
+   178       b         : tIndex;                                                   160    27
+   179       Success   : BOOLEAN;                                                   73     *
+   180       Symbol    : Vocabulary;                                                74    32
+   181       index     : tIndex;                                                    75    27
+   182       OldTableMax : tIndex;                                                  76    27
+   183       NextSym   : ARRAY Vocabulary OF Vocabulary;                            77    32    32
+   184       StartSym  ,                                                            78
+   185       StopSym   ,                                                            79
+   186       PrevSym   : Vocabulary;                                                80    32
+   187    
+   188    BEGIN
+   189 
+   190       (* solution 2 *)
+   191  
+   192       (* turn the row Table [State, ...] into a list *)
+   193  
+   194       Symbol := LastTerminal+1; (* FirstNonterminal *)                      180    29
+   195       Success := FALSE;                                                     179     *
+   196       LOOP
+   197          IF Symbol > LastSymbol THEN EXIT; END;                             180    29
+   198          IF (TableLine [Symbol] # NoState) THEN                             173   180    29
+   199             StartSym := Symbol;                                             184   180
+   200             PrevSym  := Symbol;                                             186   180
+   201             Success  := TRUE;                                               179     *
+   202             EXIT;
+   203          END;
+   204          INC (Symbol);                                                        *   180
+   205       END;
+   206       INC (Symbol);                                                           *   180
+   207  
+   208       LOOP
+   209          IF Symbol > LastSymbol THEN EXIT; END;                             180    29
+   210          IF (TableLine [Symbol] # NoState) THEN                             173   180    29
+   211             NextSym [PrevSym] := Symbol;                                    183   186   180
+   212             PrevSym := Symbol;                                              186   180
+   213          END;
+   214          INC (Symbol);                                                        *   180
+   215       END;
+   216       StopSym := PrevSym;                                                   185   186
+   217  
+   218       (* search for a usable base b *)
+   219  
+   220       b := 0;                                                               178
+   221       IF Success THEN                                                       179
+   222          LOOP
+   223             Success := TRUE;                                                179     *
+   224             Symbol := StartSym;                                             180   184
+   225             LOOP
+   226                IF (NNext^ [b + Symbol] # NoState) AND                         *   178   180    29
+   227                   (NNext^ [b + Symbol] # TableLine [Symbol]) THEN             *   178   180   173   180
+   228                   Success := FALSE;                                         179     *
+   229                   EXIT;
+   230                END;
+   231                IF Symbol = StopSym THEN EXIT; END;                          180   185
+   232                Symbol := NextSym [Symbol];                                  180   183   180
+   233             END;
+   234  
+   235             IF Success THEN EXIT; END;                                      179
+   236             INC (b);                                                          *   178
+   237             IF b + LastSymbol > NTableMax THEN                              178    29     *
+   238                OldTableMax := NTableMax;                                    182     *
+   239                ExtendArray (NNext,NNextCount,TSIZE(TableElmt));              28     *     *    31     *
+   240                NTableMax := NNextCount - 1;                                   *     *
+   241                FOR index := OldTableMax+1 TO NTableMax DO                   181   182     *
+   242                   NNext^ [index] := NoState;                                  *   181    29
+   243                END;
+   244             END;
+   245          END;
+   246       ELSE
+   247          Success := TRUE;                                                   179     *
+   248       END;
+   249  
+   250       NBase^ [State] := b;                                                    *   173   178
+   251       NTableSize := Max (NTableSize, b);                                      *    30     *   178
+   252       FOR Symbol := LastTerminal+1 TO LastSymbol DO                         180    29    29
+   253          IF (TableLine [Symbol] # NoState) THEN                             173   180    29
+   254             NNext^ [b + Symbol] := TableLine [Symbol];                        *   178   180   173   180
+   255             INC (NFilling);                                                   *     *
+   256          END;
+   257       END;
+   258    END CompressNTableLine;                                                  173
+   259 
+   260 BEGIN
+   261   ElmtSize      := TSIZE(TableElmt);                                          *    31     *
+   262   Filling       := 0;                                                         *
+   263   NFilling      := 0;                                                         *
+   264 END Compress.                                                                25
+Cross reference: * is declaration, = is assignment
+
+-A-
+ Automaton                       27*
+
+-B-
+ b                               40*   59=   60    61    72*  116=  122   131   132   146   147   150   151   160*  169=  169   178*
+                                220=  226   227   236   237   250   251   254 
+ Base                            44    55=  146=
+ BaseCount                       43=   44 
+ BOOLEAN                         73   179 
+
+-C-
+ Check                           61=  122   138=  150=
+ Compress                        25*  264 
+ CompressNTableLine             173*  258 
+ CompressTableLine               67*  155 
+ Control                         50    60=   61=  122   134   137=  138=  150=  151=
+ ControlCount                    49=   50    52   134   135 
+ ControlType                     50   134 
+
+-D-
+ Default                         47    56=   84=
+ DefaultCount                    46=   47 
+ DefaultState                    67*   84 
+ DynArray                        28*
+
+-E-
+ ElmtSize                        44    47   164   261=
+ ExtendArray                     28*  134   239 
+
+-F-
+ FALSE                           91   123   195   228 
+ Filling                        152   262=
+ FirstSymbol                     29*
+ FirstTerminal                   29*   90   148 
+
+-G-
+ Gen                             29*
+ General                         30*
+
+-I-
+ IMPLEMENTATION                  25*
+ INC                            100   102   110   131   152   204   206   214   236   255 
+ index                           75*  136=  137   138   181*  241=  242 
+ InitCompressNTable             158*  171 
+ InitCompressTable               38*   65 
+ InitNTableMax                   36*  165 
+ InitTableMax                    35*   49 
+
+-L-
+ LastReadState                   29*   43    46    54   163   168 
+ LastSymbol                      29*   49   165   197   209   237   252 
+ LastTerminal                    29*   93   105   132   148   194   252 
+
+-M-
+ MakeArray                       28*   44    47    50   164   166 
+ Max                             30*  147   251 
+ Min                             30*
+
+-N-
+ NBase                          164   168=  250=
+ NBaseCount                     163=  164 
+ Next                            60=  137=  151=
+ NextSym                         77*  107=  127   183*  211=  232 
+ NFilling                       255   263=
+ NNext                          166   169=  226   227   239   242=  254=
+ NNextCount                     165=  166   167   239   240 
+ NoState                         29*   56    60    61    94   106   122   137   138   149   169   198   210   226   242   253 
+ NTableMax                      167=  169   237   238   240=  241 
+ NTableSize                     170=  251=  251 
+
+-O-
+ OldTableMax                     76*  133=  136   182*  238=  241 
+
+-P-
+ PrevSym                         80*   96=  107   108=  112   186*  200=  211   212=  216 
+
+-S-
+ StartSym                        78*   95=  120   184*  199=  224 
+ State                           41*   54=   55    56    67*   84   146   150   161*  168=  168   173*  250 
+ StopSym                         79*  112=  126   185*  216=  231 
+ Success                         73*   91=   97=  117   119=  123=  130   143=  179*  195=  201=  221   223=  228=  235   247=
+ Symbol                          74*   90=   93    94    95    96   100   102   105   106   107   108   110   120=  122   126   127=
+                                127   148=  149   150   151   151   180*  194=  197   198   199   200   204   206   209   210   211 
+                                212   214   224=  226   227   227   231   232=  232   252=  253   254   254 
+ SYSTEM                          31*
+
+-T-
+ TableElmt                      166   239   261 
+ TableLine                       67*   94   106   149   151   173*  198   210   227   253   254 
+ TableMax                        52=   59   132   133   135=  136 
+ TableSize                       64=  147=  147 
+ tIndex                          27*   40    72    75    76   160   178   181   182 
+ TokenTab                        32*
+ TRUE                            97   119   143   201   223   247 
+ TSIZE                           31*   50   134   166   239   261 
+ tStateIndex                     27*   41    67    67   161   173 
+ tTableLine                      29*   67   173 
+
+-V-
+ Vocabulary                      32*   74    77    77    80   180   183   183   186 
+
+end cross reference, 363 occurrences of 66 identifiers.

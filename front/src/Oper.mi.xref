@@ -1,0 +1,470 @@
+     1 (* handle oper section *)
+     2 
+     3 (* $Id: Oper.mi,v 2.2 1992/08/07 15:13:51 grosch rel $ *)
+     4 
+     5 (* $Log: Oper.mi,v $
+c    6  * Revision 2.2  1992/08/07  15:13:51  grosch
+c    7  * allow several scanner and parsers; extend module Errors
+c    8  *
+c    9  * Revision 2.1  1991/11/21  14:47:50  grosch
+c   10  * new version of RCS on SPARC
+c   11  *
+c   12  * Revision 2.0  91/03/08  18:26:19  grosch
+c   13  * turned tables into initialized arrays (in C)
+c   14  * moved mapping tokens -> strings from Errors to Parser
+c   15  * changed interface for source position
+c   16  * 
+c   17  * Revision 1.1  90/06/11  18:45:05  grosch
+c   18  * layout improvements
+c   19  * 
+c   20  * Revision 1.0  88/10/04  14:26:55  vielsack
+c   21  * Initial revision
+c   22  * 
+c   23  *)
+    24 
+    25 IMPLEMENTATION MODULE Oper;                                                   *     *
+    26 
+    27 FROM Lists      IMPORT MakeList, tList;                                       *     *     *
+    28 FROM Strings    IMPORT tString, ArrayToString;                                *     *     *
+    29 FROM Idents     IMPORT tIdent;                                                *     *
+    30 FROM Memory     IMPORT Alloc;                                                 *     *
+    31 FROM SYSTEM     IMPORT ADR, TSIZE;                                            *     *     *
+    32 FROM Positions  IMPORT NoPosition;                                            *     *
+    33 
+    34 FROM TokenTab   IMPORT MAXTerm, cMAXTerm, Terminal, Vocabulary, PosType,      *     *     *     *     *     *
+    35                         GetPrio, PutPrio, Prio, TokenError, GetTokenType,     *     *     *     *     *
+    36                         Term,NonTerm, SymbolToToken, MakeTerm;                *     *     *     *
+    37  
+    38 FROM Errors     IMPORT  eFatal, eRestriction, eError, eIdent, eString, eInternal,         *     *     *     *     *     *
+                                                                                     *
+    39                         ErrorMessage, ErrorMessageI;                          *     *
+    40 
+    41 
+    42   CONST
+    43     eNoIntCode = 25;    eTokenOverflow = 26;    eNoTerm = 40;                 *     *     *
+    44     eTokenInPrio = 35;                                                        *
+    45 
+    46   TYPE
+    47     Priorities = POINTER TO Priority;                                         *     *
+    48     Operators = POINTER TO Operator;                                          *     *
+    49 
+    50     Priority = RECORD                                                         *
+    51         Kind   : OperKind;                                                    *     *
+    52         KindPos: PosType;    (* Position von 'LEFT' bzw 'RIGHT' *)            *    34
+    53         List   : Operators;                                                   *    48
+    54         Comment: tList;                                                       *    27
+    55         CommPos: PosType;                                                     *    34
+    56         Next   : Priorities;                                                  *    47
+    57       END;
+    58     
+    59     Operator =                                                                *
+    60       RECORD
+    61         Token    : Vocabulary;                                                *    34
+    62         TokenPos : PosType;   (* Position des einzelnen Zeichens *)           *    34
+    63         List     : Operators;                                                53    48
+    64       END;
+    65 
+    66   VAR
+    67     OperVars:                                                                 *
+    68       RECORD
+    69         OPERPos : PosType;    (* Position von 'OPER' *)                       *    34
+    70         Comment : tList;                                                     54    27
+    71         CommPos : PosType;                                                   55    34
+    72       END;
+    73 
+    74     ReadyForOperator: (*TRUE : MakeOperator,MakePriority und                  *
+c   75                                CompletePriority zulaessig *)
+    76       BOOLEAN;        (*FALSE : MakePriority zulaessig *)                     *
+    77        
+    78     WPrio:        (* Zeigt auf die zuletzt mit MakePriority eingetragene *)         *
+    79       Priorities; (* Prioritaet *)                                           47
+    80 
+    81     StartPrio:    (* Zeigt auf die zuerst mit MakePriority eingetragene  *)         *
+    82       Priorities; (* Prioritaet *)                                           47
+    83        
+    84     RPrio:        (* Zeigt auf die beim naechsten Mal zu lesende *)           *
+    85       Priorities; (* Prioritaet *)                                           47
+    86 
+    87     INTOPERExists : BOOLEAN;                                                  *     *
+    88     CurrentPrio: Prio;                                                        *    35
+    89 
+    90     WOp,           (* Schreibzeiger innerhalb der Operanden einer Prioritaet *)     *
+    91     ROp:           (* Lesezeiger      "        "    "         "        "     *)     *
+    92       Operators;                                                             48
+    93 
+    94     GetOperatorAllowed: BOOLEAN;(* ueberprueft, ob GetOperator nach       *)        *     *
+    95                                 (* gueltigem GetPriority aufgerufen wurde *)
+    96 
+    97     OpenForReading    : BOOLEAN;(* Wird beim Aufruf von InitPrioReading   *)        *     *
+    98                                 (* TRUE, somit Lesen und kein weiteres    *)
+    99                                 (* Schreiben erlaubt.                     *)
+   100 
+   101   PROCEDURE MakePriority (Kind: OperKind; Pos: PosType);                      *    51     *     *    34
+   102   
+   103   (* Festlegen einer neuen Assoziativitaet (LEFT/RIGHT) und damit einer
+c  104      neuen, d.h. um eins erniedrigten Prioritaet . *)
+   105   
+   106   VAR  HPrio :                                                                *
+   107        Priorities;                                                           47
+   108 
+   109   BEGIN
+   110     IF OpenForReading THEN                                                   97
+   111        ERROR ('MakePriority : Do not write now ');                            *
+   112     END;
+   113     ReadyForOperator := TRUE;                                                74     *
+   114     HPrio := Alloc(TSIZE(Priority));                                        106    30    31    50
+   115     IF HPrio = NIL THEN                                                     106     *
+   116       ERROR ('MakePriority : Heap overflow');                                 *
+   117     END;
+   118     HPrio^.Kind    := Kind;                                                 106   101   101
+   119     HPrio^.KindPos := Pos;                                                  106    52   101
+   120     HPrio^.List   := NIL;                                                   106    63     *
+   121     WOp           := NIL;                                                    90     *
+   122     HPrio^.Next   := NIL;                                                   106    56     *
+   123     (* Comment wird initialisiert,falls CompletePrio nicht ayfgerufen
+c  124        wird *)
+   125     MakeList (HPrio^.Comment);                                               27   106    70
+   126     HPrio^.CommPos.Line := 0;                                               106    71     *
+   127     HPrio^.CommPos.Column:= 0;                                              106    71     *
+   128 
+   129     (* WPrio ist nur dann NIL, wenn noch keine Prioritaet eingetragen 
+c  130        wurde *)
+   131     IF WPrio <> NIL THEN                                                     78     *
+   132       WPrio^.Next  := HPrio                                                  78    56   106
+   133     ELSE
+   134       StartPrio := HPrio;                                                    81   106
+   135     END;
+   136     (* Fortschalten des Schreibzeigers *)
+   137     WPrio          := HPrio;                                                 78   106
+   138     (* Heraufsetzen der Prioritaet *)
+   139     INC(CurrentPrio);                                                         *    88
+   140   END MakePriority;                                                         101
+   141 
+   142   PROCEDURE CompletePriority (Comment: tList; CommPos: PosType);              *    70    27    71    34
+   143       
+   144   (* Eintragen des zu einer Prioritaet gehoerigen Kommentars,  
+c  145      gleichzeitig Abschluss dieser Prioritaet *)
+   146 
+   147   BEGIN
+   148     IF NOT ReadyForOperator THEN                                             74
+   149       ERROR ('CompletePriority : Wrong use of procedure');                    *
+   150     END;
+   151     IF OpenForReading THEN                                                   97
+   152       ERROR ('CompletePriority : Do not write now');                          *
+   153     END;
+   154     WPrio^.Comment := Comment;                                               78   142   142
+   155     WPrio^.CommPos := CommPos;                                               78   142   142
+   156     ReadyForOperator := FALSE;                                               74     *
+   157   END CompletePriority;                                                     142
+   158 
+   159   PROCEDURE MakeOperator (Token: tIdent; TokenPos: PosType);                  *    61    29    62    34
+   160 
+   161   (* Eintragen des naechsten Operators mit der aktuellen Prioritaet.
+c  162      Nur zulaessig nach MakePriority und vor CompletePriority. *)
+   163 
+   164   VAR HOper    :  Operators;                                                  *    48
+   165       HToken   :  Vocabulary;                                                 *    34
+   166       Error    :  TokenError;                                                 *    35
+   167       ter      :  Terminal;                                                   *    34
+   168   BEGIN
+   169     IF NOT ReadyForOperator THEN                                             74
+   170       ERROR ('makeOperator : Wrong use of procedure');                        *
+   171     END;
+   172     HToken := SymbolToToken(Token,Error);                                   165    36   159   166
+   173     IF Error = NotExists THEN                                               166     *
+   174       HToken := MAXTerm+1;                                                  165    34
+   175       IF HToken > cMAXTerm THEN                                             165    34
+   176         ErrorMessage (eTokenOverflow,eRestriction, TokenPos);                39    43    38   159
+   177       END;
+   178       ter := HToken;                                                        167   165
+   179       MakeTerm (Token,ter,Error,TokenPos);                                   36   159   167   166   159
+   180       IF Error = OutOfRange THEN                                            166     *
+   181         ErrorMessage (eTokenOverflow,eRestriction, TokenPos);                39    43    38   159
+   182       END;
+   183     ELSIF Error = NoIntCode THEN                                            166     *
+   184       ErrorMessageI(eNoIntCode,eFatal,NoPosition,eIdent,ADR(Token));         39    43    38    32    38    31   159
+   185     END; 
+   186        
+   187     IF GetTokenType(HToken) # Term THEN                                      35   165    36
+   188       ErrorMessageI(eNoTerm,eError,TokenPos,eIdent,ADR(Token));              39    43    38   159    38    31   159
+   189     ELSIF GetPrio(HToken) <> 0 THEN                                          35   165
+   190       ErrorMessageI (eTokenInPrio,eError, TokenPos,eIdent, ADR(Token));      39    44    38   159    38    31   159
+   191     ELSE
+   192       PutPrio (SymbolToToken(Token,Error),CurrentPrio);                      35    36   159   166    88
+   193       HOper := Alloc(TSIZE(Operator));                                      164    30    31    59
+   194       IF HOper = NIL THEN                                                   164     *
+   195         ERROR ('MakeOperator : Heap Overflow');                               *
+   196       END;
+   197       HOper^.Token    := SymbolToToken(Token,Error) ;                       164   159    36   159   166
+   198       HOper^.TokenPos := TokenPos;                                          164   159   159
+   199       HOper^.List     := NIL;                                               164    63     *
+   200       IF WOp <> NIL THEN                                                     90     *
+   201         (* Schon Operator eingetragen *)
+   202         WOp^.List      := HOper;                                             90    63   164
+   203       ELSE
+   204         (* erster Operator *)
+   205         WPrio^.List    := HOper;                                             78    63   164
+   206       END;
+   207       (* weiterschalten fuer naechsten Eintrag *)
+   208       WOp            := HOper;                                               90   164
+   209     END;
+   210   END MakeOperator;                                                         159
+   211 
+   212   PROCEDURE MakeOperHeader                                                    *
+   213     (OPERPos    : PosType;                                                   69    34
+   214      Comment    : tList;                                                    142    27
+   215      CommPos     : PosType);                                                142    34
+   216 
+   217   (* Eintragen des Anfangskommentars des Abschnitts OPER sowie der
+c  218      Position des Schluesselwortes OPER. *)
+   219 
+   220   BEGIN
+   221       OperVars.OPERPos  := OPERPos;                                          67   213   213
+   222       OperVars.Comment  := Comment;                                          67   214   214
+   223       OperVars.CommPos  := CommPos;                                          67   215   215
+   224       INTOPERExists := TRUE;                                                 87     *
+   225   END MakeOperHeader;                                                       212
+   226  
+   227   PROCEDURE InitPrioReading;                                                  *
+   228     
+   229     (* Initialisiert das Lesen mit GetPriority *)
+   230 
+   231     BEGIN
+   232       OpenForReading := TRUE;                                                97     *
+   233       RPrio := StartPrio;                                                    84    81
+   234     END InitPrioReading;                                                    227
+   235 
+   236   PROCEDURE GetOperHeader                                                     *
+   237     (VAR OPERPos  : PosType;                                                213    34
+   238      VAR Comment  : tList;                                                  214    27
+   239      VAR CommPos   : PosType): BOOLEAN;                                     215    34     *
+   240       
+   241   (* Lesen der mit MakeOperHeader abgelegten Information .
+c  242      Ist kein OPER- Abschnitt vorhanden, liefert die Prozedur
+c  243      als Ergebnis FALSE, sonst TRUE. *)
+   244 
+   245   BEGIN
+   246     IF INTOPERExists THEN                                                    87
+   247       OPERPos  := OperVars.OPERPos;                                         237    67   237
+   248       Comment  := OperVars.Comment;                                         238    67   238
+   249       CommPos  := OperVars.CommPos;                                         239    67   239
+   250     ELSE
+   251       (* Keine Operheaderinformation vorhanden *)
+   252       OPERPos.Line   := 0;                                                  237     *
+   253       OPERPos.Column := 0;                                                  237     *
+   254       MakeList (Comment);                                                    27   238
+   255       CommPos.Line   := 0;                                                  239     *
+   256       CommPos.Column := 0;                                                  239     *
+   257     END;
+   258     RETURN INTOPERExists;                                                    87
+   259   END GetOperHeader;                                                        236
+   260 
+   261   PROCEDURE GetPriority                                                       *
+   262     (VAR Kind    : OperKind;                                                101     *
+   263      VAR Pos     : PosType;                                                 101    34
+   264      VAR Comment : tList;                                                   238    27
+   265      VAR CommPos : PosType): BOOLEAN;                                       239    34     *
+   266       
+   267   (* Lesen der mit MakePriority und CompletePriority abgelegten
+c  268      Information. (FIFO). Ist das Lesen erfolgreich, wird TRUE
+c  269      zurueckgeliefert, sonst (Listenende erreicht) FALSE. *)
+   270 
+   271   BEGIN
+   272     IF NOT OpenForReading THEN                                               97
+   273       ERROR ('GetPriority : You must not read now');                          *
+   274     END;
+   275     IF RPrio = NIL THEN                                                      84     *
+   276       GetOperatorAllowed := FALSE;                                           94     *
+   277       RETURN FALSE;                                                           *
+   278     ELSE
+   279       Kind        := RPrio^.Kind;                                           262    84   262
+   280       Pos         := RPrio^.KindPos;                                        263    84    52
+   281       Comment     := RPrio^.Comment;                                        264    84   264
+   282       CommPos     := RPrio^.CommPos;                                        265    84   265
+   283       ROp         := RPrio^.List;                                            91    84    63
+   284       RPrio       := RPrio^.Next;                                            84    84    56
+   285       GetOperatorAllowed := TRUE;                                            94     *
+   286       RETURN TRUE;                                                            *
+   287     END;
+   288   END GetPriority;                                                          261
+   289 
+   290   PROCEDURE GetOperator (VAR Token: Vocabulary; VAR TokenPos: PosType): BOOLEAN;          *   159    34   159    34     *
+   291 
+   292   (* Lesen der naechsten mit MakeOperator unter der aktuellen 
+c  293      Prioritaet abgelegten Information. Ist das Lesen erfolgreich, 
+c  294      wird TRUE zurueckgeliefert, sonst (Listenende erreicht) FALSE.
+c  295      Nur erlaubt nach erfolgreichem GetPriority *)
+   296 
+   297   BEGIN
+   298     IF NOT GetOperatorAllowed THEN                                           94
+   299      ERROR ('GetOperator : Wrong use of procedure');                          *
+   300     END;
+   301     IF ROp = NIL THEN                                                        91     *
+   302       RETURN FALSE                                                            *
+   303     ELSE
+   304       Token       := ROp^.Token;                                            290    91   290
+   305       TokenPos    := ROp^.TokenPos;                                         290    91   290
+   306       ROp         := ROp^.List;                                              91    91    63
+   307       RETURN TRUE;                                                            *
+   308     END
+   309   END GetOperator;                                                          290
+   310 
+   311   PROCEDURE ERROR (a : ARRAY OF CHAR);                                        *     *     *
+   312   VAR s : tString;                                                            *    28
+   313   BEGIN
+   314     ArrayToString (a, s);                                                    28   311   312
+   315     ErrorMessageI (eInternal, eFatal, NoPosition, eString, ADR (s));         39    38    38    32    38    31   312
+   316   END ERROR;                                                                311
+   317 
+   318 BEGIN
+   319   StartPrio        := NIL;                                                   81     *
+   320   WPrio            := NIL;    (* Schreibzeiger fuer Priority             *)        78     *
+   321   RPrio            := NIL;    (* Lesezeiger fuer Priority                *)        84     *
+   322   INTOPERExists    := FALSE;  (* von vorneherein gibt es keinen OPER-Teil*)        87     *
+   323   ReadyForOperator := FALSE;  (* Darf Operator geschrieben werden ?      *)        74     *
+   324   WOp              := NIL;    (* Lesezeiger fuer Operator                *)        90     *
+   325   ROp              := NIL;    (* Schreibzeiger fuer Operator             *)        91     *
+   326   OpenForReading   := FALSE;  (* Lesen der Prioritaet gesperrt           *)        97     *
+   327   GetOperatorAllowed := FALSE;(* Darf Operator gelesen werden ?          *)        94     *
+   328   CurrentPrio      := 0       (* Initialisierung fuer Prioritaet         *)        88
+   329 END Oper.                                                                    25
+Cross reference: * is declaration, = is assignment
+
+-A-
+ a                              311*  314 
+ ADR                             31*  184   188   190   315 
+ Alloc                           30*  114   193 
+ ArrayToString                   28*  314 
+
+-B-
+ BOOLEAN                         76    87    94    97   239   265   290 
+
+-C-
+ CHAR                           311 
+ cMAXTerm                        34*  175 
+ Column                         127=  253=  256=
+ Comment                         54*   70*  125   142*  154=  154   214*  222=  222   238*  248=  248   254   264*  281=  281 
+ CommPos                         55*   71*  126=  127=  142*  155=  155   215*  223=  223   239*  249=  249   255=  256=  265*  282=
+                                282 
+ CompletePriority               142*  157 
+ CurrentPrio                     88*  139   192   328=
+
+-E-
+ eError                          38*  188   190 
+ eFatal                          38*  184   315 
+ eIdent                          38*  184   188   190 
+ eInternal                       38*  315 
+ eNoIntCode                      43*  184 
+ eNoTerm                         43*  188 
+ eRestriction                    38*  176   181 
+ ERROR                          111   116   149   152   170   195   273   299   311*  316 
+ Error                          166*  172   173   179   180   183   192   197 
+ ErrorMessage                    39*  176   181 
+ ErrorMessageI                   39*  184   188   190   315 
+ Errors                          38*
+ eString                         38*  315 
+ eTokenInPrio                    44*  190 
+ eTokenOverflow                  43*  176   181 
+
+-F-
+ FALSE                          156   276   277   302   322   323   326   327 
+
+-G-
+ GetOperator                    290*  309 
+ GetOperatorAllowed              94*  276=  285=  298   327=
+ GetOperHeader                  236*  259 
+ GetPrio                         35*  189 
+ GetPriority                    261*  288 
+ GetTokenType                    35*  187 
+
+-H-
+ HOper                          164*  193=  194   197=  198=  199=  202   205   208 
+ HPrio                          106*  114=  115   118=  119=  120=  122=  125   126=  127=  132   134   137 
+ HToken                         165*  172=  174=  175   178   187   189 
+
+-I-
+ Idents                          29*
+ IMPLEMENTATION                  25*
+ INC                            139 
+ InitPrioReading                227*  234 
+ INTOPERExists                   87*  224=  246   258   322=
+
+-K-
+ Kind                            51*  101*  118=  118   262*  279=  279 
+ KindPos                         52*  119=  280 
+
+-L-
+ Line                           126=  252=  255=
+ List                            53*   63*  120=  199=  202=  205=  283   306 
+ Lists                           27*
+
+-M-
+ MakeList                        27*  125   254 
+ MakeOperator                   159*  210 
+ MakeOperHeader                 212*  225 
+ MakePriority                   101*  140 
+ MakeTerm                        36*  179 
+ MAXTerm                         34*  174 
+ Memory                          30*
+
+-N-
+ Next                            56*  122=  132=  284 
+ NIL                            115   120   121   122   131   194   199   200   275   301   319   320   321   324   325 
+ NoIntCode                      183 
+ NonTerm                         36*
+ NoPosition                      32*  184   315 
+ NotExists                      173 
+
+-O-
+ OpenForReading                  97*  110   151   232=  272   326=
+ Oper                            25*  329 
+ Operator                        48    59*  193 
+ Operators                       48*   53    63    92   164 
+ OperKind                        51   101   262 
+ OPERPos                         69*  213*  221=  221   237*  247=  247   252=  253=
+ OperVars                        67*  221=  222=  223=  247   248   249 
+ OutOfRange                     180 
+
+-P-
+ Pos                            101*  119   263*  280=
+ Positions                       32*
+ PosType                         34*   52    55    62    69    71   101   142   159   213   215   237   239   263   265   290 
+ Prio                            35*   88 
+ Priorities                      47*   56    79    82    85   107 
+ Priority                        47    50*  114 
+ PutPrio                         35*  192 
+
+-R-
+ ReadyForOperator                74*  113=  148   156=  169   323=
+ ROp                             91*  283=  301   304   305   306=  306   325=
+ RPrio                           84*  233=  275   279   280   281   282   283   284=  284   321=
+
+-S-
+ s                              312*  314   315 
+ StartPrio                       81*  134=  233   319=
+ Strings                         28*
+ SymbolToToken                   36*  172   192   197 
+ SYSTEM                          31*
+
+-T-
+ ter                            167*  178=  179 
+ Term                            36*  187 
+ Terminal                        34*  167 
+ tIdent                          29*  159 
+ tList                           27*   54    70   142   214   238   264 
+ Token                           61*  159*  172   179   184   188   190   192   197=  197   290*  304=  304 
+ TokenError                      35*  166 
+ TokenPos                        62*  159*  176   179   181   188   190   198=  198   290*  305=  305 
+ TokenTab                        34*
+ TRUE                           113   224   232   285   286   307 
+ TSIZE                           31*  114   193 
+ tString                         28*  312 
+
+-V-
+ Vocabulary                      34*   61   165   290 
+
+-W-
+ WOp                             90*  121=  200   202=  208=  324=
+ WPrio                           78*  131   132=  137=  154=  155=  205=  320=
+
+end cross reference, 422 occurrences of 98 identifiers.

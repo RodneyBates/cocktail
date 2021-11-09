@@ -1,0 +1,227 @@
+     1 (* $Id: lalr.mi,v 2.4 1992/08/07 15:22:49 grosch rel $ *)
+     2 
+     3 (* $Log: lalr.mi,v $
+c    4  * Revision 2.4  1992/08/07  15:22:49  grosch
+c    5  * allow several scanner and parsers; extend module Errors
+c    6  *
+c    7  * Revision 2.3  1992/01/30  14:08:30  grosch
+c    8  * redesign of interface to operating system
+c    9  *
+c   10  * Revision 2.2  1991/11/21  14:53:14  grosch
+c   11  * new version of RCS on SPARC
+c   12  *
+c   13  * Revision 2.1  91/09/23  11:48:28  grosch
+c   14  * renamed module LALR to Lookahead
+c   15  * 
+c   16  * Revision 2.0  91/03/08  18:31:52  grosch
+c   17  * turned tables into initialized arrays (in C)
+c   18  * moved mapping tokens -> strings from Errors to Parser
+c   19  * changed interface for source position
+c   20  * 
+c   21  * Revision 1.2  90/06/12  16:54:36  grosch
+c   22  * renamed main program to lalr, added { } for actions, layout improvements
+c   23  * 
+c   24  * Revision 1.1  89/02/24  14:03:37  vielsack
+c   25  * BeginSource is no longer called
+c   26  * 
+c   27  * Revision 1.0  88/10/04  14:36:20  vielsack
+c   28  * Initial revision
+c   29  * 
+c   30  *)
+    31 
+    32 MODULE lalr;                                                                  *     *
+    33 
+    34 FROM ArgCheck   IMPORT Generate, ArgCheck, GenerateSupport, Pars, Def, TEST;        *     *     *     *     *     *     *
+                                                                                     *     *
+    35 FROM Automaton  IMPORT IsBnf, InitAutomaton;                                 34     *    34     *     *
+    36 FROM Check      IMPORT CheckForConflicts;                                    35     *    35     *
+    37 FROM Errors     IMPORT eError, ErrorCount, ErrorTable, ErrorMessage, BeginErrors, Cl\    36     *    36     *     *     *
+                                                                                     *     *
+      \oseErrors;                                                                    *
+    38 FROM Gen        IMPORT GenDefaultActions, GenCode;                           37     *    37     *     *
+    39 FROM Infos      IMPORT WriteInfo;                                            38     *    38     *
+    40 FROM IO         IMPORT tFile, StdOutput, WriteNl, WriteS, CloseIO;           39     *    39     *     *     *     *     *
+    41 FROM Lookahead  IMPORT NoConflict, ComputeLALR;                              40     *    40     *     *
+    42 FROM LR         IMPORT ComputeLR;                                            41     *    41     *
+    43 FROM Parser     IMPORT Parser;                                               42     *    42     *
+    44 FROM Path       IMPORT InsertPath;                                           43     *    43     *
+    45 FROM Reduce     IMPORT Reduced, TestReduced;                                 44     *    44     *     *
+    46 FROM Scanner    IMPORT BeginScanner;                                         45     *    45     *
+    47 FROM Strings    IMPORT tString, ArrayToString, StringToInt;                  46     *    46     *     *     *
+    48 FROM StringMem  IMPORT InitStringMemory;                                     47     *    47     *
+    49 FROM Idents     IMPORT InitIdents;                                           48     *    48     *
+    50 FROM System     IMPORT Exit;                                                 49     *    49     *
+    51 FROM TokenTab   IMPORT InitTokenTable;                                       50     *    50     *
+    52 FROM WriteTok   IMPORT tLanguage, Language;                                  51     *    51     *     *
+    53 
+    54 CONST ErrorTab = 'ErrorTab';                                                  *     *
+    55 
+    56 VAR                                                                           *
+    57   errors : INTEGER;                                                           *     *
+    58   Status : INTEGER;                                                           *    57
+    59   GoOn   : BOOLEAN;                                                           *     *
+    60 
+    61 BEGIN                                                                         *
+    62   ErrorTable := ErrorTab;                                                    37    54
+    63   InsertPath (ErrorTable);                                                   44    62
+    64   InitStringMemory;                                                          48
+    65   InitIdents;                                                                49
+    66   BeginErrors;                                                               37
+    67   ArgCheck;                                                                  34
+    68   GoOn := Generate;                                                          59    34
+    69 
+    70   IF GoOn THEN                                                                *    68     *
+    71     GenDefaultActions;                                                       38
+    72     InitTokenTable;                                                          51
+    73     BeginScanner;                                                            46
+    74     errors := Parser ();                                                     57    43
+    75     GenerateSupport;                                                         34
+    76     GoOn := ErrorCount [eError] = 0;                                         70    37    37
+    77   END;                                                                        *
+    78 
+    79   IF GoOn THEN                                                               70    76    70
+    80     InitAutomaton;                                                           35
+    81     GoOn := IsBnf;                                                           79    35
+    82   END;                                                                       77
+    83 
+    84   IF GoOn THEN                                                               79    81    79
+    85     TestReduced;                                                             45
+    86     GoOn := Reduced;                                                         84    45
+    87   END;                                                                       82
+    88 
+    89   IF GoOn THEN                                                               84    86    84
+    90     ComputeLR;                                                               42
+    91   END;                                                                       87
+    92 
+    93   IF GoOn THEN                                                               89    89    89
+    94     ComputeLALR;                                                             41
+    95     GoOn := NoConflict;                                                      93    41
+    96   END;                                                                       91
+    97 
+    98   IF GoOn THEN                                                               93    95    93
+    99     GenCode (Pars, Def);                                                     38    34    34
+   100     Status := 0;                                                             58
+   101   ELSE                                                                        *
+   102     Status := 1;                                                            100
+   103   END;                                                                       96
+   104 
+   105   CloseErrors;                                                               37
+   106   IF TEST AND GoOn THEN WriteInfo (StdOutput); END;                          98    34     *    98    98    39    40   103
+   107   CloseIO;                                                                   40
+   108   Exit (Status);                                                             50   102
+   109 END lalr.                                                                   106    32
+   110 
+Cross reference: 
+
+-A-
+ AND                            106 
+ ArgCheck                        34    34    67 
+ ArrayToString                   47 
+ Automaton                       35 
+
+-B-
+ BEGIN                           61 
+ BeginErrors                     37    66 
+ BeginScanner                    46    73 
+ BOOLEAN                         59 
+
+-C-
+ Check                           36 
+ CheckForConflicts               36 
+ CloseErrors                     37   105 
+ CloseIO                         40   107 
+ ComputeLALR                     41    94 
+ ComputeLR                       42    90 
+ CONST                           54 
+
+-D-
+ Def                             34    99 
+
+-E-
+ eError                          37    76 
+ ELSE                           101 
+ END                             77    82    87    91    96   103   106   109 
+ ErrorCount                      37    76 
+ ErrorMessage                    37 
+ Errors                          37 
+ errors                          57    74 
+ ErrorTab                        54    62 
+ ErrorTable                      37    62    63 
+ Exit                            50   108 
+
+-F-
+ FROM                            34    35    36    37    38    39    40    41    42    43    44    45    46    47    48    49    50 
+                                 51    52 
+
+-G-
+ Gen                             38 
+ GenCode                         38    99 
+ GenDefaultActions               38    71 
+ Generate                        34    68 
+ GenerateSupport                 34    75 
+ GoOn                            59    68    70    76    79    81    84    86    89    93    95    98   106 
+
+-I-
+ Idents                          49 
+ IF                              70    79    84    89    93    98   106 
+ IMPORT                          34    35    36    37    38    39    40    41    42    43    44    45    46    47    48    49    50 
+                                 51    52 
+ Infos                           39 
+ InitAutomaton                   35    80 
+ InitIdents                      49    65 
+ InitStringMemory                48    64 
+ InitTokenTable                  51    72 
+ InsertPath                      44    63 
+ INTEGER                         57    58 
+ IO                              40 
+ IsBnf                           35    81 
+
+-L-
+ lalr                            32   109 
+ Language                        52 
+ Lookahead                       41 
+ LR                              42 
+
+-M-
+ MODULE                          32 
+
+-N-
+ NoConflict                      41    95 
+
+-P-
+ Pars                            34    99 
+ Parser                          43    43    74 
+ Path                            44 
+
+-R-
+ Reduce                          45 
+ Reduced                         45    86 
+
+-S-
+ Scanner                         46 
+ Status                          58   100   102   108 
+ StdOutput                       40   106 
+ StringMem                       48 
+ Strings                         47 
+ StringToInt                     47 
+ System                          50 
+
+-T-
+ TEST                            34   106 
+ TestReduced                     45    85 
+ tFile                           40 
+ THEN                            70    79    84    89    93    98   106 
+ tLanguage                       52 
+ TokenTab                        51 
+ tString                         47 
+
+-V-
+ VAR                             56 
+
+-W-
+ WriteInfo                       39   106 
+ WriteNl                         40 
+ WriteS                          40 
+ WriteTok                        52 
+
+end cross reference, 182 occurrences of 75 identifiers.

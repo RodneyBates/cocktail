@@ -1,0 +1,5 @@
+ABIN=`abspath $0`
+ADIR=`dirname $ABIN`
+LIB=`abspath $ADIR/../lib`
+echo 1>&2 "running ell from $LIB"
+exec $LIB/ell $*

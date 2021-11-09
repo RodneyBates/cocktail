@@ -1,0 +1,638 @@
+     1 /* Ich, Doktor Josef Grosch, Informatiker, 23.5.1989 */
+     2 
+     3 TRAFO Optimize                                                                *     *
+     4 TREE Tree                                                                     *     *
+     5 PUBLIC LifeTime1 LifeTime3                                                    *     *     *
+     6 
+     7 EXPORT {                                                                      *
+     8 VAR                                                                           *
+     9    ChildrenDyn  ,                                                             *
+    10    ChildrenIn   ,                                                             *
+    11    AttributeIn  ,                                                             *
+    12    AttributeOut ,                                                             *
+    13    AttributeTree,                                                             *
+    14    AttributeParam,                                                            *
+    15    AttributeVar ,                                                             *
+    16    AttributeDemand,                                                           *
+    17    AttributeStack: SHORTCARD;                                                 *     *
+    18 }
+    19 
+    20 GLOBAL {                                                                      *
+    21 
+    22 FROM SYSTEM     IMPORT TSIZE;                                                 *     *     *     *
+    23 FROM General    IMPORT Max;                                                  22     *    22     *
+    24 FROM DynArray   IMPORT MakeArray, ReleaseArray;                              23     *    23     *     *
+    25 FROM IO         IMPORT StdOutput, WriteI, WriteS, WriteNl;                   24     *    24     *     *     *     *
+    26 FROM Idents     IMPORT WriteIdent;                                           25     *    25     *
+    27 
+    28 FROM Sets       IMPORT                                                       26     *    26
+    29    tSet         , IsElement     , AssignElmt    , Union         ,             *     *     *     *
+    30    Assign       , Minimum       , Maximum       , Include       ;             *     *     *     *
+    31 
+    32 FROM Relations  IMPORT                                                       28     *    28
+    33    IsRelated    ;                                                             *
+    34 
+    35 FROM Tree       IMPORT                                                       32     4    32
+    36    NoTree       , tTree         , tInstance     ,                             *     *     *
+    37    Computed     , Reverse       , Write         , Read          ,             *     *     *     *
+    38    Inherited    , Synthesized   , Input         , Output        ,             *     *     *     *
+    39    Stack        , Parameter     , Variable      ,                             *     *     *
+    40    CopyDef      , CopyUse       , Thread        , Test          ,             *     *     *     *
+    41    Left         , Right         , Def           , Use           ,             *     *     *     *
+    42    ChildUse     , ParentUse     , NonBaseComp   , First         ,             *     *     *     *
+    43    Dummy        , Virtual       , Demand        , f             ,             *     *     *     *
+    44    WriteName    , Options       , ForallClasses , ForallAttributes;           *     *     *     *
+    45 
+    46 FROM Order      IMPORT WriteOrderEval, IndexToClass;                         35     *    35     *     *
+    47 
+    48 TYPE tLife      = RECORD Birth, Death: SHORTCARD; END;                        *     *     *     *     *    17     *
+    49 
+    50 VAR                                                                           8
+    51    Children     ,                                                             *
+    52    Parents      ,                                                             *
+    53    Relevant     : tSet;                                                       *    29
+    54    ClassIndex   ,                                                             *
+    55    MaxChildUse  ,                                                             *
+    56    MaxParentUse ,                                                             *
+    57    Attr         ,                                                             *
+    58    Comp         ,                                                             *
+    59    Last         ,                                                             *
+    60    ChildsVisit  ,                                                             *
+    61    i, i2, j, j2, k, Visit, v    : SHORTCARD;                                  *     *     *     *     *     *     *    48
+    62    ActChild     ,                                                             *
+    63    ActClass     ,                                                             *
+    64    ChildsClass  : tTree;                                                      *    36
+    65    LifeSize     : LONGINT;                                                    *     *
+    66    LifePtr      : POINTER TO ARRAY [0 .. 10000] OF tLife;                     *     *     *     *     *    48
+    67 }
+    68 
+    69 PROCEDURE LifeTime1 (t: Tree)                                                 *     5     *    35
+    70 
+    71 Class (..) :- {                                                               *
+    72 # ifdef Debug                                                                 *     *
+    73 WriteNl (StdOutput); WriteIdent (StdOutput, Name); WriteNl (StdOutput);      25    25    26     *     *     *     *
+    74 # endif                                                                       *
+    75         LifeSize := InstCount + 1;                                           65     *
+    76         MakeArray (LifePtr, LifeSize, TSIZE (tLife));                        24    66    75    22    66
+    77         FOR i := 1 TO InstCount DO                                            *    61    66    75     *
+    78            LifePtr^ [i].Birth := 0;                                          76    77    48
+    79            LifePtr^ [i].Death := 0;                                          78    78    48
+    80         END;                                                                 48
+    81         Visit := 1;                                                          61
+    82         FOR i := 1 TO InstCount DO                                           77    79    77    77    77
+    83            i2 := Instance^ [i].Order;                                        61     *    82    46
+    84            WITH Instance^ [i2] DO                                             *    83    83    82
+    85               IF {Left, Inherited, First} <= Properties THEN                  *    41    38    42     *     *
+    86                  Visit := Attribute^.Child.Partition;                        81     *     *     *
+    87 # ifdef Debug                                                                72    72
+    88 WriteName (Instance^[i2]); WriteS (StdOutput, " VISIT   ");                  44    84    84    25    73
+    89 WriteI (StdOutput, Visit, 5); WriteNl (StdOutput);                           25    88    86    73     *
+    90 # endif                                                                      74
+    91               END;                                                           80
+    92               IF {Left, Synthesized} <= Properties THEN                      85    85    38    85    85
+    93                  LifePtr^ [i2].Birth := Visit;                               79    88    78    89
+    94                  INCL (Attribute^.Child.Usage, Visit);                        *    86    86     *    93
+    95 # ifdef Debug                                                                87    87
+    96 WriteName (Instance^[i2]); WriteS (StdOutput, " BIRTHl  ");                  88    88    93    88    89
+    97 WriteI (StdOutput, Visit, 5); WriteNl (StdOutput);                           89    96    94    89     *
+    98 # endif                                                                      90
+    99               END;                                                           91
+   100               IF Right IN Properties THEN                                    92    41     *    92    92
+   101                  LifePtr^ [i2].Birth := Visit;                               93    96    93    97
+   102 # ifdef Debug                                                                95    95
+   103 WriteName (Instance^[i2]); WriteS (StdOutput, " BIRTHr  ");                  96    96   101    96    97
+   104 WriteI (StdOutput, Visit, 5); WriteNl (StdOutput);                           97   103   101    97     *
+   105 # endif                                                                      98
+   106               END;                                                           99
+   107               IF ({Left, Synthesized, First} <= Properties) AND NOT (Dummy IN Proper\   100    92    92    85   100     *
+                                                                                     *    43   100
+      \ties) OR                                                                      *     *
+   108                  ({Right,  Inherited, First} <= Properties) THEN            100    85   107   107   100
+   109                  FOR j := 1 TO AttrCount DO                                  82    61    82     *    84
+   110                     IF IsRelated (i2, j, DP) THEN                           107    33   103   109     *   108
+   111                        LifePtr^ [j].Death := Visit;                         101   110    79   104
+   112                        INCL (Instance^ [j].Attribute^.Child.Usage, Visit);         94   103   111    94    94    94   111
+   113 # ifdef Debug                                                               102   102
+   114 WriteName (Instance^[j]); WriteS (StdOutput, "  DEATHl  ");                 103   112   112   103   104
+   115 WriteI (StdOutput, Visit, 5); WriteNl (StdOutput);                          104   114   112   104     *
+   116 # endif                                                                     105
+   117                     END;                                                    106
+   118                  END;                                                       117
+   119                  FOR j := AttrCount + 1 TO InstCount DO                     109   114   109   109    82   109
+   120                     IF IsRelated (i2, j, DP) THEN                           110   110   110   119   110   110
+   121                        LifePtr^ [j].Death := Visit;                         111   120   111   115
+   122 # ifdef Debug                                                               113   113
+   123 WriteName (Instance^[j]); WriteS (StdOutput, "  DEATHr  ");                 114   114   121   114   115
+   124 WriteI (StdOutput, Visit, 5); WriteNl (StdOutput);                          115   123   121   115     *
+   125 # endif                                                                     116
+   126                     END;                                                    118
+   127                  END;                                                       126
+   128               END;                                                          127
+   129               IF {Right, Synthesized, First} <= Properties THEN             120   108   107   108   108   120
+   130                  ActClass := t;                                              63    69
+   131                  ActChild := Selector;                                       62     *
+   132                  ChildsClass := Selector^.Child.Class;                       64   131   112    71
+   133                  ChildsVisit := Attribute^.Child.Partition;                  60   112   132    86
+   134                  LifeTime2 (ChildsClass);                                     *   132
+   135                  ForallClasses (ChildsClass^.Class.Extensions, LifeTime2);         44   134   132     *   134
+   136               END;                                                          128
+   137            END;                                                             136
+   138         END;                                                                137
+   139         FOR i := 1 TO AttrCount DO                                          119    83   119   119   119
+   140            WITH Instance^ [i] DO                                             84   123   139   139
+   141               IF (Synthesized IN Properties) AND (LifePtr^ [i].Birth < LifePtr^ [i].\   129   129   107   129   107   121
+                                                                                   140   101     *     *
+      \Death) THEN                                                                 121   129
+   142                  INCL (Attribute^.Child.Properties, Tree.Tree);             112   133   133   141    69     *
+   143               END;                                                          138
+   144            END;                                                             143
+   145 # ifdef Debug                                                               122   122
+   146 WriteName (Instance^[i]); WriteS (StdOutput, "  LIFEl   ");                 123   140   141   123   124
+   147 WriteI (StdOutput, LifePtr^[i].Birth, 5); WriteI (StdOutput, LifePtr^[i].Death, 5); \   124   146   141   146   141     *
+                                                                                     *     *     *   141
+      \WriteNl (StdOutput);                                                        124     *
+   148 # endif                                                                     125
+   149         END;                                                                144
+   150         FOR i := AttrCount + 1 TO InstCount DO                              139   147   139   139   119   140
+   151            IF LifePtr^ [i].Birth < LifePtr^ [i].Death THEN                  141   147   150   147     *     *   147   141
+   152               WITH Instance^ [i] DO                                         140   146   151   150
+   153                  INCL (Attribute^.Child.Properties, Tree.Tree);             142   142   142   142   142     *
+   154               END;                                                          149
+   155            END;                                                             154
+   156 # ifdef Debug                                                               145   145
+   157 WriteName (Instance^[i]); WriteS (StdOutput, "  LIFEr   ");                 146   152   152   146   147
+   158 WriteI (StdOutput, LifePtr^[i].Birth, 5); WriteI (StdOutput, LifePtr^[i].Death, 5); \   147   157   151   157   151     *
+                                                                                     *     *     *   151
+      \WriteNl (StdOutput);                                                        147     *
+   159 # endif                                                                     148
+   160         END;                                                                155
+   161         ReleaseArray (LifePtr, LifeSize, TSIZE (tLife));                     24   158    76    76    76
+   162 }; .
+   163 
+   164 
+   165 PROCEDURE LifeTime2 (t: Tree)                                                69   135   130   153
+   166 
+   167 Class (..) :- {                                                             135
+   168         v := 1;                                                              61
+   169         FOR j := 1 TO InstCount DO                                          150   123   150   150   152
+   170            j2 := Instance^ [j].Order;                                        61   157   169    83
+   171            WITH Instance^ [j2] DO                                           152   170   170   169
+   172               IF {Left, Inherited, First} <= Properties THEN                151   107   108   129   153   151
+   173                  v := Attribute^.Child.Partition;                           168   153   153   133
+   174 # ifdef Debug                                                               156   156
+   175 WriteIdent (StdOutput, Name); WriteS (StdOutput, "      ");                  73   158    73   157     *
+   176 WriteName (Instance^[j2]); WriteS (StdOutput, " VISIT2  ");                 157   171   171   175   175
+   177 WriteI (StdOutput, v, 5); WriteNl (StdOutput);                              158   176   173   158     *
+   178 # endif                                                                     159
+   179                  IF v > ChildsVisit THEN RETURN; END;                       172   177   133   172     *   160
+   180               END;                                                          179
+   181               IF NOT (Dummy IN Properties) AND (ChildsVisit = v) THEN       179   107   107   141   172   141   179   179
+                                                                                   179
+   182                  FOR k := 1 TO ChildsClass^.Class.AttrCount DO              169    61   169   135   167   150   171
+   183                     IF IsRelated (j2, k, DP) THEN                           181   120   176   182   120   181
+   184                        LifePtr^ [ActClass^.Class.AttrCount + ActChild^.Child.InstOff\   161   130   182   182   131   173
+      \set + k].Death := Visit;                                                      *   183   158   124
+   185 # ifdef Debug                                                               174   174
+   186 WriteIdent (StdOutput, Name); WriteS (StdOutput, "      ");                 175   177   175   176     *
+   187 WriteName (Instance^[j2]); WriteS (StdOutput, " ");                         176   176   183   186   186
+   188 WriteName (Instance^[k]); WriteS (StdOutput, "  ");                         187   187   184   187   187
+   189 WriteName (ActClass^.Class.Instance^[ActClass^.Class.AttrCount + ActChild^.Child.Ins\   188   184   184   188     *     *
+                                                                                   184   184   184
+      \tOffset + k]);                                                              184   188
+   190 WriteS (StdOutput, "    DEATH   "); WriteI (StdOutput, Visit, 5); WriteNl (StdOutput\   188   188   177     *   184   177
+                                                                                     *
+      \);
+   191 # endif                                                                     178
+   192                     END;                                                    180
+   193                  END;                                                       192
+   194               END;                                                          193
+   195            END;                                                             194
+   196         END;                                                                195
+   197 }; .
+   198 
+   199 
+   200 PROCEDURE LifeTime3 (t: Tree)                                               165     5   165   165
+   201 
+   202 Class (..) :- {                                                             189
+   203         ActClass := t;                                                      189   200
+   204         ForallAttributes (Attributes, LifeTime3);                            44     *   200
+   205 }; .
+   206 Child (..) :- {                                                             189
+   207         INCL (Properties, Tree.Tree);                                       153   181   200     *
+   208         IF Input IN Properties THEN                                         183    38   181   207   183
+   209            INC (ChildrenIn);                                                  *    10
+   210         ELSE                                                                  *
+   211            INC (ChildrenDyn);                                               209     9
+   212         END;                                                                196
+   213 }; .
+   214 Attribute (..) :- {                                                         173
+   215       IF IsElement (ORD ('0'), Options) THEN                                208    29     *    44   208
+   216         IF (Input IN Properties) OR (Output IN Properties) THEN             215   208   208   208   107    38     *     *
+                                                                                   215
+   217            INCL (Properties, Tree.Tree);                                    207   216   207     *
+   218            IF Input IN Properties THEN                                      216   216   216   217   216
+   219               INC (AttributeIn);                                            211    11
+   220            ELSE                                                             210
+   221               INC (AttributeOut);                                           219    12
+   222            END;                                                             212
+   223         END;                                                                222
+   224         IF NOT (Tree.Tree IN Properties) THEN                               218   181   217     *   218   218   218
+   225            INCL (Properties, Parameter);                                    217   224    39
+   226         END;                                                                223
+   227       ELSE                                                                  220
+   228         INCL (Properties, Tree.Tree);                                       225   225   224     *
+   229       END;                                                                  226
+   230         IF {Test, Dummy, Virtual, Demand} * Properties # {} THEN            224    40   181    43    43   228   224
+   231            EXCL (Properties, Tree.Tree);                                      *   230   228     *
+   232            EXCL (Properties, Parameter);                                    231   231   225
+   233         END;                                                                229
+   234       IF IsElement (ORD ('3'), Options) THEN                                230   215   215   215   230
+   235         IF ({Test, Dummy, Virtual, Input, Output} * Properties) = {} THEN   234   230   230   230   218   216   232   234
+   236            WriteIdent   (StdOutput, ActClass^.Class.Name);                  186   190   203   202   186
+   237            WriteS       (StdOutput, "   = ");                               190   236
+   238            WriteIdent   (StdOutput, Name);                                  236   237   236
+   239            WriteS       (StdOutput, "   ");                                 237   238
+   240            IF Tree.Tree IN Properties THEN                                  235   231     *   224   235   235
+   241               WriteS    (StdOutput, "Tree"      ); INC (AttributeTree);     239   239   221    13
+   242            ELSIF Parameter IN Properties THEN                                 *   232   240   240   240
+   243               WriteS    (StdOutput, "Parameter" ); INC (AttributeParam);    241   241   241    14
+   244            ELSIF Stack IN Properties THEN                                   242    39   242   242   242
+   245               WriteS    (StdOutput, "Stack"     ); INC (AttributeStack);    243   243   243    17
+   246            ELSIF Variable IN Properties THEN                                244    39   244   244   244
+   247               WriteS    (StdOutput, "Variable"  ); INC (AttributeVar);      245   245   245    15
+   248            ELSIF Demand IN Properties THEN                                  246   230   246   246   246
+   249               WriteS    (StdOutput, "Demand"    ); INC (AttributeDemand);   247   247   247    16
+   250            END;                                                             233
+   251            WriteNl      (StdOutput);                                        190   249
+   252         END;                                                                250
+   253       END;                                                                  252
+   254 }; .
+   255 
+   256 
+   257 /*
+c  258 PROCEDURE LifeTime4 (t: Tree)
+c  259 
+c  260 Class (..) :- {
+c  261         AssignElmt (Children, Index);
+c  262         Assign (Parents, Users);
+c  263         ForallClasses (Extensions, LifeTime5);
+c  264         ForallAttributes (Attributes, LifeTime4);
+c  265 }; .
+c  266 Attribute (..) :- {
+c  267         IF ({Test, Dummy, Virtual, Input, Output} * Properties) = {} THEN
+c  268 WriteS (StdOutput, "attr = "); WriteIdent (StdOutput, Name); WriteNl (StdOutput);
+c  269            MaxChildUse := 0;
+c  270            FOR ClassIndex := Minimum (Children) TO Maximum (Children) DO
+c  271               IF IsElement (ClassIndex, Children) THEN
+c  272                  ActClass := IndexToClass^[ClassIndex];
+c  273                  WITH ActClass^.Class.Instance^ [AttrIndex] DO
+c  274                     IF Synthesized IN Properties THEN INCL (Properties, Def); END;
+c  275                  END;
+c  276                  Last := 0;
+c  277                  Visit := 1;
+c  278                  WITH ActClass^.Class DO
+c  279                     FOR i := 1 TO InstCount DO
+c  280                        i2 := Instance^ [i].Order;
+c  281                        WITH Instance^ [i2] DO
+c  282                           IF {Left, Inherited, First} <= Properties THEN
+c  283                              Visit := Attribute^.Child.Partition;
+c  284                           END;
+c  285                           IF (({Left, Synthesized, First} <= Properties) OR
+c  286                              ({Right, Inherited, First} <= Properties)) AND
+c  287                              NOT (Dummy IN Properties) AND IsRelated (i2, AttrIndex,\
+c     \ DP) THEN
+c  288                              IF ({ChildUse, ParentUse} * Properties) # {} THEN 
+c  289 WriteS (StdOutput, "multiple use = "); WriteI (StdOutput, i2, 0); WriteNl (StdOutput\
+c     \);
+c  290 WriteI (StdOutput, MaxChildUse, 0); WriteNl (StdOutput);
+c  291 WriteOrderEval (ActClass);
+c  292                                 RETURN;
+c  293                              END;
+c  294                              INCL (Properties, ChildUse);
+c  295                              IF Last # 0 THEN EXCL (Instance^ [Last].Properties, Chi\
+c     \ldUse); END;
+c  296                              Last := i2;
+c  297                              MaxChildUse := Max (MaxChildUse, Visit);
+c  298                           END;
+c  299                        END;
+c  300                     END;
+c  301                  END;
+c  302               END;
+c  303            END;
+c  304 
+c  305            Attr := AttrIndex;
+c  306            MaxParentUse := 0;
+c  307            FOR ClassIndex := Minimum (Parents) TO Maximum (Parents) DO
+c  308               IF IsElement (ClassIndex, Parents) THEN
+c  309                  ActClass := IndexToClass^[ClassIndex];
+c  310                  ForallAttributes (ActClass, LifeTime5);
+c  311               END;
+c  312            END;
+c  313 
+c  314 WriteS (StdOutput, "MaxChildUse  = "); WriteI (StdOutput, MaxChildUse, 0); WriteNl (\
+c     \StdOutput);
+c  315 WriteS (StdOutput, "MaxParentUse = "); WriteI (StdOutput, MaxParentUse, 0); WriteNl \
+c     \(StdOutput);
+c  316 
+c  317            IF MaxParentUse >= MaxChildUse THEN
+c  318               FOR ClassIndex := Minimum (Children) TO Maximum (Children) DO
+c  319                  IF IsElement (ClassIndex, Children) THEN
+c  320                     ActClass := IndexToClass^[ClassIndex];
+c  321                     WITH ActClass^.Class DO
+c  322                        FOR i := 1 TO InstCount DO
+c  323                           WITH Instance^ [i] DO
+c  324                              EXCL (Properties, ChildUse);
+c  325                           END;
+c  326                        END;
+c  327                     END;
+c  328                  END;
+c  329               END;
+c  330            ELSE
+c  331               FOR ClassIndex := Minimum (Parents) TO Maximum (Parents) DO
+c  332                  IF IsElement (ClassIndex, Parents) THEN
+c  333                     ActClass := IndexToClass^[ClassIndex];
+c  334                     WITH ActClass^.Class DO
+c  335                        FOR i := 1 TO InstCount DO
+c  336                           WITH Instance^ [i] DO
+c  337                              EXCL (Properties, ParentUse);
+c  338                           END;
+c  339                        END;
+c  340                     END;
+c  341                  END;
+c  342               END;
+c  343            END;
+c  344 
+c  345            Assign (Relevant, Children);
+c  346            Union (Relevant, Parents);
+c  347            FOR ClassIndex := Minimum (Relevant) TO Maximum (Relevant) DO
+c  348               IF IsElement (ClassIndex, Relevant) THEN
+c  349                  ActClass := IndexToClass^[ClassIndex];
+c  350 WriteOrderEval (ActClass);
+c  351                  WITH ActClass^.Class DO
+c  352                     FOR i := 1 TO InstCount DO
+c  353                        WITH Instance^[i] DO
+c  354                           Properties := Properties - {Def, Use, ChildUse, ParentUse}\
+c     \;
+c  355                        END;
+c  356                     END;
+c  357                  END;
+c  358               END;
+c  359            END;
+c  360         END;
+c  361 }; .
+c  362 
+c  363 
+c  364 PROCEDURE LifeTime5 (t: Tree)
+c  365 
+c  366 Class (..) :- {
+c  367         Include (Children, Index);
+c  368         Union (Parents, Users);
+c  369 }; .
+c  370 Child (..) :- {
+c  371         Comp := ActClass^.Class.AttrCount + InstOffset + Attr;
+c  372         Last := 0;
+c  373         WITH ActClass^.Class.Instance^ [Comp] DO
+c  374            IF Inherited IN Properties THEN INCL (Properties, Def); END;
+c  375         END;
+c  376         Visit := 0;
+c  377         WITH ActClass^.Class DO
+c  378            FOR i := 1 TO InstCount DO
+c  379               i2 := Instance^ [i].Order;
+c  380               WITH Instance^ [i2] DO
+c  381                  IF ({Right, Synthesized, First} <= Properties) AND (Selector = t) T\
+c     \HEN
+c  382                     Visit := Attribute^.Child.Partition;
+c  383                  END;
+c  384                  IF (({Left, Synthesized, First} <= Properties) OR
+c  385                     ({Right, Inherited, First} <= Properties)) AND
+c  386                     NOT (Dummy IN Properties) AND IsRelated (i2, Comp, DP) THEN
+c  387                     IF ({ChildUse, ParentUse} * Properties) # {} THEN 
+c  388 WriteS (StdOutput, "multiple use = "); WriteI (StdOutput, i2, 0); WriteNl (StdOutput\
+c     \);
+c  389 WriteI (StdOutput, MaxChildUse, 0); WriteNl (StdOutput);
+c  390 WriteOrderEval (ActClass);
+c  391                        RETURN;
+c  392                     END;
+c  393                     INCL (Properties, ParentUse);
+c  394                     IF Last # 0 THEN EXCL (Instance^ [Last].Properties, ParentUse); \
+c     \END;
+c  395                     Last := i2;
+c  396                     MaxParentUse := Max (MaxParentUse, Visit);
+c  397                  END;
+c  398               END;
+c  399            END;
+c  400         END;
+c  401 }; .
+c  402 
+c  403 */
+Cross reference: 
+
+-A-
+ ActChild                        62   131   184   189 
+ ActClass                        63   130   184   189   189   203   236 
+ AND                            107   141   181 
+ ARRAY                           66 
+ Assign                          30 
+ AssignElmt                      29 
+ Attr                            57 
+ AttrCount                      109   119   139   150   182   184   189 
+ Attribute                       86    94   112   133   142   153   173   214 
+ AttributeDemand                 16   249 
+ AttributeIn                     11   219 
+ AttributeOut                    12   221 
+ AttributeParam                  14   243 
+ Attributes                     204 
+ AttributeStack                  17   245 
+ AttributeTree                   13   241 
+ AttributeVar                    15   247 
+
+-B-
+ Birth                           48    78    93   101   141   147   151   158 
+
+-C-
+ Child                           86    94   112   132   133   142   153   173   184   189   206 
+ Children                        51 
+ ChildrenDyn                      9   211 
+ ChildrenIn                      10   209 
+ ChildsClass                     64   132   134   135   182 
+ ChildsVisit                     60   133   179   181 
+ ChildUse                        42 
+ Class                           71   132   135   167   182   184   189   189   202   236 
+ ClassIndex                      54 
+ Comp                            58 
+ Computed                        37 
+ CopyDef                         40 
+ CopyUse                         40 
+
+-D-
+ Death                           48    79   111   121   141   147   151   158   184 
+ Debug                           72    87    95   102   113   122   145   156   174   185 
+ Def                             41 
+ Demand                          43   230   248 
+ DO                              77    82    84   109   119   139   140   150   152   169   171   182 
+ DP                             110   120   183 
+ Dummy                           43   107   181   230   235 
+ DynArray                        24 
+
+-E-
+ ELSE                           210   220   227 
+ ELSIF                          242   244   246   248 
+ END                             48    80    91    99   106   117   118   126   127   128   136   137   138   143   144   149   154 
+                                155   160   179   180   192   193   194   195   196   212   222   223   226   229   233   250   252 
+                                253 
+ endif                           74    90    98   105   116   125   148   159   178   191 
+ EXCL                           231   232 
+ EXPORT                           7 
+ Extensions                     135 
+
+-F-
+ f                               43 
+ First                           42    85   107   108   129   172 
+ FOR                             77    82   109   119   139   150   169   182 
+ ForallAttributes                44   204 
+ ForallClasses                   44   135 
+ FROM                            22    23    24    25    26    28    32    35    46 
+
+-G-
+ General                         23 
+ GLOBAL                          20 
+
+-I-
+ i                               61    77    78    79    82    83   139   140   141   141   146   147   147   150   151   151   152 
+                                157   158   158 
+ i2                              61    83    84    88    93    96   101   103   110   120 
+ Idents                          26 
+ IF                              85    92   100   107   110   120   129   141   151   172   179   181   183   208   215   216   218 
+                                224   230   234   235   240 
+ ifdef                           72    87    95   102   113   122   145   156   174   185 
+ IMPORT                          22    23    24    25    26    28    32    35    46 
+ IN                             100   107   141   181   208   216   216   218   224   240   242   244   246   248 
+ INC                            209   211   219   221   241   243   245   247   249 
+ INCL                            94   112   142   153   207   217   225   228 
+ Include                         30 
+ IndexToClass                    46 
+ Inherited                       38    85   108   172 
+ Input                           38   208   216   218   235 
+ Instance                        83    84    88    96   103   112   114   123   140   146   152   157   170   171   176   187   188 
+                                189 
+ InstCount                       75    77    82   119   150   169 
+ InstOffset                     184   189 
+ IO                              25 
+ IsElement                       29   215   234 
+ IsRelated                       33   110   120   183 
+
+-J-
+ j                               61   109   110   111   112   114   119   120   121   123   169   170 
+ j2                              61   170   171   176   183   187 
+
+-K-
+ k                               61   182   183   184   188   189 
+
+-L-
+ Last                            59 
+ Left                            41    85    92   107   172 
+ LifePtr                         66    76    78    79    93   101   111   121   141   141   147   147   151   151   158   158   161 
+                                184 
+ LifeSize                        65    75    76   161 
+ LifeTime1                        5    69 
+ LifeTime2                      134   135   165 
+ LifeTime3                        5   200   204 
+ LONGINT                         65 
+
+-M-
+ MakeArray                       24    76 
+ Max                             23 
+ MaxChildUse                     55 
+ Maximum                         30 
+ MaxParentUse                    56 
+ Minimum                         30 
+
+-N-
+ Name                            73   175   186   236   238 
+ NonBaseComp                     42 
+ NOT                            107   181   224 
+ NoTree                          36 
+
+-O-
+ OF                              66 
+ Optimize                         3 
+ Options                         44   215   234 
+ OR                             107   216 
+ ORD                            215   234 
+ Order                           46    83   170 
+ Output                          38   216   235 
+
+-P-
+ Parameter                       39   225   232   242 
+ Parents                         52 
+ ParentUse                       42 
+ Partition                       86   133   173 
+ POINTER                         66 
+ PROCEDURE                       69   165   200 
+ Properties                      85    92   100   107   107   108   129   141   142   153   172   181   207   208   216   216   217 
+                                218   224   225   228   230   231   232   235   240   242   244   246   248 
+ PUBLIC                           5 
+
+-R-
+ Read                            37 
+ RECORD                          48 
+ Relations                       32 
+ ReleaseArray                    24   161 
+ Relevant                        53 
+ RETURN                         179 
+ Reverse                         37 
+ Right                           41   100   108   129 
+
+-S-
+ Selector                       131   132 
+ Sets                            28 
+ SHORTCARD                       17    48    61 
+ Stack                           39   244 
+ StdOutput                       25    73    73    73    88    89    89    96    97    97   103   104   104   114   115   115   123 
+                                124   124   146   147   147   147   157   158   158   158   175   175   176   177   177   186   186 
+                                187   188   190   190   190   236   237   238   239   241   243   245   247   249   251 
+ Synthesized                     38    92   107   129   141 
+ SYSTEM                          22 
+
+-T-
+ t                               69   130   165   200   203 
+ Test                            40   230   235 
+ THEN                            85    92   100   108   110   120   129   141   151   172   179   181   183   208   215   216   218 
+                                224   230   234   235   240   242   244   246   248 
+ Thread                          40 
+ tInstance                       36 
+ tLife                           48    66    76   161 
+ TO                              66    77    82   109   119   139   150   169   182 
+ TRAFO                            3 
+ TREE                             4 
+ Tree                             4    35    69   142   142   153   153   165   200   207   207   217   217   224   224   228   228 
+                                231   231   240   240 
+ tSet                            29    53 
+ TSIZE                           22    76   161 
+ tTree                           36    64 
+ TYPE                            48 
+
+-U-
+ Union                           29 
+ Usage                           94   112 
+ Use                             41 
+
+-V-
+ v                               61   168   173   177   179   181 
+ VAR                              8    50 
+ Variable                        39   246 
+ Virtual                         43   230   235 
+ Visit                           61    81    86    89    93    94    97   101   104   111   112   115   121   124   184   190 
+
+-W-
+ WITH                            84   140   152   171 
+ Write                           37 
+ WriteI                          25    89    97   104   115   124   147   147   158   158   177   190 
+ WriteIdent                      26    73   175   186   236   238 
+ WriteName                       44    88    96   103   114   123   146   157   176   187   188   189 
+ WriteNl                         25    73    73    89    97   104   115   124   147   158   177   190   251 
+ WriteOrderEval                  46 
+ WriteS                          25    88    96   103   114   123   146   157   175   176   186   187   188   190   237   239   241 
+                                243   245   247   249 
+
+end cross reference, 770 occurrences of 154 identifiers.

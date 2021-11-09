@@ -1,0 +1,8 @@
+(* Change log for Cocktail front *) 
+
+(* Rodney M. Bates, modifications: 
+
+    1-98 in Checks.mi, change DevNull so it has a trailing null when passed
+
+*) 
+

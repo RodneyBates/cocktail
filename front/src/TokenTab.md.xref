@@ -1,0 +1,213 @@
+     1 (* map tokens to internal representation *)
+     2 
+     3 (* $Id: TokenTab.md,v 1.5 1992/08/07 15:13:51 grosch rel $ *)
+     4 
+     5 (* $Log: TokenTab.md,v $
+c    6  * Revision 1.5  1992/08/07  15:13:51  grosch
+c    7  * allow several scanner and parsers; extend module Errors
+c    8  *
+c    9  * Revision 1.4  1991/11/21  14:47:50  grosch
+c   10  * new version of RCS on SPARC
+c   11  *
+c   12  * Revision 1.3  91/10/11  16:30:47  grosch
+c   13  * increased cMAXNonTerm from 1023 to 2047
+c   14  * 
+c   15  * Revision 1.2  90/06/11  18:45:43  grosch
+c   16  * layout improvements
+c   17  * 
+c   18  * Revision 1.1  89/01/26  19:03:21  vielsack
+c   19  * better position handling for nonterminals
+c   20  * 
+c   21  * Revision 1.0  88/10/04  14:27:22  vielsack
+c   22  * Initial revision
+c   23  * 
+c   24  *)
+    25 
+    26 DEFINITION MODULE TokenTab;                                                   *
+    27 
+    28 FROM Strings    IMPORT tString;                                               *     *
+    29 FROM SYSTEM     IMPORT ADDRESS;                                               *     *
+    30 FROM Idents     IMPORT tIdent;                                                *     *
+    31 FROM Positions  IMPORT tPosition;                                             *     *
+    32 
+    33   CONST
+    34     MINTerm     = 0;                                                          *
+    35     cMAXTerm    = 1000;                                                       *
+    36     MINNonTerm  = cMAXTerm + 1;                                               *    35
+    37     cMAXNonTerm = 2500;                                                       *
+    38     EndOfToken  = 0;                                                          *
+    39 
+    40   VAR
+    41     MAXTerm     : SHORTCARD;   (* tatsaechlich belegte Groesse *) (* read only *)         *     *
+    42     MAXNonTerm  : SHORTCARD;                                                  *     *
+    43 
+    44   TYPE
+    45     PosType     = tPosition;                                                  *    31
+    46     TokenType   = (Term, NonTerm, None);                                      *     *     *     *
+    47     NonTerminal = SHORTCARD [MINNonTerm..cMAXNonTerm];                        *     *    36    37
+    48     Vocabulary  = SHORTCARD [0..cMAXNonTerm+2];                               *     *    37
+    49     Terminal    = SHORTCARD [0..cMAXTerm];                                    *     *    35
+    50     Prio        = SHORTCARD;                                                  *     *
+    51     TokenError  = (NoError, SymbolExists, CodeExists, OutOfRange, NotExists,NoIntCod\     *     *     *     *     *     *
+      \e,NotTerm);                                                                   *     *
+    52 
+    53 PROCEDURE MakeTerm (sym: tIdent; VAR ter: Terminal; VAR Error: TokenError; pos: PosT\     *     *    30     *    49     *
+                                                                                    51     *
+      \ype);                                                                        45
+    54   
+    55   (* Fuege 'sym' als NEUES Terminal in TokenTab mit vorgegebener Codierung
+c   56      'ter' ein. Falls 'sym' bereits in der TokenTab steht, wird der alte Code
+c   57      zurueckgeliefert und Error auf StringExists gesetzt.
+c   58      Error = OutOfRange ,falls voc ausserhalb des fuer Terminals
+c   59      zulaessigen Bereichs ist
+c   60      Error = CodeExists, falls der angegebene Code bereits vergeben ist . *)
+    61       
+    62 PROCEDURE MakeDefTerm (VAR sym: tIdent; VAR Error: TokenError; pos: PosType);       *    53    30    53    51    53    45
+    63 
+    64   (* Fuege s als NEUES Terminal in TokenTab ohne interne Codierung
+c   65      ein. Die Codierung muss nach Abschluss aller Eintraege in die
+c   66      TokenTab mit CompleteDefTerm nachgeholt werden. 
+c   67      Falls s bereits in der TokenTab steht, wird der alte Code zurueck-
+c   68      geliefert und Error auf StringExists gesetzt. *)
+    69 
+    70 PROCEDURE CompleteDefTerm (sym: tIdent; VAR Error: TokenError);               *    62    30    62    51
+    71 
+    72   (* Traegt die interne Codierung fuer bereits mit MakeDefTerm eingetragene
+c   73      Terminale nach und liefert ihren Wert zurueck.Moegliche Fehler:
+c   74      Error = NotExists     Noch gar nicht eingetragen
+c   75              CodeExists    Schon vollstaendig eingetragen
+c   76              TokenOverflow Ueberlauf: zu viele Tokens;
+c   77              NonTerm   sym ist Codierung fuer Nichtterminal; *)
+    78   
+    79 PROCEDURE MakeVoc (sym: tIdent; symPos: PosType): Vocabulary;                 *    70    30     *    45    48
+    80 
+    81   (* falls sym bereits vorhanden:
+c   82         die Codierung von sym wird zurueckgeliefert
+c   83      sonst:
+c   84         sym wird als NichtTerminal in die TokenTab eingetragen und die
+c   85         Codierung zurueckgeliefert. *)
+    86  
+    87 PROCEDURE SetNontermPos (sym: tIdent; pos: PosType);                          *    79    30    62    45
+    88 
+    89   (* setze Position eines Nichtterminals *)
+    90 
+    91 PROCEDURE GetTokenType (voc: Vocabulary): TokenType;                          *     *    48    46
+    92 
+    93   (* liefert den Typ des Tokens voc zurueck *)
+    94 
+    95 PROCEDURE SymbolToToken (sym: tIdent; VAR Error: TokenError): Vocabulary;     *    87    30    70    51    48
+    96   
+    97   (* liefert die zum SymboltabellenEintrag sym gehoerige interne Darstellung*)
+    98   (* Moegliche Fehler:
+c   99      Error = NotExists    Es existiert ueberhaupt kein Eintrag
+c  100      Error = NoIntCode    Code muss noch mit CompleteDefToken eingetragen
+c  101                           werden.
+c  102      Error = NoError      Alles in Ordnung    *)
+   103 
+   104 PROCEDURE TokenToSymbol (voc: Vocabulary; VAR Error: TokenError):tIdent;      *    91    48    95    51    30
+   105   
+   106   (* liefert die zum TokenTabeintrag voc gehoerige Darstellung
+c  107      in der Symboltabelle *)
+   108   (* Moegliche Fehler:
+c  109      Error = NotExists    Es existiert ueberhaupt kein Eintrag
+c  110                           werden.
+c  111      Error = NoError      Alles in Ordnung    *)
+   112 
+   113 PROCEDURE GetTokenPos (voc: Vocabulary; VAR pos: PosType);                    *   104    48    87    45
+   114   
+   115   (* liefert die zu 'voc' gehoerige Position 'pos' zurueck *)
+   116   
+   117 PROCEDURE PutPrio (voc: Vocabulary; p: Prio);                                 *   113    48     *    50
+   118 
+   119   (* Setzen der Prioritaet von voc auf p *)
+   120 
+   121 PROCEDURE GetPrio (voc: Vocabulary):Prio;                                     *   117    48    50
+   122 
+   123   (* liefert die mit PutPriority eingetragene Prioritaet von voc.
+c  124      Ist nichts eingetragen, wird 0 zurueckgegeben. *)
+   125 
+   126 PROCEDURE InitTokenTable;                                                     *
+   127 
+   128   (* Initialisiere die TokenTab *)
+   129 
+   130 END TokenTab.                                                                26
+Cross reference: * is declaration, = is assignment
+
+-A-
+ ADDRESS                         29*
+
+-C-
+ cMAXNonTerm                     37*   47    48 
+ cMAXTerm                        35*   36    49 
+ CodeExists                      51*
+ CompleteDefTerm                 70*
+
+-E-
+ EndOfToken                      38*
+ Error                           53*   62*   70*   95*  104*
+
+-G-
+ GetPrio                        121*
+ GetTokenPos                    113*
+ GetTokenType                    91*
+
+-I-
+ Idents                          30*
+ InitTokenTable                 126*
+
+-M-
+ MakeDefTerm                     62*
+ MakeTerm                        53*
+ MakeVoc                         79*
+ MAXNonTerm                      42*
+ MAXTerm                         41*
+ MINNonTerm                      36*   47 
+ MINTerm                         34*
+
+-N-
+ NoError                         51*
+ NoIntCode                       51*
+ None                            46*
+ NonTerm                         46*
+ NonTerminal                     47*
+ NotExists                       51*
+ NotTerm                         51*
+
+-O-
+ OutOfRange                      51*
+
+-P-
+ p                              117*
+ pos                             53*   62*   87*  113*
+ Positions                       31*
+ PosType                         45*   53    62    79    87   113 
+ Prio                            50*  117   121 
+ PutPrio                        117*
+
+-S-
+ SetNontermPos                   87*
+ SHORTCARD                       41    42    47    48    49    50 
+ Strings                         28*
+ sym                             53*   62*   70*   79*   87*   95*
+ SymbolExists                    51*
+ SymbolToToken                   95*
+ symPos                          79*
+ SYSTEM                          29*
+
+-T-
+ ter                             53*
+ Term                            46*
+ Terminal                        49*   53 
+ tIdent                          30*   53    62    70    79    87    95   104 
+ TokenError                      51*   53    62    70    95   104 
+ TokenTab                        26*  130*
+ TokenToSymbol                  104*
+ TokenType                       46*   91 
+ tPosition                       31*   45 
+ tString                         28*
+
+-V-
+ voc                             91*  104*  113*  117*  121*
+ Vocabulary                      48*   79    91    95   104   113   117   121 
+
+end cross reference, 109 occurrences of 53 identifiers.

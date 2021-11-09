@@ -1,0 +1,37 @@
+
+IMPLEMENTATION MODULE Assertions 
+
+(* Version for use in GMD generators. *) 
+
+; FROM Positions IMPORT tPosition , NoPosition 
+; IMPORT Errors 
+
+; PROCEDURE Assert 
+    ( Condition : BOOLEAN ; Msg : ARRAY OF CHAR )
+  ; BEGIN
+      AssertPos ( Condition , Msg , NoPosition ) 
+    END Assert
+        
+; PROCEDURE CantHappen ( Msg : ARRAY OF CHAR )
+
+  ; BEGIN
+      CantHappenPos ( Msg , NoPosition ) 
+    END CantHappen
+
+; PROCEDURE AssertPos 
+    ( Condition : BOOLEAN ; Msg : ARRAY OF CHAR ; Position : tPosition )
+  ; BEGIN
+      IF NOT Condition
+      THEN
+        CantHappenPos ( Msg , Position )
+      END (* IF *)
+    END AssertPos
+        
+; PROCEDURE CantHappenPos ( Msg : ARRAY OF CHAR ; Position : tPosition )
+
+  ; BEGIN
+      Errors . Message ( Msg , Errors . Fatal , Position ) 
+    END CantHappenPos
+
+; END Assertions
+.

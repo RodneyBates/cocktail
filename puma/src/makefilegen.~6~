@@ -1,0 +1,155 @@
+INSTALLBIN	= $(INSTALLGMD)/bin
+INSTALLLIB	= $(INSTALLGMD)/lib
+
+# VPATH = ../src
+
+INCLUDE = .
+MC	= mocka_mtc
+
+BIN = ../../bintobuildwith
+REX = $(BIN)/rex
+LALR = $(BIN)/lalr
+CG = $(BIN)/cg
+PUMA = $(BIN)/puma
+PUMAFLAGS = -diuw
+RPP = $(BIN)/rpp
+
+# CGXZ     = cg.org
+CGWFLAG  = -w 
+CGXZ     = $(CG)
+
+SED	= sed -e 's/!!$$/WriteNl (f);/' \
+	      -e 's/!\([^!]*\)!$$/WriteS (f, "\1"); WriteNl (f);/' \
+	      -e 's/!\([^!]*\)!/WriteS (f, "\1");/g' \
+	      -e "s/@\([^@]*\)@$$/WriteS (f, '\1'); WriteNl (f);/" \
+	      -e "s/@\([^@]*\)@/WriteS (f, '\1');/g"
+
+MODULASOURCES = Assertions.md Assertions.mi \
+                IOUtils.md IOUtils.mi \
+                puma.mi
+
+OTHERSOURCES = 
+
+SOURCES = $(MODULESOURCES) $(OTHERSOURCES) 
+
+MODULAGENS	= Scanner.mi Scanner.md Parser.md Parser.mi Tree.md Tree.mi \
+          Tree2.md Tree2.mi Semantics.md Semantics.mi Optimize.md \
+          Optimize.mi M2.md M2.mi M3.md M3.mi Ada.md Ada.mi C.md C.mi 
+
+OTHERGENS = Scanner.Tab Parser.Tab
+
+GENS    = $(MODULAGENS) $(OTHERGENS)
+EXE     = puma
+
+MOCKAFLAGS = 
+MOCKALIBS = -d ../../reuse/gen
+
+include $(INCLUDE)/make.include
+
+# source code generations: 
+
+Scanner.rpp Parser.lalr:	../src/puma.pars
+	$(CGXZ) -xzj ../src/puma.pars;
+
+puma.rex:	../src/puma.scan Scanner.rpp
+	$(RPP) < ../src/puma.scan > puma.rex;
+
+Scanner.md Scanner.mi Scanner.Tab:	puma.rex
+	$(REX) -d puma.rex;
+
+Parser.md:	Parser.lalr
+	$(LALR) -d Parser.lalr;
+
+Parser.mi Parser.Tab:	Parser.lalr
+	$(LALR) -v Parser.lalr;
+
+Tree.md:	../src/puma.cg
+	echo 'Be sure cg is also rebuilt with this new version of puma.cg.' 
+	echo SELECT AstIn Ast Common PumaIn Puma | cat - ../src/puma.cg | \
+	$(CG) $(CGWFLAG) -dimRyq
+
+Tree.mi:	../src/puma.cg
+	echo SELECT AstIn Ast Common PumaIn Puma | cat - ../src/puma.cg | \
+	$(CG) $(CGWFLAG) -imRyq
+
+Tree2.md:	../src/puma.cg
+	echo SUBUNIT Tree2 SELECT AstIn Ast | cat - ../src/puma.cg | $(CG) -dig
+
+Tree2.mi:	../src/puma.cg
+	echo SUBUNIT Tree2 SELECT AstIn Ast | cat - ../src/puma.cg | $(CG) -ig
+
+Tree.TS:	../src/puma.cg
+	echo SELECT PumaIn Puma | cat - ../src/puma.cg | $(CG) -4
+
+Semantics.md Semantics.mi:	../src/sem.puma Tree.TS
+	$(PUMA) -n $(PUMAFLAGS) ../src/sem.puma;
+
+Optimize.md Optimize.mi:	../src/opt.puma Tree.TS
+	$(PUMA) -k $(PUMAFLAGS) ../src/opt.puma;
+
+M2.md M2.mi:	../src/M2.puma Tree.TS
+	$(SED) < ../src/M2.puma | $(PUMA) -n $(PUMAFLAGS);
+
+M3.md M3.mi:	../src/M3.puma Tree.TS
+	$(SED) < ../src/M3.puma | $(PUMA) -n $(PUMAFLAGS);
+
+Ada.md Ada.mi:	../src/ada.puma Tree.TS
+	$(SED) < ../src/ada.puma | $(PUMA) -n $(PUMAFLAGS);
+
+C.md C.mi:	../src/c.puma Tree.TS
+	$(SED) < ../src/c.puma | $(PUMA) -n $(PUMAFLAGS);
+
+# swap all byte pairs of the files Scanner.Tab and Parser.Tab
+
+bin.conv:
+	dd conv=swab < Scanner.Tab > .Scanner.Tab; mv .Scanner.Tab Scanner.Tab
+	dd conv=swab < Parser.Tab > .Parser.Tab; mv .Parser.Tab Parser.Tab
+
+#install_modula : puma puma.sh $(INSTALLLIB)/puma Scanner.Tab Parser.Tab \
+                  TypeTab.c TypeTab.a TypeTab.m TypeTab.m3
+#	if test $(INSTALLLIB) = $(INSTALLBIN); then echo error: INSTALLINSTALLBIN = INSTALLLIB; false; else true; fi
+#	sed 's;LIB;$(INSTALLLIB);g' < puma.sh > $(INSTALLBIN)/puma
+#	chmod a+rx $(INSTALLBIN)/puma
+##	install -c -s -m 755 puma $(INSTALLLIB)/puma
+#	install -c    -m 755 puma $(INSTALLLIB)/puma
+#	install -c -m 644 Scanner.Tab $(INSTALLLIB)/puma
+#	install -c -m 644 Parser.Tab $(INSTALLLIB)/puma
+#	install -c -m 644 TypeTab.c $(INSTALLLIB)/puma
+#	install -c -m 644 TypeTab.a $(INSTALLLIB)/puma
+#	install -c -m 644 TypeTab.m $(INSTALLLIB)/puma
+#	install -c -m 644 TypeTab.m3 $(INSTALLLIB)/puma
+
+#install_org:
+#	cd ../../rebuild/puma/mtc; make install
+
+# installation directories
+
+#$(INSTALLLIB)/puma:	$(INSTALLLIB)
+#	sh -c "if test ! -d $(INSTALLLIB)/puma; then mkdir $(INSTALLLIB)/puma; else true; fi"
+
+# support for mkid (undoubtedly needs work as of 4-1999) 
+
+pumaId:	puma.rex
+	echo SCANNER pumaId | cat - puma.rex | \
+	sed 's/\(RETURN 1	\)/yyEcho; IO.WriteNl (IO.StdOutput); \1/' | \
+	$(INSTALLBIN).t/rex -sd;
+	sed 's/@/pumaId/' < ../../front/src/Id.mi > pumaIdDrv.mi
+	echo p pumaIdDrv | mc -d ../../reuse/gen
+	mv pumaIdDrv pumaId
+
+installId:	pumaId $(INSTALLLIB)/Id
+	echo exec $(INSTALLLIB)/Id/pumaId -l$(INSTALLLIB)/Id "2> /dev/null" > $(INSTALLBIN)/pumaId
+	chmod a+rx $(INSTALLBIN)/pumaId
+	install -c -m 644 pumaId.Tab $(INSTALLLIB)/Id
+	install -c -s -m 755 pumaId $(INSTALLLIB)/Id
+
+$(INSTALLLIB)/Id:	$(INSTALLLIB)
+	sh -c "if test ! -d $(INSTALLLIB)/Id; then mkdir $(INSTALLLIB)/Id; else true; fi"
+
+cleanId:
+	rm -f pumaId*
+
+clean:	cleanId
+	rm -f _Debug core $(GENS) *.[dior] 
+
+

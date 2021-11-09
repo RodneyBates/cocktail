@@ -1,0 +1,896 @@
+     1 
+     2 (* Ich, Doktor Josef Grosch, Informatiker, 21.3.1989 *)
+     3 (* Rodney M. Bates Modifications:
+c    4 
+c    5    Jul 96 modified mCodes to also initialize fields for
+c    6      SPECWITH and BODYWITH target code sections for Ada. 
+c    7    Sep 97 quoted cg keywords which are also lalr keywords.  Changes
+c    8      to front/src/input.rex made this necessary. 
+c    9    Jun 98 Added property 'LINK' and Link
+c   10    July 99 Changed mDesignator call to add AttributePos field. 
+c   11 *)
+    12 
+    13 GLOBAL {                                                                      *
+    14 
+    15 FROM StringMem  IMPORT GetString;                                             *     *     *     *
+    16 FROM Strings    IMPORT tString, SubString, Length, ArrayToString, IntToString, Conca\    15     *    15     *     *     *
+                                                                                     *     *
+      \tenate;                                                                       *
+    17 FROM Idents     IMPORT tIdent, NoIdent, MakeIdent;                           16     *    16     *     *     *
+    18 FROM Texts      IMPORT MakeText;                                             17     *    17     *
+    19 FROM Scanner    IMPORT BeginScanner, tScanAttribute, Attribute;              18     *    18     *     *     *
+    20 FROM Positions  IMPORT NoPosition;                                           19     *    19     *
+    21 
+    22 IMPORT Idents;                                                               20    17
+    23 
+    24 FROM Tree       IMPORT                                                       20     *    22
+    25    iInteger     , Reverse       , Link          , MakeTree      ,             *     *     *     *
+    26    Input        ,                                                             *
+    27    Output       , Synthesized   , Inherited     , String        ,             *     *     *     *
+    28    Nonterminal  , Terminal      , Explicit      , HasSelector   ,             *     *     *     *
+    29    Thread       , Virtual       , Stack         , Demand        ,             *     *     *     *
+    30    Funct        , Ignore        , Abstract      , nNoAction     ,             *     *     *     *
+    31    nNoProp      , nNoAttribute  , nNoClass      , nNoDecl       ,             *     *     *     *
+    32    nNoDesignator, nNoLayout     , nNoModule     , nNoName       ,             *     *     *     *
+    33    nNoPrec      , NoTree        , tTree         , TreeRoot      , ViewName      ,         *     *     *     *     *
+    34    SubUnit      , mAg           , mClass        , mChild        ,             *     *     *     *
+    35    mAttribute   , mActionPart   , mLeftAssoc    , mRightAssoc   ,             *     *     *     *
+    36    mNonAssoc    , mAssign       , mCopy         , mTargetCode   ,             *     *     *     *
+    37    mOrder       , mCheck        , mDesignator   , mIdent        , mRemote       ,         *     *     *     *     *
+    38    mAny         , mAnys         , mLayoutAny    , mModule       ,             *     *     *     *
+    39    mDecl        , mName         , mProp         , mSelect       ,             *     *     *     *
+    40    ReverseTree  , BeginTree     , Codes         , CloseTree     ;             *     *     *     *
+    41 
+    42 TYPE                                                                          *
+    43    tParsAttribute = RECORD                                                    *     *
+    44       CASE : INTEGER OF                                                       *     *     *
+    45       | 1: Scan         : Scanner.tScanAttribute;                             *    19    19
+    46            Properties   : BITSET;                                             *     *
+    47       | 2: Tree         : tTree;                                             24    33
+    48            Ident        : tIdent;                                             *    17
+    49       END;                                                                    *
+    50    END;                                                                      49
+    51 
+    52 VAR                                                                           *
+    53    Properties, InitProperties   : BITSET;                                    46     *    46
+    54    String1, String2             : tString;                                    *     *    16
+    55    ClassCount                   : INTEGER;                                    *    44
+    56    i                            : CARDINAL;                                   *     *
+    57    ClassIdent, ModuleIdent      : tIdent;                                     *     *    48
+    58    ParserName, TreeName, EvalName: tIdent;                                    *     *     *    57
+    59 
+    60 PROCEDURE mCodes (): tTree;                                                   *     *    47
+    61    VAR t: tTree;                                                             52     *    60
+    62    BEGIN                                                                      *
+    63       t := MakeTree (Codes);                                                 61    25    40
+    64       WITH t^.Codes DO                                                        *    63    63     *
+    65          MakeText (Export);                                                  18     *
+    66          MakeText (Import);                                                  65     *
+    67          MakeText (Global);                                                  66     *
+    68          MakeText (SpecWith);                                                67     *
+    69          MakeText (BodyWith);                                                68     *
+    70          MakeText (Local);                                                   69     *
+    71          MakeText (Begin);                                                   70     *
+    72          MakeText (Close);                                                   71     *
+    73          ExportLine := NoPosition;                                            *    20
+    74          ImportLine := NoPosition;                                            *    73
+    75          GlobalLine := NoPosition;                                            *    74
+    76          SpecWithLine := NoPosition;                                          *    75
+    77          BodyWithLine := NoPosition;                                          *    76
+    78          LocalLine  := NoPosition;                                            *    77
+    79          BeginLine  := NoPosition;                                            *    78
+    80          CloseLine  := NoPosition;                                            *    79
+    81       END;                                                                   50
+    82       RETURN t;                                                               *    64
+    83    END mCodes;                                                               81    60
+    84 
+    85 PROCEDURE UpdateName (VAR Name: tIdent; Ident: tIdent);                      60     *    61     *    58    48     *
+    86    BEGIN                                                                     62
+    87       IF Name = NoIdent THEN Name := Ident; END                               *    85    17     *     *    85    83
+    88    END UpdateName;                                                           87    85
+    89 }
+    90 
+    91 BEGIN   {                                                                    86
+    92    BeginScanner;                                                             19
+    93    ClassCount     := 0;                                                      55
+    94    InitProperties := {Input};                                                53    26
+    95    ModuleIdent    := NoIdent;                                                57    87
+    96    SubUnit        := NoIdent;                                                34    95
+    97    ViewName       := NoIdent;                                                33    96
+    98    ParserName     := NoIdent;                                                58    97
+    99    TreeName       := NoIdent;                                                58    98
+   100    EvalName       := NoIdent;                                                58    99
+   101 }
+   102 
+   103 TOKEN                                                                         *
+   104    Ident        = 1                                                          87
+   105    Integer      = 2                                                           *
+   106    String       = 3                                                          27
+   107    TargetCode   = 4                                                           *
+   108    Code         = 5                                                           *
+   109    WhiteSpace   = 7                                                           *
+   110 
+   111    'LEFT'       = 37
+   112    'NONE'       = 39
+   113    'PREC'       = 36
+   114    'RIGHT'      = 38
+   115    'RULE'       = 22
+   116    AFTER        = 24                                                          *
+   117    BEFORE       = 25                                                          *
+   118    'BEGIN'      = 10
+   119    BODYWITH     = 80                                                          *
+   120    CHECK        = 26                                                          *
+   121    'CLOSE'      = 11
+   122    DECLARE      = 12                                                          *
+   123    DEMAND       = 28                                                          *
+   124    END          = 13                                                         88
+   125    EVAL         = 14                                                          *
+   126    'EXPORT'     = 15
+   127    FOR          = 71                                                          *
+   128    FUNCTION     = 6                                                           *
+   129    'GLOBAL'     = 16
+   130    IGNORE       = 72                                                          *
+   131    IMPORT       = 30                                                         24
+   132    INHERITED    = 34                                                          *
+   133    INPUT        = 31                                                          *
+   134    'LINK'       = 81
+   135    'LOCAL'      = 18
+   136    MODULE       = 19                                                          *
+   137    OUTPUT       = 32                                                          *
+   138    'PARSER'     = 35
+   139    PROPERTY     = 70                                                          *
+   140    REMOTE       = 76                                                          *
+   141    REVERSE      = 21                                                          *
+   142    'SCANNER'    = 77
+   143    SELECT       = 74                                                          *
+   144    SPECWITH     = 79                                                          *
+   145    STACK        = 20                                                          *
+   146    SUBUNIT      = 75                                                          *
+   147    SYNTHESIZED  = 33                                                          *
+   148    THREAD       = 27                                                          *
+   149    TREE         = 23                                                          *
+   150    VIEW         = 78                                                          *
+   151    VIRTUAL      = 17                                                          *
+   152 
+   153    '('          = 40
+   154    ')'          = 41
+   155    '['          = 42
+   156    ']'          = 43
+   157    '{'          = 44
+   158    '}'          = 45
+   159    ','          = 46
+   160    ';'          = 47
+   161    '.'          = 48
+   162    ':'          = 49
+   163    '='          = 50
+   164    ':='         = 52
+   165    '<'          = 57
+   166    '>'          = 58
+   167    '->'         = 59
+   168    ':-'         = 60
+   169    '=>'         = 61 (* Scanner also recognizes '==>' for this token code. *)
+   170    '<-'         = 62
+   171 
+   172 RULE                                                                          *
+   173 
+   174 Cg      :                                                                     *
+   175           ScannerName ParserCodes TreeCodes EvalCodes PrecPart PropPart DeclPart Rul\     *     *     *     *     *     *
+                                                                                     *
+      \ePart Modules                                                                 *     *
+   176         { TreeRoot := mAg (NoIdent, $1.Ident, ParserName, $2.Tree, TreeName, $3.Tree\    33    34   100   104    98    47
+                                                                                    99     *
+      \, EvalName, $4.Tree, $5.Tree, $6.Tree, $7.Tree, $8.Tree, ReverseTree ($9.Tree)); }      100     *     *     *     *     *
+                                                                                    40     *
+   177         | MODULE Ident                                                      136   176
+   178         { ModuleIdent := $0.Scan.Ident; }                                    95    45   177
+   179           ScannerName ParserCodes TreeCodes EvalCodes PrecPart PropPart DeclPart Rul\   175   175   175   175   175   175
+                                                                                   175
+      \ePart END Ident Modules                                                     175   124   178   175
+   180         { TreeRoot := mAg ($2.Scan.Ident, $4.Ident, ParserName, $5.Tree, TreeName, $\   176   176   178   179     *   176
+                                                                                   176   176
+      \6.Tree, EvalName, $7.Tree, $8.Tree, $9.Tree, $10.Tree, $11.Tree, ReverseTree ($14.Tr\     *   176     *     *     *     *
+                                                                                     *   176
+      \ee)); }                                                                       *
+   181         .
+   182 ScannerName:                                                                179
+   183         { $$.Ident := NoIdent; }                                            180   176
+   184         | 'SCANNER'
+   185         { ArrayToString ("Scanner", String1);                                16    54
+   186           $$.Ident := MakeIdent (String1); }                                183    17   185
+   187         | 'SCANNER' Name0                                                     *
+   188         { $$.Ident := $2.Scan.Ident; }                                      186   180     *
+   189         .
+   190 ParserCodes:                                                                179
+   191         { $$.Tree := mCodes (); }                                           180    83
+   192         | 'PARSER'       Codes                                               64
+   193         { $$.Tree := $2.Tree; }                                             191     *
+   194         | 'PARSER' Name0 Codes                                              187   192
+   195         { $$.Tree := $3.Tree; UpdateName (ParserName, $2.Scan.Ident); }     193     *    88   180   188   188
+   196         .
+   197 TreeCodes:           SubUnit                                                179    96
+   198         { $$.Tree := mCodes (); }                                           195   191
+   199         | TREE       SubUnit Codes                                          149   197   194
+   200         { $$.Tree := $3.Tree; }                                             198     *
+   201         | TREE Name0 SubUnit Codes                                          199   194   199   199
+   202         { $$.Tree := $4.Tree; UpdateName (TreeName, $2.Scan.Ident); }       200     *   195   180   195   195
+   203         .
+   204 EvalCodes:                                                                  179
+   205         { $$.Tree := mCodes (); }                                           202   198
+   206         | EVAL       Codes                                                  125   201
+   207         { $$.Tree := $2.Tree; }                                             205     *
+   208         | EVAL Name0 Codes                                                  206   201   206
+   209         { $$.Tree := $3.Tree; UpdateName (EvalName, $2.Scan.Ident); }       207     *   202   180   202   202
+   210         .
+   211 Codes   :                                                                   208
+   212         { $$.Tree := mCodes (); }                                           209   205
+   213         | Codes SPECWITH TargetCode                                         211   144   107
+   214         { $$.Tree := $1.Tree;                                               212     *
+   215           $$.Tree^.Codes.SpecWith           := $3.Scan.Text;                214   213    68   209     *
+   216           $$.Tree^.Codes.SpecWithLine := $3.Scan.Position; }                215   215    76   215     *
+   217         | Codes BODYWITH TargetCode                                         216   119   213
+   218         { $$.Tree := $1.Tree;                                               216     *
+   219           $$.Tree^.Codes.BodyWith           := $3.Scan.Text;                218   217    69   216   215
+   220           $$.Tree^.Codes.BodyWithLine := $3.Scan.Position; }                219   219    77   219   216
+   221         | Codes 'EXPORT' TargetCode                                         220   217
+   222         { $$.Tree := $1.Tree;                                               220     *
+   223           $$.Tree^.Codes.Export     := $3.Scan.Text;                        222   221    65   220   219
+   224           $$.Tree^.Codes.ExportLine := $3.Scan.Position; }                  223   223    73   223   220
+   225         | Codes IMPORT TargetCode                                           224   131   221
+   226         { $$.Tree := $1.Tree;                                               224     *
+   227           $$.Tree^.Codes.Import     := $3.Scan.Text;                        226   225    66   224   223
+   228           $$.Tree^.Codes.ImportLine := $3.Scan.Position; }                  227   227    74   227   224
+   229         | Codes 'GLOBAL' TargetCode                                         228   225
+   230         { $$.Tree := $1.Tree;                                               228     *
+   231           $$.Tree^.Codes.Global     := $3.Scan.Text;                        230   229    67   228   227
+   232           $$.Tree^.Codes.GlobalLine := $3.Scan.Position; }                  231   231    75   231   228
+   233         | Codes 'LOCAL'  TargetCode                                         232   229
+   234         { $$.Tree := $1.Tree;                                               232     *
+   235           $$.Tree^.Codes.Local      := $3.Scan.Text;                        234   233    70   232   231
+   236           $$.Tree^.Codes.LocalLine  := $3.Scan.Position; }                  235   235    78   235   232
+   237         | Codes 'BEGIN'  TargetCode                                         236   233
+   238         { $$.Tree := $1.Tree;                                               236     *
+   239           $$.Tree^.Codes.Begin      := $3.Scan.Text;                        238   237    71   236   235
+   240           $$.Tree^.Codes.BeginLine  := $3.Scan.Position; }                  239   239    79   239   236
+   241         | Codes 'CLOSE'  TargetCode                                         240   237
+   242         { $$.Tree := $1.Tree;                                               240     *
+   243           $$.Tree^.Codes.Close      := $3.Scan.Text;                        242   241    72   240   239
+   244           $$.Tree^.Codes.CloseLine  := $3.Scan.Position; }                  243   243    80   243   240
+   245         .
+   246 SubUnit :                                                                   201
+   247         | SubUnit SUBUNIT Name0                                             246   146   208
+   248         { UpdateName (SubUnit, $3.Scan.Ident); }                            209   247   244   209
+   249         | SubUnit VIEW Name0                                                248   150   247
+   250         { UpdateName (ViewName, $3.Scan.Ident); }                           248    97   248   248
+   251         .
+   252 PrecPart:                                                                   179
+   253         { $$.Tree := nNoPrec; }                                             244    33
+   254         | 'PREC' Precs                                                        *
+   255         { $$.Tree := ReverseTree ($2.Tree); }                               253   180     *
+   256         .
+   257 Precs   :                                                                   254
+   258         { $$.Tree := nNoPrec; }                                             255   253
+   259         | Precs 'LEFT'  Names                                               257     *
+   260         { $$.Tree := mLeftAssoc  (ReverseTree ($3.Tree), $1.Tree); }        258    35   255     *     *
+   261         | Precs 'RIGHT' Names                                               259   259
+   262         { $$.Tree := mRightAssoc (ReverseTree ($3.Tree), $1.Tree); }        260    35   260     *     *
+   263         | Precs 'NONE'  Names                                               261   261
+   264         { $$.Tree := mNonAssoc   (ReverseTree ($3.Tree), $1.Tree); }        262    36   262     *     *
+   265         .
+   266 PropPart:                                                                   179
+   267           Props                                                               *
+   268         { $$.Tree := ReverseTree ($1.Tree); }                               264   264     *
+   269         .
+   270 Props   :                                                                   267
+   271         { $$.Tree := nNoProp; }                                             268    31
+   272         | Props PROPERTY Properties                                         270   139    53
+   273         { $$.Tree := mProp ($3.Properties, mName (ModuleIdent, NoPosition, nNoName),\   271    39   272    39   178    80
+                                                                                    32
+      \ $1.Tree);                                                                    *
+   274           InitProperties := {}; }                                            94
+   275         | Props PROPERTY Properties FOR Names                               272   272   273   127   263
+   276         { $$.Tree := mProp ($3.Properties, ReverseTree ($5.Tree), $1.Tree);       273   273   275   268     *     *
+   277           InitProperties := {}; }                                           274
+   278         | Props SELECT Names                                                275   143   275
+   279         { $$.Tree := mSelect (ReverseTree ($3.Tree), $1.Tree);              276    39   276     *     *
+   280           InitProperties := {}; }                                           277
+   281         .
+   282 DeclPart:                                                                   179
+   283         { $$.Tree := nNoDecl; }                                             279    31
+   284         | DECLARE Decls                                                     122     *
+   285         { $$.Tree := ReverseTree ($2.Tree); }                               283   279     *
+   286         .
+   287 Decls   :                                                                   284
+   288         { $$.Tree := nNoDecl; }                                             285   283
+   289         | Decls Names '='                                                   287   278
+   290         { Properties := InitProperties; }                                   276   280
+   291           AttrDecls '.'                                                       *
+   292         { $$.Tree := mDecl (ReverseTree ($2.Tree), ReverseTree ($5.Tree), {Nontermin\   288    39   285     *     *     *
+      \al, Explicit}, $1.Tree); }                                                   28    28     *
+   293         | Decls Names ':'                                                   289   289
+   294         { Properties := InitProperties; }                                   290   290
+   295           AttrDecls '.'                                                     291
+   296         { $$.Tree := mDecl (ReverseTree ($2.Tree), ReverseTree ($5.Tree), {Terminal,\   292   292   292     *     *     *
+                                                                                    28
+      \ Explicit}, $1.Tree); }                                                     292     *
+   297         .
+   298 Names   :                                                                   293
+   299         { $$.Tree := nNoName; }                                             296   273
+   300         | Names Name1                                                       298     *
+   301         { $$.Tree := mName ($2.Scan.Ident, $2.Scan.Position, $1.Tree); }    299   273   250   250     *   244     *
+   302         | Names ','                                                         300
+   303         { $$.Tree := $1.Tree; }                                             301     *
+   304         .
+   305 RulePart:                                                                   179
+   306         { $$.Tree := nNoClass; }                                            303    31
+   307         | 'RULE' Types                                                        *
+   308         { $$.Tree := ReverseTree ($2.Tree); }                               306   296     *
+   309         .
+   310 Types   :                                                                   307
+   311         { $$.Tree := nNoClass; }                                            308   306
+   312 
+   313         | Types BaseTypes '='                                               310     *
+   314         { Properties := InitProperties; }                                   294   294
+   315           AttrDecls Prec Extensions '.'                                     295     *     *
+   316         { INC (ClassCount); IntToString (ClassCount, String2); ArrayToString ("yy", \     *    93    16     *    54   185
+      \String1);                                                                   186
+   317           Concatenate (String1, String2); ClassIdent := MakeIdent (String1);       16   316   316    57   186     *
+   318           $$.Tree := mClass (ClassIdent, {Nonterminal, Explicit}, ReverseTree ($5.Tr\   311    34   317   292   296   308
+      \ee),                                                                          *
+   319           $7.Tree, $1.Tree, ClassIdent, $3.Scan.Position, 0, $6.Scan.Ident, $2.Tree)\   318     *   318   301   301     *
+                                                                                   301     *
+      \; }
+   320 
+   321         | Types Name1 BaseTypes '='                                         313   300   313
+   322         { Properties := InitProperties; }                                   314   314
+   323           AttrDecls Prec Extensions '.'                                     315   315   315
+   324         { $$.Tree := mClass ($2.Scan.Ident, {Nonterminal, Explicit} + $2.Properties,    319   318   319   319   318   318
+                                                                                   322
+   325              ReverseTree ($6.Tree), $8.Tree, $1.Tree, $2.Scan.Ident, $2.Scan.Positio\   318   324     *     *   324   324
+                                                                                     *
+      \n, 0,                                                                       319
+   326              $7.Scan.Ident, $3.Tree); }                                     325   325   325
+   327 
+   328         | Types Name1 BaseTypes ':'                                         321   321   321
+   329         { Properties := InitProperties; }                                   324   322
+   330           TokenCode TypeProperties AttrDecls Prec Extensions '.'              *     *   323   323   323
+   331         { $$.Tree := mClass ($2.Scan.Ident, {Terminal, Explicit} + $2.Properties + $\   326   324   326   326   296   324
+                                                                                   329
+      \7.Properties,                                                                 *
+   332              ReverseTree ($8.Tree), $10.Tree, $1.Tree, $2.Scan.Ident, $2.Scan.Positi\   325   331     *     *   331   331
+                                                                                     *
+      \on,                                                                         325
+   333              $6.Scan.Integer, $9.Scan.Ident, $3.Tree); }                    332   105     *   332   332
+   334 
+   335         | Types Name1 Ident BaseTypes ':'                                   328   328   333   328
+   336         { Properties := InitProperties; }                                   331   329
+   337           TokenCode TypeProperties AttrDecls Prec Extensions '.'            330   330   330   330   330
+   338         { $$.Tree := mClass ($2.Scan.Ident, {Terminal, Explicit, HasSelector} + $2.P\   333   331   333   335   331   331
+                                                                                    28
+      \roperties + $8.Properties,                                                  336     *
+   339              ReverseTree ($9.Tree), $11.Tree, $1.Tree, $3.Scan.Ident, $2.Scan.Positi\   332   338     *     *   338   338
+                                                                                     *
+      \on,                                                                         332
+   340              $7.Scan.Integer, $10.Scan.Ident, $4.Tree); }                   339   333     *   339   339
+   341 
+   342         | Types Name1 BaseTypes ':='                                        335   335   335
+   343         { Properties := InitProperties; }                                   338   336
+   344           AttrDecls Prec Extensions '.'                                     337   337   337
+   345         { $$.Tree := mClass ($2.Scan.Ident, {Abstract, Explicit} + $2.Properties,       340   338   340   340    30   338
+                                                                                   343
+   346              ReverseTree ($6.Tree), $8.Tree, $1.Tree, $2.Scan.Ident, $2.Scan.Positio\   339   345     *     *   345   345
+                                                                                     *
+      \n, 0,                                                                       339
+   347              $7.Scan.Ident, $3.Tree); }                                     346   346   346
+   348         .
+   349 BaseTypes:                                                                  342
+   350         { $$.Tree := nNoName; }                                             347   299
+   351         | '<-' Names                                                        302
+   352         { $$.Tree := ReverseTree ($2.Tree); }                               350   346     *
+   353         .
+   354 TokenCode:                                                                  337
+   355         { $$.Scan.Integer := 0; }                                           347   340
+   356         | Integer                                                           355
+   357         { $$.Scan.Integer := $1.Scan.Integer; }                             355   356     *     *
+   358         .
+   359 Prec    :                                                                   344
+   360         { $$.Scan.Ident := NoIdent; }                                       357   347   183
+   361         | 'PREC' Name1                                                      342
+   362         { $$.Scan.Ident := $2.Scan.Ident; }                                 360   360     *     *
+   363         .
+   364 Extensions:                                                                 344
+   365         { $$.Tree := nNoClass; }                                            352   311
+   366         | '<' Types '>'                                                     342
+   367         { $$.Tree := ReverseTree ($2.Tree); }                               365   352     *
+   368         .
+   369 AttrDecls:                                                                  344
+   370         { $$.Tree := nNoAttribute; }                                        367    31
+   371         | AttrDecls '->'                                                    369
+   372         { $$.Tree := $1.Tree; Properties := {}; }                           370     *   345
+   373         | AttrDecls '[' Name1           Properties ']'                      371   361   372
+   374         { IF Thread IN $4.Properties THEN                                    87    29     *   373    87
+   375              Idents.GetString ($3.Scan.Ident, String1);                      22    15   362   362   317
+   376              ArrayToString ("In", String2);                                 316   317
+   377              Concatenate (String1, String2);                                317   375   376
+   378              $$.Tree := mAttribute ($1.Tree, MakeIdent (String1), iInteger, Properti\   372    35     *   317   377    25
+      \es + $4.Properties + {Inherited}, $3.Scan.Position);                        374     *    27   375   346
+   379              Idents.GetString ($3.Scan.Ident, String1);                     375   375   378   375   378
+   380              ArrayToString ("Out", String2);                                376   377
+   381              Concatenate (String1, String2);                                377   379   380
+   382              $$.Tree := mAttribute ($$.Tree, MakeIdent (String1), iInteger, Properti\   378   378     *   378   381   378
+      \es + $4.Properties + {Synthesized}, $3.Scan.Position);                      378     *    27   379   378
+   383           ELSE                                                                *
+   384              $$.Tree := mAttribute ($1.Tree, $3.Scan.Ident, iInteger, Properties + $\   382   382     *   382   379   382
+                                                                                   382
+      \4.Properties, $3.Scan.Position);                                              *     *   382
+   385           END;                                                              179
+   386         }
+   387         | AttrDecls '[' Name1 ':' Name1 Properties ']'                      373   373     *   384
+   388         { IF Thread IN $6.Properties THEN                                   374   374   374   387   374
+   389              Idents.GetString ($3.Scan.Ident, String1);                     379   379   384   384   382
+   390              ArrayToString ("In", String2);                                 380   381
+   391              Concatenate (String1, String2);                                381   389   390
+   392              $$.Tree := mAttribute ($1.Tree, MakeIdent (String1), $5.Scan.Ident, Pro\   384   384     *   382   391   389
+                                                                                   389
+      \perties + $6.Properties + {Inherited}, $3.Scan.Position);                   388     *   378     *   384
+   393              Idents.GetString ($3.Scan.Ident, String1);                     389   389   392   392   392
+   394              ArrayToString ("Out", String2);                                390   391
+   395              Concatenate (String1, String2);                                391   393   394
+   396              $$.Tree := mAttribute ($$.Tree, MakeIdent (String1), $5.Scan.Ident, Pro\   392   392     *   392   395   393
+                                                                                   393
+      \perties + $6.Properties + {Synthesized}, $3.Scan.Position);                 392     *   382     *   392
+   397           ELSE                                                              383
+   398              $$.Tree := mAttribute ($1.Tree, $3.Scan.Ident, $5.Scan.Ident, Propertie\   396   396     *   396   396     *
+                                                                                     *
+      \s + $6.Properties, $3.Scan.Position);                                       396     *     *   396
+   399           END;                                                              385
+   400         }
+   401         | AttrDecls '('           Name1 Properties ')'                      387   387   398
+   402         { $$.Tree := mChild ($1.Tree, $3.Scan.Ident, $3.Scan.Ident, Properties + $4.\   398    34     *   398   398     *
+                                                                                     *   401
+      \Properties, $3.Scan.Position); }                                              *     *   398
+   403         | AttrDecls '(' Name1 ':' Name1 Properties ')'                      401   401     *   402
+   404         { $$.Tree := mChild ($1.Tree, $3.Scan.Ident, $5.Scan.Ident, Properties + $6.\   402   402     *   402   402     *
+                                                                                     *   403
+      \Properties, $3.Scan.Position); }                                              *     *   402
+   405         | AttrDecls               Name1 Properties                          403   403   404
+   406         { $$.Tree := mChild ($1.Tree, $2.Scan.Ident, $2.Scan.Ident, Properties + $3.\   404   404     *   404   404     *
+                                                                                     *   405
+      \Properties, $2.Scan.Position); }                                              *     *   404
+   407         | AttrDecls     Name1 ':' Name1 Properties                          405   405     *   406
+   408         { $$.Tree := mChild ($1.Tree, $2.Scan.Ident, $4.Scan.Ident, Properties + $5.\   406   406     *   406   406     *
+                                                                                     *   407
+      \Properties, $2.Scan.Position); }                                              *     *   406
+   409         | AttrDecls     '{' Actions '}'                                     407     *
+   410         { $$.Tree := mActionPart ($1.Tree, ReverseTree ($3.Tree)); }        408    35     *   367     *
+   411         .
+   412 TypeProperties:                                                             337
+   413         { $$.Properties := {}; }                                            408
+   414         .
+   415 Properties:                                                                 413
+   416         { $$.Properties := {}; }                                            415
+   417         | Properties REVERSE                                                416   141
+   418         { $$.Properties := $1.Properties + {Reverse     }; }                417     *    25
+   419         | Properties 'LINK'                                                 418
+   420         { $$.Properties := $1.Properties + {Link        }; }                419     *    25
+   421         | Properties INPUT                                                  420   133
+   422         { $$.Properties := $1.Properties + {Input       }; }                421     *    94
+   423         | Properties OUTPUT                                                 422   137
+   424         { $$.Properties := $1.Properties + {Output      }; }                423     *    27
+   425         | Properties SYNTHESIZED                                            424   147
+   426         { $$.Properties := $1.Properties + {Synthesized }; }                425     *   396
+   427         | Properties INHERITED                                              426   132
+   428         { $$.Properties := $1.Properties + {Inherited   }; }                427     *   392
+   429         | Properties THREAD                                                 428   148
+   430         { $$.Properties := $1.Properties + {Thread      }; }                429     *   388
+   431         | Properties VIRTUAL                                                430   151
+   432         { $$.Properties := $1.Properties + {Virtual     }; }                431     *    29
+   433         | Properties STACK                                                  432   145
+   434         { $$.Properties := $1.Properties + {Stack       }; }                433     *    29
+   435         | Properties DEMAND                                                 434   123
+   436         { $$.Properties := $1.Properties + {Demand      }; }                435     *    29
+   437         | Properties FUNCTION                                               436   128
+   438         { $$.Properties := $1.Properties + {Funct       }; }                437     *    30
+   439         | Properties IGNORE                                                 438   130
+   440         { $$.Properties := $1.Properties + {Ignore      }; }                439     *    30
+   441         .
+   442 Actions :                                                                   409
+   443         { $$.Tree := nNoAction; }                                           410    30
+   444         | Actions Exprs ':=' Exprs ';'                                      442     *     *
+   445         { $$.Tree := mAssign ($1.Tree, $3.Scan.Position, ReverseTree ($2.Tree), Reve\   443    36     *   408   408   410
+                                                                                     *
+      \rseTree ($4.Tree)); }                                                         *     *
+   446         | Actions Exprs ':-' Exprs ';'                                      444   444     *
+   447         { $$.Tree := mCopy ($1.Tree, $3.Scan.Position, ReverseTree ($2.Tree), Revers\   445    36     *   445   445   445
+                                                                                     *
+      \eTree ($4.Tree)); }                                                           *     *
+   448         | Actions Exprs ':=' Exprs '{' Exprs '}' Exprs ';'                  446   446     *     *     *
+   449         { $$.Tree := mTargetCode ($1.Tree, $3.Scan.Position, ReverseTree ($2.Tree), \   447    36     *   447   447   447
+                                                                                     *
+      \ReverseTree ($6.Tree)); }                                                     *     *
+   450         | Actions Exprs AFTER Exprs ';'                                     448   448   116     *
+   451         { $$.Tree := mOrder ($1.Tree, NoPosition, ReverseTree ($2.Tree), ReverseTree\   449    37     *   273   449     *
+                                                                                     *
+      \ ($4.Tree)); }                                                                *
+   452         | Actions Exprs BEFORE Exprs ';'                                    450   450   117     *
+   453         { $$.Tree := mOrder ($1.Tree, NoPosition, ReverseTree ($4.Tree), ReverseTree\   451   451     *   451   451     *
+                                                                                     *
+      \ ($2.Tree)); }                                                                *
+   454         | Actions Checks ';'                                                452     *
+   455         { $$.Tree := $2.Tree; $$.Tree^.Check.Next := $1.Tree; }             453     *     *     *     *     *
+   456         | Actions Exprs ';'                                                 454   452
+   457         { $$.Tree := mTargetCode ($1.Tree, Attribute.Position, nNoDesignator, Revers\   455   449     *    19   449    32
+      \eTree ($2.Tree)); }                                                         453     *
+   458         | Actions Exprs                                                     456   456
+   459         { $$.Tree := mTargetCode ($1.Tree, Attribute.Position, nNoDesignator, Revers\   457   457     *   457   457   457
+      \eTree ($2.Tree)); }                                                         457     *
+   460         .
+   461 Checks  : Check                                                             454   455
+   462         { $$.Tree := $1.Tree; }                                             459     *
+   463         | Check Checks                                                      461   461
+   464         { $$.Tree := $1.Tree; $$.Tree^.Check.Actions := $2.Tree; }          462     *     *   463   458     *
+   465         .
+   466 Check   :                                                                   464
+   467                       '=>' Exprs                                            458
+   468         { $$.Tree := mCheck (nNoAction, NoPosition, NoTree, ReverseTree ($2.Tree), n\   464    37   443   453    33   459
+                                                                                     *
+      \NoAction); }                                                                  *
+   469         |             '=>' Exprs '{' Exprs '}' Space                        467     *     *
+   470         { $$.Tree := mCheck (nNoAction, NoPosition, NoTree, ReverseTree ($4.Tree), n\   468   468   468   468   468   468
+                                                                                     *
+      \NoAction); }                                                                  *
+   471         | CHECK Exprs                                                       120   469
+   472         { $$.Tree := mCheck (nNoAction, $1.Scan.Position, ReverseTree ($2.Tree), NoT\   470   470   470   449   459   470
+                                                                                     *
+      \ree, nNoAction); }                                                          470     *
+   473         | CHECK Exprs '=>' Exprs                                            471   471     *
+   474         { $$.Tree := mCheck (nNoAction, $1.Scan.Position, ReverseTree ($2.Tree), Rev\   472   472   472   472   472   472
+                                                                                     *
+      \erseTree ($4.Tree), nNoAction); }                                             *     *     *
+   475         | CHECK Exprs '=>' Exprs '{' Exprs '}' Space                        473   473     *     *   469
+   476         { $$.Tree := mCheck (nNoAction, $1.Scan.Position, ReverseTree ($2.Tree), Rev\   474   474   474   474   474   474
+                                                                                     *
+      \erseTree ($6.Tree), nNoAction); }                                             *     *     *
+   477         .
+   478 Exprs   :                                                                   475
+   479         { $$.Tree := nNoDesignator; }                                       476   459
+   480         | Exprs Name1 Space ':' Space Ident                                 478   407   475     *   408
+   481         { $$.Tree := mDesignator ($2.Scan.Ident, $6.Scan.Ident, $2.Scan.Position, $6\   479    37   476   480     *     *
+                                                                                     *   476
+      \.Scan.Position, $1.Tree); }                                                   *     *     *
+   482         | Exprs Name1 Space ':' Space                                       480   480   480     *
+   483         { $$.Tree := mIdent ($2.Scan.Ident, $2.Scan.Position, $1.Tree);     481    37   481   481     *   481     *
+   484           $$.Tree := mAnys (ReverseTree ($3.Tree), $$.Tree);                483    38   476     *     *
+   485           $$.Tree := mAny ($4.Scan.StringRef, $$.Tree);                     484    38   483     *     *
+   486           $$.Tree := mAnys (ReverseTree ($5.Tree), $$.Tree); }              485   484   484     *     *
+   487         | Exprs Name1 Space                                                 482   482   482
+   488         { $$.Tree := mIdent ($2.Scan.Ident, $2.Scan.Position, $1.Tree);     486   483   485   483     *   483     *
+   489           $$.Tree := mAnys (ReverseTree ($3.Tree), $$.Tree); }              488   486   486     *     *
+   490         | Exprs ':'                                                         487
+   491         { $$.Tree := mAny ($2.Scan.StringRef, $1.Tree); }                   489   485   488   485     *
+   492         | Exprs REMOTE Exprs '=>' Space Ident Space ':' Space Ident         490   140     *   487   488     *     *     *
+   493         { $$.Tree := mRemote (ReverseTree ($3.Tree), $6.Scan.Ident, $10.Scan.Ident, \   491    37   489     *   491   492
+                                                                                     *     *
+      \$10.Scan.Position, $1.Tree); }                                                *   488     *
+   494         | Exprs Code                                                        492   108
+   495         { $$.Tree := mAny ($2.Scan.StringRef, $1.Tree); }                   493   491   493   491     *
+   496         | Exprs WhiteSpace                                                  494   109
+   497         { $$.Tree := mAny ($2.Scan.StringRef, $1.Tree); }                   495   495   495   495     *
+   498         .
+   499 Modules :                                                                   179
+   500         { $$.Tree := nNoModule; }                                           497    32
+   501         | Modules MODULE Ident                                              499   177   493
+   502         { ModuleIdent := $0.Scan.Ident; }                                   273   497   501
+   503           ParserCodes TreeCodes EvalCodes PropPart DeclPart RulePart END Ident    190   197   204   266   282   305   399
+                                                                                   502
+   504         { $$.Tree := mModule ($3.Scan.Ident, $5.Tree, $6.Tree, $7.Tree, $8.Tree, $9.\   500    38   502   503     *     *
+                                                                                     *     *
+      \Tree, $10.Tree, $1.Tree); }                                                   *     *     *
+   505         .
+   506 Name0   :                                                                   249
+   507           Ident                                                             504
+   508         { $$.Scan := $1.Scan; }                                             504     *
+   509         | String                                                            106
+   510         { $$.Scan := $1.Scan; GetString ($1.Scan.StringRef, String1);       508     *   393     *   497   396
+   511           SubString (String1, 2, Length (String1) - 1, String2);             16   510    16     *   395
+   512           $$.Scan.Ident := MakeIdent (String2); }                           510   507   396   511
+   513         .
+   514 Name1   :                                                                   487
+   515           Ident                                                             512
+   516         { $$.Scan := $1.Scan;                                               512     *
+   517           $$.Properties := {}; }                                            440
+   518         | String                                                            509
+   519         { $$.Scan := $1.Scan; GetString ($1.Scan.StringRef, String1);       516     *   510     *   510   511
+   520           $$.Scan.Ident := MakeIdent (String1);                             519   515   512   519
+   521           $$.Properties := {String}; }                                      517   518
+   522         .
+   523 Space   :                                                                   492
+   524         { $$.Tree := nNoLayout; }                                           504    32
+   525         | Space WhiteSpace                                                  523   496
+   526         { $$.Tree := mLayoutAny ($2.Scan.StringRef, $1.Tree); }             524    38   520   519     *
+   527         .
+Cross reference: 
+
+-A-
+ Abstract                        30   345 
+ Actions                        409   442   444   446   448   450   452   454   456   458   464 
+ AFTER                          116   450 
+ ArrayToString                   16   185   316   376   380   390   394 
+ AttrDecls                      291   295   315   323   330   337   344   369   371   373   387   401   403   405   407   409 
+ Attribute                       19   457   459 
+
+-B-
+ BaseTypes                      313   321   328   335   342   349 
+ BEFORE                         117   452 
+ BEGIN                           62    86    91 
+ Begin                           71   239 
+ BeginLine                       79   240 
+ BeginScanner                    19    92 
+ BeginTree                       40 
+ BITSET                          46    53 
+ BODYWITH                       119   217 
+ BodyWith                        69   219 
+ BodyWithLine                    77   220 
+
+-C-
+ CARDINAL                        56 
+ CASE                            44 
+ Cg                             174 
+ CHECK                          120   471   473   475 
+ Check                          455   461   463   464   466 
+ Checks                         454   461   463 
+ ClassCount                      55    93   316   316 
+ ClassIdent                      57   317   318   319 
+ Close                           72   243 
+ CloseLine                       80   244 
+ CloseTree                       40 
+ Code                           108   494 
+ Codes                           40    63    64   192   194   199   201   206   208   211   213   215   216   217   219   220   221 
+                                223   224   225   227   228   229   231   232   233   235   236   237   239   240   241   243   244 
+ Concatenate                     16   317   377   381   391   395 
+
+-D-
+ DECLARE                        122   284 
+ DeclPart                       175   179   282   503 
+ Decls                          284   287   289   293 
+ DEMAND                         123   435 
+ Demand                          29   436 
+ DO                              64 
+
+-E-
+ ELSE                           383   397 
+ END                             49    50    81    83    87    88   124   179   385   399   503 
+ EVAL                           125   206   208 
+ EvalCodes                      175   179   204   503 
+ EvalName                        58   100   176   180   209 
+ Explicit                        28   292   296   318   324   331   338   345 
+ Export                          65   223 
+ ExportLine                      73   224 
+ Exprs                          444   444   446   446   448   448   448   448   450   450   452   452   456   458   467   469   469 
+                                471   473   473   475   475   475   478   480   482   487   490   492   492   494   496 
+ Extensions                     315   323   330   337   344   364 
+
+-F-
+ FOR                            127   275 
+ FROM                            15    16    17    18    19    20    24 
+ Funct                           30   438 
+ FUNCTION                       128   437 
+
+-G-
+ GetString                       15   375   379   389   393   510   519 
+ GLOBAL                          13 
+ Global                          67   231 
+ GlobalLine                      75   232 
+
+-H-
+ HasSelector                     28   338 
+
+-I-
+ i                               56 
+ Ident                           48    85    87   104   176   177   178   179   180   180   183   186   188   188   195   202   209 
+                                248   250   301   319   324   325   326   331   332   333   335   338   339   340   345   346   347 
+                                360   362   362   375   379   384   389   392   393   396   398   398   402   402   404   404   406 
+                                406   408   408   480   481   481   483   488   492   492   493   493   501   502   503   504   507 
+                                512   515   520 
+ Idents                          17    22   375   379   389   393 
+ IF                              87   374   388 
+ IGNORE                         130   439 
+ Ignore                          30   440 
+ iInteger                        25   378   382   384 
+ IMPORT                          15    16    17    18    19    20    22    24   131   225 
+ Import                          66   227 
+ ImportLine                      74   228 
+ IN                             374   388 
+ INC                            316 
+ INHERITED                      132   427 
+ Inherited                       27   378   392   428 
+ InitProperties                  53    94   274   277   280   290   294   314   322   329   336   343 
+ INPUT                          133   421 
+ Input                           26    94   422 
+ INTEGER                         44    55 
+ Integer                        105   333   340   355   356   357   357 
+ IntToString                     16   316 
+
+-L-
+ Length                          16   511 
+ Link                            25   420 
+ Local                           70   235 
+ LocalLine                       78   236 
+
+-M-
+ mActionPart                     35   410 
+ mAg                             34   176   180 
+ MakeIdent                       17   186   317   378   382   392   396   512   520 
+ MakeText                        18    65    66    67    68    69    70    71    72 
+ MakeTree                        25    63 
+ mAny                            38   485   491   495   497 
+ mAnys                           38   484   486   489 
+ mAssign                         36   445 
+ mAttribute                      35   378   382   384   392   396   398 
+ mCheck                          37   468   470   472   474   476 
+ mChild                          34   402   404   406   408 
+ mClass                          34   318   324   331   338   345 
+ mCodes                          60    83   191   198   205   212 
+ mCopy                           36   447 
+ mDecl                           39   292   296 
+ mDesignator                     37   481 
+ mIdent                          37   483   488 
+ mLayoutAny                      38   526 
+ mLeftAssoc                      35   260 
+ mModule                         38   504 
+ mName                           39   273   301 
+ mNonAssoc                       36   264 
+ MODULE                         136   177   501 
+ ModuleIdent                     57    95   178   273   502 
+ Modules                        175   179   499   501 
+ mOrder                          37   451   453 
+ mProp                           39   273   276 
+ mRemote                         37   493 
+ mRightAssoc                     35   262 
+ mSelect                         39   279 
+ mTargetCode                     36   449   457   459 
+
+-N-
+ Name                            85    87    87 
+ Name0                          187   194   201   208   247   249   506 
+ Name1                          300   321   328   335   342   361   373   387   387   401   403   403   405   407   407   480   482 
+                                487   514 
+ Names                          259   261   263   275   278   289   293   298   300   302   351 
+ Next                           455 
+ nNoAction                       30   443   468   468   470   470   472   472   474   474   476   476 
+ nNoAttribute                    31   370 
+ nNoClass                        31   306   311   365 
+ nNoDecl                         31   283   288 
+ nNoDesignator                   32   457   459   479 
+ nNoLayout                       32   524 
+ nNoModule                       32   500 
+ nNoName                         32   273   299   350 
+ nNoPrec                         33   253   258 
+ nNoProp                         31   271 
+ NoIdent                         17    87    95    96    97    98    99   100   176   183   360 
+ Nonterminal                     28   292   318   324 
+ NoPosition                      20    73    74    75    76    77    78    79    80   273   451   453   468   470 
+ NoTree                          33   468   470   472 
+
+-O-
+ OF                              44 
+ OUTPUT                         137   423 
+ Output                          27   424 
+
+-P-
+ ParserCodes                    175   179   190   503 
+ ParserName                      58    98   176   180   195 
+ Position                       216   220   224   228   232   236   240   244   301   319   325   332   339   346   378   382   384 
+                                392   396   398   402   404   406   408   445   447   449   457   459   472   474   476   481   481 
+                                483   488   493 
+ Positions                       20 
+ Prec                           315   323   330   337   344   359 
+ PrecPart                       175   179   252 
+ Precs                          254   257   259   261   263 
+ PROCEDURE                       60    85 
+ Properties                      46    53   272   273   275   276   290   294   314   322   324   329   331   331   336   338   338 
+                                343   345   372   373   374   378   378   382   382   384   384   387   388   392   392   396   396 
+                                398   398   401   402   402   403   404   404   405   406   406   407   408   408   413   415   416 
+                                417   418   418   419   420   420   421   422   422   423   424   424   425   426   426   427   428 
+                                428   429   430   430   431   432   432   433   434   434   435   436   436   437   438   438   439 
+                                440   440   517   521 
+ PROPERTY                       139   272   275 
+ PropPart                       175   179   266   503 
+ Props                          267   270   272   275   278 
+
+-R-
+ RECORD                          43 
+ REMOTE                         140   492 
+ RETURN                          82 
+ REVERSE                        141   417 
+ Reverse                         25   418 
+ ReverseTree                     40   176   180   255   260   262   264   268   276   279   285   292   292   296   296   308   318 
+                                325   332   339   346   352   367   410   445   445   447   447   449   449   451   451   453   453 
+                                457   459   468   470   472   474   474   476   476   484   486   489   493 
+ RULE                           172 
+ RulePart                       175   179   305   503 
+
+-S-
+ Scan                            45   178   180   188   195   202   209   215   216   219   220   223   224   227   228   231   232 
+                                235   236   239   240   243   244   248   250   301   301   319   319   324   325   325   326   331 
+                                332   332   333   333   338   339   339   340   340   345   346   346   347   355   357   357   360 
+                                362   362   375   378   379   382   384   384   389   392   392   393   396   396   398   398   398 
+                                402   402   402   404   404   404   406   406   406   408   408   408   445   447   449   472   474 
+                                476   481   481   481   481   483   483   485   488   488   491   493   493   493   495   497   502 
+                                504   508   508   510   510   510   512   516   516   519   519   519   520   526 
+ Scanner                         19    45 
+ ScannerName                    175   179   182 
+ SELECT                         143   278 
+ Space                          469   475   480   480   482   482   487   492   492   492   523   525 
+ SPECWITH                       144   213 
+ SpecWith                        68   215 
+ SpecWithLine                    76   216 
+ STACK                          145   433 
+ Stack                           29   434 
+ String                          27   106   509   518   521 
+ String1                         54   185   186   316   317   317   375   377   378   379   381   382   389   391   392   393   395 
+                                396   510   511   511   519   520 
+ String2                         54   316   317   376   377   380   381   390   391   394   395   511   512 
+ StringMem                       15 
+ StringRef                      485   491   495   497   510   519   526 
+ Strings                         16 
+ SubString                       16   511 
+ SUBUNIT                        146   247 
+ SubUnit                         34    96   197   199   201   246   247   248   249 
+ SYNTHESIZED                    147   425 
+ Synthesized                     27   382   396   426 
+
+-T-
+ t                               61    63    64    82 
+ TargetCode                     107   213   217   221   225   229   233   237   241 
+ Terminal                        28   296   331   338 
+ Text                           215   219   223   227   231   235   239   243 
+ Texts                           18 
+ THEN                            87   374   388 
+ THREAD                         148   429 
+ Thread                          29   374   388   430 
+ tIdent                          17    48    57    58    85    85 
+ TOKEN                          103 
+ TokenCode                      330   337   354 
+ tParsAttribute                  43 
+ TREE                           149   199   201 
+ Tree                            24    47   176   176   176   176   176   176   176   176   180   180   180   180   180   180   180 
+                                180   191   193   193   195   195   198   200   200   202   202   205   207   207   209   209   212 
+                                214   214   215   216   218   218   219   220   222   222   223   224   226   226   227   228   230 
+                                230   231   232   234   234   235   236   238   238   239   240   242   242   243   244   253   255 
+                                255   258   260   260   260   262   262   262   264   264   264   268   268   271   273   273   276 
+                                276   276   279   279   279   283   285   285   288   292   292   292   292   296   296   296   296 
+                                299   301   301   303   303   306   308   308   311   318   318   319   319   319   324   325   325 
+                                325   326   331   332   332   332   333   338   339   339   339   340   345   346   346   346   347 
+                                350   352   352   365   367   367   370   372   372   378   378   382   382   384   384   392   392 
+                                396   396   398   398   402   402   404   404   406   406   408   408   410   410   410   443   445 
+                                445   445   445   447   447   447   447   449   449   449   449   451   451   451   451   453   453 
+                                453   453   455   455   455   455   457   457   457   459   459   459   462   462   464   464   464 
+                                464   468   468   470   470   472   472   474   474   474   476   476   476   479   481   481   483 
+                                483   484   484   484   485   485   486   486   486   488   488   489   489   489   491   491   493 
+                                493   493   495   495   497   497   500   504   504   504   504   504   504   504   504   524   526 
+                                526 
+ TreeCodes                      175   179   197   503 
+ TreeName                        58    99   176   180   202 
+ TreeRoot                        33   176   180 
+ tScanAttribute                  19    45 
+ tString                         16    54 
+ tTree                           33    47    60    61 
+ TYPE                            42 
+ TypeProperties                 330   337   412 
+ Types                          307   310   313   321   328   335   342   366 
+
+-U-
+ UpdateName                      85    88   195   202   209   248   250 
+
+-V-
+ VAR                             52    61    85 
+ VIEW                           150   249 
+ ViewName                        33    97   250 
+ VIRTUAL                        151   431 
+ Virtual                         29   432 
+
+-W-
+ WhiteSpace                     109   496   525 
+ WITH                            64 
+
+end cross reference, 1432 occurrences of 205 identifiers.

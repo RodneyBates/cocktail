@@ -1,0 +1,661 @@
+     1 (* handle and log errors *)
+     2 
+     3 (* $Id: Errors.mi,v 2.4 1992/08/07 15:13:51 grosch rel $ *)
+     4 
+     5 (* $Log: Errors.mi,v $
+c    6  * Revision 2.4  1992/08/07  15:13:51  grosch
+c    7  * allow several scanner and parsers; extend module Errors
+c    8  *
+c    9  * Revision 2.3  1992/01/30  13:34:33  grosch
+c   10  * redesign of interface to operating system
+c   11  *
+c   12  * Revision 2.2  1991/11/21  14:47:50  grosch
+c   13  * new version of RCS on SPARC
+c   14  *
+c   15  * Revision 2.1  91/03/19  14:47:01  grosch
+c   16  * print error message if ErrorTab can not be opened
+c   17  * 
+c   18  * Revision 2.0  91/03/08  18:26:17  grosch
+c   19  * turned tables into initialized arrays (in C)
+c   20  * moved mapping tokens -> strings from Errors to Parser
+c   21  * changed interface for source position
+c   22  * 
+c   23  * Revision 1.1  90/06/11  18:44:45  grosch
+c   24  * layout improvements
+c   25  * 
+c   26  * Revision 1.0  88/10/04  14:26:44  vielsack
+c   27  * Initial revision
+c   28  * 
+c   29  *)
+    30 
+    31 IMPLEMENTATION MODULE Errors;                                                 *     *
+    32 
+    33 FROM    IO              IMPORT  tFile,          StdError,       WriteC,       *     *     *     *
+    34                                 WriteNl,        WriteS,         WriteI,       *     *     *
+    35                                 WriteLong,      WriteB,         WriteR,       *     *     *
+    36                                 ReadOpen,       ReadClose,      EndOfFile,          *     *     *
+    37                                 CloseIO;                                      *
+    38 FROM    Listing         IMPORT  tListMode,      ListMode,       PutError,     *     *     *     *
+    39                                 HasError,       GetError;                     *     *
+    40 FROM    Memory          IMPORT  Alloc;                                        *     *
+    41 FROM    Sets            IMPORT  tSet,           MakeSet,        IsElement,          *     *     *     *
+    42                                 Assign;                                       *
+    43 FROM    Strings         IMPORT  tString,        AssignEmpty,    SubString,          *     *     *     *
+    44                                 Char,           ReadL,          Length,       *     *     *
+    45                                 ArrayToString,  StringToInt;                  *     *
+    46 FROM    StringMem       IMPORT  tStringRef,     PutString,      GetString,          *     *     *     *
+    47                                 WriteString;                                  *
+    48 FROM    Idents          IMPORT  tIdent,         WriteIdent;                   *     *     *
+    49 FROM    SysError        IMPORT  StatIsBad,      SysErrorMessageI;             *     *     *
+    50 FROM    System          IMPORT  Exit;                                         *     *
+    51 FROM    SYSTEM          IMPORT  ADDRESS,        ADR,            TSIZE;        *     *     *     *
+    52 FROM    TokenTab        IMPORT  TokenError,     TokenToSymbol,  MAXTerm;      *     *     *     *
+    53 FROM    Positions       IMPORT  tPosition,      NoPosition;                   *     *     *
+    54 
+    55 IMPORT Strings;                                                              43
+    56 
+    57 CONST
+    58   eNone         = 0     ;       (* for internal use     *)                    *
+    59   cTab          = 11C   ;       (* tab character        *)                    *
+    60   NoStringRef   = -1    ;                                                     *
+    61 
+    62   MaxCode       = 160   ;                                                     *
+    63   eWrongClass   = 16    ;                                                     *
+    64   eWrongCode    = 17    ;                                                     *
+    65 
+    66 VAR 
+    67   NoReports     : BOOLEAN;                                                    *     *
+    68   ReportMode    : tReportMode;                                                *     *
+    69   ErrorClassRef : ARRAY [0..MaxErrorClass] OF tStringRef;                     *     *    46
+    70   ErrorCodeRef  : ARRAY [0..MaxCode]  OF tStringRef;                          *    62    46
+    71   ErrorCountRef : ARRAY [0..MaxErrorClass] OF tStringRef;                     *     *    46
+    72   i             : CARDINAL;     (* index to initialize date structure *)      *     *
+    73 
+    74 PROCEDURE ErrorMessage  (ErrorCode, ErrorClass: CARDINAL; Position: tPosition);     *     *     *     *     *    53
+    75    BEGIN
+    76       ErrorMessageI (ErrorCode, ErrorClass, Position, eNone, NIL);            *    74    74    74    58     *
+    77    END ErrorMessage;                                                         74
+    78 
+    79 PROCEDURE ErrorMessageI (ErrorCode, ErrorClass: CARDINAL; Position: tPosition;      *    74    74     *    74    53
+    80                          InfoClass: CARDINAL; Info: ADDRESS);                 *     *     *    51
+    81    BEGIN
+    82       INC (ErrorCount [ErrorClass]);                                          *     *    79
+    83       IF ErrorClass IN ReportClass THEN                                      79     *
+    84         NoReports := FALSE;                                                  67     *
+    85         IF ReportMode = eImmediate THEN                                      68     *
+    86           WriteErrorMessage (ErrorCode, ErrorClass, Position.Line, Position.Column);      *    79    79    79     *    79
+                                                                                     *
+    87           WriteInfo (InfoClass, Info);                                        *    80    80
+    88           WriteNl (StdError);                                                34    33
+    89         ELSE
+    90           KeepInfo (InfoClass, Info);                                         *    80    80
+    91           PutError (ErrorCode, ErrorClass, Position.Line, Position.Column, InfoClass\    38    79    79    79     *    79
+                                                                                     *    80
+      \, Info);                                                                     80
+    92         END;
+    93       END;
+    94       IF ErrorClass < 3 THEN Finish END;                                     79     *
+    95    END ErrorMessageI;                                                        79
+    96 
+    97 PROCEDURE SetReportMode (mode: tReportMode);                                  *     *     *
+    98   BEGIN
+    99     ReportMode := mode;                                                      68    97
+   100     CASE ReportMode OF                                                       68
+   101       eListing :                                                              *
+   102         ListMode := Listing;                                                 38    38
+   103     ELSE
+   104         ListMode := NoListing;                                               38     *
+   105     END;
+   106   END SetReportMode;                                                         97
+   107 
+   108 PROCEDURE BeginErrors;                                                        *
+   109   VAR
+   110     i : CARDINAL;                                                            72     *
+   111     f : tFile;                                                                *    33
+   112     s : tString;                                                              *    43
+   113     line : tString;                                                           *    43
+   114   BEGIN
+   115     f := ReadOpen (ErrorTable);                                             111    36     *
+   116     IF StatIsBad (f) THEN                                                    49   111
+   117       WriteS (StdError, 'Fatal error: cannot open ');                        34    33
+   118       WriteS (StdError, ErrorTable);                                         34    33     *
+   119       WriteNl (StdError);                                                    34    33
+   120       RETURN;
+   121     END;
+   122 
+   123     LOOP
+   124       IF EndOfFile (f) THEN EXIT; END;                                       36   111
+   125       ReadL (f, line);                                                       44   111   113
+   126       IF Char (line, 1) = '$' THEN EXIT; END;                                44   113
+   127       IF Char (line, 1) # '%' THEN                                           44   113
+   128         SplitLine (line, i, s);                                               *   113   110   112
+   129         IF (i<0) OR (i>MaxErrorClass) THEN                                  110   110     *
+   130           ErrorMessageI (eWrongClass, eError, NoPosition, eString, ADR(line));     79    63     *    53     *    51   113
+   131         ELSE
+   132           ErrorClassRef [i] := PutString (s);                                69   110    46   112
+   133         END;
+   134       END;
+   135     END;
+   136 
+   137     LOOP
+   138       IF EndOfFile (f) THEN EXIT; END;                                       36   111
+   139       ReadL (f, line);                                                       44   111   113
+   140       IF Char (line, 1) = '$' THEN EXIT; END;                                44   113
+   141       IF Char (line, 1) # '%' THEN                                           44   113
+   142         SplitLine (line, i, s);                                               *   113   110   112
+   143         IF (i<0) OR (i>MaxCode) THEN                                        110   110    62
+   144           ErrorMessageI (eWrongCode, eError, NoPosition, eString, ADR(line));      79    64     *    53     *    51   113
+   145         ELSE
+   146           ErrorCodeRef [i] := PutString (s);                                 70   110    46   112
+   147         END;
+   148       END;
+   149     END;
+   150 
+   151     LOOP
+   152       IF EndOfFile (f) THEN EXIT; END;                                       36   111
+   153       ReadL (f, line);                                                       44   111   113
+   154       IF Char (line, 1) = '$' THEN EXIT; END;                                44   113
+   155       IF Char (line, 1) # '%' THEN                                           44   113
+   156         SplitLine (line, i, s);                                               *   113   110   112
+   157         IF (i<0) OR (i>MaxErrorClass) THEN                                  110   110     *
+   158           ErrorMessageI (eWrongClass, eError, NoPosition, eString, ADR(line));     79    63     *    53     *    51   113
+   159         ELSE
+   160           ErrorCountRef [i] := PutString (s);                                71   110    46   112
+   161         END;
+   162       END;
+   163     END;
+   164     ReadClose (f);                                                           36   111
+   165   END BeginErrors;                                                          108
+   166 
+   167 PROCEDURE CloseErrors ();                                                     *
+   168    VAR 
+   169      i : CARDINAL;                                                          110     *
+   170      r : tStringRef;                                                          *    46
+   171      ErrorCode, ErrorClass, Line, Column, InfoClass: CARDINAL;               79    79     *     *    80     *
+   172      Info : ADDRESS;                                                         80    51
+   173    BEGIN
+   174      IF NoReports THEN RETURN END;                                           67
+   175 
+   176      WHILE HasError() DO                                                     39
+   177         GetError (ErrorCode, ErrorClass, Line, Column, InfoClass, Info);     39   171   171   171   171   171   172
+   178         WriteErrorMessage (ErrorCode, ErrorClass, Line, Column);              *   171   171   171   171
+   179         WriteInfo (InfoClass, Info);                                          *   171   172
+   180         WriteNl (StdError);                                                  34    33
+   181      END;
+   182 
+   183      FOR i := 0 TO MaxErrorClass DO                                         169     *
+   184        IF ErrorCount [i] > 0 THEN                                             *   169
+   185          WriteS (StdError, '  ');                                            34    33
+   186          WriteI (StdError, ErrorCount [i], 1);                               34    33     *   169
+   187          WriteC (StdError, ' ');                                             33    33
+   188 
+   189          r := ErrorCountRef [i];                                            170    71   169
+   190          IF r = NoStringRef THEN                                            170    60
+   191            WriteS (StdError, 'in error class ');                             34    33
+   192            WriteI (StdError, i, 1);                                          34    33   169
+   193          ELSE
+   194            WriteString (StdError, r);                                        47    33   170
+   195          END;
+   196        END;
+   197      END; 
+   198      WriteNl (StdError);                                                     34    33
+   199    END CloseErrors;                                                         167
+   200 
+   201 PROCEDURE WriteErrorMessage (ErrorCode, ErrorClass, Line, Column: CARDINAL);        *   171   171   171   171     *
+   202    VAR r : tStringRef;                                                      170    46
+   203    BEGIN
+   204       IF (ReportMode # eListing) & (Line # 0) THEN                           68     *   201
+   205         WriteI (StdError, Line, 3);                                          34    33   201
+   206         WriteS (StdError, ', ');                                             34    33
+   207       END;
+   208       IF Column # 0 THEN                                                    201
+   209         WriteI (StdError, Column, 2);                                        34    33   201
+   210         WriteS (StdError, ': ');                                             34    33
+   211       END;
+   212 
+   213       IF (ErrorClass > MaxErrorClass) OR (ErrorClass < 0) THEN              201     *   201
+   214         WriteS (StdError, 'Error class: ');                                  34    33
+   215         WriteI (StdError, ErrorClass, 1);                                    34    33   201
+   216       ELSE
+   217         r := ErrorClassRef [ErrorClass];                                    202    69   201
+   218         IF r = NoStringRef THEN                                             202    60
+   219           WriteS (StdError, 'Error class: ');                                34    33
+   220           WriteI (StdError, ErrorClass, 1);                                  34    33   201
+   221         ELSE
+   222           WriteString (StdError, r);                                         47    33   202
+   223         END;
+   224       END;
+   225 
+   226       IF (ErrorCode > MaxCode) OR (ErrorCode < 0) THEN                      201    62   201
+   227         IF ErrorCode >= SysOffset THEN                                      201     *
+   228           WriteS (StdError, ' system error code: ');                         34    33
+   229           WriteI (StdError, ErrorCode - SysOffset, 1);                       34    33   201     *
+   230         ELSE
+   231           WriteS (StdError, ' error code: ');                                34    33
+   232           WriteI (StdError, ErrorCode, 1);                                   34    33   201
+   233         END;
+   234       ELSE
+   235         r := ErrorCodeRef [ErrorCode];                                      202    70   201
+   236         IF r = NoStringRef THEN                                             202    60
+   237           IF ErrorCode >= SysOffset THEN                                    201     *
+   238             WriteS (StdError, ' system error code: ');                       34    33
+   239             WriteI (StdError, ErrorCode - SysOffset, 1);                     34    33   201     *
+   240           ELSE
+   241             WriteS (StdError, ' error code: ');                              34    33
+   242             WriteI (StdError, ErrorCode, 1);                                 34    33   201
+   243           END;
+   244         ELSE
+   245           WriteString (StdError, r);                                         47    33   202
+   246         END;
+   247       END;
+   248    END WriteErrorMessage;                                                   201
+   249 
+   250 PROCEDURE KeepInfo  (InfoClass: CARDINAL; VAR Info: ADDRESS);                 *   171     *   172    51
+   251    VAR
+   252       InfPtrToInteger,  PtrToInteger    : POINTER TO INTEGER;                 *     *     *
+   253       InfPtrToShort,    PtrToShort      : POINTER TO SHORTCARD;               *     *     *
+   254       InfPtrToLong,     PtrToLong       : POINTER TO LONGINT;                 *     *     *
+   255       InfPtrToReal,     PtrToReal       : POINTER TO REAL;                    *     *     *
+   256       InfPtrToBoolean,  PtrToBoolean    : POINTER TO BOOLEAN;                 *     *     *
+   257       InfPtrToCharacter,PtrToCharacter  : POINTER TO CHAR;                    *     *     *
+   258       InfPtrToString,   PtrToString     : POINTER TO tString;                 *     *    43
+   259       InfPtrToArray,    PtrToArray      : POINTER TO ARRAY [0..255] OF CHAR;        *     *     *
+   260       InfPtrToSet,      PtrToSet        : POINTER TO tSet;                    *     *    41
+   261       InfPtrToIdent,    PtrToIdent      : POINTER TO tIdent;                  *     *    48
+   262    BEGIN
+   263       IF InfoClass = eNone THEN RETURN END;                                 250    58
+   264       CASE InfoClass OF                                                     250
+   265 
+   266       |  eInteger:                                                            *
+   267             InfPtrToInteger := Alloc (TSIZE (INTEGER));                     252    40    51     *
+   268             PtrToInteger := Info;                                           252   250
+   269             InfPtrToInteger^ := PtrToInteger^;                              252   252
+   270             Info := InfPtrToInteger;                                        250   252
+   271       |  eShort:                                                              *
+   272             InfPtrToShort := Alloc (TSIZE (SHORTCARD));                     253    40    51     *
+   273             PtrToShort := Info;                                             253   250
+   274             InfPtrToShort^ := PtrToShort^;                                  253   253
+   275             Info := InfPtrToShort;                                          250   253
+   276       |  eLong:                                                               *
+   277             InfPtrToLong := Alloc (TSIZE (LONGINT));                        254    40    51     *
+   278             PtrToLong := Info;                                              254   250
+   279             InfPtrToLong^ := PtrToLong^;                                    254   254
+   280             Info := InfPtrToLong;                                           250   254
+   281       |  eReal:                                                               *
+   282             InfPtrToReal := Alloc (TSIZE (REAL));                           255    40    51     *
+   283             PtrToReal := Info;                                              255   250
+   284             InfPtrToReal^ := PtrToReal^;                                    255   255
+   285             Info := InfPtrToReal;                                           250   255
+   286       |  eBoolean:                                                            *
+   287             InfPtrToBoolean := Alloc (TSIZE (BOOLEAN));                     256    40    51     *
+   288             PtrToBoolean := Info;                                           256   250
+   289             InfPtrToBoolean^ := PtrToBoolean^;                              256   256
+   290             Info := InfPtrToBoolean;                                        250   256
+   291       |  eCharacter:                                                          *
+   292             InfPtrToCharacter := Alloc (TSIZE (CHAR));                      257    40    51     *
+   293             PtrToCharacter := Info;                                         257   250
+   294             InfPtrToCharacter^ := PtrToCharacter^;                          257   257
+   295             Info := InfPtrToCharacter;                                      250   257
+   296       |  eString:                                                             *
+   297             InfPtrToString := Alloc (TSIZE (tString));                      258    40    51    43
+   298             PtrToString := Info;                                            258   250
+   299             Strings.Assign (InfPtrToString^, PtrToString^);                  55    42   258   258
+   300             Info := InfPtrToString;                                         250   258
+   301       |  eArray:                                                              *
+   302             InfPtrToArray := Alloc (256);                                   259    40
+   303             PtrToArray := Info;                                             259   250
+   304             InfPtrToArray^ := PtrToArray^;                                  259   259
+   305             Info := InfPtrToArray;                                          250   259
+   306       |  eIdent:                                                              *
+   307             InfPtrToIdent := Alloc (TSIZE (tIdent));                        261    40    51    48
+   308             PtrToIdent := Info;                                             261   250
+   309             InfPtrToIdent^ := PtrToIdent^;                                  261   261
+   310             Info := InfPtrToIdent;                                          250   261
+   311       |  eTermSet:                                                            *
+   312             InfPtrToSet := Alloc (TSIZE (tSet));                            260    40    51    41
+   313             PtrToSet := Info;                                               260   250
+   314             MakeSet (InfPtrToSet^, PtrToSet^.MaxElmt);                       41   260   260     *
+   315             Assign (InfPtrToSet^, PtrToSet^);                                42   260   260
+   316             Info := InfPtrToSet;                                            250   260
+   317       ELSE
+   318       END;
+   319    END KeepInfo;                                                            250
+   320 
+   321 PROCEDURE WriteInfo (InfoClass: CARDINAL; Info: ADDRESS);                     *   250     *   250    51
+   322    VAR
+   323       PtrToInteger      : POINTER TO INTEGER;                               252     *
+   324       PtrToShort        : POINTER TO SHORTCARD;                             253     *
+   325       PtrToLong         : POINTER TO LONGINT;                               254     *
+   326       PtrToReal         : POINTER TO REAL;                                  255     *
+   327       PtrToBoolean      : POINTER TO BOOLEAN;                               256     *
+   328       PtrToCharacter    : POINTER TO CHAR;                                  257     *
+   329       PtrToString       : POINTER TO tString;                               258    43
+   330       PtrToArray        : POINTER TO ARRAY [0..255] OF CHAR;                259     *
+   331       PtrToSet          : POINTER TO tSet;                                  260    41
+   332       PtrToIdent        : POINTER TO tIdent;                                261    48
+   333    BEGIN
+   334       IF InfoClass = eNone THEN RETURN END;                                 321    58
+   335 
+   336       WriteC (StdError, ' ');                                                33    33
+   337       CASE InfoClass OF                                                     321
+   338       |  eInteger:                                                            *
+   339             PtrToInteger := Info;                                           323   321
+   340             WriteI (StdError, PtrToInteger^, 1);                             34    33   323
+   341       |  eShort:                                                              *
+   342             PtrToShort := Info;                                             324   321
+   343             WriteI (StdError, PtrToShort^, 1);                               34    33   324
+   344       |  eLong:                                                               *
+   345             PtrToLong := Info;                                              325   321
+   346             WriteLong (StdError, PtrToLong^, 1);                             35    33   325
+   347       |  eReal:                                                               *
+   348             PtrToReal := Info;                                              326   321
+   349             WriteR (StdError, PtrToReal^, 1, 10, 1);                         35    33   326
+   350       |  eBoolean:                                                            *
+   351             PtrToBoolean := Info;                                           327   321
+   352             WriteB (StdError, PtrToBoolean^);                                35    33   327
+   353       |  eCharacter:                                                          *
+   354             PtrToCharacter := Info;                                         328   321
+   355             WriteC (StdError, PtrToCharacter^);                              33    33   328
+   356       |  eString:                                                             *
+   357             PtrToString := Info;                                            329   321
+   358             Strings.WriteS (StdError, PtrToString^);                         55    34    33   329
+   359       |  eArray:                                                              *
+   360             PtrToArray := Info;                                             330   321
+   361             WriteS (StdError, PtrToArray^);                                  34    33   330
+   362       |  eIdent:                                                              *
+   363             PtrToIdent := Info;                                             332   321
+   364             WriteIdent (StdError, PtrToIdent^);                              48    33   332
+   365       |  eTermSet:                                                            *
+   366             PtrToSet := Info;                                               331   321
+   367             WriteTermSet (StdError, PtrToSet^);                               *    33   331
+   368       ELSE        WriteS (StdError, 'Info Class: ');                         34    33
+   369                   WriteI (StdError, InfoClass, 1);                           34    33   321
+   370       END;
+   371    END WriteInfo;                                                           321
+   372 
+   373 PROCEDURE WriteTermSet (f: tFile; s:tSet);                                    *   111    33   112    41
+   374   VAR i : CARDINAL;                                                         169     *
+   375       Error: TokenError;                                                      *    52
+   376   BEGIN
+   377     FOR i := 0 TO MAXTerm DO                                                374    52
+   378       IF IsElement (i, s) THEN                                               41   374   373
+   379         WriteS (f, ' ');                                                     34   373
+   380         WriteIdent (f, TokenToSymbol (i, Error));                            48   373    52   374   375
+   381       END;
+   382     END;
+   383   END WriteTermSet;                                                         373
+   384 
+   385 PROCEDURE SplitLine (line: tString; VAR i: CARDINAL; VAR s1: tString);        *   113    43   374     *     *    43
+   386   VAR
+   387     m, p1, p2 : CARDINAL;                                                     *     *     *     *
+   388     s : tString;                                                            373    43
+   389   BEGIN
+   390     p1 := 1;                                                                387
+   391     p2 := 1;                                                                387
+   392     m := Length (line);                                                     387    44   385
+   393     LOOP
+   394       IF p2 > m THEN EXIT; END;                                             387   387
+   395       IF Char (line, p2) = cTab THEN EXIT; END;                              44   385   387    59
+   396       INC (p2);                                                               *   387
+   397     END;
+   398     DEC (p2);                                                                 *   387
+   399     IF p1 > p2 THEN                                                         387   387
+   400       i := 0;                                                               385
+   401     ELSE
+   402       SubString (line, p1, p2, s);                                           43   385   387   387   388
+   403       i := StringToInt (s);                                                 385    45   388
+   404     END;
+   405 
+   406     p1 := p2+1;                                                             387   387
+   407     LOOP
+   408       IF p1 > m THEN EXIT; END;                                             387   387
+   409       IF Char (line, p1) # cTab THEN EXIT; END;                              44   385   387    59
+   410       INC (p1);                                                               *   387
+   411     END;
+   412     p2 := p1;                                                               387   387
+   413     LOOP
+   414       IF p2 > m THEN EXIT; END;                                             387   387
+   415       IF Char (line, p2) = cTab THEN EXIT; END;                              44   385   387    59
+   416       INC (p2);                                                               *   387
+   417     END;
+   418     DEC (p2);                                                                 *   387
+   419     IF p1 > p2 THEN                                                         387   387
+   420       AssignEmpty (s1);                                                      43   385
+   421     ELSE
+   422       SubString (line, p1, p2, s1);                                          43   385   387   387   385
+   423     END;
+   424 
+   425   END SplitLine;                                                            385
+   426 
+   427 PROCEDURE Finish;                                                             *
+   428   BEGIN
+   429     CloseErrors;                                                            167
+   430     CloseIO;                                                                 37
+   431     Exit (1);                                                                50
+   432   END Finish;                                                               427
+   433 
+   434 BEGIN
+   435   NoReports := TRUE;                                                         67     *
+   436   ReportMode := eNoListing;                                                  68     *
+   437   ErrorTable := 'ErrorTab';                                                   *
+   438   ReportClass := {0..MaxErrorClass};                                          *     *
+   439 
+   440   FOR i := 0 TO MaxErrorClass DO                                            385     *
+   441     ErrorCount [i] := 0;                                                      *   385
+   442   END;
+   443 
+   444   FOR i := 0 TO MaxErrorClass DO                                            385     *
+   445     ErrorClassRef [i] := NoStringRef;                                        69   385    60
+   446   END;
+   447 
+   448   FOR i := 0 TO MaxCode DO                                                  385    62
+   449     ErrorCodeRef [i] := NoStringRef;                                         70   385    60
+   450   END;
+   451 
+   452   FOR i := 0 TO MaxErrorClass DO                                            385     *
+   453     ErrorCountRef [i] := NoStringRef;                                        71   385    60
+   454   END;
+   455 END Errors.                                                                  31
+Cross reference: * is declaration, = is assignment
+
+-A-
+ ADDRESS                         51*   80   172   250   321 
+ ADR                             51*  130   144   158 
+ Alloc                           40*  267   272   277   282   287   292   297   302   307   312 
+ ArrayToString                   45*
+ Assign                          42*  299   315 
+ AssignEmpty                     43*  420 
+
+-B-
+ BeginErrors                    108*  165 
+ BOOLEAN                         67   256   287   327 
+
+-C-
+ CARDINAL                        72    74    79    80   110   169   171   201   250   321   374   385   387 
+ CHAR                           257   259   292   328   330 
+ Char                            44*  126   127   140   141   154   155   395   409   415 
+ CloseErrors                    167*  199   429 
+ CloseIO                         37*  430 
+ Column                          86    91   171*  177   178   201*  208   209 
+ cTab                            59*  395   409   415 
+
+-D-
+ DEC                            398   418 
+
+-E-
+ eArray                         301   359 
+ eBoolean                       286   350 
+ eCharacter                     291   353 
+ eError                         130   144   158 
+ eIdent                         306   362 
+ eImmediate                      85 
+ eInteger                       266   338 
+ eListing                       101   204 
+ eLong                          276   344 
+ EndOfFile                       36*  124   138   152 
+ eNoListing                     436 
+ eNone                           58*   76   263   334 
+ eReal                          281   347 
+ Error                          375*  380 
+ ErrorClass                      74*   76    79*   82    83    86    91    94   171*  177   178   201*  213   213   215   217   220 
+ ErrorClassRef                   69*  132=  217   445=
+ ErrorCode                       74*   76    79*   86    91   171*  177   178   201*  226   226   227   229   232   235   237   239 
+                                242 
+ ErrorCodeRef                    70*  146=  235   449=
+ ErrorCount                      82   184   186   441=
+ ErrorCountRef                   71*  160=  189   453=
+ ErrorMessage                    74*   77 
+ ErrorMessageI                   76    79*   95   130   144   158 
+ Errors                          31*  455 
+ ErrorTable                     115   118   437=
+ eShort                         271   341 
+ eString                        130   144   158   296   356 
+ eTermSet                       311   365 
+ eWrongClass                     63*  130   158 
+ eWrongCode                      64*  144 
+ Exit                            50*  431 
+
+-F-
+ f                              111*  115=  116   124   125   138   139   152   153   164   373*  379   380 
+ FALSE                           84 
+ Finish                          94   427*  432 
+
+-G-
+ GetError                        39*  177 
+ GetString                       46*
+
+-H-
+ HasError                        39*  176 
+
+-I-
+ i                               72*  110*  128   129   129   132   142   143   143   146   156   157   157   160   169*  183=  184 
+                                186   189   192   374*  377=  378   380   385*  400=  403=  440=  441   444=  445   448=  449   452=
+                                453 
+ Idents                          48*
+ IMPLEMENTATION                  31*
+ INC                             82   396   410   416 
+ Info                            80*   87    90    91   172*  177   179   250*  268   270=  273   275=  278   280=  283   285=  288 
+                                290=  293   295=  298   300=  303   305=  308   310=  313   316=  321*  339   342   345   348   351 
+                                354   357   360   363   366 
+ InfoClass                       80*   87    90    91   171*  177   179   250*  263   264   321*  334   337   369 
+ InfPtrToArray                  259*  302=  304=  305 
+ InfPtrToBoolean                256*  287=  289=  290 
+ InfPtrToCharacter              257*  292=  294=  295 
+ InfPtrToIdent                  261*  307=  309=  310 
+ InfPtrToInteger                252*  267=  269=  270 
+ InfPtrToLong                   254*  277=  279=  280 
+ InfPtrToReal                   255*  282=  284=  285 
+ InfPtrToSet                    260*  312=  314   315   316 
+ InfPtrToShort                  253*  272=  274=  275 
+ InfPtrToString                 258*  297=  299   300 
+ INTEGER                        252   267   323 
+ IO                              33*
+ IsElement                       41*  378 
+
+-K-
+ KeepInfo                        90   250*  319 
+
+-L-
+ Length                          44*  392 
+ Line                            86    91   171*  177   178   201*  204   205 
+ line                           113*  125   126   127   128   130   139   140   141   142   144   153   154   155   156   158   385*
+                                392   395   402   409   415   422 
+ Listing                         38*  102 
+ ListMode                        38*  102=  104=
+ LONGINT                        254   277   325 
+
+-M-
+ m                              387*  392=  394   408   414 
+ MakeSet                         41*  314 
+ MaxCode                         62*   70   143   226   448 
+ MaxElmt                        314 
+ MaxErrorClass                   69    71   129   157   183   213   438   440   444   452 
+ MAXTerm                         52*  377 
+ Memory                          40*
+ mode                            97*   99 
+
+-N-
+ NIL                             76 
+ NoListing                      104 
+ NoPosition                      53*  130   144   158 
+ NoReports                       67*   84=  174   435=
+ NoStringRef                     60*  190   218   236   445   449   453 
+
+-P-
+ p1                             387*  390=  399   402   406=  408   409   410   412   419   422 
+ p2                             387*  391=  394   395   396   398   399   402   406   412=  414   415   416   418   419   422 
+ Position                        74*   76    79*   86    86    91    91 
+ Positions                       53*
+ PtrToArray                     259*  303=  304   330*  360=  361 
+ PtrToBoolean                   256*  288=  289   327*  351=  352 
+ PtrToCharacter                 257*  293=  294   328*  354=  355 
+ PtrToIdent                     261*  308=  309   332*  363=  364 
+ PtrToInteger                   252*  268=  269   323*  339=  340 
+ PtrToLong                      254*  278=  279   325*  345=  346 
+ PtrToReal                      255*  283=  284   326*  348=  349 
+ PtrToSet                       260*  313=  314   315   331*  366=  367 
+ PtrToShort                     253*  273=  274   324*  342=  343 
+ PtrToString                    258*  298=  299   329*  357=  358 
+ PutError                        38*   91 
+ PutString                       46*  132   146   160 
+
+-R-
+ r                              170*  189=  190   194   202*  217=  218   222   235=  236   245 
+ ReadClose                       36*  164 
+ ReadL                           44*  125   139   153 
+ ReadOpen                        36*  115 
+ REAL                           255   282   326 
+ ReportClass                     83   438=
+ ReportMode                      68*   85    99=  100   204   436=
+
+-S-
+ s                              112*  128   132   142   146   156   160   373*  378   388*  402   403 
+ s1                             385*  420   422 
+ SetReportMode                   97*  106 
+ Sets                            41*
+ SHORTCARD                      253   272   324 
+ SplitLine                      128   142   156   385*  425 
+ StatIsBad                       49*  116 
+ StdError                        33*   88   117   118   119   180   185   186   187   191   192   194   198   205   206   209   210 
+                                214   215   219   220   222   228   229   231   232   238   239   241   242   245   336   340   343 
+                                346   349   352   355   358   361   364   367   368   369 
+ StringMem                       46*
+ Strings                         43*   55*  299   358 
+ StringToInt                     45*  403 
+ SubString                       43*  402   422 
+ SysError                        49*
+ SysErrorMessageI                49*
+ SysOffset                      227   229   237   239 
+ SYSTEM                          51*
+ System                          50*
+
+-T-
+ tFile                           33*  111   373 
+ tIdent                          48*  261   307   332 
+ tListMode                       38*
+ TokenError                      52*  375 
+ TokenTab                        52*
+ TokenToSymbol                   52*  380 
+ tPosition                       53*   74    79 
+ tReportMode                     68    97 
+ TRUE                           435 
+ tSet                            41*  260   312   331   373 
+ TSIZE                           51*  267   272   277   282   287   292   297   307   312 
+ tString                         43*  112   113   258   297   329   385   385   388 
+ tStringRef                      46*   69    70    71   170   202 
+
+-W-
+ WriteB                          35*  352 
+ WriteC                          33*  187   336   355 
+ WriteErrorMessage               86   178   201*  248 
+ WriteI                          34*  186   192   205   209   215   220   229   232   239   242   340   343   369 
+ WriteIdent                      48*  364   380 
+ WriteInfo                       87   179   321*  371 
+ WriteLong                       35*  346 
+ WriteNl                         34*   88   119   180   198 
+ WriteR                          35*  349 
+ WriteS                          34*  117   118   185   191   206   210   214   219   228   231   238   241   358   361   368   379 
+ WriteString                     47*  194   222   245 
+ WriteTermSet                   367   373*  383 
+
+end cross reference, 777 occurrences of 156 identifiers.

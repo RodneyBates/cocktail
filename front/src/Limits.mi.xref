@@ -1,0 +1,26 @@
+     1 (* limits of standard data types *)
+     2 
+     3 (* $Id: Limits.mi,v 1.2 1991/11/21 14:47:50 grosch rel $ *)
+     4 
+     5 (* $Log: Limits.mi,v $
+c    6  * Revision 1.2  1991/11/21  14:47:50  grosch
+c    7  * new version of RCS on SPARC
+c    8  *
+c    9  * Revision 1.1  90/06/11  18:45:01  grosch
+c   10  * layout improvements
+c   11  * 
+c   12  * Revision 1.0  88/10/04  14:26:47  vielsack
+c   13  * Initial revision
+c   14  * 
+c   15  *)
+    16 IMPLEMENTATION MODULE Limits;                                                 *     *
+    17 END Limits.                                                                  16
+Cross reference: * is declaration, = is assignment
+
+-I-
+ IMPLEMENTATION                  16*
+
+-L-
+ Limits                          16*   17*
+
+end cross reference, 3 occurrences of 2 identifiers.

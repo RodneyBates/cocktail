@@ -1,0 +1,2268 @@
+(*
+ *	"CodeM2.mi"
+ *	generated with estra/8906
+ *	from "CodeM2.aftermpp"
+ *
+ *	estra 
+ *	was written by Bertram Vielsack in june 1989
+ *
+ *)
+
+IMPLEMENTATION MODULE CodeM2;
+
+IMPORT SYSTEM, IO, Memory, System, Tree;
+
+    (* line 26 CodeM2.aftermpp *)
+
+FROM ArgCheck	IMPORT	DEF, IMP, SourceFileName;
+FROM Checks	IMPORT	CheckWriteOpen, CheckOpenOutput;
+FROM Codes	IMPORT	cNoIndex, vMaxRecSetIndex, vMaxSetIndex, EmptyRecSetIndex,
+			Code, MaxCode, WriteIndex, WriteRecIndex, GetSet, GetRecSet;
+FROM DynArray	IMPORT	MakeArray, ReleaseArray;
+FROM Errors	IMPORT	ERROR;
+FROM IO		IMPORT	tFile, WriteS, WriteI, WriteNl, WriteOpen, WriteClose;
+FROM Idents	IMPORT	tIdent, NoIdent, WriteIdent, MaxIdent, GetString;
+FROM Sets	IMPORT	tSet, MakeSet, ReleaseSet, Extract, IsEmpty, Assign, IsElement, Exclude;
+FROM StringMem	IMPORT	WriteString;
+FROM SYSTEM	IMPORT	TSIZE, ADR;
+FROM System	IMPORT	OpenOutput, Write, Close;
+FROM Scanner	IMPORT	Epsilon;
+FROM Types	IMPORT	IsTerm, IsNonterm, Terminals;
+FROM Strings	IMPORT	tString, Char, ArrayToString, Concatenate, Append, StringToArray;
+FROM Tree	IMPORT	ScannerName, ParserName;
+
+CONST
+  cBitsPerBitset	= 32;
+  cDefinition		= '.md';
+  cImplementation	= '.mi';
+  cTable		= '.Tab';
+
+VAR
+  file		: tFile;
+  SpaCo		: INTEGER;
+  vExport	: BOOLEAN;
+  InDefault	: BOOLEAN;
+  lSections	: Tree.tTree;
+  PathS, String	: tString;
+  PathA		: ARRAY [0..128] OF CHAR;
+
+PROCEDURE Prefix;
+  BEGIN
+    IF ScannerName # NoIdent THEN
+Spaces;WriteIdent (file, ScannerName);
+    ELSE
+WriteS (file, 'Scanner');
+    END;
+  END Prefix;
+
+PROCEDURE Spaces;
+  VAR i: INTEGER;
+  BEGIN FOR i := 1 TO SpaCo DO WriteS (file, '  '); END; END Spaces;
+
+PROCEDURE CodeIsElement (index: INTEGER; set: tSet);
+  VAR
+    todo: tSet;
+    id: tIdent;
+  BEGIN
+    IF index = cNoIndex THEN
+      MakeSet (todo, MaxIdent ());
+      Assign (todo, set);
+      Exclude (todo, Epsilon);
+      IF NOT IsEmpty (todo) THEN
+	LOOP
+	  id := Extract (todo);
+	  WriteS (file, '(xxToken = ');
+	  WriteI (file, Code (id), 0);
+	  WriteS (file, ' (* ');
+	  WriteIdent (file, id);
+	  WriteS (file, ' *))');
+	  IF IsEmpty (todo) THEN EXIT END;
+	  WriteS (file, ' OR ');
+	END;
+      END;
+      ReleaseSet (todo);
+    ELSE
+      WriteS (file, '(');
+      WriteI (file, index MOD cBitsPerBitset, 0);
+      WriteS (file, ' IN xxVerticalSet');
+      WriteI (file, index DIV cBitsPerBitset, 0);
+      WriteS (file, ' [xxToken] (* ');
+      WriteIndex (file, index);
+      WriteS (file, ' *))');
+    END;
+  END CodeIsElement;
+
+PROCEDURE CodeRecovery (recover, expect: INTEGER);
+  BEGIN
+    IF expect = cNoIndex THEN
+WriteS (file, 'xxUnexpected (');WriteI (file, recover, 0);WriteS (file, ', xxGlobalRecoverySet); (* ');WriteRecIndex (file, recover);WriteS (file, ' *)');WriteNl (file);
+    ELSE
+Spaces;WriteS (file, 'xxExpected (');WriteI (file, expect, 0);WriteS (file, ', ');WriteI (file, recover, 0);WriteS (file, ', xxGlobalRecoverySet); (* ');WriteRecIndex (file, expect);WriteS (file, ' / ');WriteRecIndex (file, recover);WriteS (file, ' *)');WriteNl (file);
+    END;
+  END CodeRecovery;
+
+PROCEDURE WriteLabels (set: tSet);
+  VAR
+    todo: tSet;
+    id: tIdent;
+  BEGIN
+    MakeSet (todo, MaxIdent ());
+    Assign (todo, set);
+    Spaces;
+    WriteS (file, '| ');
+    IF NOT IsEmpty (todo) THEN
+      LOOP
+	id := Extract (todo);
+	WriteI (file, Code (id), 0);
+	WriteS (file, ' (* ');
+	WriteIdent (file, id);
+	WriteS (file, ' *)');
+	IF IsEmpty (todo) THEN EXIT END;
+	WriteS (file, ', ');
+      END;
+    END;
+    WriteS (file, ':');
+    WriteNl (file);
+    ReleaseSet (todo);
+  END WriteLabels;
+
+VAR
+  NumberArray		: POINTER TO ARRAY [0..1000] OF INTEGER;
+  NumberArraySize	: LONGINT;
+  MaxNumberArray	: POINTER TO ARRAY [0..1000] OF INTEGER;
+  MaxNumberArraySize	: LONGINT;
+
+PROCEDURE ClearArray (VAR a: ARRAY OF INTEGER);
+  VAR id: tIdent;
+  BEGIN
+    FOR id := 0 TO MaxIdent () DO a [id] := 0; END;
+  END ClearArray;
+
+PROCEDURE WriteAttributes;
+  VAR
+    id: tIdent;
+    i, max: INTEGER;
+  BEGIN
+    FOR id := 0 TO MaxIdent () DO
+      max := MaxNumberArray^ [id];
+      IF max > 0 THEN
+Spaces;
+	FOR i := 1 TO max - 1 DO
+WriteIdent (file, id);WriteI (file, i, 0);WriteS (file, ', ');
+	END;
+WriteIdent (file, id);WriteI (file, max, 0);WriteS (file, ': ');
+	IF IsTerm (id) THEN
+	  Prefix;
+WriteS (file, '.tScanAttribute');
+	ELSE
+WriteS (file, 'tParsAttribute');
+	END;
+WriteS (file, ';');WriteNl (file);
+      END;
+    END;
+  END WriteAttributes;
+
+PROCEDURE WriteParsTab;
+  VAR
+    bitset: BITSET;
+    set: tSet;
+    sets: ARRAY [0..cBitsPerBitset-1] OF tSet;
+    size: INTEGER;
+    code,i,bit: INTEGER;
+    index: INTEGER;
+  BEGIN
+    GetString		(ParserName, PathS);
+    ArrayToString	(cTable, String);
+    Concatenate		(PathS, String);
+    Append		(PathS, 0C);
+    StringToArray	(PathS, PathA);
+    file := OpenOutput	(PathA);
+    CheckOpenOutput	(file, PathA);
+
+    MakeSet (set, MaxCode ());
+    FOR index := 0 TO vMaxRecSetIndex DO
+      GetRecSet (index, set);
+      FOR i := 0 TO MaxCode () DIV cBitsPerBitset - 1 DO
+	bitset := {};
+        FOR bit := 0 TO cBitsPerBitset - 1 DO
+	  IF IsElement (i * cBitsPerBitset + bit, set) THEN INCL (bitset, bit); END;
+	END;
+	size := Write (file, ADR (bitset), TSIZE (BITSET));
+      END;
+        i := MaxCode () DIV cBitsPerBitset;
+	bitset := {};
+        FOR bit := 0 TO MaxCode () MOD cBitsPerBitset DO
+	  IF IsElement (i * cBitsPerBitset + bit, set) THEN INCL (bitset, bit); END;
+	END;
+	size := Write (file, ADR (bitset), TSIZE (BITSET));
+    END;
+    ReleaseSet (set);
+
+    FOR bit := 0 TO cBitsPerBitset - 1 DO
+      MakeSet (sets [bit], MaxCode ());
+    END;
+    FOR i := 0 TO vMaxSetIndex DIV cBitsPerBitset DO
+      FOR bit := 0 TO cBitsPerBitset - 1 DO
+	index := i * cBitsPerBitset + bit;
+	IF index <= vMaxSetIndex THEN
+	  GetSet (index, sets [bit]);
+        END;
+      END;
+      FOR code := 0 TO MaxCode () DO
+	bitset := {};
+	FOR bit := 0 TO cBitsPerBitset - 1 DO 
+	  IF IsElement (code, sets [bit]) THEN INCL (bitset, bit); END;
+	END;
+	size := Write (file, ADR (bitset), TSIZE (BITSET));
+      END;
+    END;
+    FOR bit := 0 TO cBitsPerBitset - 1 DO
+      ReleaseSet (sets [bit]);
+    END;
+
+    Close (file);
+  END WriteParsTab;
+
+
+CONST
+  yyInfinite = 715827882;
+
+  yyBitsPerBitset = 32;
+  yySetSize = 56;
+  yyMaxIndex = 32;
+  yyCombSize = 303;      
+  yyStartState = 0;
+
+  yyPoolSize = 10240;
+
+TYPE
+  yytBlockPtr = POINTER TO yytBlock;
+  yytBlock =
+  RECORD
+    Successor: yytBlockPtr;
+    Block: ARRAY [1..yyPoolSize] OF CHAR;
+  END;
+
+  yyStateType = INTEGER;
+  yySetType = ARRAY [0..yySetSize DIV yyBitsPerBitset] OF BITSET;
+  yySetsType = ARRAY [0..yyMaxIndex] OF yySetType;
+  yyCombType = ARRAY [0..yyCombSize] OF yyStateType;
+
+  yyPCODE = PROCEDURE (Tree.tTree);
+  yyPCodeDef = PROCEDURE (Tree.tTree);
+  yyPCodeImp = PROCEDURE (Tree.tTree);
+  yyPCodeRules = PROCEDURE (Tree.tTree);
+  yyPCodeAltCase = PROCEDURE (Tree.tTree);
+  yyPCodeAltIf = PROCEDURE (Tree.tTree, BOOLEAN);
+  yyPSetNumbers = PROCEDURE (Tree.tTree, BOOLEAN);
+  yyPCodeExport = PROCEDURE (Tree.tTree);
+  yyPCodeGlobal = PROCEDURE (Tree.tTree);
+  yyPCodeLocal = PROCEDURE (Tree.tTree);
+  yyPCodeBegin = PROCEDURE (Tree.tTree);
+  yyPCodeClose = PROCEDURE (Tree.tTree);
+  yyPCodeCodes = PROCEDURE (Tree.tTree);
+  yyPCodeCodes2 = PROCEDURE (Tree.tTree);
+  
+  yyInfoPtr  = POINTER TO yyInfoType;
+  yyInfoType =
+    RECORD
+      CODE: RECORD Cost: INTEGER; Proc: yyPCODE; END;
+      CodeDef: RECORD Cost: INTEGER; Proc: yyPCodeDef; END;
+      CodeImp: RECORD Cost: INTEGER; Proc: yyPCodeImp; END;
+      CodeRules: RECORD Cost: INTEGER; Proc: yyPCodeRules; END;
+      CodeAltCase: RECORD Cost: INTEGER; Proc: yyPCodeAltCase; END;
+      CodeAltIf: RECORD Cost: INTEGER; Proc: yyPCodeAltIf; END;
+      SetNumbers: RECORD Cost: INTEGER; Proc: yyPSetNumbers; END;
+      CodeExport: RECORD Cost: INTEGER; Proc: yyPCodeExport; END;
+      CodeGlobal: RECORD Cost: INTEGER; Proc: yyPCodeGlobal; END;
+      CodeLocal: RECORD Cost: INTEGER; Proc: yyPCodeLocal; END;
+      CodeBegin: RECORD Cost: INTEGER; Proc: yyPCodeBegin; END;
+      CodeClose: RECORD Cost: INTEGER; Proc: yyPCodeClose; END;
+      CodeCodes: RECORD Cost: INTEGER; Proc: yyPCodeCodes; END;
+      CodeCodes2: RECORD Cost: INTEGER; Proc: yyPCodeCodes2; END;
+    END;
+
+VAR
+  yySets: yySetsType;
+  yyComb: yyCombType;
+  yyInfo: yyInfoType;
+  yyMatch: ARRAY [0..56] OF BOOLEAN;
+  yyBlockList: yytBlockPtr;
+  yyPoolFreePtr, yyPoolEndPtr: SYSTEM.ADDRESS;
+
+PROCEDURE yyAlloc (): SYSTEM.ADDRESS;
+VAR BlockPtr: yytBlockPtr;
+BEGIN
+  IF LONGINT (yyPoolEndPtr - yyPoolFreePtr) < SYSTEM.TSIZE (yyInfoType) THEN
+    BlockPtr  := yyBlockList;
+    yyBlockList  := Memory.Alloc (SYSTEM.TSIZE (yytBlock));
+    yyBlockList^.Successor := BlockPtr;
+    yyPoolFreePtr := SYSTEM.ADR (yyBlockList^.Block);
+    yyPoolEndPtr  := yyPoolFreePtr + yyPoolSize;
+  END;
+  INC (yyPoolFreePtr, SYSTEM.ADDRESS (SYSTEM.TSIZE (yyInfoType)));
+  RETURN yyPoolFreePtr - SYSTEM.ADDRESS (SYSTEM.TSIZE (yyInfoType));
+END yyAlloc;
+
+PROCEDURE yyReleaseHeap;
+VAR BlockPtr: yytBlockPtr;
+BEGIN
+  WHILE yyBlockList # NIL DO
+    BlockPtr:= yyBlockList;
+    yyBlockList:= yyBlockList^.Successor;
+    Memory.Free (SYSTEM.TSIZE (yytBlock), BlockPtr);
+  END;
+  yyPoolFreePtr:= NIL;
+  yyPoolEndPtr:= NIL;
+END yyReleaseHeap;
+
+PROCEDURE CODE (yyt: Tree.tTree);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.CODE.Proc (yyt);
+END CODE;
+
+PROCEDURE CodeDef (yyt: Tree.tTree);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.CodeDef.Proc (yyt);
+END CodeDef;
+
+PROCEDURE CodeImp (yyt: Tree.tTree);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.CodeImp.Proc (yyt);
+END CodeImp;
+
+PROCEDURE CodeRules (yyt: Tree.tTree);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.CodeRules.Proc (yyt);
+END CodeRules;
+
+PROCEDURE CodeAltCase (yyt: Tree.tTree);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.CodeAltCase.Proc (yyt);
+END CodeAltCase;
+
+PROCEDURE CodeAltIf (yyt: Tree.tTree;started:BOOLEAN);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.CodeAltIf.Proc (yyt, started);
+END CodeAltIf;
+
+PROCEDURE SetNumbers (yyt: Tree.tTree;start:BOOLEAN);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.SetNumbers.Proc (yyt, start);
+END SetNumbers;
+
+PROCEDURE CodeExport (yyt: Tree.tTree);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.CodeExport.Proc (yyt);
+END CodeExport;
+
+PROCEDURE CodeGlobal (yyt: Tree.tTree);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.CodeGlobal.Proc (yyt);
+END CodeGlobal;
+
+PROCEDURE CodeLocal (yyt: Tree.tTree);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.CodeLocal.Proc (yyt);
+END CodeLocal;
+
+PROCEDURE CodeBegin (yyt: Tree.tTree);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.CodeBegin.Proc (yyt);
+END CodeBegin;
+
+PROCEDURE CodeClose (yyt: Tree.tTree);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.CodeClose.Proc (yyt);
+END CodeClose;
+
+PROCEDURE CodeCodes (yyt: Tree.tTree);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.CodeCodes.Proc (yyt);
+END CodeCodes;
+
+PROCEDURE CodeCodes2 (yyt: Tree.tTree);
+VAR InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyInfoPtr (yyt^.yyHead.yyEstraInfo);
+  InfoPtr^.CodeCodes2.Proc (yyt);
+END CodeCodes2;
+
+PROCEDURE yyECODE (yyt: Tree.tTree);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function CODE is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyECODE;
+
+PROCEDURE yyECodeDef (yyt: Tree.tTree);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function CodeDef is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyECodeDef;
+
+PROCEDURE yyECodeImp (yyt: Tree.tTree);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function CodeImp is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyECodeImp;
+
+PROCEDURE yyECodeRules (yyt: Tree.tTree);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function CodeRules is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyECodeRules;
+
+PROCEDURE yyECodeAltCase (yyt: Tree.tTree);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function CodeAltCase is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyECodeAltCase;
+
+PROCEDURE yyECodeAltIf (yyt: Tree.tTree;started:BOOLEAN);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function CodeAltIf is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyECodeAltIf;
+
+PROCEDURE yyESetNumbers (yyt: Tree.tTree;start:BOOLEAN);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function SetNumbers is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyESetNumbers;
+
+PROCEDURE yyECodeExport (yyt: Tree.tTree);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function CodeExport is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyECodeExport;
+
+PROCEDURE yyECodeGlobal (yyt: Tree.tTree);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function CodeGlobal is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyECodeGlobal;
+
+PROCEDURE yyECodeLocal (yyt: Tree.tTree);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function CodeLocal is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyECodeLocal;
+
+PROCEDURE yyECodeBegin (yyt: Tree.tTree);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function CodeBegin is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyECodeBegin;
+
+PROCEDURE yyECodeClose (yyt: Tree.tTree);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function CodeClose is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyECodeClose;
+
+PROCEDURE yyECodeCodes (yyt: Tree.tTree);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function CodeCodes is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyECodeCodes;
+
+PROCEDURE yyECodeCodes2 (yyt: Tree.tTree);
+BEGIN
+  IO.WriteS (IO.StdError, 'Function CodeCodes2 is not defined for this tree');
+  IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+END yyECodeCodes2;
+
+PROCEDURE yyF1CODE (yyt: Tree.tTree);
+
+BEGIN    (* line 308 CodeM2.aftermpp *)
+
+		IF DEF THEN
+		  CodeDef (yyt);
+		END;
+		IF IMP THEN
+		  CodeImp (yyt);
+		  WriteParsTab;
+		END;
+		
+END yyF1CODE;
+
+PROCEDURE yyF2CodeDef (yyt: Tree.tTree);
+
+BEGIN    (* line 326 CodeM2.aftermpp *)
+
+		GetString	(ParserName, PathS);
+		ArrayToString	(cDefinition, String);
+		Concatenate	(PathS, String);
+		Append		(PathS, 0C);
+		StringToArray	(PathS, PathA);
+		file := WriteOpen (PathA);
+		CheckWriteOpen	(file, PathA);
+
+Spaces;WriteS (file, 'DEFINITION MODULE ');WriteIdent (file, ParserName);WriteS (file, ';');WriteNl (file);
+Spaces;WriteNl (file);
+		CodeExport (yyt^.Grammar.sections);
+		IF NOT vExport THEN	(* Default EXPORT action *)
+Spaces;WriteS (file, 'IMPORT ');
+		Prefix;
+WriteS (file, ';');WriteNl (file);
+Spaces;WriteNl (file);
+Spaces;WriteS (file, 'TYPE tParsAttribute = ');
+		Prefix;
+WriteS (file, '.tScanAttribute;');WriteNl (file);
+		END;
+Spaces;WriteNl (file);
+Spaces;WriteS (file, 'VAR');WriteNl (file);
+Spaces;WriteS (file, '  ParsAttribute	: tParsAttribute;');WriteNl (file);
+Spaces;WriteS (file, '  ParsTabName	: ARRAY [0..128] OF CHAR;');WriteNl (file);
+Spaces;WriteNl (file);
+Spaces;WriteS (file, 'PROCEDURE ');WriteIdent (file, ParserName);WriteS (file, ' (): INTEGER;');WriteNl (file);
+Spaces;WriteS (file, 'PROCEDURE Close');WriteIdent (file, ParserName);WriteS (file, ' ();');WriteNl (file);
+Spaces;WriteS (file, 'PROCEDURE xxTokenName (Token: CARDINAL; VAR Name: ARRAY OF CHAR);');WriteNl (file);
+Spaces;WriteNl (file);
+Spaces;WriteS (file, 'END ');WriteIdent (file, ParserName);WriteS (file, '.');WriteNl (file);
+		WriteClose (file);
+		
+END yyF2CodeDef;
+
+PROCEDURE yyF3CodeImp (yyt: Tree.tTree);
+    (* line 368 CodeM2.aftermpp *)
+ VAR
+		  i	: INTEGER;
+		  set	: tSet;
+		  id	: tIdent;
+		  s	: tString;
+		
+BEGIN    (* line 374 CodeM2.aftermpp *)
+
+		GetString	(ParserName, PathS);
+		ArrayToString	(cImplementation, String);
+		Concatenate	(PathS, String);
+		Append		(PathS, 0C);
+		StringToArray	(PathS, PathA);
+		file := WriteOpen (PathA);
+		CheckWriteOpen	(file, PathA);
+
+Spaces;WriteS (file, 'IMPLEMENTATION MODULE ');WriteIdent (file, ParserName);WriteS (file, ';');WriteNl (file);
+Spaces;WriteNl (file);
+Spaces;WriteS (file, 'IMPORT Positions, Errors, ');
+		Prefix;
+WriteS (file, ', Strings, System, SYSTEM;');WriteNl (file);
+Spaces;WriteNl (file);
+		CodeGlobal (yyt^.Grammar.sections);
+		lSections := yyt^.Grammar.sections;
+
+Spaces;WriteS (file, 'CONST xxEof = 0;');WriteNl (file);
+Spaces;WriteNl (file);
+Spaces;WriteS (file, 'TYPE');WriteNl (file);
+Spaces;WriteS (file, '  xxtUnionPtr	= POINTER TO xxtUnion;');WriteNl (file);
+Spaces;WriteS (file, '  xxtUnion	= RECORD GlobalRecoverySet: xxtUnionPtr; LocalRecoverySet: SHORTCARD; END;');WriteNl (file);
+Spaces;WriteS (file, '  xxtSet	= ARRAY [0..');WriteI (file, MaxCode () DIV cBitsPerBitset, 0);WriteS (file, '] OF BITSET;');WriteNl (file);
+Spaces;WriteNl (file);
+Spaces;WriteS (file, 'VAR');WriteNl (file);
+Spaces;WriteS (file, '  xxToken		: SHORTCARD;');WriteNl (file);
+Spaces;WriteS (file, '  xxErrorCount		: INTEGER;');WriteNl (file);
+Spaces;WriteS (file, '  xxIsInitialized	: BOOLEAN;');WriteNl (file);
+Spaces;WriteS (file, '  xxIsRepairMode	: BOOLEAN;');WriteNl (file);
+		IF vMaxRecSetIndex = cNoIndex THEN
+Spaces;WriteS (file, '  xxHorizontalSet	: ARRAY [0..0] OF xxtSet;');WriteNl (file);
+		ELSE
+Spaces;WriteS (file, '  xxHorizontalSet	: ARRAY [0..');WriteI (file, vMaxRecSetIndex, 0);WriteS (file, '] OF xxtSet;');WriteNl (file);
+		END;
+		FOR i := 0 TO vMaxSetIndex DIV cBitsPerBitset DO
+Spaces;WriteS (file, '  xxVerticalSet');WriteI (file, i, 0);WriteS (file, '	: ARRAY [0..');WriteI (file, MaxCode (), 0);WriteS (file, '] OF BITSET;');WriteNl (file);
+		END;
+Spaces;WriteNl (file);
+Spaces;WriteS (file, 'PROCEDURE xxTokenName (Token: CARDINAL; VAR Name: ARRAY OF CHAR);');WriteNl (file);
+Spaces;WriteS (file, '  PROCEDURE Copy (Source: ARRAY OF CHAR; VAR Target: ARRAY OF CHAR);');WriteNl (file);
+Spaces;WriteS (file, '    VAR i, j: CARDINAL;');WriteNl (file);
+Spaces;WriteS (file, '    BEGIN');WriteNl (file);
+Spaces;WriteS (file, '      IF HIGH (Source) < HIGH (Target)');WriteNl (file);
+Spaces;WriteS (file, '      THEN j := HIGH (Source); ELSE j := HIGH (Target); END;');WriteNl (file);
+Spaces;WriteS (file, '      FOR i := 0 TO j DO Target [i] := Source [i]; END;');WriteNl (file);
+Spaces;WriteS (file, '      IF HIGH (Target) > j THEN Target [j + 1] := CHR (0); END;');WriteNl (file);
+Spaces;WriteS (file, '    END Copy;');WriteNl (file);
+Spaces;WriteS (file, '  BEGIN');WriteNl (file);
+Spaces;WriteS (file, '    CASE Token OF');WriteNl (file);
+		MakeSet (set, MaxIdent ());
+		Terminals (set);
+		Exclude (set, Epsilon);
+		WHILE NOT IsEmpty (set) DO
+		  id := Extract (set);
+		  GetString (id, s);
+		  IF (Char (s, 1) = "'") THEN
+
+Spaces;WriteS (file, '    | ');WriteI (file, Code (id), 0);WriteS (file, ': Copy (');WriteIdent (file, id);WriteS (file, ', Name);');WriteNl (file);
+
+		  ELSIF (Char (s, 1) = '"') THEN
+Spaces;WriteS (file, "    | ");WriteI (file, Code (id), 0);WriteS (file, ": Copy (");WriteIdent (file, id);WriteS (file, ", Name);");WriteNl (file);
+		  ELSE
+Spaces;WriteS (file, "    | ");WriteI (file, Code (id), 0);WriteS (file, ": Copy ('");WriteIdent (file, id);WriteS (file, "', Name);");WriteNl (file);
+		  END;
+		END;
+		ReleaseSet (set);
+Spaces;WriteS (file, "    END;");WriteNl (file);
+Spaces;WriteS (file, "  END xxTokenName;");WriteNl (file);
+Spaces;WriteNl (file);
+Spaces;WriteS (file, "PROCEDURE ");WriteIdent (file, ParserName);WriteS (file, " (): INTEGER;");WriteNl (file);
+INC (SpaCo);
+Spaces;WriteS (file, "BEGIN");WriteNl (file);
+INC (SpaCo);
+Spaces;WriteS (file, "xxErrorCount := 0;");WriteNl (file);
+Spaces;WriteS (file, "Begin");WriteIdent (file, ParserName);WriteS (file, ";");WriteNl (file);
+Spaces;WriteS (file, "xxToken := ");
+		Prefix;
+WriteS (file, ".GetToken (); xxIsRepairMode := FALSE;");WriteNl (file);
+Spaces;WriteS (file, "yy");WriteIdent (file, yyt^.Grammar.rules^.Rules.rule^.Rule.id^.Id.ident);WriteS (file, " (ParsAttribute, NIL);");WriteNl (file);
+Spaces;WriteS (file, "IF xxToken # xxEof THEN xxRecoveryLiteral (xxEof, ");WriteI (file, EmptyRecSetIndex, 0);WriteS (file, ", NIL); END;");WriteNl (file);
+Spaces;WriteS (file, "RETURN xxErrorCount;");WriteNl (file);
+DEC (SpaCo);
+Spaces;WriteS (file, "END ");WriteIdent (file, ParserName);WriteS (file, ";");WriteNl (file);
+DEC (SpaCo);
+Spaces;WriteNl (file);
+Spaces;WriteS (file, "PROCEDURE xxIsElement (VAR Set: xxtSet; Element: SHORTCARD): BOOLEAN;");WriteNl (file);
+Spaces;WriteS (file, "  BEGIN");WriteNl (file);
+Spaces;WriteS (file, "    RETURN Element MOD ");WriteI (file, cBitsPerBitset, 0);WriteS (file, " IN Set [Element DIV ");WriteI (file, cBitsPerBitset, 0);WriteS (file, "];");WriteNl (file);
+Spaces;WriteS (file, "  END xxIsElement;");WriteNl (file);
+Spaces;WriteNl (file);
+Spaces;WriteS (file, "PROCEDURE xxUnexpected (LocalRecoverySet: SHORTCARD; GlobalRecoverySet: xxtUnionPtr);");WriteNl (file);
+Spaces;WriteS (file, "  BEGIN");WriteNl (file);
+Spaces;WriteS (file, "    IF NOT xxIsRepairMode THEN");WriteNl (file);
+Spaces;WriteS (file, "      INC (xxErrorCount);");WriteNl (file);
+Spaces;WriteS (file, "      Errors.ErrorMessage (Errors.SyntaxError, Errors.Error, ");
+		Prefix;
+WriteS (file, ".Attribute.Position);");WriteNl (file);
+Spaces;WriteS (file, "      xxSkipTokens (LocalRecoverySet, GlobalRecoverySet);");WriteNl (file);
+Spaces;WriteS (file, "    END;");WriteNl (file);
+Spaces;WriteS (file, "  END xxUnexpected;");WriteNl (file);
+Spaces;WriteNl (file);
+Spaces;WriteS (file, "PROCEDURE xxExpected (ExpectedSet: SHORTCARD; LocalRecoverySet: SHORTCARD; GlobalRecoverySet: xxtUnionPtr);");WriteNl (file);
+Spaces;WriteS (file, "  VAR");WriteNl (file);
+Spaces;WriteS (file, "    Token		: SHORTCARD;");WriteNl (file);
+Spaces;WriteS (file, "    TokenArray		: ARRAY [0..127] OF CHAR;");WriteNl (file);
+Spaces;WriteS (file, "    TokenString		: Strings.tString;");WriteNl (file);
+Spaces;WriteS (file, "    ContinueString	: Strings.tString;");WriteNl (file);
+Spaces;WriteS (file, "  BEGIN");WriteNl (file);
+Spaces;WriteS (file, "    IF NOT xxIsRepairMode THEN");WriteNl (file);
+Spaces;WriteS (file, "      INC (xxErrorCount);");WriteNl (file);
+Spaces;WriteS (file, "      Errors.ErrorMessage (Errors.SyntaxError, Errors.Error, ");
+		Prefix;
+WriteS (file, ".Attribute.Position);");WriteNl (file);
+Spaces;WriteS (file, "      Strings.AssignEmpty (ContinueString);");WriteNl (file);
+Spaces;WriteS (file, "      FOR Token := 0 TO ");WriteI (file, MaxCode (), 0);WriteS (file, " DO");WriteNl (file);
+Spaces;WriteS (file, "        IF xxIsElement (xxHorizontalSet [ExpectedSet], Token) THEN");WriteNl (file);
+Spaces;WriteS (file, "	  xxTokenName (Token, TokenArray);");WriteNl (file);
+Spaces;WriteS (file, "	  Strings.ArrayToString (TokenArray, TokenString);");WriteNl (file);
+Spaces;WriteS (file, "	  IF (Strings.Length (ContinueString) + Strings.Length (TokenString) + 1 <= Strings.cMaxStrLength) THEN");WriteNl (file);
+Spaces;WriteS (file, "	    Strings.Concatenate (ContinueString, TokenString);");WriteNl (file);
+Spaces;WriteS (file, "	    Strings.Append (ContinueString, ' ');");WriteNl (file);
+Spaces;WriteS (file, "	  END;");WriteNl (file);
+Spaces;WriteS (file, "        END;");WriteNl (file);
+Spaces;WriteS (file, "      END;");WriteNl (file);
+Spaces;WriteS (file, "      Errors.ErrorMessageI (Errors.ExpectedTokens, Errors.Information, ");
+		Prefix;
+WriteS (file, ".Attribute.Position, Errors.String, SYSTEM.ADR (ContinueString));");WriteNl (file);
+Spaces;WriteS (file, "      xxSkipTokens (LocalRecoverySet, GlobalRecoverySet);");WriteNl (file);
+Spaces;WriteS (file, "    END;");WriteNl (file);
+Spaces;WriteS (file, "  END xxExpected;");WriteNl (file);
+Spaces;WriteNl (file);
+Spaces;WriteS (file, "PROCEDURE xxRecoveryLiteral (Expected: SHORTCARD; LocalRecoverySet: SHORTCARD; GlobalRecoverySet: xxtUnionPtr);");WriteNl (file);
+Spaces;WriteS (file, "  VAR TokenString: ARRAY [0..127] OF CHAR;");WriteNl (file);
+Spaces;WriteS (file, "  BEGIN");WriteNl (file);
+Spaces;WriteS (file, "    IF NOT xxIsRepairMode THEN");WriteNl (file);
+Spaces;WriteS (file, "      INC (xxErrorCount);");WriteNl (file);
+Spaces;WriteS (file, "      Errors.ErrorMessage (Errors.SyntaxError, Errors.Error, ");
+		Prefix;
+WriteS (file, ".Attribute.Position);");WriteNl (file);
+Spaces;WriteS (file, "      xxTokenName (Expected, TokenString);");WriteNl (file);
+Spaces;WriteS (file, "      Errors.ErrorMessageI (Errors.ExpectedTokens, Errors.Information, ");
+		Prefix;
+WriteS (file, ".Attribute.Position, Errors.Array, SYSTEM.ADR (TokenString));");WriteNl (file);
+Spaces;WriteS (file, "      xxSkipTokens (LocalRecoverySet, GlobalRecoverySet);");WriteNl (file);
+Spaces;WriteS (file, "    END;");WriteNl (file);
+Spaces;WriteS (file, "    IF xxToken # Expected THEN");WriteNl (file);
+Spaces;WriteS (file, "      xxTokenName (Expected, TokenString);");WriteNl (file);
+Spaces;WriteS (file, "      Errors.ErrorMessageI (Errors.TokenInserted, Errors.Repair, ");
+		Prefix;
+WriteS (file, ".Attribute.Position, Errors.Array, SYSTEM.ADR (TokenString));");WriteNl (file);
+Spaces;WriteS (file, "    ELSE");WriteNl (file);
+Spaces;WriteS (file, "      IF xxToken # xxEof THEN xxToken := ");
+		Prefix;
+WriteS (file, ".GetToken (); END;");WriteNl (file);
+Spaces;WriteS (file, "      xxIsRepairMode := FALSE;");WriteNl (file);
+Spaces;WriteS (file, "    END;");WriteNl (file);
+Spaces;WriteS (file, "  END xxRecoveryLiteral;");WriteNl (file);
+Spaces;WriteNl (file);
+Spaces;WriteS (file, "PROCEDURE xxRecoveryTerminal (Expected: SHORTCARD; LocalRecoverySet: SHORTCARD; GlobalRecoverySet: xxtUnionPtr; VAR RepairAttribute: ");
+		Prefix;
+WriteS (file, ".tScanAttribute);");WriteNl (file);
+Spaces;WriteS (file, "  VAR TokenString: ARRAY [0..127] OF CHAR;");WriteNl (file);
+Spaces;WriteS (file, "  BEGIN");WriteNl (file);
+Spaces;WriteS (file, "    IF NOT xxIsRepairMode THEN");WriteNl (file);
+Spaces;WriteS (file, "      INC (xxErrorCount);");WriteNl (file);
+Spaces;WriteS (file, "      Errors.ErrorMessage (Errors.SyntaxError, Errors.Error, ");
+		Prefix;
+WriteS (file, ".Attribute.Position);");WriteNl (file);
+Spaces;WriteS (file, "      xxTokenName (Expected, TokenString);");WriteNl (file);
+Spaces;WriteS (file, "      Errors.ErrorMessageI (Errors.ExpectedTokens, Errors.Information, ");
+		Prefix;
+WriteS (file, ".Attribute.Position, Errors.Array, SYSTEM.ADR (TokenString));");WriteNl (file);
+Spaces;WriteS (file, "      xxSkipTokens (LocalRecoverySet, GlobalRecoverySet);");WriteNl (file);
+Spaces;WriteS (file, "    END;");WriteNl (file);
+Spaces;WriteS (file, "    IF xxToken # Expected THEN");WriteNl (file);
+Spaces;WriteS (file, "      xxTokenName (Expected, TokenString);");WriteNl (file);
+Spaces;WriteS (file, "      Errors.ErrorMessageI (Errors.TokenInserted, Errors.Repair, ");
+		Prefix;
+WriteS (file, ".Attribute.Position, Errors.Array, SYSTEM.ADR (TokenString));");WriteNl (file);
+Spaces;WriteS (file, "      ");
+		Prefix;
+WriteS (file, ".ErrorAttribute (Expected, RepairAttribute);");WriteNl (file);
+Spaces;WriteS (file, "    ELSE");WriteNl (file);
+Spaces;WriteS (file, "      RepairAttribute := ");
+		Prefix;
+WriteS (file, ".Attribute;");WriteNl (file);
+Spaces;WriteS (file, "      IF xxToken # xxEof THEN xxToken := ");
+		Prefix;
+WriteS (file, ".GetToken (); END;");WriteNl (file);
+Spaces;WriteS (file, "      xxIsRepairMode := FALSE;");WriteNl (file);
+Spaces;WriteS (file, "    END;");WriteNl (file);
+Spaces;WriteS (file, "  END xxRecoveryTerminal;");WriteNl (file);
+Spaces;WriteNl (file);
+Spaces;WriteS (file, "PROCEDURE xxSkipTokens (LocalRecoverySet: SHORTCARD; GlobalRecoverySet: xxtUnionPtr);");WriteNl (file);
+Spaces;WriteS (file, "  VAR RecoverySet: xxtSet;");WriteNl (file);
+Spaces;WriteS (file, "      TokensSkipped: BOOLEAN;");WriteNl (file);
+Spaces;WriteS (file, "  BEGIN");WriteNl (file);
+Spaces;WriteS (file, "    RecoverySet := xxHorizontalSet [LocalRecoverySet];");WriteNl (file);
+Spaces;WriteS (file, "    INCL (RecoverySet [0], xxEof);");WriteNl (file);
+Spaces;WriteS (file, "    WHILE GlobalRecoverySet # NIL DO");WriteNl (file);
+		FOR i := 0 TO MaxCode () DIV cBitsPerBitset DO
+Spaces;WriteS (file, "      RecoverySet [");WriteI (file, i, 0);WriteS (file, "] := RecoverySet [");WriteI (file, i, 0);WriteS (file, "] + xxHorizontalSet [GlobalRecoverySet^.LocalRecoverySet] [");WriteI (file, i, 0);WriteS (file, "];");WriteNl (file);
+		END;
+Spaces;WriteS (file, "      GlobalRecoverySet := GlobalRecoverySet^.GlobalRecoverySet;");WriteNl (file);
+Spaces;WriteS (file, "    END;");WriteNl (file);
+Spaces;WriteS (file, "    TokensSkipped := FALSE;");WriteNl (file);
+Spaces;WriteS (file, "    WHILE NOT xxIsElement (RecoverySet, xxToken) DO");WriteNl (file);
+Spaces;WriteS (file, "      xxToken := ");
+		Prefix;
+WriteS (file, ".GetToken ();");WriteNl (file);
+Spaces;WriteS (file, "      TokensSkipped := TRUE;");WriteNl (file);
+Spaces;WriteS (file, "    END;");WriteNl (file);
+Spaces;WriteS (file, "    IF TokensSkipped THEN");WriteNl (file);
+Spaces;WriteS (file, "      Errors.ErrorMessage (Errors.RestartPoint, Errors.Information, ");
+		Prefix;
+WriteS (file, ".Attribute.Position);");WriteNl (file);
+Spaces;WriteS (file, "    END;");WriteNl (file);
+Spaces;WriteS (file, "    xxIsRepairMode := TRUE;");WriteNl (file);
+Spaces;WriteS (file, "  END xxSkipTokens;");WriteNl (file);
+Spaces;WriteNl (file);
+Spaces;WriteS (file, "PROCEDURE Begin");WriteIdent (file, ParserName);WriteS (file, ";");WriteNl (file);
+Spaces;WriteS (file, "  VAR");WriteNl (file);
+Spaces;WriteS (file, "    xxTableFile: System.tFile;");WriteNl (file);
+Spaces;WriteS (file, "    xxSize: CARDINAL;");WriteNl (file);
+Spaces;WriteS (file, "  BEGIN");WriteNl (file);
+Spaces;WriteS (file, "    IF xxIsInitialized THEN RETURN; END;");WriteNl (file);
+		CodeBegin (yyt^.Grammar.sections);
+Spaces;WriteS (file, "    xxTableFile := System.OpenInput (ParsTabName);");WriteNl (file);
+Spaces;WriteS (file, "    IF xxTableFile < 0 THEN");WriteNl (file);
+Spaces;WriteS (file, "      Errors.ErrorMessage (Errors.ReadParseTable, Errors.Fatal, Positions.NoPosition);");WriteNl (file);
+Spaces;WriteS (file, "    END;");WriteNl (file);
+		IF vMaxRecSetIndex # cNoIndex THEN
+Spaces;WriteS (file, "    xxSize := System.Read (xxTableFile, SYSTEM.ADR (xxHorizontalSet), SIZE (xxHorizontalSet));");WriteNl (file);
+Spaces;WriteS (file, "    IF xxSize # SIZE (xxHorizontalSet) THEN");WriteNl (file);
+Spaces;WriteS (file, "      Errors.ErrorMessage (Errors.ReadParseTable, Errors.Fatal, Positions.NoPosition);");WriteNl (file);
+Spaces;WriteS (file, "    END;");WriteNl (file);
+		END;
+		FOR i := 0 TO vMaxSetIndex DIV cBitsPerBitset DO
+Spaces;WriteS (file, "    xxSize := System.Read (xxTableFile, SYSTEM.ADR (xxVerticalSet");WriteI (file, i, 0);WriteS (file, "), SIZE (xxVerticalSet");WriteI (file, i, 0);WriteS (file, "));");WriteNl (file);
+Spaces;WriteS (file, "    IF xxSize # SIZE (xxVerticalSet");WriteI (file, i, 0);WriteS (file, ") THEN");WriteNl (file);
+Spaces;WriteS (file, "      Errors.ErrorMessage (Errors.ReadParseTable, Errors.Fatal, Positions.NoPosition);");WriteNl (file);
+Spaces;WriteS (file, "    END;");WriteNl (file);
+		END;
+Spaces;WriteS (file, "    System.Close (xxTableFile);");WriteNl (file);
+Spaces;WriteS (file, "    xxIsInitialized := TRUE;");WriteNl (file);
+Spaces;WriteS (file, "  END Begin");WriteIdent (file, ParserName);WriteS (file, ";");WriteNl (file);
+Spaces;WriteNl (file);
+Spaces;WriteS (file, "PROCEDURE Close");WriteIdent (file, ParserName);WriteS (file, ";");WriteNl (file);
+Spaces;WriteS (file, "  BEGIN");WriteNl (file);
+		CodeClose (yyt^.Grammar.sections);
+Spaces;WriteS (file, "  END Close");WriteIdent (file, ParserName);WriteS (file, ";");WriteNl (file);
+Spaces;WriteNl (file);
+		NumberArraySize := MaxIdent () + 1;
+		MaxNumberArraySize := MaxIdent () + 1;
+		MakeArray (NumberArray, NumberArraySize, TSIZE (INTEGER));
+		MakeArray (MaxNumberArray, MaxNumberArraySize, TSIZE (INTEGER));
+		CodeRules (yyt^.Grammar.rules);
+		ReleaseArray (NumberArray, NumberArraySize, TSIZE (INTEGER));
+		ReleaseArray (MaxNumberArray, MaxNumberArraySize, TSIZE (INTEGER));
+
+Spaces;WriteS (file, "BEGIN");WriteNl (file);
+Spaces;WriteS (file, "  xxIsInitialized := FALSE;");WriteNl (file);
+Spaces;WriteS (file, "  ParsTabName := '");WriteIdent (file, ParserName);WriteS (file, cTable);WriteS (file, "';");WriteNl (file);
+Spaces;WriteS (file, "END ");WriteIdent (file, ParserName);WriteS (file, ".");WriteNl (file);
+
+		WriteClose (file);
+		
+END yyF3CodeImp;
+
+PROCEDURE yyF4CodeImp (yyt: Tree.tTree);
+
+BEGIN    (* line 644 CodeM2.aftermpp *)
+
+		ERROR ('CodeM2.ESTRA: no rules');
+		
+END yyF4CodeImp;
+
+PROCEDURE yyF5CodeRules (yyt: Tree.tTree);
+
+BEGIN
+END yyF5CodeRules;
+
+PROCEDURE yyF6CodeRules (yyt: Tree.tTree);
+
+BEGIN    (* line 658 CodeM2.aftermpp *)
+
+		ClearArray (MaxNumberArray^);
+		SetNumbers (yyt^.Rules.rule^.Rule.expr, TRUE);
+Spaces;WriteS (file, "PROCEDURE yy");WriteIdent (file, yyt^.Rules.rule^.Rule.id^.Id.ident);WriteS (file, " (VAR ");WriteIdent (file, yyt^.Rules.rule^.Rule.id^.Id.ident);WriteS (file, "0: tParsAttribute; xxGlobalRecoverySet: xxtUnionPtr);");WriteNl (file);
+INC (SpaCo);
+Spaces;WriteS (file, "VAR");WriteNl (file);
+INC (SpaCo);
+		  WriteAttributes;
+		  IF yyt^.Rules.rule^.Rule.iscalling THEN
+Spaces;WriteS (file, "xxUnion: xxtUnion;");WriteNl (file);
+		  END;
+		  CodeLocal (lSections);
+		  CodeCodes (yyt^.Rules.rule^.Rule.codes);
+DEC (SpaCo);
+Spaces;WriteS (file, "BEGIN");WriteNl (file);
+INC (SpaCo);
+		  IF yyt^.Rules.rule^.Rule.iscalling THEN
+Spaces;WriteS (file, "xxUnion.GlobalRecoverySet := xxGlobalRecoverySet;");WriteNl (file);
+		  END;
+		  CodeRules (yyt^.Rules.rule^.Rule.expr);
+DEC (SpaCo);
+Spaces;WriteS (file, "END yy");WriteIdent (file, yyt^.Rules.rule^.Rule.id^.Id.ident);WriteS (file, ";");WriteNl (file);
+DEC (SpaCo);
+Spaces;WriteNl (file);
+		CodeRules (yyt^.Rules.rules);
+		
+END yyF6CodeRules;
+
+PROCEDURE yyF7CodeRules (yyt: Tree.tTree);
+
+BEGIN    (* line 686 CodeM2.aftermpp *)
+
+Spaces;WriteS (file, "LOOP");WriteNl (file);
+INC (SpaCo);
+Spaces;WriteS (file, "IF ");
+		    CodeIsElement (yyt^.Option.index, yyt^.Option.first);
+WriteS (file, " THEN");WriteNl (file);
+INC (SpaCo);
+		    InDefault := FALSE;
+		    CodeRules (yyt^.Option.expr);
+Spaces;WriteS (file, "EXIT;");WriteNl (file);
+DEC (SpaCo);
+Spaces;WriteS (file, "ELSIF ");
+		    CodeIsElement (yyt^.Option.followindex, yyt^.Option.follow);
+WriteS (file, " OR xxIsRepairMode THEN EXIT; END;");WriteNl (file);
+		  CodeRecovery (yyt^.Option.recindex, yyt^.Option.expindex);
+DEC (SpaCo);
+Spaces;WriteS (file, "END;");WriteNl (file);
+		
+END yyF7CodeRules;
+
+PROCEDURE yyF8CodeRules (yyt: Tree.tTree);
+
+BEGIN    (* line 706 CodeM2.aftermpp *)
+
+Spaces;WriteS (file, "LOOP");WriteNl (file);
+INC (SpaCo);
+Spaces;WriteS (file, "IF ");
+		    CodeIsElement (yyt^.Times.index, yyt^.Times.first);
+WriteS (file, " THEN");WriteNl (file);
+INC (SpaCo);
+		    InDefault := FALSE;
+		    CodeRules (yyt^.Times.expr);
+DEC (SpaCo);
+Spaces;WriteS (file, "ELSIF ");
+		    CodeIsElement (yyt^.Times.followindex, yyt^.Times.follow);
+WriteS (file, " OR xxIsRepairMode THEN EXIT;");WriteNl (file);
+Spaces;WriteS (file, "ELSE");WriteNl (file);
+Spaces;WriteS (file, " ");WriteNl (file);
+		    CodeRecovery (yyt^.Times.recindex, yyt^.Times.expindex);
+Spaces;WriteS (file, "END;");WriteNl (file);
+DEC (SpaCo);
+Spaces;WriteS (file, "END;");WriteNl (file);
+		
+END yyF8CodeRules;
+
+PROCEDURE yyF9CodeRules (yyt: Tree.tTree);
+
+BEGIN    (* line 728 CodeM2.aftermpp *)
+
+Spaces;WriteS (file, "LOOP");WriteNl (file);
+INC (SpaCo);
+		  CodeRules (yyt^.Plus.expr);
+Spaces;WriteS (file, "IF NOT (");
+		    CodeIsElement (yyt^.Plus.index, yyt^.Plus.first);
+WriteS (file, ") THEN");WriteNl (file);
+INC (SpaCo);
+Spaces;WriteS (file, "IF ");
+		      CodeIsElement (yyt^.Plus.followindex, yyt^.Plus.follow);
+WriteS (file, " THEN EXIT; END;");WriteNl (file);
+		    CodeRecovery (yyt^.Plus.recindex, yyt^.Plus.expindex);
+Spaces;WriteS (file, "IF NOT (");
+		      CodeIsElement (yyt^.Plus.index, yyt^.Plus.first);
+WriteS (file, ") THEN EXIT; END;");WriteNl (file);
+DEC (SpaCo);
+Spaces;WriteS (file, "END;");WriteNl (file);
+DEC (SpaCo);
+Spaces;WriteS (file, "END;");WriteNl (file);
+		
+END yyF9CodeRules;
+
+PROCEDURE yyF10CodeRules (yyt: Tree.tTree);
+
+BEGIN    (* line 750 CodeM2.aftermpp *)
+
+Spaces;WriteS (file, "LOOP");WriteNl (file);
+INC (SpaCo);
+		  CodeRules (yyt^.List.body);
+Spaces;WriteS (file, "IF NOT (");
+		    CodeIsElement (yyt^.List.sep^.expr.index, yyt^.List.sep^.expr.first);
+WriteS (file, ") THEN");WriteNl (file);
+INC (SpaCo);
+Spaces;WriteS (file, "IF ");
+		      CodeIsElement (yyt^.List.followindex, yyt^.List.follow);
+WriteS (file, " THEN EXIT; END;");WriteNl (file);
+		    CodeRecovery (yyt^.List.recindex, yyt^.List.expindex);
+Spaces;WriteS (file, "IF NOT (");
+		      CodeIsElement (yyt^.List.sep^.expr.index, yyt^.List.sep^.expr.first);
+WriteS (file, " OR ");
+		      CodeIsElement (yyt^.List.index, yyt^.List.first);
+WriteS (file, ") THEN EXIT; END;");WriteNl (file);
+DEC (SpaCo);
+Spaces;WriteS (file, "END;");WriteNl (file);
+		  CodeRules (yyt^.List.sep);
+DEC (SpaCo);
+Spaces;WriteS (file, "END;");WriteNl (file);
+		
+END yyF10CodeRules;
+
+PROCEDURE yyF11CodeRules (yyt: Tree.tTree);
+
+BEGIN
+END yyF11CodeRules;
+
+PROCEDURE yyF12CodeRules (yyt: Tree.tTree);
+
+BEGIN    (* line 776 CodeM2.aftermpp *)
+ CodeCodes (yyt^.Action.codes); 
+END yyF12CodeRules;
+
+PROCEDURE yyF13CodeRules (yyt: Tree.tTree);
+
+BEGIN    (* line 780 CodeM2.aftermpp *)
+
+		IF InDefault THEN
+Spaces;WriteS (file, "IF xxToken # ");WriteI (file, Code (yyt^.Leaf.id^.Id.ident), 0);WriteS (file, " (* ");WriteIdent (file, yyt^.Leaf.id^.Id.ident);WriteS (file, " *) THEN");WriteNl (file);
+Spaces;WriteS (file, "  xxRecoveryTerminal (");WriteI (file, Code (yyt^.Leaf.id^.Id.ident), 0);WriteS (file, ", ");WriteI (file, yyt^.Leaf.recindex, 0);WriteS (file, ", xxGlobalRecoverySet, ");WriteIdent (file, yyt^.Leaf.id^.Id.ident);WriteI (file, yyt^.Leaf.number, 0);WriteS (file, "); (* ");WriteRecIndex (file, yyt^.Leaf.recindex);WriteS (file, " *)");WriteNl (file);
+Spaces;WriteS (file, "ELSE");WriteNl (file);
+Spaces;WriteS (file, "  ");WriteIdent (file, yyt^.Leaf.id^.Id.ident);WriteI (file, yyt^.Leaf.number, 0);WriteS (file, " := ");
+		Prefix;
+WriteS (file, ".Attribute;");WriteNl (file);
+Spaces;WriteS (file, "  xxToken := ");
+		Prefix;
+WriteS (file, ".GetToken (); xxIsRepairMode := FALSE;");WriteNl (file);
+Spaces;WriteS (file, "END;");WriteNl (file);
+		  InDefault := FALSE;
+		ELSE
+Spaces;WriteIdent (file, yyt^.Leaf.id^.Id.ident);WriteI (file, yyt^.Leaf.number, 0);WriteS (file, " := ");
+		Prefix;
+WriteS (file, ".Attribute;");WriteNl (file);
+Spaces;WriteS (file, "xxToken := ");
+		Prefix;
+WriteS (file, ".GetToken (); xxIsRepairMode := FALSE;");WriteNl (file);
+		END;
+		
+END yyF13CodeRules;
+
+PROCEDURE yyF14CodeRules (yyt: Tree.tTree);
+
+BEGIN    (* line 805 CodeM2.aftermpp *)
+
+		IF InDefault THEN
+Spaces;WriteS (file, "IF xxToken # ");WriteI (file, Code (yyt^.Leaf.id^.Id.ident), 0);WriteS (file, " (* ");WriteIdent (file, yyt^.Leaf.id^.Id.ident);WriteS (file, " *) THEN");WriteNl (file);
+Spaces;WriteS (file, "  xxRecoveryLiteral (");WriteI (file, Code (yyt^.Leaf.id^.Id.ident), 0);WriteS (file, ", ");WriteI (file, yyt^.Leaf.recindex, 0);WriteS (file, ", xxGlobalRecoverySet); (* ");WriteRecIndex (file, yyt^.Leaf.recindex);WriteS (file, " *)");WriteNl (file);
+Spaces;WriteS (file, "ELSE");WriteNl (file);
+Spaces;WriteS (file, "  xxToken := ");
+		Prefix;
+WriteS (file, ".GetToken (); xxIsRepairMode := FALSE;");WriteNl (file);
+Spaces;WriteS (file, "END;");WriteNl (file);
+		  InDefault := FALSE;
+		ELSE
+Spaces;WriteS (file, "xxToken := ");
+		Prefix;
+WriteS (file, ".GetToken (); xxIsRepairMode := FALSE;");WriteNl (file);
+		END;
+		
+END yyF14CodeRules;
+
+PROCEDURE yyF15CodeRules (yyt: Tree.tTree);
+
+BEGIN    (* line 824 CodeM2.aftermpp *)
+
+Spaces;WriteS (file, "IF xxToken # ");WriteI (file, Code (yyt^.Leaf.id^.Id.ident), 0);WriteS (file, " (* ");WriteIdent (file, yyt^.Leaf.id^.Id.ident);WriteS (file, " *) THEN");WriteNl (file);
+Spaces;WriteS (file, "  xxRecoveryTerminal (");WriteI (file, Code (yyt^.Leaf.id^.Id.ident), 0);WriteS (file, ", ");WriteI (file, yyt^.Leaf.recindex, 0);WriteS (file, ", xxGlobalRecoverySet, ");WriteIdent (file, yyt^.Leaf.id^.Id.ident);WriteI (file, yyt^.Leaf.number, 0);WriteS (file, "); (* ");WriteRecIndex (file, yyt^.Leaf.recindex);WriteS (file, " *)");WriteNl (file);
+Spaces;WriteS (file, "ELSE");WriteNl (file);
+Spaces;WriteS (file, "  ");WriteIdent (file, yyt^.Leaf.id^.Id.ident);WriteI (file, yyt^.Leaf.number, 0);WriteS (file, " := ");
+		Prefix;
+WriteS (file, ".Attribute;");WriteNl (file);
+Spaces;WriteS (file, "  xxToken := ");
+		Prefix;
+WriteS (file, ".GetToken (); xxIsRepairMode := FALSE;");WriteNl (file);
+Spaces;WriteS (file, "END;");WriteNl (file);
+		
+END yyF15CodeRules;
+
+PROCEDURE yyF16CodeRules (yyt: Tree.tTree);
+
+BEGIN    (* line 839 CodeM2.aftermpp *)
+
+Spaces;WriteS (file, "IF xxToken # ");WriteI (file, Code (yyt^.Leaf.id^.Id.ident), 0);WriteS (file, " (* ");WriteIdent (file, yyt^.Leaf.id^.Id.ident);WriteS (file, " *) THEN");WriteNl (file);
+Spaces;WriteS (file, "  xxRecoveryLiteral (");WriteI (file, Code (yyt^.Leaf.id^.Id.ident), 0);WriteS (file, ", ");WriteI (file, yyt^.Leaf.recindex, 0);WriteS (file, ", xxGlobalRecoverySet); (* ");WriteRecIndex (file, yyt^.Leaf.recindex);WriteS (file, " *)");WriteNl (file);
+Spaces;WriteS (file, "ELSE");WriteNl (file);
+Spaces;WriteS (file, "  xxToken := ");
+		Prefix;
+WriteS (file, ".GetToken (); xxIsRepairMode := FALSE;");WriteNl (file);
+Spaces;WriteS (file, "END;");WriteNl (file);
+		
+END yyF16CodeRules;
+
+PROCEDURE yyF17CodeRules (yyt: Tree.tTree);
+
+BEGIN    (* line 851 CodeM2.aftermpp *)
+
+Spaces;WriteS (file, "xxUnion.LocalRecoverySet := ");WriteI (file, yyt^.Leaf.recindex, 0);WriteS (file, "; yy");WriteIdent (file, yyt^.Leaf.id^.Id.ident);WriteS (file, " (");WriteIdent (file, yyt^.Leaf.id^.Id.ident);WriteI (file, yyt^.Leaf.number, 0);WriteS (file, ", SYSTEM.ADR (xxUnion)); (* ");WriteRecIndex (file, yyt^.Leaf.recindex);WriteS (file, " *)");WriteNl (file);
+		
+END yyF17CodeRules;
+
+PROCEDURE yyF18CodeRules (yyt: Tree.tTree);
+
+BEGIN
+END yyF18CodeRules;
+
+PROCEDURE yyF19CodeRules (yyt: Tree.tTree);
+
+BEGIN    (* line 858 CodeM2.aftermpp *)
+
+		CodeRules (yyt^.Sequence.expr);
+		CodeRules (yyt^.Sequence.sequence);
+		
+END yyF19CodeRules;
+
+PROCEDURE yyF20CodeRules (yyt: Tree.tTree);
+
+BEGIN    (* line 864 CodeM2.aftermpp *)
+
+Spaces;WriteS (file, "LOOP");WriteNl (file);
+INC (SpaCo);
+Spaces;WriteS (file, "CASE xxToken OF");WriteNl (file);
+		  CodeAltCase (yyt);
+Spaces;WriteS (file, "END;");WriteNl (file);
+DEC (SpaCo);
+Spaces;WriteS (file, "END;");WriteNl (file);
+		
+END yyF20CodeRules;
+
+PROCEDURE yyF21CodeRules (yyt: Tree.tTree);
+
+BEGIN    (* line 875 CodeM2.aftermpp *)
+
+		CodeAltIf (yyt, FALSE);
+		
+END yyF21CodeRules;
+
+PROCEDURE yyF22CodeAltCase (yyt: Tree.tTree);
+
+BEGIN    (* line 883 CodeM2.aftermpp *)
+
+Spaces;WriteS (file, "ELSE");WriteNl (file);
+INC (SpaCo);
+Spaces;WriteS (file, "IF xxIsRepairMode THEN");WriteNl (file);
+INC (SpaCo);
+		    InDefault := TRUE;
+		    CodeRules (yyt^.Alternative0.default);
+		    InDefault := FALSE;
+Spaces;WriteS (file, "EXIT;");WriteNl (file);
+DEC (SpaCo);
+Spaces;WriteS (file, "END;");WriteNl (file);
+		  CodeRecovery (yyt^.Alternative0.recindex, yyt^.Alternative0.expindex);
+DEC (SpaCo);
+		
+END yyF22CodeAltCase;
+
+PROCEDURE yyF23CodeAltCase (yyt: Tree.tTree);
+
+BEGIN    (* line 899 CodeM2.aftermpp *)
+
+		WriteLabels (yyt^.Alternative.expr^.expr.fifo);
+INC (SpaCo);
+		CodeRules (yyt^.Alternative.expr);
+Spaces;WriteS (file, "EXIT;");WriteNl (file);
+DEC (SpaCo);
+		CodeAltCase (yyt^.Alternative.alternative);
+		
+END yyF23CodeAltCase;
+
+PROCEDURE yyF24CodeAltIf (yyt: Tree.tTree;started:BOOLEAN);
+
+BEGIN    (* line 912 CodeM2.aftermpp *)
+
+Spaces;WriteS (file, "ELSE");WriteNl (file);
+INC (SpaCo);
+		  CodeRecovery (yyt^.Alternative0.recindex, yyt^.Alternative0.expindex);
+		  InDefault := TRUE;
+		  CodeRules (yyt^.Alternative0.default);
+		  InDefault := FALSE;
+DEC (SpaCo);
+Spaces;WriteS (file, "END;");WriteNl (file);
+		
+END yyF24CodeAltIf;
+
+PROCEDURE yyF25CodeAltIf (yyt: Tree.tTree;started:BOOLEAN);
+
+BEGIN    (* line 924 CodeM2.aftermpp *)
+
+		IF NOT started THEN
+Spaces;WriteS (file, "IF ");
+	            CodeIsElement (yyt^.Alternative.index, yyt^.Alternative.expr^.expr.first);
+WriteS (file, " THEN");WriteNl (file);
+		ELSE
+Spaces;WriteS (file, "ELSE ");WriteNl (file);
+		END;
+INC (SpaCo);
+		CodeRules (yyt^.Alternative.expr);
+DEC (SpaCo);
+Spaces;WriteS (file, "END;");WriteNl (file);
+		
+END yyF25CodeAltIf;
+
+PROCEDURE yyF26CodeAltIf (yyt: Tree.tTree;started:BOOLEAN);
+
+BEGIN    (* line 939 CodeM2.aftermpp *)
+
+		IF NOT started THEN
+Spaces;WriteS (file, "IF ");
+		ELSE
+WriteS (file, "ELSIF ");
+		END;
+	        CodeIsElement (yyt^.Alternative.index, yyt^.Alternative.expr^.expr.fifo);
+WriteS (file, " THEN");WriteNl (file);
+INC (SpaCo);
+		CodeRules (yyt^.Alternative.expr);
+DEC (SpaCo);
+		CodeAltIf (yyt^.Alternative.alternative, TRUE);
+		
+END yyF26CodeAltIf;
+
+PROCEDURE yyF27SetNumbers (yyt: Tree.tTree;start:BOOLEAN);
+
+BEGIN    (* line 961 CodeM2.aftermpp *)
+
+		IF start THEN ClearArray (NumberArray^); END;
+		SetNumbers (yyt^.Option.expr, FALSE);
+		
+END yyF27SetNumbers;
+
+PROCEDURE yyF28SetNumbers (yyt: Tree.tTree;start:BOOLEAN);
+
+BEGIN    (* line 967 CodeM2.aftermpp *)
+
+		IF start THEN ClearArray (NumberArray^); END;
+		SetNumbers (yyt^.Times.expr, FALSE);
+		
+END yyF28SetNumbers;
+
+PROCEDURE yyF29SetNumbers (yyt: Tree.tTree;start:BOOLEAN);
+
+BEGIN    (* line 973 CodeM2.aftermpp *)
+
+		IF start THEN ClearArray (NumberArray^); END;
+		SetNumbers (yyt^.Plus.expr, FALSE);
+		
+END yyF29SetNumbers;
+
+PROCEDURE yyF30SetNumbers (yyt: Tree.tTree;start:BOOLEAN);
+
+BEGIN    (* line 979 CodeM2.aftermpp *)
+
+		IF start THEN ClearArray (NumberArray^); END;
+		SetNumbers (yyt^.List.body, FALSE);
+		SetNumbers (yyt^.List.sep, FALSE);
+		
+END yyF30SetNumbers;
+
+PROCEDURE yyF31SetNumbers (yyt: Tree.tTree;start:BOOLEAN);
+
+BEGIN
+END yyF31SetNumbers;
+
+PROCEDURE yyF32SetNumbers (yyt: Tree.tTree;start:BOOLEAN);
+
+BEGIN
+END yyF32SetNumbers;
+
+PROCEDURE yyF33SetNumbers (yyt: Tree.tTree;start:BOOLEAN);
+
+BEGIN    (* line 990 CodeM2.aftermpp *)
+
+		IF start THEN ClearArray (NumberArray^); END;
+		SetNumbers (yyt^.Sequence.expr, FALSE);
+		SetNumbers (yyt^.Sequence.sequence, FALSE);
+		
+END yyF33SetNumbers;
+
+PROCEDURE yyF34SetNumbers (yyt: Tree.tTree;start:BOOLEAN);
+
+BEGIN    (* line 996 CodeM2.aftermpp *)
+ 
+END yyF34SetNumbers;
+
+PROCEDURE yyF35SetNumbers (yyt: Tree.tTree;start:BOOLEAN);
+
+BEGIN    (* line 999 CodeM2.aftermpp *)
+
+		IF start THEN ClearArray (NumberArray^); END;
+		SetNumbers (yyt^.Alternative.expr, FALSE);
+		SetNumbers (yyt^.Alternative.alternative, start);
+		
+END yyF35SetNumbers;
+
+PROCEDURE yyF36SetNumbers (yyt: Tree.tTree;start:BOOLEAN);
+
+BEGIN    (* line 1007 CodeM2.aftermpp *)
+
+		yyt^.Leaf.number := 0;
+		
+END yyF36SetNumbers;
+
+PROCEDURE yyF37SetNumbers (yyt: Tree.tTree;start:BOOLEAN);
+
+BEGIN    (* line 1013 CodeM2.aftermpp *)
+
+		IF start THEN ClearArray (NumberArray^); END;
+		yyt^.Leaf.number := NumberArray^ [yyt^.Leaf.id^.Id.ident] + 1;
+		NumberArray^ [yyt^.Leaf.id^.Id.ident] := yyt^.Leaf.number;
+		IF yyt^.Leaf.number > MaxNumberArray^ [yyt^.Leaf.id^.Id.ident] THEN
+		  MaxNumberArray^ [yyt^.Leaf.id^.Id.ident] := yyt^.Leaf.number;
+		END;
+		
+END yyF37SetNumbers;
+
+PROCEDURE yyF38CodeExport (yyt: Tree.tTree);
+
+BEGIN    (* line 1031 CodeM2.aftermpp *)
+
+		vExport := TRUE;
+		CodeCodes (yyt^.Sections.section^.Export.codes);
+		CodeExport (yyt^.Sections.sections);
+		
+END yyF38CodeExport;
+
+PROCEDURE yyF39CodeExport (yyt: Tree.tTree);
+
+BEGIN    (* line 1039 CodeM2.aftermpp *)
+
+		CodeExport (yyt^.Sections.sections);
+		
+END yyF39CodeExport;
+
+PROCEDURE yyF40CodeExport (yyt: Tree.tTree);
+
+BEGIN
+END yyF40CodeExport;
+
+PROCEDURE yyF41CodeGlobal (yyt: Tree.tTree);
+
+BEGIN    (* line 1050 CodeM2.aftermpp *)
+
+		CodeCodes (yyt^.Sections.section^.Global.codes);
+		CodeGlobal (yyt^.Sections.sections);
+		
+END yyF41CodeGlobal;
+
+PROCEDURE yyF42CodeGlobal (yyt: Tree.tTree);
+
+BEGIN    (* line 1057 CodeM2.aftermpp *)
+
+		CodeGlobal (yyt^.Sections.sections);
+		
+END yyF42CodeGlobal;
+
+PROCEDURE yyF43CodeGlobal (yyt: Tree.tTree);
+
+BEGIN
+END yyF43CodeGlobal;
+
+PROCEDURE yyF44CodeLocal (yyt: Tree.tTree);
+
+BEGIN    (* line 1068 CodeM2.aftermpp *)
+
+		CodeCodes (yyt^.Sections.section^.Local.codes);
+		CodeLocal (yyt^.Sections.sections);
+		
+END yyF44CodeLocal;
+
+PROCEDURE yyF45CodeLocal (yyt: Tree.tTree);
+
+BEGIN    (* line 1075 CodeM2.aftermpp *)
+
+		CodeLocal (yyt^.Sections.sections);
+		
+END yyF45CodeLocal;
+
+PROCEDURE yyF46CodeLocal (yyt: Tree.tTree);
+
+BEGIN
+END yyF46CodeLocal;
+
+PROCEDURE yyF47CodeBegin (yyt: Tree.tTree);
+
+BEGIN    (* line 1086 CodeM2.aftermpp *)
+
+		CodeCodes (yyt^.Sections.section^.Begin.codes);
+		CodeBegin (yyt^.Sections.sections);
+		
+END yyF47CodeBegin;
+
+PROCEDURE yyF48CodeBegin (yyt: Tree.tTree);
+
+BEGIN    (* line 1093 CodeM2.aftermpp *)
+
+		CodeBegin (yyt^.Sections.sections);
+		
+END yyF48CodeBegin;
+
+PROCEDURE yyF49CodeBegin (yyt: Tree.tTree);
+
+BEGIN
+END yyF49CodeBegin;
+
+PROCEDURE yyF50CodeClose (yyt: Tree.tTree);
+
+BEGIN    (* line 1104 CodeM2.aftermpp *)
+
+		CodeCodes (yyt^.Sections.section^.Close.codes);
+		CodeClose (yyt^.Sections.sections);
+		
+END yyF50CodeClose;
+
+PROCEDURE yyF51CodeClose (yyt: Tree.tTree);
+
+BEGIN    (* line 1111 CodeM2.aftermpp *)
+
+		CodeClose (yyt^.Sections.sections);
+		
+END yyF51CodeClose;
+
+PROCEDURE yyF52CodeClose (yyt: Tree.tTree);
+
+BEGIN
+END yyF52CodeClose;
+
+PROCEDURE yyF53CodeCodes (yyt: Tree.tTree);
+
+BEGIN    (* line 1121 CodeM2.aftermpp *)
+
+
+WriteS (file, "(* '");WriteS (file, SourceFileName);WriteS (file, "' line ");WriteI (file, yyt^.Codes.code^.Code.pos.Line, 0);WriteS (file, " *)");WriteNl (file);
+		WriteString (file, yyt^.Codes.code^.Code.ref);
+		CodeCodes2 (yyt^.Codes.codes);
+WriteNl (file);
+
+		
+END yyF53CodeCodes;
+
+PROCEDURE yyF54CodeCodes (yyt: Tree.tTree);
+
+BEGIN
+END yyF54CodeCodes;
+
+PROCEDURE yyF55CodeCodes2 (yyt: Tree.tTree);
+
+BEGIN    (* line 1136 CodeM2.aftermpp *)
+
+		WriteString (file, yyt^.Codes.code^.Code.ref);
+		CodeCodes2 (yyt^.Codes.codes);
+		
+END yyF55CodeCodes2;
+
+PROCEDURE yyF56CodeCodes2 (yyt: Tree.tTree);
+
+BEGIN
+END yyF56CodeCodes2;
+
+PROCEDURE CostCODE (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.CODE.Cost;
+END CostCODE;
+
+PROCEDURE CostCodeDef (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.CodeDef.Cost;
+END CostCodeDef;
+
+PROCEDURE CostCodeImp (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.CodeImp.Cost;
+END CostCodeImp;
+
+PROCEDURE CostCodeRules (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.CodeRules.Cost;
+END CostCodeRules;
+
+PROCEDURE CostCodeAltCase (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.CodeAltCase.Cost;
+END CostCodeAltCase;
+
+PROCEDURE CostCodeAltIf (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.CodeAltIf.Cost;
+END CostCodeAltIf;
+
+PROCEDURE CostSetNumbers (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.SetNumbers.Cost;
+END CostSetNumbers;
+
+PROCEDURE CostCodeExport (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.CodeExport.Cost;
+END CostCodeExport;
+
+PROCEDURE CostCodeGlobal (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.CodeGlobal.Cost;
+END CostCodeGlobal;
+
+PROCEDURE CostCodeLocal (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.CodeLocal.Cost;
+END CostCodeLocal;
+
+PROCEDURE CostCodeBegin (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.CodeBegin.Cost;
+END CostCodeBegin;
+
+PROCEDURE CostCodeClose (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.CodeClose.Cost;
+END CostCodeClose;
+
+PROCEDURE CostCodeCodes (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.CodeCodes.Cost;
+END CostCodeCodes;
+
+PROCEDURE CostCodeCodes2 (yyt: Tree.tTree): INTEGER;
+VAR
+  InfoPtr: yyInfoPtr;
+BEGIN
+  InfoPtr := yyt^.yyHead.yyEstraInfo;
+  RETURN InfoPtr^.CodeCodes2.Cost;
+END CostCodeCodes2;
+
+PROCEDURE yyTraverse (yyt: Tree.tTree): yyStateType;
+VAR
+  state: yyStateType;
+  match: POINTER TO yySetType;
+  cost: INTEGER;
+  info: yyInfoPtr;
+  success: BOOLEAN;
+  
+BEGIN
+  info := yyAlloc ();
+  info^ := yyInfo;
+  yyt^.yyHead.yyEstraInfo := info;
+  
+  
+  CASE yyt^.Kind OF
+  
+  | Tree.Codes:
+      state := 0;
+      state := yyComb [state + yyTraverse (yyt^.Codes.code)];
+      state := yyComb [state + yyTraverse (yyt^.Codes.codes)];
+
+      cost := 1
+      + CostCodeCodes2 (yyt^.Codes.codes);
+      IF cost < info^.CodeCodes.Cost THEN
+        info^.CodeCodes.Cost := cost;
+        info^.CodeCodes.Proc := yyF53CodeCodes;
+      END;
+      
+      cost := 1
+      + CostCodeCodes2 (yyt^.Codes.codes);
+      IF cost < info^.CodeCodes2.Cost THEN
+        info^.CodeCodes2.Cost := cost;
+        info^.CodeCodes2.Proc := yyF55CodeCodes2;
+      END;
+      
+  | Tree.Code:
+      state := 32;
+
+  | Tree.Close:
+      state := 3;
+      state := yyComb [state + yyTraverse (yyt^.Close.codes)];
+
+  | Tree.Grammar:
+      state := 18;
+      state := yyComb [state + yyTraverse (yyt^.Grammar.sections)];
+      state := yyComb [state + yyTraverse (yyt^.Grammar.tokens)];
+      state := yyComb [state + yyTraverse (yyt^.Grammar.rules)];
+      match := SYSTEM.ADR (yySets [state]);
+      
+      yyMatch [3] := (3 IN match^[0]);
+      yyMatch [4] := (4 IN match^[0]);
+
+      cost := 1
+      + CostCodeExport (yyt^.Grammar.sections);
+      IF cost < info^.CodeDef.Cost THEN
+        info^.CodeDef.Cost := cost;
+        info^.CodeDef.Proc := yyF2CodeDef;
+      END;
+      
+      IF yyMatch [3] THEN
+        cost := 1
+        + CostCodeGlobal (yyt^.Grammar.sections)
+        + CostCodeBegin (yyt^.Grammar.sections)
+        + CostCodeClose (yyt^.Grammar.sections)
+        + CostCodeRules (yyt^.Grammar.rules);
+        IF cost < info^.CodeImp.Cost THEN
+          info^.CodeImp.Cost := cost;
+          info^.CodeImp.Proc := yyF3CodeImp;
+        END;
+      END;
+      
+      IF yyMatch [4] THEN
+        cost := 1;
+        IF cost < info^.CodeImp.Cost THEN
+          info^.CodeImp.Cost := cost;
+          info^.CodeImp.Proc := yyF4CodeImp;
+        END;
+      END;
+      
+      cost := 1
+      + CostCodeDef (yyt)
+      + CostCodeImp (yyt);
+      IF cost < info^.CODE.Cost THEN
+        info^.CODE.Cost := cost;
+        info^.CODE.Proc := yyF1CODE;
+      END;
+      
+  | Tree.Sections0:
+      state := 24;
+
+      cost := 1;
+      IF cost < info^.CodeExport.Cost THEN
+        info^.CodeExport.Cost := cost;
+        info^.CodeExport.Proc := yyF40CodeExport;
+      END;
+      
+      cost := 1;
+      IF cost < info^.CodeGlobal.Cost THEN
+        info^.CodeGlobal.Cost := cost;
+        info^.CodeGlobal.Proc := yyF43CodeGlobal;
+      END;
+      
+      cost := 1;
+      IF cost < info^.CodeLocal.Cost THEN
+        info^.CodeLocal.Cost := cost;
+        info^.CodeLocal.Proc := yyF46CodeLocal;
+      END;
+      
+      cost := 1;
+      IF cost < info^.CodeBegin.Cost THEN
+        info^.CodeBegin.Cost := cost;
+        info^.CodeBegin.Proc := yyF49CodeBegin;
+      END;
+      
+      cost := 1;
+      IF cost < info^.CodeClose.Cost THEN
+        info^.CodeClose.Cost := cost;
+        info^.CodeClose.Proc := yyF52CodeClose;
+      END;
+      
+  | Tree.Sections:
+      state := 17;
+      state := yyComb [state + yyTraverse (yyt^.Sections.section)];
+      state := yyComb [state + yyTraverse (yyt^.Sections.sections)];
+      match := SYSTEM.ADR (yySets [state]);
+      
+      yyMatch [38] := (6 IN match^[1]);
+      yyMatch [39] := TRUE & (          (* line 1038 CodeM2.aftermpp *)
+ yyt^.Sections.section^.Kind # Tree.Export );
+      yyMatch [41] := (9 IN match^[1]);
+      yyMatch [42] := TRUE & (          (* line 1056 CodeM2.aftermpp *)
+ yyt^.Sections.section^.Kind # Tree.Global );
+      yyMatch [44] := (12 IN match^[1]);
+      yyMatch [45] := TRUE & (          (* line 1074 CodeM2.aftermpp *)
+ yyt^.Sections.section^.Kind # Tree.Local );
+      yyMatch [47] := (15 IN match^[1]);
+      yyMatch [48] := TRUE & (          (* line 1092 CodeM2.aftermpp *)
+ yyt^.Sections.section^.Kind # Tree.Begin );
+      yyMatch [50] := (18 IN match^[1]);
+      yyMatch [51] := TRUE & (          (* line 1110 CodeM2.aftermpp *)
+ yyt^.Sections.section^.Kind # Tree.Close );
+
+      IF yyMatch [38] THEN
+        cost := 1
+        + CostCodeCodes (yyt^.Sections.section^.Export.codes)
+        + CostCodeExport (yyt^.Sections.sections);
+        IF cost < info^.CodeExport.Cost THEN
+          info^.CodeExport.Cost := cost;
+          info^.CodeExport.Proc := yyF38CodeExport;
+        END;
+      END;
+      
+      IF yyMatch [39] THEN
+        cost := 1
+        + CostCodeExport (yyt^.Sections.sections);
+        IF cost < info^.CodeExport.Cost THEN
+          info^.CodeExport.Cost := cost;
+          info^.CodeExport.Proc := yyF39CodeExport;
+        END;
+      END;
+      
+      IF yyMatch [41] THEN
+        cost := 1
+        + CostCodeCodes (yyt^.Sections.section^.Global.codes)
+        + CostCodeGlobal (yyt^.Sections.sections);
+        IF cost < info^.CodeGlobal.Cost THEN
+          info^.CodeGlobal.Cost := cost;
+          info^.CodeGlobal.Proc := yyF41CodeGlobal;
+        END;
+      END;
+      
+      IF yyMatch [42] THEN
+        cost := 1
+        + CostCodeGlobal (yyt^.Sections.sections);
+        IF cost < info^.CodeGlobal.Cost THEN
+          info^.CodeGlobal.Cost := cost;
+          info^.CodeGlobal.Proc := yyF42CodeGlobal;
+        END;
+      END;
+      
+      IF yyMatch [44] THEN
+        cost := 1
+        + CostCodeCodes (yyt^.Sections.section^.Local.codes)
+        + CostCodeLocal (yyt^.Sections.sections);
+        IF cost < info^.CodeLocal.Cost THEN
+          info^.CodeLocal.Cost := cost;
+          info^.CodeLocal.Proc := yyF44CodeLocal;
+        END;
+      END;
+      
+      IF yyMatch [45] THEN
+        cost := 1
+        + CostCodeLocal (yyt^.Sections.sections);
+        IF cost < info^.CodeLocal.Cost THEN
+          info^.CodeLocal.Cost := cost;
+          info^.CodeLocal.Proc := yyF45CodeLocal;
+        END;
+      END;
+      
+      IF yyMatch [47] THEN
+        cost := 1
+        + CostCodeCodes (yyt^.Sections.section^.Begin.codes)
+        + CostCodeBegin (yyt^.Sections.sections);
+        IF cost < info^.CodeBegin.Cost THEN
+          info^.CodeBegin.Cost := cost;
+          info^.CodeBegin.Proc := yyF47CodeBegin;
+        END;
+      END;
+      
+      IF yyMatch [48] THEN
+        cost := 1
+        + CostCodeBegin (yyt^.Sections.sections);
+        IF cost < info^.CodeBegin.Cost THEN
+          info^.CodeBegin.Cost := cost;
+          info^.CodeBegin.Proc := yyF48CodeBegin;
+        END;
+      END;
+      
+      IF yyMatch [50] THEN
+        cost := 1
+        + CostCodeCodes (yyt^.Sections.section^.Close.codes)
+        + CostCodeClose (yyt^.Sections.sections);
+        IF cost < info^.CodeClose.Cost THEN
+          info^.CodeClose.Cost := cost;
+          info^.CodeClose.Proc := yyF50CodeClose;
+        END;
+      END;
+      
+      IF yyMatch [51] THEN
+        cost := 1
+        + CostCodeClose (yyt^.Sections.sections);
+        IF cost < info^.CodeClose.Cost THEN
+          info^.CodeClose.Cost := cost;
+          info^.CodeClose.Proc := yyF51CodeClose;
+        END;
+      END;
+      
+  | Tree.Export:
+      state := 85;
+      state := yyComb [state + yyTraverse (yyt^.Export.codes)];
+
+  | Tree.Global:
+      state := 87;
+      state := yyComb [state + yyTraverse (yyt^.Global.codes)];
+
+  | Tree.Local:
+      state := 89;
+      state := yyComb [state + yyTraverse (yyt^.Local.codes)];
+
+  | Tree.Begin:
+      state := 97;
+      state := yyComb [state + yyTraverse (yyt^.Begin.codes)];
+
+  | Tree.Codes0:
+      state := 26;
+
+      cost := 1;
+      IF cost < info^.CodeCodes.Cost THEN
+        info^.CodeCodes.Cost := cost;
+        info^.CodeCodes.Proc := yyF54CodeCodes;
+      END;
+      
+      cost := 1;
+      IF cost < info^.CodeCodes2.Cost THEN
+        info^.CodeCodes2.Cost := cost;
+        info^.CodeCodes2.Proc := yyF56CodeCodes2;
+      END;
+      
+  | Tree.Tokens0:
+      state := 32;
+
+  | Tree.Tokens:
+      state := 99;
+      state := yyComb [state + yyTraverse (yyt^.Tokens.token)];
+      state := yyComb [state + yyTraverse (yyt^.Tokens.tokens)];
+
+  | Tree.Token:
+      state := 99;
+      state := yyComb [state + yyTraverse (yyt^.Token.id)];
+      state := yyComb [state + yyTraverse (yyt^.Token.number)];
+
+  | Tree.Id:
+      state := 32;
+
+  | Tree.Number:
+      state := 32;
+
+  | Tree.Rules0:
+      state := 3;
+
+      cost := 1;
+      IF cost < info^.CodeRules.Cost THEN
+        info^.CodeRules.Cost := cost;
+        info^.CodeRules.Proc := yyF5CodeRules;
+      END;
+      
+  | Tree.Rules:
+      state := 34;
+      state := yyComb [state + yyTraverse (yyt^.Rules.rule)];
+      state := yyComb [state + yyTraverse (yyt^.Rules.rules)];
+
+      cost := 1
+      + CostCodeCodes (yyt^.Rules.rule^.Rule.codes)
+      + CostSetNumbers (yyt^.Rules.rule^.Rule.expr)
+      + CostCodeRules (yyt^.Rules.rule^.Rule.expr)
+      + CostCodeRules (yyt^.Rules.rules);
+      IF cost < info^.CodeRules.Cost THEN
+        info^.CodeRules.Cost := cost;
+        info^.CodeRules.Proc := yyF6CodeRules;
+      END;
+      
+  | Tree.Rule:
+      state := 35;
+      state := yyComb [state + yyTraverse (yyt^.Rule.id)];
+      state := yyComb [state + yyTraverse (yyt^.Rule.codes)];
+      state := yyComb [state + yyTraverse (yyt^.Rule.expr)];
+
+  | Tree.Option:
+      state := 140;
+      state := yyComb [state + yyTraverse (yyt^.Option.expr)];
+
+      cost := 1
+      + CostCodeRules (yyt^.Option.expr);
+      IF cost < info^.CodeRules.Cost THEN
+        info^.CodeRules.Cost := cost;
+        info^.CodeRules.Proc := yyF7CodeRules;
+      END;
+      
+      cost := 1
+      + CostSetNumbers (yyt^.Option.expr);
+      IF cost < info^.SetNumbers.Cost THEN
+        info^.SetNumbers.Cost := cost;
+        info^.SetNumbers.Proc := yyF27SetNumbers;
+      END;
+      
+  | Tree.Times:
+      state := 168;
+      state := yyComb [state + yyTraverse (yyt^.Times.expr)];
+
+      cost := 1
+      + CostCodeRules (yyt^.Times.expr);
+      IF cost < info^.CodeRules.Cost THEN
+        info^.CodeRules.Cost := cost;
+        info^.CodeRules.Proc := yyF8CodeRules;
+      END;
+      
+      cost := 1
+      + CostSetNumbers (yyt^.Times.expr);
+      IF cost < info^.SetNumbers.Cost THEN
+        info^.SetNumbers.Cost := cost;
+        info^.SetNumbers.Proc := yyF28SetNumbers;
+      END;
+      
+  | Tree.Plus:
+      state := 181;
+      state := yyComb [state + yyTraverse (yyt^.Plus.expr)];
+
+      cost := 1
+      + CostCodeRules (yyt^.Plus.expr);
+      IF cost < info^.CodeRules.Cost THEN
+        info^.CodeRules.Cost := cost;
+        info^.CodeRules.Proc := yyF9CodeRules;
+      END;
+      
+      cost := 1
+      + CostSetNumbers (yyt^.Plus.expr);
+      IF cost < info^.SetNumbers.Cost THEN
+        info^.SetNumbers.Cost := cost;
+        info^.SetNumbers.Proc := yyF29SetNumbers;
+      END;
+      
+  | Tree.List:
+      state := 209;
+      state := yyComb [state + yyTraverse (yyt^.List.body)];
+      state := yyComb [state + yyTraverse (yyt^.List.sep)];
+
+      cost := 1
+      + CostCodeRules (yyt^.List.body)
+      + CostCodeRules (yyt^.List.sep);
+      IF cost < info^.CodeRules.Cost THEN
+        info^.CodeRules.Cost := cost;
+        info^.CodeRules.Proc := yyF10CodeRules;
+      END;
+      
+      cost := 1
+      + CostSetNumbers (yyt^.List.body)
+      + CostSetNumbers (yyt^.List.sep);
+      IF cost < info^.SetNumbers.Cost THEN
+        info^.SetNumbers.Cost := cost;
+        info^.SetNumbers.Proc := yyF30SetNumbers;
+      END;
+      
+  | Tree.Action:
+      state := 135;
+      state := yyComb [state + yyTraverse (yyt^.Action.codes)];
+      match := SYSTEM.ADR (yySets [state]);
+      
+      yyMatch [11] := (11 IN match^[0]);
+
+      IF yyMatch [11] THEN
+        cost := 1;
+        IF cost < info^.CodeRules.Cost THEN
+          info^.CodeRules.Cost := cost;
+          info^.CodeRules.Proc := yyF11CodeRules;
+        END;
+      END;
+      
+      cost := 1
+      + CostCodeCodes (yyt^.Action.codes);
+      IF cost < info^.CodeRules.Cost THEN
+        info^.CodeRules.Cost := cost;
+        info^.CodeRules.Proc := yyF12CodeRules;
+      END;
+      
+      cost := 1;
+      IF cost < info^.SetNumbers.Cost THEN
+        info^.SetNumbers.Cost := cost;
+        info^.SetNumbers.Proc := yyF31SetNumbers;
+      END;
+      
+  | Tree.Leaf:
+      state := 36;
+      state := yyComb [state + yyTraverse (yyt^.Leaf.id)];
+      yyMatch [13] := TRUE & (          (* line 779 CodeM2.aftermpp *)
+ IsTerm (yyt^.Leaf.id^.Id.ident) & yyt^.Leaf.sure & NOT yyt^.Leaf.id^.Id.isstring );
+      yyMatch [14] := TRUE & (          (* line 804 CodeM2.aftermpp *)
+ IsTerm (yyt^.Leaf.id^.Id.ident) & yyt^.Leaf.sure & yyt^.Leaf.id^.Id.isstring );
+      yyMatch [15] := TRUE & (          (* line 823 CodeM2.aftermpp *)
+ IsTerm (yyt^.Leaf.id^.Id.ident) & NOT yyt^.Leaf.sure & NOT yyt^.Leaf.id^.Id.isstring );
+      yyMatch [16] := TRUE & (          (* line 838 CodeM2.aftermpp *)
+ IsTerm (yyt^.Leaf.id^.Id.ident) & NOT yyt^.Leaf.sure & yyt^.Leaf.id^.Id.isstring );
+      yyMatch [17] := TRUE & (          (* line 850 CodeM2.aftermpp *)
+ IsNonterm (yyt^.Leaf.id^.Id.ident) );
+      yyMatch [36] := TRUE & (          (* line 1006 CodeM2.aftermpp *)
+ yyt^.Leaf.id^.Id.isstring );
+      yyMatch [37] := TRUE & (          (* line 1012 CodeM2.aftermpp *)
+ NOT yyt^.Leaf.id^.Id.isstring );
+
+      IF yyMatch [13] THEN
+        cost := 1;
+        IF cost < info^.CodeRules.Cost THEN
+          info^.CodeRules.Cost := cost;
+          info^.CodeRules.Proc := yyF13CodeRules;
+        END;
+      END;
+      
+      IF yyMatch [14] THEN
+        cost := 1;
+        IF cost < info^.CodeRules.Cost THEN
+          info^.CodeRules.Cost := cost;
+          info^.CodeRules.Proc := yyF14CodeRules;
+        END;
+      END;
+      
+      IF yyMatch [15] THEN
+        cost := 1;
+        IF cost < info^.CodeRules.Cost THEN
+          info^.CodeRules.Cost := cost;
+          info^.CodeRules.Proc := yyF15CodeRules;
+        END;
+      END;
+      
+      IF yyMatch [16] THEN
+        cost := 1;
+        IF cost < info^.CodeRules.Cost THEN
+          info^.CodeRules.Cost := cost;
+          info^.CodeRules.Proc := yyF16CodeRules;
+        END;
+      END;
+      
+      IF yyMatch [17] THEN
+        cost := 1;
+        IF cost < info^.CodeRules.Cost THEN
+          info^.CodeRules.Cost := cost;
+          info^.CodeRules.Proc := yyF17CodeRules;
+        END;
+      END;
+      
+      IF yyMatch [36] THEN
+        cost := 1;
+        IF cost < info^.SetNumbers.Cost THEN
+          info^.SetNumbers.Cost := cost;
+          info^.SetNumbers.Proc := yyF36SetNumbers;
+        END;
+      END;
+      
+      IF yyMatch [37] THEN
+        cost := 1;
+        IF cost < info^.SetNumbers.Cost THEN
+          info^.SetNumbers.Cost := cost;
+          info^.SetNumbers.Proc := yyF37SetNumbers;
+        END;
+      END;
+      
+  | Tree.Alternative0:
+      state := 14;
+      yyMatch [20] := TRUE & (          (* line 863 CodeM2.aftermpp *)
+ yyt^.alternative.case );
+      yyMatch [21] := TRUE & (          (* line 874 CodeM2.aftermpp *)
+ NOT yyt^.alternative.case );
+
+      cost := 1;
+      IF cost < info^.CodeAltCase.Cost THEN
+        info^.CodeAltCase.Cost := cost;
+        info^.CodeAltCase.Proc := yyF22CodeAltCase;
+      END;
+      
+      cost := 1;
+      IF cost < info^.CodeAltIf.Cost THEN
+        info^.CodeAltIf.Cost := cost;
+        info^.CodeAltIf.Proc := yyF24CodeAltIf;
+      END;
+      
+      cost := 1;
+      IF cost < info^.SetNumbers.Cost THEN
+        info^.SetNumbers.Cost := cost;
+        info^.SetNumbers.Proc := yyF34SetNumbers;
+      END;
+      
+      REPEAT
+        success := FALSE;
+        IF yyMatch [20] THEN
+          cost := 1
+          + CostCodeAltCase (yyt);
+          IF cost < info^.CodeRules.Cost THEN
+            info^.CodeRules.Cost := cost;
+            info^.CodeRules.Proc := yyF20CodeRules;
+            success := TRUE;
+          END;
+        END;
+        
+        IF yyMatch [21] THEN
+          cost := 1
+          + CostCodeAltIf (yyt);
+          IF cost < info^.CodeRules.Cost THEN
+            info^.CodeRules.Cost := cost;
+            info^.CodeRules.Proc := yyF21CodeRules;
+            success := TRUE;
+          END;
+        END;
+        
+      UNTIL NOT success;
+  | Tree.Alternative:
+      state := 250;
+      state := yyComb [state + yyTraverse (yyt^.Alternative.expr)];
+      state := yyComb [state + yyTraverse (yyt^.Alternative.alternative)];
+      match := SYSTEM.ADR (yySets [state]);
+      
+      yyMatch [20] := TRUE & (          (* line 863 CodeM2.aftermpp *)
+ yyt^.alternative.case );
+      yyMatch [21] := TRUE & (          (* line 874 CodeM2.aftermpp *)
+ NOT yyt^.alternative.case );
+      yyMatch [25] := (25 IN match^[0]);
+
+      cost := 1
+      + CostCodeRules (yyt^.Alternative.expr)
+      + CostCodeAltCase (yyt^.Alternative.alternative);
+      IF cost < info^.CodeAltCase.Cost THEN
+        info^.CodeAltCase.Cost := cost;
+        info^.CodeAltCase.Proc := yyF23CodeAltCase;
+      END;
+      
+      IF yyMatch [25] THEN
+        cost := 1
+        + CostCodeRules (yyt^.Alternative.expr);
+        IF cost < info^.CodeAltIf.Cost THEN
+          info^.CodeAltIf.Cost := cost;
+          info^.CodeAltIf.Proc := yyF25CodeAltIf;
+        END;
+      END;
+      
+      cost := 1
+      + CostCodeRules (yyt^.Alternative.expr)
+      + CostCodeAltIf (yyt^.Alternative.alternative);
+      IF cost < info^.CodeAltIf.Cost THEN
+        info^.CodeAltIf.Cost := cost;
+        info^.CodeAltIf.Proc := yyF26CodeAltIf;
+      END;
+      
+      cost := 1
+      + CostSetNumbers (yyt^.Alternative.expr)
+      + CostSetNumbers (yyt^.Alternative.alternative);
+      IF cost < info^.SetNumbers.Cost THEN
+        info^.SetNumbers.Cost := cost;
+        info^.SetNumbers.Proc := yyF35SetNumbers;
+      END;
+      
+      REPEAT
+        success := FALSE;
+        IF yyMatch [20] THEN
+          cost := 1
+          + CostCodeAltCase (yyt);
+          IF cost < info^.CodeRules.Cost THEN
+            info^.CodeRules.Cost := cost;
+            info^.CodeRules.Proc := yyF20CodeRules;
+            success := TRUE;
+          END;
+        END;
+        
+        IF yyMatch [21] THEN
+          cost := 1
+          + CostCodeAltIf (yyt);
+          IF cost < info^.CodeRules.Cost THEN
+            info^.CodeRules.Cost := cost;
+            info^.CodeRules.Proc := yyF21CodeRules;
+            success := TRUE;
+          END;
+        END;
+        
+      UNTIL NOT success;
+  | Tree.Sequence0:
+      state := 12;
+
+      cost := 1;
+      IF cost < info^.CodeRules.Cost THEN
+        info^.CodeRules.Cost := cost;
+        info^.CodeRules.Proc := yyF18CodeRules;
+      END;
+      
+      cost := 1;
+      IF cost < info^.SetNumbers.Cost THEN
+        info^.SetNumbers.Cost := cost;
+        info^.SetNumbers.Proc := yyF32SetNumbers;
+      END;
+      
+  | Tree.Sequence:
+      state := 264;
+      state := yyComb [state + yyTraverse (yyt^.Sequence.expr)];
+      state := yyComb [state + yyTraverse (yyt^.Sequence.sequence)];
+
+      cost := 1
+      + CostCodeRules (yyt^.Sequence.expr)
+      + CostCodeRules (yyt^.Sequence.sequence);
+      IF cost < info^.CodeRules.Cost THEN
+        info^.CodeRules.Cost := cost;
+        info^.CodeRules.Proc := yyF19CodeRules;
+      END;
+      
+      cost := 1
+      + CostSetNumbers (yyt^.Sequence.expr)
+      + CostSetNumbers (yyt^.Sequence.sequence);
+      IF cost < info^.SetNumbers.Cost THEN
+        info^.SetNumbers.Cost := cost;
+        info^.SetNumbers.Proc := yyF33SetNumbers;
+      END;
+      
+  END;
+  RETURN state;
+END yyTraverse;
+
+PROCEDURE yyErrorCheck (i: INTEGER; s1, s2: ARRAY OF CHAR);
+BEGIN
+  IF i < 0 THEN
+    IO.WriteS (IO.StdError, s1);
+    IO.WriteS (IO.StdError, s2);
+    IO.WriteNl (IO.StdError); IO.CloseIO; HALT;
+  END;
+END yyErrorCheck;
+
+PROCEDURE BeginCodeM2;
+VAR yyf: System.tFile; yyi: INTEGER;
+BEGIN
+  yyf := System.OpenInput (CodeM2TabName);
+  yyErrorCheck (yyf, 'cannot open ', CodeM2TabName);
+  yyi := System.Read (yyf, SYSTEM.ADR (yySets), SYSTEM.TSIZE (yySetsType));
+  yyErrorCheck (yyi, 'cannot read ', CodeM2TabName);
+  yyi := System.Read (yyf, SYSTEM.ADR (yyComb), SYSTEM.TSIZE (yyCombType));
+  yyErrorCheck (yyi, 'cannot read ', CodeM2TabName);
+  System.Close (yyf);
+    (* line 237 CodeM2.aftermpp *)
+
+  vExport := FALSE;
+  SpaCo := 0;
+  InDefault := FALSE;
+
+END BeginCodeM2;
+
+PROCEDURE DoCodeM2 (yyt: Tree.tTree);
+VAR yystate: yyStateType;
+BEGIN
+  yystate := yyTraverse (yyt);
+  CODE (yyt);
+  yyReleaseHeap;
+END DoCodeM2;
+
+PROCEDURE CloseCodeM2;
+BEGIN
+
+END CloseCodeM2;
+
+BEGIN
+  CodeM2TabName := 'CodeM2.tab';
+  WITH yyInfo DO
+    CODE.Cost := yyInfinite;
+    CODE.Proc := yyECODE;
+    CodeDef.Cost := yyInfinite;
+    CodeDef.Proc := yyECodeDef;
+    CodeImp.Cost := yyInfinite;
+    CodeImp.Proc := yyECodeImp;
+    CodeRules.Cost := yyInfinite;
+    CodeRules.Proc := yyECodeRules;
+    CodeAltCase.Cost := yyInfinite;
+    CodeAltCase.Proc := yyECodeAltCase;
+    CodeAltIf.Cost := yyInfinite;
+    CodeAltIf.Proc := yyECodeAltIf;
+    SetNumbers.Cost := yyInfinite;
+    SetNumbers.Proc := yyESetNumbers;
+    CodeExport.Cost := yyInfinite;
+    CodeExport.Proc := yyECodeExport;
+    CodeGlobal.Cost := yyInfinite;
+    CodeGlobal.Proc := yyECodeGlobal;
+    CodeLocal.Cost := yyInfinite;
+    CodeLocal.Proc := yyECodeLocal;
+    CodeBegin.Cost := yyInfinite;
+    CodeBegin.Proc := yyECodeBegin;
+    CodeClose.Cost := yyInfinite;
+    CodeClose.Proc := yyECodeClose;
+    CodeCodes.Cost := yyInfinite;
+    CodeCodes.Proc := yyECodeCodes;
+    CodeCodes2.Cost := yyInfinite;
+    CodeCodes2.Proc := yyECodeCodes2;
+  END;
+  yyBlockList:= NIL;
+  yyPoolFreePtr:= NIL;
+  yyPoolEndPtr:= NIL;
+END CodeM2.

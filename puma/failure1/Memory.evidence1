@@ -1,0 +1,276 @@
+Dump of assembler code for function Memory_Free:
+0x808ade4 <Memory_Free>:        push   %ebp
+0x808ade5 <Memory_Free+1>:      mov    %esp,%ebp
+0x808ade7 <Memory_Free+3>:      sub    $0x8,%esp
+0x808adea <Memory_Free+6>:      push   %ebx
+0x808adeb <Memory_Free+7>:      mov    0x8(%ebp),%eax
+0x808adee <Memory_Free+10>:     mov    0x80a6768,%ecx
+
+
+
+
+(gdb) info line 143
+Line 143 of "Memory.c" starts at address 0x808adeb <Memory_Free+7>
+   and ends at 0x808ae16 <Memory_Free+50>.
+
+
+(gdb) info line 116
+Line 116 of "Memory.c" starts at address 0x808ad59 <Memory_Alloc+745>
+   and ends at 0x808ad75 <Memory_Alloc+773>.
+
+
+0x808ad59 <Memory_Alloc+745>:   mov    0x809c674,%eax
+0x808ad5e <Memory_Alloc+750>:   push   %eax
+0x808ad5f <Memory_Alloc+751>:   mov    0x809c678,%eax
+0x808ad64 <Memory_Alloc+756>:   mov    0x809c674,%edx
+0x808ad6a <Memory_Alloc+762>:   sub    %edx,%eax
+0x808ad6c <Memory_Alloc+764>:   push   %eax
+0x808ad6d <Memory_Alloc+765>:   call   0x808ade4 <Memory_Free>
+0x808ad72 <Memory_Alloc+770>:   add    $0x8,%esp
+0x808ad75 <Memory_Alloc+773>:   push   $0x2800
+0x808ad7a <Memory_Alloc+778>:   call   0x808aa70 <Memory_Alloc>
+0x808ad7f <Memory_Alloc+783>:   add    $0x4,%esp
+
+
+
+(gdb) info break
+Num Type           Disp Enb Address    What
+11  breakpoint     keep y   0x0808adeb in Memory_Free at Memory.c:143
+12  breakpoint     keep y   0x0808ad59 in Memory_Alloc at Memory.c:116
+        breakpoint already hit 1 time
+(gdb) 
+
+
+Starting program: /usr/home/rodney/proj/gmd/working/puma/mtc/puma -AXdifguv -l ~/proj/gmd/working/puma/gen semantics.pumain
+
+Breakpoint 12, Memory_Alloc (ByteCount=8448) at Memory.c:116
+116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x1
+4: x/i $eip  0x808ad59 <Memory_Alloc+745>:      mov    0x809c674,%eax
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) info reg 
+eax            0x9e4    2532
+ecx            0x0      0
+edx            0x80a873c        134907708
+ebx            0x20ff   8447
+esp            0xbffffb50       0xbffffb50
+ebp            0xbffffb7c       0xbffffb7c
+esi            0xe      14
+edi            0x8048730        134514480
+eip            0x808ad59        0x808ad59
+eflags         0x206    518
+cs             0x23     35
+ss             0x2b     43
+ds             0x2b     43
+es             0x2b     43
+fs             0x0      0
+gs             0x0      0
+(gdb) x 0xbffffb4c
+0xbffffb4c:     0x00000001
+(gdb) si
+0x808ad5e       116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x1
+4: x/i $eip  0x808ad5e <Memory_Alloc+750>:      push   %eax
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) si
+0x808ad5f       116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)P
+oolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x80a873c
+4: x/i $eip  0x808ad5f <Memory_Alloc+751>:      mov    0x809c678,%eax
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) si
+0x808ad64       116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)P
+oolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x80a873c
+4: x/i $eip  0x808ad64 <Memory_Alloc+756>:      mov    0x809c674,%edx
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) si
+0x808ad6a       116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)P
+oolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x80a873c
+4: x/i $eip  0x808ad6a <Memory_Alloc+762>:      sub    %edx,%eax
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) si
+0x808ad6c       116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)P
+oolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x80a873c
+4: x/i $eip  0x808ad6c <Memory_Alloc+764>:      push   %eax
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) si
+0x808ad6d       116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)P
+oolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x80a873c
+4: x/i $eip  0x808ad6d <Memory_Alloc+765>:      call   0x808ade4 <Memory_Free>
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) si
+Memory_Free (ByteCount=8448, a=0x40012024 "\214!\001") at Memory.c:139
+139     {
+9: /x *3221224268 = 0x80a873c
+4: x/i $eip  0x808ade4 <Memory_Free>:   push   %ebp
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) s
+Memory_Free (ByteCount=2532, a=0x80a873c "") at Memory.c:143
+143       ByteCount = (LONGINT)((BITSET)(ByteCount + VAL(LONGINT, General_MaxAli
+gn) - 1) & General_AlignMasks.A[General_MaxAlign]);
+9: /x *3221224268 = 0x80a873c
+4: x/i $eip  0x808adeb <Memory_Free+7>: mov    0x8(%ebp),%eax
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) info args
+ByteCount = 2532
+a = 0x80a873c ""
+(gdb)
+
+
+
+(gdb) run     
+The program being debugged has been started already.
+Start it from the beginning? (y or n) y
+
+Starting program: /usr/home/rodney/proj/gmd/working/puma/mtc/puma -AXdifguv -l ~/proj/gmd/working/puma/gen semantics.pumain
+
+Breakpoint 12, Memory_Alloc (ByteCount=8448) at Memory.c:116
+116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x1
+4: x/i $eip  0x808ad59 <Memory_Alloc+745>:      mov    0x809c674,%eax
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) si
+0x808ad5e       116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x1
+4: x/i $eip  0x808ad5e <Memory_Alloc+750>:      push   %eax
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) si
+0x808ad5f       116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x80a873c
+4: x/i $eip  0x808ad5f <Memory_Alloc+751>:      mov    0x809c678,%eax
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) si
+0x808ad64       116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x80a873c
+4: x/i $eip  0x808ad64 <Memory_Alloc+756>:      mov    0x809c674,%edx
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) si
+0x808ad6a       116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x80a873c
+4: x/i $eip  0x808ad6a <Memory_Alloc+762>:      sub    %edx,%eax
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) si
+0x808ad6c       116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x80a873c
+4: x/i $eip  0x808ad6c <Memory_Alloc+764>:      push   %eax
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) si
+0x808ad6d       116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x80a873c
+4: x/i $eip  0x808ad6d <Memory_Alloc+765>:      call   0x808ade4 <Memory_Free>
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) s
+
+Breakpoint 11, Memory_Free (ByteCount=2532, a=0x80a873c "") at Memory.c:143
+143       ByteCount = (LONGINT)((BITSET)(ByteCount + VAL(LONGINT, General_MaxAlign) - 1) & General_AlignMasks.A[General_MaxAlign]);
+9: /x *3221224268 = 0x80a873c
+4: x/i $eip  0x808adeb <Memory_Free+7>: mov    0x8(%ebp),%eax
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) info args
+ByteCount = 2532
+a = 0x80a873c ""
+(gdb) 
+
+
+
+
+Starting program: /usr/home/rodney/proj/gmd/working/puma/mtc/puma -AXdifguv -l ~/proj/gmd/working/puma/gen semantics.pumain
+
+Breakpoint 12, Memory_Alloc (ByteCount=8448) at Memory.c:116
+116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x1
+4: x/i $eip  0x808ad59 <Memory_Alloc+745>:      mov    0x809c674,%eax
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) s
+
+Breakpoint 11, Memory_Free (ByteCount=2532, 
+    a=0x5a <Address 0x5a out of bounds>) at Memory.c:143
+143       ByteCount = (LONGINT)((BITSET)(ByteCount + VAL(LONGINT, General_MaxAlign) - 1) & General_AlignMasks.A[General_MaxAlign]);
+9: /x *3221224268 = 0x5a
+4: x/i $eip  0x808adeb <Memory_Free+7>: mov    0x8(%ebp),%eax
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) 
+
+
+
+
+
+Starting program: /usr/home/rodney/proj/gmd/working/puma/mtc/puma -AXdifguv -l ~/proj/gmd/working/puma/gen semantics.pumain
+
+Breakpoint 12, Memory_Alloc (ByteCount=8448) at Memory.c:116
+116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x1
+4: x/i $eip  0x808ad59 <Memory_Alloc+745>:      mov    0x809c674,%eax
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) si
+0x808ad5e       116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x1
+4: x/i $eip  0x808ad5e <Memory_Alloc+750>:      push   %eax
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) si
+0x808ad5f       116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x80a873c
+4: x/i $eip  0x808ad5f <Memory_Alloc+751>:      mov    0x809c678,%eax
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) si
+0x808ad64       116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x80a873c
+4: x/i $eip  0x808ad64 <Memory_Alloc+756>:      mov    0x809c674,%edx
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) si
+0x808ad6a       116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x80a873c
+4: x/i $eip  0x808ad6a <Memory_Alloc+762>:      sub    %edx,%eax
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) si
+0x808ad6c       116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x80a873c
+4: x/i $eip  0x808ad6c <Memory_Alloc+764>:      push   %eax
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) si
+0x808ad6d       116               Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr), PoolFreePtr);
+9: /x *3221224268 = 0x80a873c
+4: x/i $eip  0x808ad6d <Memory_Alloc+765>:      call   0x808ade4 <Memory_Free>
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) s
+
+Breakpoint 11, Memory_Free (ByteCount=2532, 
+    a=0x5a <Address 0x5a out of bounds>) at Memory.c:143
+143       ByteCount = (LONGINT)((BITSET)(ByteCount + VAL(LONGINT, General_MaxAlign) - 1) & General_AlignMasks.A[General_MaxAlign]);
+9: /x *3221224268 = 0x5a
+4: x/i $eip  0x808adeb <Memory_Free+7>: mov    0x8(%ebp),%eax
+3: PoolEndPtr = 0x80a9120 ""
+2: PoolFreePtr = 0x80a873c ""
+(gdb) 
+
+

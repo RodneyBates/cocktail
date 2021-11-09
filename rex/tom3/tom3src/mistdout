@@ -1,0 +1,339 @@
+
+reading work file Classes.mi...
+	scanning Classes.mi
+	parsing Classes.mi
+generating import closure...
+	scanning Classes.md
+	parsing Classes.md
+	scanning Sets.md
+	parsing Sets.md
+	scanning IO.md
+	parsing IO.md
+	scanning SYSTEM.md
+	parsing SYSTEM.md
+	scanning System.md
+	parsing System.md
+	scanning DynArray.md
+	parsing DynArray.md
+	scanning Strings.md
+	parsing Strings.md
+	scanning StringMem.md
+	parsing StringMem.md
+	scanning Dfa.md
+	parsing Dfa.md
+
+reading work file DefTable.mi...
+	scanning DefTable.mi
+	parsing DefTable.mi
+generating import closure...
+	scanning DefTable.md
+	parsing DefTable.md
+	scanning Idents.md
+	parsing Idents.md
+	scanning Tree.md
+	parsing Tree.md
+	scanning Texts.md
+	parsing Texts.md
+	scanning Lists.md
+	parsing Lists.md
+	scanning Positions.md
+	parsing Positions.md
+
+reading work file Dfa.mi...
+	scanning Dfa.mi
+	parsing Dfa.mi
+generating import closure...
+	scanning General.md
+	parsing General.md
+	scanning Layout.md
+	parsing Layout.md
+	scanning GenTabs.md
+	parsing GenTabs.md
+
+reading work file Errors.mi...
+	scanning Errors.mi
+	parsing Errors.mi
+generating import closure...
+	scanning Errors.md
+	parsing Errors.md
+
+reading work file GenTabs.mi...
+	scanning GenTabs.mi
+	parsing GenTabs.mi
+generating import closure...
+	scanning Memory.md
+	parsing Memory.md
+	scanning Times.md
+	parsing Times.md
+	scanning Nfa.md
+	parsing Nfa.md
+	scanning ScanTabs.md
+	parsing ScanTabs.md
+	scanning Traces.md
+	parsing Traces.md
+	scanning ScanGen.md
+	parsing ScanGen.md
+
+reading work file Nfa.mi...
+	scanning Nfa.mi
+	parsing Nfa.mi
+generating import closure...
+
+reading work file rex.mi...
+	scanning rex.mi
+	parsing rex.mi
+generating import closure...
+	scanning StdIO.md
+	parsing StdIO.md
+
+reading work file ScanGen.mi...
+	scanning ScanGen.mi
+	parsing ScanGen.mi
+generating import closure...
+	scanning Checks.md
+	parsing Checks.md
+
+reading work file ScanTabs.mi...
+	scanning ScanTabs.mi
+	parsing ScanTabs.mi
+generating import closure...
+
+reading work file Traces.mi...
+	scanning Traces.mi
+	parsing Traces.mi
+generating import closure...
+
+reading work file Tree.mi...
+	scanning Tree.mi
+	parsing Tree.mi
+generating import closure...
+
+linking identifiers...
+	linking identifiers of file SYSTEM.md
+m2tom3 warning: unable to resolve qualification 'Word' in line 38
+	linking identifiers of file System.md
+	linking identifiers of file IO.md
+	linking identifiers of file Sets.md
+	linking identifiers of file Classes.md
+	linking identifiers of file DynArray.md
+	linking identifiers of file Strings.md
+	linking identifiers of file StringMem.md
+	linking identifiers of file Dfa.md
+	linking identifiers of file Classes.mi
+m2tom3 warning: unable to find interface for import 'Tree0' in line 33
+m2tom3 warning: unable to resolve qualification in designator 't' in line 49
+m2tom3 warning: unable to resolve qualification in designator 't' in line 50
+m2tom3 warning: unable to resolve qualification in designator 'Ch' in line 50
+m2tom3 warning: unable to resolve qualification in designator 't' in line 52
+m2tom3 warning: unable to resolve qualification in designator 'Set' in line 52
+m2tom3 warning: unable to resolve qualification in designator 't' in line 58
+m2tom3 warning: unable to resolve qualification in designator 'Set' in line 58
+m2tom3 warning: unable to resolve qualification in designator 't' in line 59
+m2tom3 warning: unable to resolve qualification in designator 'Set' in line 59
+m2tom3 warning: unable to resolve qualification in designator 't' in line 62
+m2tom3 warning: unable to resolve qualification in designator 'String' in line 62
+	linking identifiers of file Idents.md
+	linking identifiers of file Lists.md
+	linking identifiers of file Texts.md
+	linking identifiers of file Positions.md
+	linking identifiers of file Tree.md
+	linking identifiers of file DefTable.md
+	linking identifiers of file DefTable.mi
+	linking identifiers of file General.md
+	linking identifiers of file Layout.md
+	linking identifiers of file GenTabs.md
+	linking identifiers of file Dfa.mi
+	linking identifiers of file Errors.md
+	linking identifiers of file Errors.mi
+	linking identifiers of file Memory.md
+	linking identifiers of file Times.md
+	linking identifiers of file ScanTabs.md
+	linking identifiers of file Nfa.md
+	linking identifiers of file Traces.md
+	linking identifiers of file ScanGen.md
+	linking identifiers of file GenTabs.mi
+	linking identifiers of file Nfa.mi
+	linking identifiers of file StdIO.md
+	linking identifiers of file rex.mi
+m2tom3 warning: unable to find interface for import 'Scanner' in line 72
+m2tom3 warning: unable to find interface for import 'Parser' in line 73
+m2tom3 warning: unable to find interface for import 'Eval' in line 76
+m2tom3 warning: unable to find interface for import 'Tree0' in line 78
+m2tom3 warning: unable to resolve qualification in designator 'Tree0Root' in line 198
+m2tom3 warning: unable to resolve qualification in designator 'List' in line 198
+m2tom3 warning: unable to resolve qualification in designator 'Tree0Root' in line 199
+m2tom3 warning: unable to resolve qualification in designator 'List' in line 199
+m2tom3 warning: unable to resolve qualification in designator 'Tree0Root' in line 200
+m2tom3 warning: unable to resolve qualification in designator 'List' in line 200
+	linking identifiers of file Checks.md
+	linking identifiers of file ScanGen.mi
+	linking identifiers of file ScanTabs.mi
+	linking identifiers of file Traces.mi
+	linking identifiers of file Tree.mi
+
+linking parameters...
+m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 159
+m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 160
+m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 161
+m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 162
+m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 163
+m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 164
+m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 165
+m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 166
+m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 167
+m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 168
+m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 169
+m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 170
+m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 171
+m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 172
+m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 173
+m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 174
+m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 175
+m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 176
+m2tom3 warning: actual parameter list is too short for procedure 'PutDefault' in line 385
+
+generating Modula-3 source...
+	transforming file Classes.mi
+	transforming file Classes.md
+	transforming file Sets.md
+	transforming file IO.md
+	transforming file SYSTEM.md
+	transforming file System.md
+	transforming file DynArray.md
+	transforming file Strings.md
+	transforming file StringMem.md
+	transforming file Dfa.md
+	transforming file DefTable.mi
+m2tom3 warning: application of variant field, possible cast of 'Kind' in line 61
+m2tom3 warning: application of variant field, possible cast of 'Kind' in line 78
+m2tom3 warning: application of variant field, possible cast of 'Kind' in line 98
+m2tom3 warning: application of variant field, possible cast of 'Tree' in line 62
+m2tom3 warning: application of variant field, possible cast of 'Tree' in line 110
+m2tom3 warning: application of variant field, possible cast of 'LeafCount' in line 63
+m2tom3 warning: application of variant field, possible cast of 'LeafCount' in line 111
+m2tom3 warning: application of variant field, possible cast of 'IsConstantRE' in line 64
+m2tom3 warning: application of variant field, possible cast of 'IsConstantRE' in line 112
+m2tom3 warning: application of variant field, possible cast of 'Number' in line 79
+m2tom3 warning: application of variant field, possible cast of 'Number' in line 123
+	transforming file DefTable.md
+	transforming file Idents.md
+	transforming file Tree.md
+m2tom3 warning: application of variant field, possible cast of 'vNode0' in line 150
+m2tom3 warning: application of variant field, possible cast of 'vNode0' in line 233
+m2tom3 warning: application of variant field, possible cast of 'vNode0' in line 281
+m2tom3 warning: application of variant field, possible cast of 'vNode0' in line 625
+m2tom3 warning: application of variant field, possible cast of 'vNode0' in line 175
+m2tom3 warning: application of variant field, possible cast of 'vNode0' in line 178
+m2tom3 warning: application of variant field, possible cast of 'vNode0' in line 192
+m2tom3 warning: application of variant field, possible cast of 'vNode1' in line 188
+m2tom3 warning: application of variant field, possible cast of 'vNode1' in line 319
+m2tom3 warning: application of variant field, possible cast of 'vNode1' in line 329
+m2tom3 warning: application of variant field, possible cast of 'vNode1' in line 50
+m2tom3 warning: application of variant field, possible cast of 'vNode1' in line 189
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 611
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 613
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 626
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 627
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 61
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 180
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 181
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 184
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 185
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 186
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 216
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 234
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 235
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 242
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 243
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 286
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 287
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 298
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 218
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 175
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 183
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 299
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 591
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 595
+m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 187
+m2tom3 warning: application of variant field, possible cast of 'vNodeCh' in line 337
+m2tom3 warning: application of variant field, possible cast of 'vNodeCh' in line 630
+m2tom3 warning: application of variant field, possible cast of 'vNodeCh' in line 73
+m2tom3 warning: application of variant field, possible cast of 'vNodeCh' in line 167
+m2tom3 warning: application of variant field, possible cast of 'vNodeSet' in line 343
+m2tom3 warning: application of variant field, possible cast of 'vNodeSet' in line 84
+m2tom3 warning: application of variant field, possible cast of 'vNodeSet' in line 169
+m2tom3 warning: application of variant field, possible cast of 'vNodeString' in line 95
+m2tom3 warning: application of variant field, possible cast of 'vNodeString' in line 256
+m2tom3 warning: application of variant field, possible cast of 'vNodeString' in line 355
+m2tom3 warning: application of variant field, possible cast of 'vNodeString' in line 631
+m2tom3 warning: application of variant field, possible cast of 'vNodeString' in line 171
+m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 179
+m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 176
+m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 177
+m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 178
+m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 180
+m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 592
+m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 107
+m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 152
+m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 154
+m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 179
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 190
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 192
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 194
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 202
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 206
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 596
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 597
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 599
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 191
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 184
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 188
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 600
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 601
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 605
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 607
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 124
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 157
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 159
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 160
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 182
+m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 183
+	transforming file Texts.md
+	transforming file Lists.md
+	transforming file Positions.md
+	transforming file Dfa.mi
+	transforming file General.md
+	transforming file Layout.md
+	transforming file GenTabs.md
+	transforming file Errors.mi
+	transforming file Errors.md
+	transforming file GenTabs.mi
+	transforming file Memory.md
+	transforming file Times.md
+	transforming file Nfa.md
+	transforming file ScanTabs.md
+	transforming file Traces.md
+	transforming file ScanGen.md
+	transforming file Nfa.mi
+	transforming file rex.mi
+	transforming file StdIO.md
+	transforming file ScanGen.mi
+	transforming file Checks.md
+	transforming file ScanTabs.mi
+m2tom3 warning: unhandled ADR parameter 'ADR' in line 131
+	transforming file Traces.mi
+m2tom3 warning: unhandled ADR parameter 'ADR' in line 82
+	transforming file Tree.mi
+
+saving generated source...
+	writing Modula-3 file ../tom3src/Classes.m3
+	writing Modula-3 file ../tom3src/DefTable.m3
+	writing Modula-3 file ../tom3src/Dfa.m3
+	writing Modula-3 file ../tom3src/Errors.m3
+	writing Modula-3 file ../tom3src/GenTabs.m3
+	writing Modula-3 file ../tom3src/Nfa.m3
+	writing Modula-3 file ../tom3src/rex.m3
+	writing Modula-3 file ../tom3src/ScanGen.m3
+	writing Modula-3 file ../tom3src/ScanTabs.m3
+	writing Modula-3 file ../tom3src/Traces.m3
+	writing Modula-3 file ../tom3src/Tree.m3

@@ -1,0 +1,930 @@
+     1 (* handle rule section *)
+     2 
+     3 (* $Id: Rules.mi,v 2.2 1992/08/07 15:13:51 grosch rel $ *)
+     4 
+     5 (* $Log: Rules.mi,v $
+c    6  * Revision 2.2  1992/08/07  15:13:51  grosch
+c    7  * allow several scanner and parsers; extend module Errors
+c    8  *
+c    9  * Revision 2.1  1991/11/21  14:47:50  grosch
+c   10  * new version of RCS on SPARC
+c   11  *
+c   12  * Revision 2.0  91/03/08  18:26:28  grosch
+c   13  * turned tables into initialized arrays (in C)
+c   14  * moved mapping tokens -> strings from Errors to Parser
+c   15  * changed interface for source position
+c   16  * 
+c   17  * Revision 1.4  90/06/11  18:45:25  grosch
+c   18  * layout improvements
+c   19  * 
+c   20  * Revision 1.3  89/03/15  18:30:52  vielsack
+c   21  * Fixed two bugs in AppendArtificialNode:
+c   22  * If Expr = NIL now a tree with one empty alternative is build
+c   23  * A local variable is used instead of Expr for searching in the tree
+c   24  * 
+c   25  * Revision 1.2  89/01/26  19:01:51  vielsack
+c   26  * better position handling for nonterminals
+c   27  * 
+c   28  * Revision 1.1  89/01/23  15:50:27  vielsack
+c   29  * by using AppendArtificialNode instead of MakeArtificialNode
+c   30  * the tree order is the same as that of the input,
+c   31  * this is necessary to handle LL(1) conflicts correctly
+c   32  * 
+c   33  * Revision 1.0  88/10/04  14:27:09  vielsack
+c   34  * Initial revision
+c   35  * 
+c   36  *)
+    37 
+    38 IMPLEMENTATION MODULE Rules;                                                  *     *
+    39 
+    40 FROM Lists      IMPORT MakeList, tList;                                       *     *     *
+    41 FROM TokenTab   IMPORT Terminal, NonTerminal, Vocabulary, TokenType, MakeVoc,       *     *     *     *     *     *
+    42                         SetNontermPos, MakeTerm, GetTokenType, SymbolToToken,       *     *     *     *
+    43                         TokenError, PosType, GetPrio;                         *     *     *
+    44 FROM SYSTEM     IMPORT ADR, ADDRESS;                                          *     *     *
+    45 FROM Memory     IMPORT Alloc;                                                 *     *
+    46 FROM Idents     IMPORT tIdent;                                                *     *
+    47 FROM SYSTEM     IMPORT TSIZE;                                                44     *
+    48 FROM Errors     IMPORT eFatal, eError, eIdent, eString, eInternal, ErrorMessageI;         *     *     *     *     *     *
+                                                                                     *
+    49 FROM Strings    IMPORT tString, ArrayToString;                                *     *     *
+    50 FROM Positions  IMPORT NoPosition;                                            *     *
+    51 
+    52 CONST eNoOperator = 41; eTermLeft = 42; eTokenNotDecl = 32;                   *     *     *
+    53 
+    54 TYPE
+    55     Expression = POINTER TO Node;                                             *     *
+    56 
+    57     Node =                                                                    *
+    58       RECORD
+    59         CASE Type: Operation OF                                               *     *
+    60           Plus, Star, Optional, Bracket:     (* unitaere Operationen *)       *     *     *     *
+    61             Son:    Expression;                                               *    55
+    62         | Separator, Alternative, Sequence:  (* binaere Operationen *)        *     *     *
+    63             LeSon,                                                            *
+    64             RiSon:  Expression;                                               *    55
+    65         | Action:                                                             *
+    66             Act:    tList;                                                    *    40
+    67         | TermLeaf, NonTermLeaf:                                              *     *
+    68             Token : Vocabulary;                                               *    41
+    69         END;
+    70         Position,                                                             *
+    71         SecondPos : PosType;                                                  *    43
+    72         Special   : ADDRESS;                                                  *    44
+    73 
+    74         HasPrio   : BOOLEAN;   (* Erweiterung fuer Alternative *)             *     *
+    75         PRIOPos   : PosType;   (* zur Aufnahme einer Prioritaet *)            *    43
+    76         PrioSym   : tIdent;                                                   *    46
+    77         PrioSymPos: PosType;                                                  *    43
+    78       END;
+    79 
+    80     MRules = POINTER TO Rule;                                                 *     *
+    81 
+    82     Rule = RECORD                                                             *
+    83         Left     : NonTerminal;                                               *    41
+    84         LeftPos  : PosType;                                                   *    43
+    85         ColonPos : PosType;                                                   *    43
+    86         Right    : Expression;                                                *    55
+    87         PointPos : PosType;                                                   *    43
+    88         Comment  : tList;                                                     *    40
+    89         CommPos  : PosType;                                                   *    43
+    90         CASE HasPrio : BOOLEAN OF                                            74     *
+    91           TRUE:                                                               *
+    92             PRIOPos    : PosType;                                            75    43
+    93             Priority   : SHORTCARD;                                           *     *
+    94             PrioSym    : Terminal;                                           76    41
+    95             PrioSymPos : PosType;                                            77    43
+    96         END;
+    97         Next     : MRules;                                                    *    80
+    98       END;
+    99 
+   100   VAR
+   101     RulesVars:                                                                *
+   102       RECORD
+   103         RULESPos   : PosType;      (* Position von 'RULES' *)                 *    43
+   104         Comment    : tList;                                                  88    40
+   105         CommPos    : PosType;                                                89    43
+   106       END;
+   107 
+   108     StartMRule, (* zeigt auf 1. Regel *)                                      *
+   109     RMRule,     (* zeigt auf zuletzt gelesene Regel *)                        *
+   110     WMRule    : MRules; (* zeigt auf zuletzt geschreibene Regel *)            *    80
+   111     OpenForReading : BOOLEAN; (* TRUE : GetRule erlaubt,                      *     *
+c  112                                  FALSE : GetRule nur nach neuem InitRulesReading *)
+   113 
+   114   PROCEDURE MakeLeafNode                                                      *
+   115      (sym: tIdent;                                                            *    46
+   116       Pos: PosType) : Expression;                                             *    43    55
+   117  
+   118   (* Lege neuen Blattknoten an und liefere den Zeiger auf ihn
+c  119      zurueck. *)
+   120 
+   121   VAR HNode : Expression;                                                     *    55
+   122       Error : TokenError;                                                     *    43
+   123       voc   : Vocabulary;                                                     *    41
+   124 
+   125   BEGIN
+   126     HNode := Alloc(TSIZE(Node));                                            121    45    47    57
+   127     IF HNode = NIL THEN                                                     121     *
+   128       ERROR ('MakeLeafNode: Heap overflow');                                  *
+   129     END;
+   130     HNode^.Position := Pos;                                                 121    70   116
+   131     HNode^.Special  := NIL;                                                 121    72     *
+   132     voc := MakeVoc(sym,Pos);                                                123    41   115   116
+   133     IF GetTokenType(voc) = Term THEN                                         42   123     *
+   134       HNode^.Type    := TermLeaf;                                           121    59    67
+   135       HNode^.Token   :=  voc;                                               121     *   123
+   136     ELSE 
+   137       HNode^.Type    := NonTermLeaf ;                                       121    59    67
+   138       HNode^.Token   :=  voc;                                               121     *   123
+   139     END;
+   140     RETURN HNode;                                                           121
+   141   END MakeLeafNode;                                                         114
+   142 
+   143 
+   144   PROCEDURE MakeActionNode (Act: tList; Pos: PosType) : Expression;           *     *    40   116    43    55
+   145   
+   146   (* Lege neuen Actionknoten an und liefere den Zeiger auf ihn 
+c  147      zurueck *)
+   148   VAR HNode : Expression;                                                   121    55
+   149       s     : tString;                                                        *    49
+   150 
+   151   BEGIN
+   152     HNode := Alloc(TSIZE(Node));                                            148    45    47    57
+   153     IF HNode = NIL THEN                                                     148     *
+   154       ArrayToString ('MakeActionNode : Heap overflow', s);                   49   149
+   155       ErrorMessageI(eInternal, eFatal, Pos, eString, ADR(s));                48    48    48   144    48    44   149
+   156     END;
+   157     HNode^.Special  := NIL;                                                 148    72     *
+   158     HNode^.Type := Action;                                                  148    59    65
+   159     HNode^.Act := Act;                                                      148   144   144
+   160     HNode^.Position := Pos;                                                 148    70   144
+   161     RETURN HNode;                                                           148
+   162   END MakeActionNode;                                                       144
+   163 
+   164   
+   165   PROCEDURE MakeUnaryNode (Type: UnaryOperation; Pos: PosType; Son: Expression) : Ex\     *    59     *   144    43     *
+                                                                                    55
+      \pression;                                                                    55
+   166 
+   167   (* Bilde neuen Knoten der angegebenen Type mit gegebenem Sohn, 
+c  168      und liefere den Zeiger auf ihn zurueck *)
+   169   VAR HNode : Expression;                                                   148    55
+   170       s     : tString;                                                      149    49
+   171 
+   172   BEGIN
+   173     HNode := Alloc(TSIZE(Node));                                            169    45    47    57
+   174     IF HNode = NIL THEN                                                     169     *
+   175       ArrayToString(' MakeUnaryNode : Heap overflow', s);                    49   170
+   176       ErrorMessageI (eInternal,eFatal, Pos, eString, ADR(s));                48    48    48   165    48    44   170
+   177     END;
+   178     HNode^.Special  := NIL;                                                 169    72     *
+   179     HNode^.Type        := Type;                                             169   165   165
+   180     HNode^.Position   := Pos;                                               169    70   165
+   181     HNode^.Son   := Son;                                                    169   165   165
+   182     RETURN HNode;                                                           169
+   183   END MakeUnaryNode;                                                        165
+   184 
+   185 
+   186   PROCEDURE MakeBracketNode                                                   *
+   187     (Type   : BracketOperation;                                             165     *
+   188      Pos,                                                                   165
+   189      SecPos : PosType;                                                        *    43
+   190      Son    : Expression) : Expression;                                     165    55    55
+   191 
+   192   (* Bilde neuen Knoten der angegebenen Type mit gegebenem Sohn,
+c  193      und liefere den Zeiger auf ihn zurueck *)
+   194   VAR HNode : Expression;                                                   169    55
+   195       s     : tString;                                                      170    49
+   196 
+   197   BEGIN
+   198     HNode := Alloc(TSIZE(Node));                                            194    45    47    57
+   199     IF HNode = NIL THEN                                                     194     *
+   200       ArrayToString ('MakeBracketNode : Heap overflow', s);                  49   195
+   201       ErrorMessageI (eInternal,eFatal,Pos, eString, ADR (s));                48    48    48   188    48    44   195
+   202     END;
+   203     HNode^.Special  := NIL;                                                 194    72     *
+   204     HNode^.Type        := Type;                                             194   187   187
+   205     HNode^.Position   := Pos;                                               194    70   188
+   206     HNode^.SecondPos     := SecPos;                                         194    71   189
+   207     HNode^.Son   := Son;                                                    194   190   190
+   208     RETURN HNode;                                                           194
+   209   END MakeBracketNode;                                                      186
+   210   
+   211 
+   212   PROCEDURE MakeBinaryNode                                                    *
+   213     (Type : BinaryOperation;                                                187     *
+   214      Pos : PosType;                                                         188    43
+   215      LSon,                                                                    *
+   216      RSon: Expression) : Expression;                                          *    55    55
+   217 
+   218   (* Bilde neuen Knoten der angegebenen Type mit gegebenen Soehnen,
+c  219      und liefere den Zeiger auf ihn zurueck *)
+   220   VAR HNode : Expression;                                                   194    55
+   221       s     : tString;                                                      195    49
+   222 
+   223   BEGIN
+   224 
+   225     HNode := Alloc(TSIZE(Node));                                            220    45    47    57
+   226     IF HNode = NIL THEN                                                     220     *
+   227       ArrayToString ('MakeBinaryNode : Heap overflow', s);                   49   221
+   228       ErrorMessageI(eInternal,eFatal, Pos, eString, ADR (s));                48    48    48   214    48    44   221
+   229     END;
+   230     HNode^.Special  := NIL;                                                 220    72     *
+   231     HNode^.Type        := Type;                                             220   213   213
+   232     HNode^.Position   := Pos;                                               220    70   214
+   233     HNode^.LeSon := LSon;                                                   220     *   215
+   234     HNode^.RiSon := RSon;                                                   220     *   216
+   235     IF Type = Alternative THEN                                              213    62
+   236       HNode^.HasPrio := FALSE;                                              220    90     *
+   237     END;
+   238     RETURN HNode;                                                           220
+   239   END MakeBinaryNode;                                                       212
+   240 
+   241   PROCEDURE MakePrioAlternativeNode                                           *
+   242      (Pos        : PosType;                                                 214    43
+   243       LSon,                                                                 215
+   244       RSon       : Expression;                                              216    55
+   245       HasPrio    : BOOLEAN;                                                  90     *
+   246       PRIOPos    : PosType;                                                  75    43
+   247       PrioSym    : tIdent;                                                   94    46
+   248       PrioSymPos : PosType) : Expression;                                    95    43    55
+   249   
+   250   VAR HNode : Expression;                                                   220    55
+   251       s : tString;                                                          221    49
+   252 
+   253   BEGIN
+   254     HNode := Alloc(TSIZE(Node));                                            250    45    47    57
+   255     IF HNode = NIL THEN                                                     250     *
+   256       ArrayToString ('MakePrioAlternativeNode : Heap overflow', s);          49   251
+   257       ErrorMessageI(eInternal,eFatal,Pos, eString, ADR(s));                  48    48    48   242    48    44   251
+   258     END;
+   259     HNode^.HasPrio := HasPrio;                                              250   245   245
+   260     HNode^.PRIOPos := PRIOPos;                                              250   246   246
+   261     HNode^.PrioSym := PrioSym;                                              250   247   247
+   262     HNode^.PrioSymPos := PrioSymPos;                                        250   248   248
+   263     HNode^.Special  := NIL;                                                 250    72     *
+   264     HNode^.Type        := Alternative;                                      250   213    62
+   265     HNode^.Position   := Pos;                                               250    70   242
+   266     HNode^.LeSon := LSon;                                                   250     *   243
+   267     HNode^.RiSon := RSon;                                                   250     *   244
+   268     RETURN HNode;                                                           250
+   269   END MakePrioAlternativeNode;                                              241
+   270 
+   271 
+   272   PROCEDURE AppendArtificialNode (Pos, Pos2: PosType;                         *   242     *    43
+   273                                   VAR Expr: Expression; New: Expression);     *    55     *    55
+   274 
+   275   VAR
+   276     last, expr: Expression;                                                   *     *    55
+   277 
+   278   BEGIN
+   279     IF (Expr = NoExpression) OR (GetNodeOperation (Expr) # ArtAlternative) THEN   273     *     *   273     *
+   280       Expr := MakeArtificialNode (Pos, Pos2, Expr, New);                    273     *   272   272   273   273
+   281     ELSE
+   282       expr := Expr;                                                         276   273
+   283       LOOP
+   284         last := expr^.RiSon;                                                276   276     *
+   285         IF GetNodeOperation (last) # ArtAlternative THEN EXIT END;            *   276     *
+   286         expr := last;                                                       276   276
+   287       END;
+   288       expr^.RiSon := MakeArtificialNode (last^.Position, Pos2, last, New);        276     *     *   276    70   272   276
+                                                                                   273
+   289     END;
+   290   END AppendArtificialNode;                                                 272
+   291 
+   292 
+   293   PROCEDURE MakeArtificialNode                                                *
+   294      (Pos    : PosType;                                                     272    43
+   295      SecPos : PosType;                                                      189    43
+   296      LSon,                                                                  243
+   297      RSon: Expression) : Expression;                                        244    55    55
+   298 
+   299   (* Bilde neuen Knoten vom Typ ArtAlternative mit gegebenen Soehnen,
+c  300      und liefere den Zeiger auf ihn zurueck *)
+   301   VAR HNode : Expression;                                                   250    55
+   302       s     : tString;                                                      251    49
+   303 
+   304   BEGIN
+   305     HNode := Alloc(TSIZE(Node));                                            301    45    47    57
+   306     IF HNode = NIL THEN                                                     301     *
+   307       ArrayToString ('MakeArtificialNode : Heap overflow', s);               49   302
+   308       ErrorMessageI(eInternal,eFatal,Pos,eString, ADR(s));                   48    48    48   294    48    44   302
+   309     END;
+   310     HNode^.Special  := NIL;                                                 301    72     *
+   311     HNode^.Type        := ArtAlternative;                                   301   213     *
+   312     HNode^.Position   := Pos;                                               301    70   294
+   313     HNode^.SecondPos  := SecPos;                                            301    71   295
+   314     HNode^.LeSon := LSon;                                                   301     *   296
+   315     HNode^.RiSon := RSon;                                                   301     *   297
+   316     RETURN HNode;                                                           301
+   317   END MakeArtificialNode;                                                   293
+   318 
+   319 
+   320   PROCEDURE PutNodeSpecial                                                    *
+   321     (Expr:  Expression;                                                     273    55
+   322      Spec: ADDRESS);                                                          *    44
+   323   
+   324   (* Trage Knotensonderinformation ein *)
+   325 
+   326   BEGIN
+   327     IF Expr # NIL THEN                                                      321     *
+   328       Expr^.Special := Spec;                                                321    72   322
+   329     ELSE
+   330       ERROR ('PutNodeSpecial : You tried to access an empty node');           *
+   331     END;
+   332   END PutNodeSpecial;                                                       320
+   333      
+   334 
+   335   PROCEDURE MakeRule                                                          *
+   336     (Left       : tIdent;                                                    83    46
+   337      LeftPos    : PosType;                                                   84    43
+   338      ColonPos   : PosType;                                                   85    43
+   339      Right      : Expression;                                                86    55
+   340      Comment    : tList;                                                    104    40
+   341      CommPos    : PosType;                                                  105    43
+   342      PointPos   : PosType;                                                   87    43
+   343      HasPrio    : BOOLEAN;                                                  245     *
+   344      PRIOPos    : PosType;                                                  246    43
+   345      PrioSym    : tIdent;                                                   247    46
+   346      PrioSymPos : PosType);                                                 248    43
+   347 
+   348   (* Trage eine neue Regel in die Datenstruktur ein *)
+   349   VAR HRule : MRules;                                                         *    80
+   350       Error   : TokenError;                                                 122    43
+   351       Leftvoc : Vocabulary;                                                   *    41
+   352       voc     : Vocabulary;                                                 123    41
+   353       s       : tString;                                                    302    49
+   354 
+   355   BEGIN
+   356     OpenForReading := FALSE;                                                111     *
+   357     Leftvoc := MakeVoc(Left,LeftPos);                                       351    41   336   337
+   358     IF GetTokenType(Leftvoc) = Term THEN                                     42   351     *
+   359       (* Error: Links steht Terminal , Regel wird nicht eingetragen *) 
+   360       ErrorMessageI(eTermLeft ,eError,LeftPos, eIdent, ADR(Left));           48    52    48   337    48    44   336
+   361     ELSE
+   362       SetNontermPos (Left,LeftPos);                                          42   336   337
+   363       HRule := Alloc(TSIZE(Rule));                                          349    45    47    82
+   364       IF HRule = NIL THEN                                                   349     *
+   365         ArrayToString('MakeRule : Heap overflow', s);                        49   353
+   366         ErrorMessageI(eInternal,eFatal,LeftPos, eString, ADR (s));           48    48    48   337    48    44   353
+   367       END;
+   368       HRule^.Left     := Leftvoc;                                           349   336   351
+   369       HRule^.LeftPos  := LeftPos;                                           349   337   337
+   370       HRule^.ColonPos := ColonPos;                                          349   338   338
+   371       HRule^.PointPos := PointPos;                                          349   342   342
+   372       HRule^.Right    := Right;                                             349   339   339
+   373       HRule^.Comment  := Comment;                                           349   340   340
+   374       HRule^.CommPos  := CommPos;                                           349   341   341
+   375       HRule^.HasPrio  := HasPrio;                                           349   343   343
+   376       HRule^.Priority := 0;                                                 349    93
+   377       IF HasPrio THEN                                                       343
+   378         HRule^.PRIOPos    := PRIOPos;                                       349   344   344
+   379         HRule^.PrioSymPos := PrioSymPos;                                    349   346   346
+   380         voc := SymbolToToken(PrioSym,Error);                                352    42   345   350
+   381         IF Error # NoError THEN                                             350     *
+   382           ErrorMessageI(eTokenNotDecl,eError,PrioSymPos, eIdent, ADR(PrioSym));    48    52    48   346    48    44   345
+   383         ELSE
+   384           HRule^.PrioSym    := voc;                                         349   345   352
+   385           HRule^.Priority := GetPrio(voc);                                  349    93    43   352
+   386           IF HRule^.Priority = 0 THEN                                       349    93
+   387             ErrorMessageI(eNoOperator,eError,PrioSymPos,eIdent,ADR(PrioSym));      48    52    48   346    48    44   345
+   388           END;
+   389         END;
+   390       END;
+   391       IF WMRule <> NIL THEN                                                 110     *
+   392         (* Nicht ListenAnfang *)
+   393         WMRule^.Next := HRule;                                              110    97   349
+   394       ELSE
+   395         StartMRule  := HRule;                                               108   349
+   396       END;
+   397       HRule^.Next := NIL;                                                   349    97     *
+   398       WMRule       := HRule;                                                110   349
+   399     END;
+   400   END MakeRule;                                                             335
+   401 
+   402 
+   403   PROCEDURE MakeRulesHeader                                                   *
+   404     (RULESPos   : PosType;                                                  103    43
+   405      Comment    : tList;                                                    340    40
+   406      CommPos    : PosType);                                                 341    43
+   407 
+   408   (* Speichere globale Information zum Abschnitt RULES ab *)
+   409 
+   410   BEGIN
+   411     RulesVars.RULESPos := RULESPos;                                         101   404   404
+   412     RulesVars.Comment  := Comment;                                          101   405   405
+   413     RulesVars.CommPos  := CommPos;                                          101   406   406
+   414   END MakeRulesHeader;                                                      403
+   415 
+   416 
+   417   PROCEDURE InitRulesReading();                                               *
+   418 
+   419     (* Bereitet das Lesen vor. Der Lesezeiger wird auf die erste 
+c  420        Regel eingestellt. Gibt es ueberhaupt keine Regeln, wird 
+c  421        FALSE zurueck geliefert, sonst TRUE *)
+   422 
+   423     BEGIN
+   424       OpenForReading := TRUE;                                               111     *
+   425       RMRule := StartMRule;                                                 109   108
+   426     END InitRulesReading;                                                   417
+   427 
+   428 
+   429 
+   430   PROCEDURE GetNodeOperation(Expr: Expression) : Operation;                   *   321    55     *
+   431     BEGIN
+   432       IF Expr = NIL THEN                                                    430     *
+   433         RETURN NoOperation;                                                   *
+   434       ELSE
+   435         RETURN Expr^.Type;                                                  430   213
+   436       END;
+   437     END GetNodeOperation;                                                   430
+   438 
+   439 
+   440 
+   441   PROCEDURE GetLeafNode                                                       *
+   442      (  Expr: Expression;                                                   430    55
+   443      VAR Voc: Vocabulary;                                                     *    41
+   444      VAR Pos: PosType);                                                     294    43
+   445  
+   446   (* Liefere Information aus Blattknoten. *)
+   447 
+   448   BEGIN
+   449     IF (GetNodeOperation(Expr) # TermLeaf) AND                              430   442    67
+   450        (GetNodeOperation(Expr) # NonTermLeaf) THEN                          430   442    67
+   451       ERROR ('GetLeafNode : Wrong Node Type');                                *
+   452     END;
+   453     IF Expr <> NIL THEN                                                     442     *
+   454       Voc := Expr^.Token;                                                   443   442     *
+   455       Pos := Expr^.Position;                                                444   442    70
+   456     ELSE
+   457       ERROR ('GetLeafNode : Node empty');                                     *
+   458     END;
+   459   END GetLeafNode;                                                          441
+   460 
+   461 
+   462   PROCEDURE GetActionNode                                                     *
+   463      (   Expr:Expression;                                                   442    55
+   464      VAR Act: tList;                                                        144    40
+   465      VAR Pos: PosType);                                                     444    43
+   466   
+   467   (* Liefere Information aus Actionknoten *)
+   468 
+   469   BEGIN
+   470     IF GetNodeOperation(Expr) # Action THEN                                 430   463    65
+   471       ERROR ('GetActionNode : Wrong Node Type');                              *
+   472     END;
+   473     IF Expr <> NIL THEN                                                     463     *
+   474       Act := Expr^.Act;                                                     464   463   464
+   475       Pos := Expr^.Position;                                                465   463    70
+   476     ELSE
+   477       ERROR ('GetActionNode : Node empty');                                   *
+   478     END;
+   479   END GetActionNode;                                                        462
+   480 
+   481   
+   482   PROCEDURE GetUnaryNode                                                      *
+   483      (   Expr:Expression;                                                   463    55
+   484      VAR Pos: PosType;                                                      465    43
+   485      VAR Son: Expression);                                                  190    55
+   486 
+   487   (* Liefere Information aus unaerem Knoten *) 
+   488 
+   489   BEGIN
+   490     IF (GetNodeOperation(Expr) # Star) AND                                  430   483     *
+   491        (GetNodeOperation(Expr) # Plus) THEN                                 430   483     *
+   492       ERROR ('GetUnaryNode : Wrong Node Type');                               *
+   493     END ;
+   494     IF Expr <> NIL THEN                                                     483     *
+   495       Pos := Expr^.Position;                                                484   483    70
+   496       Son := Expr^.Son;                                                     485   483   485
+   497     ELSE
+   498       ERROR ('GetUnaryNode : Node empty');                                    *
+   499     END;
+   500   END GetUnaryNode;                                                         482
+   501   
+   502 
+   503   PROCEDURE GetBracketNode                                                    *
+   504      (   Expr   : Expression;                                               483    55
+   505      VAR Pos,                                                               484
+   506          SecPos : PosType;                                                  295    43
+   507      VAR Son    : Expression);                                              485    55
+   508 
+   509   (* Liefere Information aus unaerem Knoten *) 
+   510 
+   511   BEGIN
+   512     IF (GetNodeOperation(Expr) # Bracket) AND                               430   504     *
+   513        (GetNodeOperation(Expr) # Optional) THEN                             430   504     *
+   514       ERROR ('GetBracketNode : Wrong Node Type');                             *
+   515     END ;
+   516     IF Expr <> NIL THEN                                                     504     *
+   517       Pos := Expr^.Position;                                                505   504    70
+   518       SecPos := Expr^.SecondPos;                                            506   504    71
+   519       Son := Expr^.Son;                                                     507   504   507
+   520     ELSE
+   521       ERROR ('GetBracketNode : Node empty');                                  *
+   522     END;
+   523   END GetBracketNode;                                                       503
+   524   
+   525 
+   526   PROCEDURE GetBinaryNode                                                     *
+   527      (   Expr: Expression;                                                  504    55
+   528      VAR Pos : PosType;                                                     505    43
+   529      VAR LSon,                                                              296
+   530      RSon: Expression);                                                     297    55
+   531 
+   532   (* Liefere Information aus binaerem Knoten *)
+   533 
+   534   BEGIN
+   535     IF (GetNodeOperation(Expr) # Sequence) AND                              430   527    62
+   536        (GetNodeOperation(Expr) # Separator) AND                             430   527    62
+   537        (GetNodeOperation(Expr) # Alternative) AND                           430   527    62
+   538        (GetNodeOperation(Expr) # ArtAlternative) THEN                       430   527     *
+   539       ERROR ('GetBinaryNode : Wrong Node Type');                              *
+   540     END ;
+   541     IF Expr <> NIL THEN                                                     527     *
+   542       Pos  := Expr^.Position;                                               528   527    70
+   543       LSon := Expr^.LeSon;                                                  529   527     *
+   544       RSon := Expr^.RiSon;                                                  530   527     *
+   545     ELSE
+   546       ERROR ('GetBinaryNode : Node empty');                                   *
+   547     END; 
+   548   END GetBinaryNode;                                                        526
+   549 
+   550   PROCEDURE GetPrioAlternativeNode                                            *
+   551      (    Expr       : Expression;                                          527    55
+   552       VAR Pos        : PosType;                                             528    43
+   553       VAR LSon       : Expression;                                          529    55
+   554       VAR RSon       : Expression;                                          530    55
+   555       VAR HasPrio    : BOOLEAN;                                             343     *
+   556       VAR PRIOPos    : PosType;                                             344    43
+   557       VAR PrioSym    : tIdent;                                              345    46
+   558       VAR PrioSymPos : PosType);                                            346    43
+   559 
+   560   BEGIN
+   561     IF (GetNodeOperation(Expr) # Alternative) THEN                          430   551    62
+   562       ERROR ('GetPrioAlternativeNode : Wrong Node Type');                     *
+   563     END ;
+   564     IF Expr <> NIL THEN                                                     551     *
+   565       Pos  := Expr^.Position;                                               552   551    70
+   566       LSon := Expr^.LeSon;                                                  553   551     *
+   567       RSon := Expr^.RiSon;                                                  554   551     *
+   568       HasPrio := Expr^.HasPrio;                                             555   551   555
+   569       PRIOPos := Expr^.PRIOPos;                                             556   551   556
+   570       PrioSym := Expr^.PrioSym;                                             557   551   557
+   571       PrioSymPos := Expr^.PrioSymPos;                                       558   551   558
+   572     ELSE
+   573       ERROR ('GetPrioAlternativeNode : Node empty');                          *
+   574     END; 
+   575   END GetPrioAlternativeNode;                                               550
+   576 
+   577 
+   578   PROCEDURE GetArtificialNode                                                 *
+   579      (   Expr   : Expression;                                               551    55
+   580      VAR Pos    : PosType;                                                  552    43
+   581      VAR SecPos : PosType;                                                  506    43
+   582      VAR LSon,                                                              553
+   583          RSon   : Expression);                                              554    55
+   584 
+   585   (* Liefere Information aus kuenstlichem Knoten *)
+   586 
+   587   BEGIN
+   588     IF (GetNodeOperation(Expr) # ArtAlternative) THEN                       430   579     *
+   589       ERROR ('GetArtificialNode : Wrong Node Type');                          *
+   590     END ;
+   591     IF Expr <> NIL THEN                                                     579     *
+   592       Pos  := Expr^.Position;                                               580   579    70
+   593       SecPos := Expr^.SecondPos;                                            581   579    71
+   594       LSon := Expr^.LeSon;                                                  582   579     *
+   595       RSon := Expr^.RiSon;                                                  583   579     *
+   596     ELSE
+   597       ERROR ('GetArtificialNode : Node empty');                               *
+   598     END; 
+   599   END GetArtificialNode;                                                    578
+   600 
+   601 
+   602   PROCEDURE GetNodeSpecial                                                    *
+   603     (Expr:  Expression) : ADDRESS;                                          579    55    44
+   604   
+   605   (* Liefere Knotensonderinformation *)
+   606 
+   607   BEGIN
+   608     IF Expr <> NIL THEN                                                     603     *
+   609       RETURN Expr^.Special;                                                 603    72
+   610     ELSE
+   611       ERROR ('GetNodeSpecial : Node empty');                                  *
+   612       RETURN NIL;                                                             *
+   613     END
+   614   END GetNodeSpecial;                                                       602
+   615      
+   616 
+   617   PROCEDURE GetRule                                                           *
+   618     (VAR Left       : NonTerminal;                                          336    41
+   619      VAR LeftPos    : PosType;                                              337    43
+   620      VAR ColonPos   : PosType;                                              338    43
+   621      VAR Right      : Expression;                                           339    55
+   622      VAR Comment    : tList;                                                405    40
+   623      VAR CommPos    : PosType;                                              406    43
+   624      VAR PointPos   : PosType;                                              342    43
+   625      VAR HasPrio    : BOOLEAN;                                              555     *
+   626      VAR PRIOPos    : PosType;                                              556    43
+   627      VAR PrioSym    : Terminal;                                             557    41
+   628      VAR PrioSymPos : PosType) : BOOLEAN;                                   558    43     *
+   629 
+   630   (* Liefere naechste Regel bzw. FALSE falls es keine naechste Regel
+c  631      mehr gibt. Die erste Regel kann nach Aufruf von  InitRuleReading
+c  632      gelesen werden *)
+   633 
+   634   BEGIN
+   635     IF NOT OpenForReading THEN                                              111
+   636       ERROR ('GetRule : You must not read here');                             *
+   637     END;
+   638     IF RMRule = NIL THEN                                                    109     *
+   639       (* Am Ende der Liste angelangt *)
+   640       RETURN FALSE                                                            *
+   641     ELSE
+   642       Left     := RMRule^.Left;                                             618   109   618
+   643       LeftPos  := RMRule^.LeftPos;                                          619   109   619
+   644       ColonPos := RMRule^.ColonPos;                                         620   109   620
+   645       PointPos := RMRule^.PointPos;                                         624   109   624
+   646       Right    := RMRule^.Right;                                            621   109   621
+   647       Comment  := RMRule^.Comment;                                          622   109   622
+   648       CommPos  := RMRule^.CommPos;                                          623   109   623
+   649       IF RMRule^.HasPrio THEN                                               109   625
+   650         PRIOPos    := RMRule^.PRIOPos;                                      626   109   626
+   651         PrioSym    := RMRule^.PrioSym;                                      627   109   627
+   652         PrioSymPos := RMRule^.PrioSymPos;                                   628   109   628
+   653       ELSE
+   654         PRIOPos .Line   := 0;                                               626     *
+   655         PRIOPos .Column := 0;                                               626     *
+   656         PrioSym  := 0;                                                      627
+   657         PrioSymPos.Line   := 0;                                             628     *
+   658         PrioSymPos.Column := 0;                                             628     *
+   659       END;
+   660       HasPrio  := RMRule^.HasPrio;                                          625   109   625
+   661       (* Weiterschalten *)
+   662       RMRule := RMRule^.Next;                                               109   109    97
+   663       RETURN TRUE;                                                            *
+   664     END;
+   665   END GetRule;                                                              617
+   666 
+   667   PROCEDURE GetEssentialRule                                                  *
+   668     (VAR Left       : NonTerminal;                                          618    41
+   669      VAR Right      : Expression;                                           621    55
+   670      VAR HasPrio    : BOOLEAN) : BOOLEAN;                                   625     *     *
+   671 
+   672   (* Liefere naechste Regel bzw. FALSE falls es keine naechste Regel
+c  673      mehr gibt. Die erste Regel kann nach Aufruf von  InitRuleReading
+c  674      gelesen werden. Die Prozedur kann im Wechsel mit GetRule ver-
+c  675      wendet werden.*)
+   676 
+   677   BEGIN
+   678     IF NOT OpenForReading THEN                                              111
+   679       ERROR ('GetEssentialRule : You must not read here');                    *
+   680     END;
+   681     IF RMRule = NIL THEN                                                    109     *
+   682       (* Am Ende der Liste angelangt *)
+   683       RETURN FALSE                                                            *
+   684     ELSE
+   685       Left     := RMRule^.Left;                                             668   109   668
+   686       Right    := RMRule^.Right;                                            669   109   669
+   687       HasPrio  := RMRule^.HasPrio ;                                         670   109   670
+   688       (* Weiterschalten *)
+   689       RMRule := RMRule^.Next;                                               109   109    97
+   690       RETURN TRUE;                                                            *
+   691     END;
+   692   END GetEssentialRule;                                                     667
+   693 
+   694   PROCEDURE GetRulesHeader (VAR RULESPos: PosType; VAR Comment: tList; VAR CommPos: \     *   404    43   622    40   623
+      \PosType);                                                                    43
+   695 
+   696   (* Liefere globale Information zum Abschnitt RULES *)
+   697 
+   698   BEGIN
+   699     RULESPos := RulesVars.RULESPos;                                         694   101   694
+   700     Comment  := RulesVars.Comment;                                          694   101   694
+   701     CommPos  := RulesVars.CommPos;                                          694   101   694
+   702   END GetRulesHeader;                                                       694
+   703 
+   704   PROCEDURE ERROR (a : ARRAY OF CHAR);                                        *     *     *
+   705   VAR s : tString;                                                          353    49
+   706   BEGIN
+   707     ArrayToString (a, s);                                                    49   704   705
+   708     ErrorMessageI (eInternal, eFatal, NoPosition, eString, ADR(s));          48    48    48    50    48    44   705
+   709   END ERROR;                                                                704
+   710 
+   711 BEGIN
+   712  RMRule := NIL;                                                             109     *
+   713  WMRule := NIL;                                                             110     *
+   714  StartMRule := NIL;                                                         108     *
+   715  RulesVars.RULESPos.Line   := 0;                                            101   694     *
+   716  RulesVars.RULESPos.Column := 0;                                            101   694     *
+   717  MakeList (RulesVars.Comment);                                               40   101   694
+   718  RulesVars.CommPos.Line   := 0;                                             101   694     *
+   719  RulesVars.CommPos.Column := 0;                                             101   694     *
+   720  NoExpression := NIL;                                                         *     *
+   721 END Rules.                                                                   38
+Cross reference: * is declaration, = is assignment
+
+-A-
+ a                              704*  707 
+ Act                             66   144*  159=  159   464*  474=  474 
+ Action                          65*  158   470 
+ ADDRESS                         44*   72   322   603 
+ ADR                             44*  155   176   201   228   257   308   360   366   382   387   708 
+ Alloc                           45*  126   152   173   198   225   254   305   363 
+ Alternative                     62*  235   264   537   561 
+ AppendArtificialNode           272*  290 
+ ArrayToString                   49*  154   175   200   227   256   307   365   707 
+ ArtAlternative                 279   285   311   538   588 
+
+-B-
+ BinaryOperation                213 
+ BOOLEAN                         74    90   111   245   343   555   625   628   670   670 
+ Bracket                         60   512 
+ BracketOperation               187 
+
+-C-
+ CHAR                           704 
+ ColonPos                        85*  338*  370=  370   620*  644=  644 
+ Column                         655=  658=  716=  719=
+ Comment                         88*  104*  340*  373=  373   405*  412=  412   622*  647=  647   694*  700=  700   717 
+ CommPos                         89*  105*  341*  374=  374   406*  413=  413   623*  648=  648   694*  701=  701   718=  719=
+
+-E-
+ eError                          48*  360   382   387 
+ eFatal                          48*  155   176   201   228   257   308   366   708 
+ eIdent                          48*  360   382   387 
+ eInternal                       48*  155   176   201   228   257   308   366   708 
+ eNoOperator                     52*  387 
+ ERROR                          128   330   451   457   471   477   492   498   514   521   539   546   562   573   589   597   611 
+                                636   679   704*  709 
+ Error                          122*  350*  380   381 
+ ErrorMessageI                   48*  155   176   201   228   257   308   360   366   382   387   708 
+ Errors                          48*
+ eString                         48*  155   176   201   228   257   308   366   708 
+ eTermLeft                       52*  360 
+ eTokenNotDecl                   52*  382 
+ Expr                           273*  279   279   280=  280   282   321*  327   328=  430*  432   435   442*  449   450   453   454 
+                                455   463*  470   473   474   475   483*  490   491   494   495   496   504*  512   513   516   517 
+                                518   519   527*  535   536   537   538   541   542   543   544   551*  561   564   565   566   567 
+                                568   569   570   571   579*  588   591   592   593   594   595   603*  608   609 
+ expr                           276*  282=  284   286=  288=
+ Expression                      55*   61    64    86   116   121   144   148   165   165   169   190   190   194   216   216   220 
+                                244   248   250   273   273   276   297   297   301   321   339   430   442   463   483   485   504 
+                                507   527   530   551   553   554   579   583   603   621   669 
+
+-F-
+ FALSE                          236   356   640   683 
+
+-G-
+ GetActionNode                  462*  479 
+ GetArtificialNode              578*  599 
+ GetBinaryNode                  526*  548 
+ GetBracketNode                 503*  523 
+ GetEssentialRule               667*  692 
+ GetLeafNode                    441*  459 
+ GetNodeOperation               279   285   430*  437   449   450   470   490   491   512   513   535   536   537   538   561   588 
+ GetNodeSpecial                 602*  614 
+ GetPrio                         43*  385 
+ GetPrioAlternativeNode         550*  575 
+ GetRule                        617*  665 
+ GetRulesHeader                 694*  702 
+ GetTokenType                    42*  133   358 
+ GetUnaryNode                   482*  500 
+
+-H-
+ HasPrio                         74*   90*  236=  245*  259=  259   343*  375=  375   377   555*  568=  568   625*  649   660=  660 
+                                670*  687=  687 
+ HNode                          121*  126=  127   130=  131=  134=  135=  137=  138=  140   148*  152=  153   157=  158=  159=  160=
+                                161   169*  173=  174   178=  179=  180=  181=  182   194*  198=  199   203=  204=  205=  206=  207=
+                                208   220*  225=  226   230=  231=  232=  233=  234=  236=  238   250*  254=  255   259=  260=  261=
+                                262=  263=  264=  265=  266=  267=  268   301*  305=  306   310=  311=  312=  313=  314=  315=  316 
+ HRule                          349*  363=  364   368=  369=  370=  371=  372=  373=  374=  375=  376=  378=  379=  384=  385=  386 
+                                393   395   397=  398 
+
+-I-
+ Idents                          46*
+ IMPLEMENTATION                  38*
+ InitRulesReading               417*  426 
+
+-L-
+ last                           276*  284=  285   286   288   288 
+ Left                            83*  336*  357   360   362   368=  618*  642=  642   668*  685=  685 
+ LeftPos                         84*  337*  357   360   362   366   369=  369   619*  643=  643 
+ Leftvoc                        351*  357=  358   368 
+ LeSon                           63   233=  266=  314=  543   566   594 
+ Line                           654=  657=  715=  718=
+ Lists                           40*
+ LSon                           215*  233   243*  266   296*  314   529*  543=  553*  566=  582*  594=
+
+-M-
+ MakeActionNode                 144*  162 
+ MakeArtificialNode             280   288   293*  317 
+ MakeBinaryNode                 212*  239 
+ MakeBracketNode                186*  209 
+ MakeLeafNode                   114*  141 
+ MakeList                        40*  717 
+ MakePrioAlternativeNode        241*  269 
+ MakeRule                       335*  400 
+ MakeRulesHeader                403*  414 
+ MakeTerm                        42*
+ MakeUnaryNode                  165*  183 
+ MakeVoc                         41*  132   357 
+ Memory                          45*
+ MRules                          80*   97   110   349 
+
+-N-
+ New                            273*  280   288 
+ Next                            97*  393=  397=  662   689 
+ NIL                            127   131   153   157   174   178   199   203   226   230   255   263   306   310   327   364   391 
+                                397   432   453   473   494   516   541   564   591   608   612   638   681   712   713   714   720 
+ Node                            55    57*  126   152   173   198   225   254   305 
+ NoError                        381 
+ NoExpression                   279   720=
+ NonTerminal                     41*   83   618   668 
+ NonTermLeaf                     67*  137   450 
+ NoOperation                    433 
+ NoPosition                      50*  708 
+
+-O-
+ OpenForReading                 111*  356=  424=  635   678 
+ Operation                       59   430 
+ Optional                        60   513 
+
+-P-
+ Plus                            60   491 
+ PointPos                        87*  342*  371=  371   624*  645=  645 
+ Pos                            116*  130   132   144*  155   160   165*  176   180   188*  201   205   214*  228   232   242*  257 
+                                265   272*  280   294*  308   312   444*  455=  465*  475=  484*  495=  505*  517=  528*  542=  552*
+                                565=  580*  592=
+ Pos2                           272*  280   288 
+ Position                        70*  130=  160=  180=  205=  232=  265=  288   312=  455   475   495   517   542   565   592 
+ Positions                       50*
+ PosType                         43*   71    75    77    84    85    87    89    92    95   103   105   116   144   165   189   214 
+                                242   246   248   272   294   295   337   338   341   342   344   346   404   406   444   465   484 
+                                506   528   552   556   558   580   581   619   620   623   624   626   628   694   694 
+ PRIOPos                         75*   92   246*  260=  260   344*  378=  378   556*  569=  569   626*  650=  650   654=  655=
+ Priority                        93*  376=  385=  386 
+ PrioSym                         76*   94*  247*  261=  261   345*  380   382   384=  387   557*  570=  570   627*  651=  651   656=
+ PrioSymPos                      77*   95*  248*  262=  262   346*  379=  379   382   387   558*  571=  571   628*  652=  652   657=
+                                658=
+ PutNodeSpecial                 320*  332 
+
+-R-
+ Right                           86*  339*  372=  372   621*  646=  646   669*  686=  686 
+ RiSon                           64   234=  267=  284   288=  315=  544   567   595 
+ RMRule                         109*  425=  638   642   643   644   645   646   647   648   649   650   651   652   660   662=  662 
+                                681   685   686   687   689=  689   712=
+ RSon                           216*  234   244*  267   297*  315   530*  544=  554*  567=  583*  595=
+ Rule                            80    82*  363 
+ Rules                           38*  721 
+ RULESPos                       103*  404*  411=  411   694*  699=  699   715=  716=
+ RulesVars                      101*  411=  412=  413=  699   700   701   715=  716=  717   718=  719=
+
+-S-
+ s                              149*  154   155   170*  175   176   195*  200   201   221*  227   228   251*  256   257   302*  307 
+                                308   353*  365   366   705*  707   708 
+ SecondPos                       71*  206=  313=  518   593 
+ SecPos                         189*  206   295*  313   506*  518=  581*  593=
+ Separator                       62*  536 
+ Sequence                        62*  535 
+ SetNontermPos                   42*  362 
+ SHORTCARD                       93 
+ Son                             61   165*  181=  181   190*  207=  207   485*  496=  496   507*  519=  519 
+ Spec                           322*  328 
+ Special                         72*  131=  157=  178=  203=  230=  263=  310=  328=  609 
+ Star                            60   490 
+ StartMRule                     108*  395=  425   714=
+ Strings                         49*
+ sym                            115*  132 
+ SymbolToToken                   42*  380 
+ SYSTEM                          44*   47*
+
+-T-
+ Term                           133   358 
+ Terminal                        41*   94   627 
+ TermLeaf                        67*  134   449 
+ tIdent                          46*   76   115   247   336   345   557 
+ tList                           40*   66    88   104   144   340   405   464   622   694 
+ Token                           68   135=  138=  454 
+ TokenError                      43*  122   350 
+ TokenTab                        41*
+ TokenType                       41*
+ TRUE                            91   424   663   690 
+ TSIZE                           47*  126   152   173   198   225   254   305   363 
+ tString                         49*  149   170   195   221   251   302   353   705 
+ Type                            59*  134=  137=  158=  165*  179=  179   187*  204=  204   213*  231=  231   235   264=  311=  435 
+
+-U-
+ UnaryOperation                 165 
+
+-V-
+ Voc                            443*  454=
+ voc                            123*  132=  133   135   138   352*  380=  384   385 
+ Vocabulary                      41*   68   123   351   352   443 
+
+-W-
+ WMRule                         110*  391   393=  398=  713=
+
+end cross reference, 1062 occurrences of 144 identifiers.

@@ -1,0 +1,5 @@
+ABIN=`realpath $0`
+ADIR=`dirname $ABIN`
+LIB=`realpath $ADIR/../lib`
+echo 1>&2 "running cg from $LIB"
+exec $LIB/cg -l$LIB $*

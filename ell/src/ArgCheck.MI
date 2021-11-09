@@ -1,0 +1,156 @@
+(*
+ *	ell2 - a redesign of ell
+ *
+ *	$RCSfile: ArgCheck.MI,v $
+ *	
+ *	purpose:	check arguments
+ *
+ *	$Author: grosch $
+ *	$Date: 1992/10/15 18:26:55 $
+ *)
+
+IMPLEMENTATION MODULE ArgCheck;
+
+FROM Checks	IMPORT	CheckReadOpen;
+FROM Character	IMPORT	Length, Assign;
+FROM Errors	IMPORT	eError, eWarning, eRepair, eNote, eInformation,
+			eTooManyArgs, eNoOption, tReportMode,
+			eCharacter, eString, ReportClass, InError,
+			CloseErrors, SetReportMode, ErrorMessageI;
+FROM Positions	IMPORT	NoPosition;
+FROM Listing	IMPORT	SourceFile;
+FROM IO		IMPORT	ReadOpen, CloseIO;
+FROM Scanner	IMPORT	BeginFile;
+FROM StdIO	IMPORT	WriteS, WriteNl;
+FROM Strings	IMPORT	tString, ArrayToString;
+FROM System	IMPORT	GetArgCount, GetArgument, Exit;
+FROM SYSTEM	IMPORT	ADR;
+
+.. %	WriteS ("%");
+.. $	WriteNl;
+.. s	WriteS (%);
+.. (	(* ARG_ )*
+.. )	*( _ARG *)
+
+PROCEDURE CheckArgs;
+  VAR
+    ArgNo: CARDINAL;
+    Argument: ARRAY [0..255] OF CHAR;
+    ArgString: tString;
+    Default, Help, SourceFileIsOpen: BOOLEAN;
+    pos: INTEGER;
+.(
+    TestHelp: BOOLEAN;
+.)
+
+  BEGIN
+    Help := FALSE;
+    Default := TRUE;
+.(
+    TestHelp := FALSE;
+.)
+    SourceFileIsOpen := FALSE;
+    FOR ArgNo := 1 TO GetArgCount () - 1 DO
+      GetArgument (ArgNo, Argument);
+      IF Argument [0] = '-' THEN
+	Default := FALSE;
+	FOR pos := 1 TO Length (Argument)-1 DO
+	  CASE (Argument [pos]) OF
+	  | 'W': EXCL (ReportClass, eWarning);
+	  | 'R': EXCL (ReportClass, eRepair);
+	  | 'N': EXCL (ReportClass, eNote);
+	  | 'I': EXCL (ReportClass, eInformation);
+
+	  | 'M': SetReportMode (eLongListing);
+	  | 'D': SetReportMode (eDirectly);
+
+	  | 'c': LANGUAGE := C;
+	  | 'd': DEF := TRUE;
+	  | 'e': ERR := TRUE;
+	  | 'g': LINE := TRUE;
+	  | 'i': IMP := TRUE;
+	  | 'h': Help := TRUE;
+	  | 'm': LANGUAGE := MODULA2;
+	  | 'p': PAR := TRUE;
+	  | 's': SCA := TRUE;
+.(
+	  | '?': TestHelp := TRUE; Help := TRUE;
+	  | 'A': TREE := TRUE;
+	  | 'C': CODES := TRUE;
+	  | 'T': TABLE := TRUE;
+	  | 'Q': QUERY := TRUE;
+.)
+	  ELSE
+	    ErrorMessageI (eNoOption, eError, NoPosition, eCharacter, ADR (Argument [pos]));
+	  END;
+	END;
+      ELSE
+	IF SourceFileIsOpen THEN
+	  ArrayToString (Argument, ArgString);
+	  ErrorMessageI (eTooManyArgs, eError, NoPosition, eString, ADR (ArgString));
+	ELSE
+	  SourceFile := ReadOpen (Argument);
+	  CheckReadOpen (SourceFile, Argument);
+	  BeginFile (Argument);
+	  Assign (SourceFileName, Argument);
+	  SourceFileIsOpen := TRUE;
+	END;
+      END;
+    END;
+    IF Default THEN
+      DEF := TRUE;
+      IMP := TRUE;
+    END;
+    IF Help THEN
+.
+.     usage: ell [-options] [file]
+.     
+.    \ c  generate C code
+.    \ d  generate definition part
+.    \ e  generate (simple) error handler
+.    \ g  generate # line directives
+.    \ i  generate implementation part
+.    \ h  help (this output)
+.    \ p  generate parser driver
+.    \ s  generate (simple) scanner
+.    \ m  generate Modula-2 code (default)
+.    \ W  no warnings
+.    \ R  no repairs
+.    \ N  no notes
+.    \ I  no informations
+.    \ M  mixed error listing
+.    \ D  report errors directly
+.(
+      IF TestHelp THEN
+.
+.    \ A  print abstract syntax tree
+.    \ C  print codes
+.    \ Q  query abstract syntax tree
+.    \ T  print table
+      END;
+.)
+      CloseIO;
+      Exit (0);
+    END;
+    IF InError THEN
+      CloseErrors;
+      CloseIO;
+      Exit (-1);
+    END;
+  END CheckArgs;
+
+BEGIN
+  DEF := FALSE;
+  ERR := FALSE;
+  PAR := FALSE;
+  SCA := FALSE;
+  IMP := FALSE;
+  LINE := FALSE;
+.(
+  TREE  := FALSE;
+  CODES := FALSE;
+  TABLE := FALSE;
+  QUERY := FALSE;
+.)
+  LANGUAGE := MODULA2;
+END ArgCheck.

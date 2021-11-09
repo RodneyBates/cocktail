@@ -1,0 +1,936 @@
+IMPLEMENTATION MODULE Tree0;
+
+
+
+IMPORT SYSTEM, System, General, Memory, DynArray, IO, Layout, StringMem, Strings, Idents, Texts, Sets, Positions;
+(* line 31 "../src/rex.cg" *)
+
+FROM Sets	IMPORT tSet;
+FROM Texts	IMPORT tText;
+FROM StringMem	IMPORT tStringRef;
+FROM Positions	IMPORT tPosition;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CONST yyBlockSize = 20480;
+
+TYPE
+ yytBlockPtr   = POINTER TO yytBlock;
+ yytBlock      = RECORD
+                    yyBlock    : ARRAY [1..yyBlockSize] OF CHAR;
+                    yySuccessor: yytBlockPtr;
+                 END;
+
+VAR yyBlockList        : yytBlockPtr;
+VAR yyMaxSize, yyi     : SHORTCARD;
+VAR yyTypeRange        : ARRAY [0..13] OF SHORTCARD;
+
+PROCEDURE yyAlloc (): tTree0;
+ VAR yyBlockPtr        : yytBlockPtr;
+ BEGIN
+  yyBlockPtr   := yyBlockList;
+  yyBlockList  := Memory.Alloc (SYSTEM.TSIZE (yytBlock));
+  yyBlockList^.yySuccessor := yyBlockPtr;
+  yyPoolFreePtr        := SYSTEM.ADR (yyBlockList^.yyBlock);
+  yyPoolMaxPtr := yyPoolFreePtr + yyBlockSize - yyMaxSize + 1;
+  INC (HeapUsed, yyBlockSize);
+  RETURN yyPoolFreePtr;
+ END yyAlloc;
+
+PROCEDURE MakeTree0 (yyKind: SHORTCARD): tTree0;
+ VAR yyByteCount       : LONGINT;
+ VAR yyt       : tTree0;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [yyKind] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := yyKind;
+  RETURN yyt;
+ END MakeTree0;
+
+PROCEDURE IsType (yyTree: tTree0; yyKind: SHORTCARD): BOOLEAN;
+ BEGIN
+  RETURN (yyTree # NoTree0) AND (yyKind <= yyTree^.Kind) AND (yyTree^.Kind <= yyTypeRange [yyKind]);
+ END IsType;
+
+
+PROCEDURE mNode (): tTree0;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree0;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Node] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Node;
+  WITH yyt^.Node DO
+    
+    
+    
+    
+  END;
+  RETURN yyt;
+ END mNode;
+
+PROCEDURE mNode1 (pSon1: tTree0): tTree0;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree0;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Node1] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Node1;
+  WITH yyt^.Node1 DO
+    
+    
+    
+    
+   Son1 := pSon1;
+  END;
+  RETURN yyt;
+ END mNode1;
+
+PROCEDURE mOption (pSon1: tTree0): tTree0;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree0;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Option] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Option;
+  WITH yyt^.Option DO
+    
+    
+    
+    
+   Son1 := pSon1;
+  END;
+  RETURN yyt;
+ END mOption;
+
+PROCEDURE mRepetition (pSon1: tTree0): tTree0;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree0;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Repetition] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Repetition;
+  WITH yyt^.Repetition DO
+    
+    
+    
+    
+   Son1 := pSon1;
+  END;
+  RETURN yyt;
+ END mRepetition;
+
+PROCEDURE mNode2 (pSon1: tTree0; pSon2: tTree0): tTree0;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree0;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Node2] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Node2;
+  WITH yyt^.Node2 DO
+    
+    
+    
+    
+   Son1 := pSon1;
+   Son2 := pSon2;
+  END;
+  RETURN yyt;
+ END mNode2;
+
+PROCEDURE mList (pSon1: tTree0; pSon2: tTree0): tTree0;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree0;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [List] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := List;
+  WITH yyt^.List DO
+    
+    
+    
+    
+   Son1 := pSon1;
+   Son2 := pSon2;
+  END;
+  RETURN yyt;
+ END mList;
+
+PROCEDURE mSequence (pSon1: tTree0; pSon2: tTree0): tTree0;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree0;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Sequence] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Sequence;
+  WITH yyt^.Sequence DO
+    
+    
+    
+    
+   Son1 := pSon1;
+   Son2 := pSon2;
+  END;
+  RETURN yyt;
+ END mSequence;
+
+PROCEDURE mAlternative (pSon1: tTree0; pSon2: tTree0): tTree0;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree0;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Alternative] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Alternative;
+  WITH yyt^.Alternative DO
+    
+    
+    
+    
+   Son1 := pSon1;
+   Son2 := pSon2;
+  END;
+  RETURN yyt;
+ END mAlternative;
+
+PROCEDURE mCh (pCh: CHAR): tTree0;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree0;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Ch] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Ch;
+  WITH yyt^.Ch DO
+    
+    
+    
+    
+   Ch := pCh;
+  END;
+  RETURN yyt;
+ END mCh;
+
+PROCEDURE mSet (pSet: tSet): tTree0;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree0;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Set] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Set;
+  WITH yyt^.Set DO
+    
+    
+    
+    
+   Set := pSet;
+    
+  END;
+  RETURN yyt;
+ END mSet;
+
+PROCEDURE mString (pString: tStringRef): tTree0;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree0;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [String] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := String;
+  WITH yyt^.String DO
+    
+    
+    
+    
+   String := pString;
+  END;
+  RETURN yyt;
+ END mString;
+
+PROCEDURE mRule (pPatterns: tTree0; pTargetCode: tText; pLine: SHORTCARD; pCodeMode: SHORTCARD; pRuleNr: SHORTCARD): tTree0;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree0;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Rule] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Rule;
+  WITH yyt^.Rule DO
+    
+    
+    
+    
+   Patterns := pPatterns;
+   TargetCode := pTargetCode;
+   Line := pLine;
+   CodeMode := pCodeMode;
+   RuleNr := pRuleNr;
+  END;
+  RETURN yyt;
+ END mRule;
+
+PROCEDURE mPattern (pStartStates: tSet; pRegExpr: tTree0; pRightContext: tTree0; pPatternNr: SHORTCARD; pPosition: tPosition): tTree0;
+ VAR yyByteCount    : LONGINT;
+ VAR yyt    : tTree0;
+ BEGIN
+   yyt  := yyPoolFreePtr; IF SYSTEM.ADDRESS ( yyt ) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Pattern] ); 
+  yyt^.yyHead.yyMark := 0;
+  yyt^.Kind := Pattern;
+  WITH yyt^.Pattern DO
+    
+    
+    
+    
+   StartStates := pStartStates;
+   RegExpr := pRegExpr;
+   RightContext := pRightContext;
+   PatternNr := pPatternNr;
+   Position := pPosition;
+    
+  END;
+  RETURN yyt;
+ END mPattern;
+
+TYPE yyPtrtTree        = POINTER TO tTree0;
+
+VAR yyf        : IO.tFile;
+VAR yyLabel    : SHORTCARD;
+VAR yyKind     : SHORTCARD;
+VAR yyc        : CHAR;
+VAR yys        : Strings.tString;
+
+PROCEDURE yyMark (yyt: tTree0);
+ BEGIN
+  LOOP
+   IF yyt = NoTree0 THEN RETURN; END;
+   INC (yyt^.yyHead.yyMark);
+   IF yyt^.yyHead.yyMark > 1 THEN RETURN; END;
+
+   CASE yyt^.Kind OF
+| Node1:
+yyt := yyt^.Node1.Son1;
+| Option:
+yyt := yyt^.Option.Son1;
+| Repetition:
+yyt := yyt^.Repetition.Son1;
+| Node2:
+yyMark (yyt^.Node2.Son1);
+yyt := yyt^.Node2.Son2;
+| List:
+yyMark (yyt^.List.Son1);
+yyt := yyt^.List.Son2;
+| Sequence:
+yyMark (yyt^.Sequence.Son1);
+yyt := yyt^.Sequence.Son2;
+| Alternative:
+yyMark (yyt^.Alternative.Son1);
+yyt := yyt^.Alternative.Son2;
+| Rule:
+yyt := yyt^.Rule.Patterns;
+| Pattern:
+yyMark (yyt^.Pattern.RegExpr);
+yyt := yyt^.Pattern.RightContext;
+   ELSE RETURN;
+   END;
+  END;
+ END yyMark;
+
+CONST yyInitTreeStoreSize      = 32;
+
+VAR yyTreeStoreSize    : LONGINT;
+VAR yyTreeStorePtr     : POINTER TO ARRAY [0..50000] OF tTree0;
+VAR yyLabelCount       : INTEGER;
+VAR yyRecursionLevel   : SHORTINT;
+
+PROCEDURE yyMapToLabel (yyTree: tTree0): SHORTCARD;
+ VAR yyi       : INTEGER;
+ BEGIN
+  FOR yyi := 1 TO yyLabelCount DO
+   IF yyTreeStorePtr^[yyi] = yyTree THEN RETURN yyi; END;
+  END;
+  INC (yyLabelCount);
+  IF yyLabelCount = yyTreeStoreSize THEN
+   DynArray.ExtendArray (yyTreeStorePtr, yyTreeStoreSize, SYSTEM.TSIZE (tTree0));
+  END;
+  yyTreeStorePtr^[yyLabelCount] := yyTree;
+  RETURN yyLabelCount;
+ END yyMapToLabel;
+
+PROCEDURE yyMapToTree (yyLabel: SHORTCARD): tTree0;
+ BEGIN RETURN yyTreeStorePtr^[yyLabel]; END yyMapToTree;
+
+PROCEDURE yyWriteNl; BEGIN IO.WriteNl (yyf); END yyWriteNl;
+
+PROCEDURE yyWriteSelector (yys: ARRAY OF CHAR);
+ BEGIN IO.WriteS (yyf, yys); Layout.WriteSpaces (yyf, 15 - INTEGER (HIGH (yys))); IO.WriteS (yyf, ' = '); END yyWriteSelector;
+
+PROCEDURE yyWriteHex (VAR yyx: ARRAY OF SYSTEM.BYTE);
+ VAR yyi       : INTEGER;
+ BEGIN
+  FOR yyi := 0 TO INTEGER (HIGH (yyx)) DO
+   IO.WriteN (yyf, ORD (CHAR (yyx [yyi])), 2, 16);
+   IO.WriteC (yyf, ' ');
+  END;
+ END yyWriteHex;
+
+VAR yyIndentLevel      : SHORTINT;
+VAR yyActualIndent , yyIndentQuotient , yyIndentRemainder : SHORTINT;
+CONST yyIndentFactor = 20; 
+PROCEDURE yySetIndentInfo ( ); 
+  BEGIN 
+   yyIndentQuotient := yyIndentLevel DIV yyIndentFactor;    yyIndentRemainder := yyIndentLevel MOD yyIndentFactor; 
+   yyActualIndent      := VAL ( SHORTINT , 10 * ORD ( yyIndentQuotient > 0 ) )         + yyIndentRemainder 
+  END yySetIndentInfo ; 
+
+PROCEDURE WriteTree0 (yyyf: IO.tFile; yyt: tTree0);
+ VAR yySaveLevel       : SHORTINT;
+ BEGIN
+  yyf := yyyf;
+  IF yyRecursionLevel = 0 THEN yyLabelCount := 0; END;
+  INC (yyRecursionLevel);
+  yyMark (yyt);
+  yySaveLevel := yyIndentLevel;
+  yyIndentLevel := 0;
+  yySetIndentInfo ( ) ;   yyWriteTree0 (yyt);
+  yyIndentLevel := yySaveLevel;
+  yySetIndentInfo ( ) ;   DEC (yyRecursionLevel);
+ END WriteTree0;
+
+PROCEDURE yyIndentSelector (yys: ARRAY OF CHAR);
+ BEGIN    IF yyIndentQuotient > 0    THEN IO.WriteC ( yyf , '(' ); IO.WriteC ( yyf , '*' ); 
+     IO.WriteN ( yyf , yyIndentQuotient * yyIndentFactor , 6 , 10 ); 
+     IO.WriteC ( yyf , '*' ); IO.WriteC ( yyf , ')' ); 
+     Layout.WriteSpaces (yyf, yyIndentRemainder ); 
+   ELSE Layout.WriteSpaces (yyf, yyIndentRemainder); 
+   END ;    yyWriteSelector (yys); 
+ END yyIndentSelector;
+
+PROCEDURE yyIndentSelectorTree (yys: ARRAY OF CHAR; yyt: tTree0);
+ BEGIN yyIndentSelector (yys); yyWriteTree0 ( yyt );  END yyIndentSelectorTree;
+
+PROCEDURE yWriteNode (yyt: tTree0);
+ BEGIN
+  IO.WriteS (yyf, 'Node'); yyWriteNl;
+  yyIndentSelector ('Tree'); yyWriteHex ( yyt^.Node.Tree );  yyWriteNl;
+  yyIndentSelector ('IsConstantRE'); IO.WriteB (yyf,  yyt^.Node.IsConstantRE );  yyWriteNl;
+  yyIndentSelector ('LeafCount'); IO.WriteI (yyf,  yyt^.Node.LeafCount , 0);  yyWriteNl;
+  yyIndentSelector ('NodeCount'); IO.WriteI (yyf,  yyt^.Node.NodeCount , 0);  yyWriteNl;
+ END yWriteNode;
+
+PROCEDURE yWriteNode1 (yyt: tTree0);
+ BEGIN
+  IO.WriteS (yyf, 'Node1'); yyWriteNl;
+  yyIndentSelector ('Tree'); yyWriteHex ( yyt^.Node1.Tree );  yyWriteNl;
+  yyIndentSelector ('IsConstantRE'); IO.WriteB (yyf,  yyt^.Node1.IsConstantRE );  yyWriteNl;
+  yyIndentSelector ('LeafCount'); IO.WriteI (yyf,  yyt^.Node1.LeafCount , 0);  yyWriteNl;
+  yyIndentSelector ('NodeCount'); IO.WriteI (yyf,  yyt^.Node1.NodeCount , 0);  yyWriteNl;
+ END yWriteNode1;
+
+PROCEDURE yWriteOption (yyt: tTree0);
+ BEGIN
+  IO.WriteS (yyf, 'Option'); yyWriteNl;
+  yyIndentSelector ('Tree'); yyWriteHex ( yyt^.Option.Tree );  yyWriteNl;
+  yyIndentSelector ('IsConstantRE'); IO.WriteB (yyf,  yyt^.Option.IsConstantRE );  yyWriteNl;
+  yyIndentSelector ('LeafCount'); IO.WriteI (yyf,  yyt^.Option.LeafCount , 0);  yyWriteNl;
+  yyIndentSelector ('NodeCount'); IO.WriteI (yyf,  yyt^.Option.NodeCount , 0);  yyWriteNl;
+ END yWriteOption;
+
+PROCEDURE yWriteRepetition (yyt: tTree0);
+ BEGIN
+  IO.WriteS (yyf, 'Repetition'); yyWriteNl;
+  yyIndentSelector ('Tree'); yyWriteHex ( yyt^.Repetition.Tree );  yyWriteNl;
+  yyIndentSelector ('IsConstantRE'); IO.WriteB (yyf,  yyt^.Repetition.IsConstantRE );  yyWriteNl;
+  yyIndentSelector ('LeafCount'); IO.WriteI (yyf,  yyt^.Repetition.LeafCount , 0);  yyWriteNl;
+  yyIndentSelector ('NodeCount'); IO.WriteI (yyf,  yyt^.Repetition.NodeCount , 0);  yyWriteNl;
+ END yWriteRepetition;
+
+PROCEDURE yWriteNode2 (yyt: tTree0);
+ BEGIN
+  IO.WriteS (yyf, 'Node2'); yyWriteNl;
+  yyIndentSelector ('Tree'); yyWriteHex ( yyt^.Node2.Tree );  yyWriteNl;
+  yyIndentSelector ('IsConstantRE'); IO.WriteB (yyf,  yyt^.Node2.IsConstantRE );  yyWriteNl;
+  yyIndentSelector ('LeafCount'); IO.WriteI (yyf,  yyt^.Node2.LeafCount , 0);  yyWriteNl;
+  yyIndentSelector ('NodeCount'); IO.WriteI (yyf,  yyt^.Node2.NodeCount , 0);  yyWriteNl;
+  yyIndentSelectorTree ('Son1', yyt^.Node2.Son1);
+ END yWriteNode2;
+
+PROCEDURE yWriteList (yyt: tTree0);
+ BEGIN
+  IO.WriteS (yyf, 'List'); yyWriteNl;
+  yyIndentSelector ('Tree'); yyWriteHex ( yyt^.List.Tree );  yyWriteNl;
+  yyIndentSelector ('IsConstantRE'); IO.WriteB (yyf,  yyt^.List.IsConstantRE );  yyWriteNl;
+  yyIndentSelector ('LeafCount'); IO.WriteI (yyf,  yyt^.List.LeafCount , 0);  yyWriteNl;
+  yyIndentSelector ('NodeCount'); IO.WriteI (yyf,  yyt^.List.NodeCount , 0);  yyWriteNl;
+  yyIndentSelectorTree ('Son1', yyt^.List.Son1);
+ END yWriteList;
+
+PROCEDURE yWriteSequence (yyt: tTree0);
+ BEGIN
+  IO.WriteS (yyf, 'Sequence'); yyWriteNl;
+  yyIndentSelector ('Tree'); yyWriteHex ( yyt^.Sequence.Tree );  yyWriteNl;
+  yyIndentSelector ('IsConstantRE'); IO.WriteB (yyf,  yyt^.Sequence.IsConstantRE );  yyWriteNl;
+  yyIndentSelector ('LeafCount'); IO.WriteI (yyf,  yyt^.Sequence.LeafCount , 0);  yyWriteNl;
+  yyIndentSelector ('NodeCount'); IO.WriteI (yyf,  yyt^.Sequence.NodeCount , 0);  yyWriteNl;
+  yyIndentSelectorTree ('Son1', yyt^.Sequence.Son1);
+ END yWriteSequence;
+
+PROCEDURE yWriteAlternative (yyt: tTree0);
+ BEGIN
+  IO.WriteS (yyf, 'Alternative'); yyWriteNl;
+  yyIndentSelector ('Tree'); yyWriteHex ( yyt^.Alternative.Tree );  yyWriteNl;
+  yyIndentSelector ('IsConstantRE'); IO.WriteB (yyf,  yyt^.Alternative.IsConstantRE );  yyWriteNl;
+  yyIndentSelector ('LeafCount'); IO.WriteI (yyf,  yyt^.Alternative.LeafCount , 0);  yyWriteNl;
+  yyIndentSelector ('NodeCount'); IO.WriteI (yyf,  yyt^.Alternative.NodeCount , 0);  yyWriteNl;
+  yyIndentSelectorTree ('Son1', yyt^.Alternative.Son1);
+ END yWriteAlternative;
+
+PROCEDURE yWriteCh (yyt: tTree0);
+ BEGIN
+  IO.WriteS (yyf, 'Ch'); yyWriteNl;
+  yyIndentSelector ('Tree'); yyWriteHex ( yyt^.Ch.Tree );  yyWriteNl;
+  yyIndentSelector ('IsConstantRE'); IO.WriteB (yyf,  yyt^.Ch.IsConstantRE );  yyWriteNl;
+  yyIndentSelector ('LeafCount'); IO.WriteI (yyf,  yyt^.Ch.LeafCount , 0);  yyWriteNl;
+  yyIndentSelector ('NodeCount'); IO.WriteI (yyf,  yyt^.Ch.NodeCount , 0);  yyWriteNl;
+  yyIndentSelector ('Ch'); IO.WriteC (yyf,  yyt^.Ch.Ch );  yyWriteNl;
+ END yWriteCh;
+
+PROCEDURE yWriteSet (yyt: tTree0);
+ BEGIN
+  IO.WriteS (yyf, 'Set'); yyWriteNl;
+  yyIndentSelector ('Tree'); yyWriteHex ( yyt^.Set.Tree );  yyWriteNl;
+  yyIndentSelector ('IsConstantRE'); IO.WriteB (yyf,  yyt^.Set.IsConstantRE );  yyWriteNl;
+  yyIndentSelector ('LeafCount'); IO.WriteI (yyf,  yyt^.Set.LeafCount , 0);  yyWriteNl;
+  yyIndentSelector ('NodeCount'); IO.WriteI (yyf,  yyt^.Set.NodeCount , 0);  yyWriteNl;
+  yyIndentSelector ('Set'); Sets.WriteSet (yyf,  yyt^.Set.Set );  yyWriteNl;
+  yyIndentSelector ('card'); IO.WriteI (yyf,  yyt^.Set.card , 0);  yyWriteNl;
+ END yWriteSet;
+
+PROCEDURE yWriteString (yyt: tTree0);
+ BEGIN
+  IO.WriteS (yyf, 'String'); yyWriteNl;
+  yyIndentSelector ('Tree'); yyWriteHex ( yyt^.String.Tree );  yyWriteNl;
+  yyIndentSelector ('IsConstantRE'); IO.WriteB (yyf,  yyt^.String.IsConstantRE );  yyWriteNl;
+  yyIndentSelector ('LeafCount'); IO.WriteI (yyf,  yyt^.String.LeafCount , 0);  yyWriteNl;
+  yyIndentSelector ('NodeCount'); IO.WriteI (yyf,  yyt^.String.NodeCount , 0);  yyWriteNl;
+  yyIndentSelector ('String'); StringMem.WriteString (yyf,  yyt^.String.String );  yyWriteNl;
+ END yWriteString;
+
+PROCEDURE yWriteRule (yyt: tTree0);
+ BEGIN
+  IO.WriteS (yyf, 'Rule'); yyWriteNl;
+  yyIndentSelector ('Tree'); yyWriteHex ( yyt^.Rule.Tree );  yyWriteNl;
+  yyIndentSelector ('IsConstantRE'); IO.WriteB (yyf,  yyt^.Rule.IsConstantRE );  yyWriteNl;
+  yyIndentSelector ('LeafCount'); IO.WriteI (yyf,  yyt^.Rule.LeafCount , 0);  yyWriteNl;
+  yyIndentSelector ('NodeCount'); IO.WriteI (yyf,  yyt^.Rule.NodeCount , 0);  yyWriteNl;
+  yyIndentSelector ('TargetCode'); Texts.WriteText (yyf,  yyt^.Rule.TargetCode );  yyWriteNl;
+  yyIndentSelector ('Line'); IO.WriteI (yyf,  yyt^.Rule.Line , 0);  yyWriteNl;
+  yyIndentSelector ('CodeMode'); IO.WriteI (yyf,  yyt^.Rule.CodeMode , 0);  yyWriteNl;
+  yyIndentSelector ('RuleNr'); IO.WriteI (yyf,  yyt^.Rule.RuleNr , 0);  yyWriteNl;
+ END yWriteRule;
+
+PROCEDURE yWritePattern (yyt: tTree0);
+ BEGIN
+  IO.WriteS (yyf, 'Pattern'); yyWriteNl;
+  yyIndentSelector ('Tree'); yyWriteHex ( yyt^.Pattern.Tree );  yyWriteNl;
+  yyIndentSelector ('IsConstantRE'); IO.WriteB (yyf,  yyt^.Pattern.IsConstantRE );  yyWriteNl;
+  yyIndentSelector ('LeafCount'); IO.WriteI (yyf,  yyt^.Pattern.LeafCount , 0);  yyWriteNl;
+  yyIndentSelector ('NodeCount'); IO.WriteI (yyf,  yyt^.Pattern.NodeCount , 0);  yyWriteNl;
+  yyIndentSelector ('StartStates'); Sets.WriteSet (yyf,  yyt^.Pattern.StartStates );  yyWriteNl;
+  yyIndentSelectorTree ('RegExpr', yyt^.Pattern.RegExpr);
+  yyIndentSelector ('PatternNr'); IO.WriteI (yyf,  yyt^.Pattern.PatternNr , 0);  yyWriteNl;
+  yyIndentSelector ('Position'); Positions.WritePosition (yyf,  yyt^.Pattern.Position );  yyWriteNl;
+  yyIndentSelector ('card'); IO.WriteI (yyf,  yyt^.Pattern.card , 0);  yyWriteNl;
+ END yWritePattern;
+
+PROCEDURE yyWriteTree0 (yyt: tTree0);
+ VAR yyLevel   : SHORTCARD;
+ BEGIN
+  yyLevel := yyIndentLevel;
+  LOOP
+   IF yyt = NoTree0 THEN
+    IO.WriteS (yyf, ' NoTree0'); yyWriteNl; EXIT;
+   ELSIF yyt^.yyHead.yyMark = 0 THEN
+    IO.WriteC (yyf, '^'); IO.WriteI (yyf, yyMapToLabel (yyt), 0); yyWriteNl; EXIT;
+   ELSIF yyt^.yyHead.yyMark > 1 THEN
+    yyWriteNl; IO.WriteN (yyf, yyMapToLabel (yyt), 6, 10); IO.WriteC (yyf, ':');
+    Layout.WriteSpaces (yyf, yyActualIndent - 7);
+   ELSE
+    IO.WriteC (yyf, ' ');
+   END;
+   yyt^.yyHead.yyMark := 0;
+   INC (yyIndentLevel, 2);
+   yySetIndentInfo ( ) ; 
+   CASE yyt^.Kind OF
+| Node: yWriteNode (yyt); EXIT;
+| Node1: yWriteNode1 (yyt); yyIndentSelector ('Son1'); yyt := yyt^.Node1.Son1;
+| Option: yWriteOption (yyt); yyIndentSelector ('Son1'); yyt := yyt^.Option.Son1;
+| Repetition: yWriteRepetition (yyt); yyIndentSelector ('Son1'); yyt := yyt^.Repetition.Son1;
+| Node2: yWriteNode2 (yyt); yyIndentSelector ('Son2'); yyt := yyt^.Node2.Son2;
+| List: yWriteList (yyt); yyIndentSelector ('Son2'); yyt := yyt^.List.Son2;
+| Sequence: yWriteSequence (yyt); yyIndentSelector ('Son2'); yyt := yyt^.Sequence.Son2;
+| Alternative: yWriteAlternative (yyt); yyIndentSelector ('Son2'); yyt := yyt^.Alternative.Son2;
+| Ch: yWriteCh (yyt); EXIT;
+| Set: yWriteSet (yyt); EXIT;
+| String: yWriteString (yyt); EXIT;
+| Rule: yWriteRule (yyt); yyIndentSelector ('Patterns'); yyt := yyt^.Rule.Patterns;
+| Pattern: yWritePattern (yyt); yyIndentSelector ('RightContext'); yyt := yyt^.Pattern.RightContext;
+   ELSE EXIT;
+   END;
+  END;
+  yyIndentLevel := yyLevel;
+  yySetIndentInfo ( ) ;  END yyWriteTree0;
+
+CONST yyNil    = 374C;
+CONST yyNoLabel        = 375C;
+CONST yyLabelDef       = 376C;
+CONST yyLabelUse       = 377C;
+
+PROCEDURE ReleaseTree0Module;
+ VAR yyBlockPtr        : yytBlockPtr;
+ BEGIN
+  WHILE yyBlockList # NIL DO
+   yyBlockPtr  := yyBlockList;
+   yyBlockList := yyBlockList^.yySuccessor;
+   Memory.Free (SYSTEM.TSIZE (yytBlock), yyBlockPtr);
+  END;
+  yyPoolFreePtr        := NIL;
+  yyPoolMaxPtr := NIL;
+  HeapUsed     := 0;
+ END ReleaseTree0Module;
+
+VAR yyProc     : tProcTree;
+
+PROCEDURE TraverseTree0TD (yyt: tTree0; yyyProc: tProcTree);
+ BEGIN
+  yyMark (yyt);
+  yyProc := yyyProc;
+  yyTraverseTree0TD (yyt);
+ END TraverseTree0TD;
+
+PROCEDURE yyTraverseTree0TD (yyt: tTree0);
+ BEGIN
+  LOOP
+   IF (yyt = NoTree0) OR (yyt^.yyHead.yyMark = 0) THEN RETURN; END;
+   yyt^.yyHead.yyMark := 0;
+   yyProc (yyt);
+
+   CASE yyt^.Kind OF
+| Node1:
+yyt := yyt^.Node1.Son1;
+| Option:
+yyt := yyt^.Option.Son1;
+| Repetition:
+yyt := yyt^.Repetition.Son1;
+| Node2:
+yyTraverseTree0TD (yyt^.Node2.Son1);
+yyt := yyt^.Node2.Son2;
+| List:
+yyTraverseTree0TD (yyt^.List.Son1);
+yyt := yyt^.List.Son2;
+| Sequence:
+yyTraverseTree0TD (yyt^.Sequence.Son1);
+yyt := yyt^.Sequence.Son2;
+| Alternative:
+yyTraverseTree0TD (yyt^.Alternative.Son1);
+yyt := yyt^.Alternative.Son2;
+| Rule:
+yyt := yyt^.Rule.Patterns;
+| Pattern:
+yyTraverseTree0TD (yyt^.Pattern.RegExpr);
+yyt := yyt^.Pattern.RightContext;
+   ELSE RETURN;
+   END;
+  END;
+ END yyTraverseTree0TD;
+
+PROCEDURE BeginTree0;
+ BEGIN
+ END BeginTree0;
+
+PROCEDURE CloseTree0;
+ BEGIN
+ END CloseTree0;
+
+PROCEDURE xxExit;
+ BEGIN
+  IO.CloseIO; System.Exit (1);
+ END xxExit;
+
+BEGIN
+ yyBlockList   := NIL;
+ yyPoolFreePtr := NIL;
+ yyPoolMaxPtr  := NIL;
+ HeapUsed      := 0;
+ yyExit        := xxExit;
+ yyNodeSize [Node] := SYSTEM.TSIZE (yNode);
+ yyNodeSize [Node1] := SYSTEM.TSIZE (yNode1);
+ yyNodeSize [Option] := SYSTEM.TSIZE (yOption);
+ yyNodeSize [Repetition] := SYSTEM.TSIZE (yRepetition);
+ yyNodeSize [Node2] := SYSTEM.TSIZE (yNode2);
+ yyNodeSize [List] := SYSTEM.TSIZE (yList);
+ yyNodeSize [Sequence] := SYSTEM.TSIZE (ySequence);
+ yyNodeSize [Alternative] := SYSTEM.TSIZE (yAlternative);
+ yyNodeSize [Ch] := SYSTEM.TSIZE (yCh);
+ yyNodeSize [Set] := SYSTEM.TSIZE (ySet);
+ yyNodeSize [String] := SYSTEM.TSIZE (yString);
+ yyNodeSize [Rule] := SYSTEM.TSIZE (yRule);
+ yyNodeSize [Pattern] := SYSTEM.TSIZE (yPattern);
+ yyMaxSize     := 0;
+ FOR yyi := 1 TO 13 DO
+  yyNodeSize [yyi] := LONGINT (BITSET (yyNodeSize [yyi] + CARDINAL (General.MaxAlign) - 1) * General.AlignMasks [General.MaxAlign]);
+  yyMaxSize := General.Max (yyNodeSize [yyi], yyMaxSize);
+ END;
+ yyTypeRange [Node] := Pattern;
+ yyTypeRange [Node1] := Repetition;
+ yyTypeRange [Option] := Option;
+ yyTypeRange [Repetition] := Repetition;
+ yyTypeRange [Node2] := Alternative;
+ yyTypeRange [List] := List;
+ yyTypeRange [Sequence] := Sequence;
+ yyTypeRange [Alternative] := Alternative;
+ yyTypeRange [Ch] := Ch;
+ yyTypeRange [Set] := Set;
+ yyTypeRange [String] := String;
+ yyTypeRange [Rule] := Rule;
+ yyTypeRange [Pattern] := Pattern;
+ yyRecursionLevel := 0;
+ yyTreeStoreSize := yyInitTreeStoreSize;
+ DynArray.MakeArray (yyTreeStorePtr, yyTreeStoreSize, SYSTEM.TSIZE (tTree0));
+ BeginTree0;
+END Tree0.

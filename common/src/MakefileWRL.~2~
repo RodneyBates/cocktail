@@ -1,0 +1,44 @@
+# Modula-2 library:
+LIB	= 
+OPT     = -O
+
+# Dirctories wherein to look for .def files:
+DEFSWRL = /usr/local/defs/wrl
+DEFSGMD = /usr/local/defs/gmd
+
+# Directory wherein to look for WRL Modula-2 compiler passes:
+PASSES  = /usr/wrlm2/m2-mips/lib 
+
+# options for modula compiler
+M2FLAGS = -O -s -v -g -C -B$(PASSES) 
+#-I$(DEFSWRL)
+#-D($LIB)
+
+UNIX = UNIX
+CFLAGS	= $(OPT) -D$(UNIX)
+CC	= cc
+       	 
+OBJS = Character.o Checks.o Convert.o Errors.o Listing.o Path.o \
+       Queues.o Stack.o SysError.o
+ 
+.SUFFIXES :  
+.SUFFIXES : .def .mod .c .o 
+
+.c.o:
+	$(CC) $(CFLAGS) -c $*.c;
+ 
+.def.mod : 
+	touch $*.mod 
+ 
+.mod.o :
+	mod -c $(M2FLAGS) $*.mod 
+ 
+all : Main 
+ 
+Main : $(OBJS)
+	mod -o Main $(M2FLAGS) -m"$(M2FLAGS)" $(OBJS) 
+
+clean : ; rm -f cord *.o
+
+CLEAN	:	; rm -f core *.def *.mod *.o 
+ 
