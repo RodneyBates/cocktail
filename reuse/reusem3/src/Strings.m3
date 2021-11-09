@@ -24,7 +24,7 @@
 
 FROM SYSTEM IMPORT SHORTCARD;
 FROM General	IMPORT MinSHORTCARD , Exp10;
-FROM IO		IMPORT tFile, StdError, ReadC, ReadNl, EndOfLine, WriteC, WriteNl;
+FROM ReuseIO		IMPORT tFile, StdError, ReadC, ReadNl, EndOfLine, WriteC, WriteNl;
 
 IMPORT	Word, IO;
 

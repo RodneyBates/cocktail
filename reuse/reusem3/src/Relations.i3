@@ -27,7 +27,7 @@ Initial revision
 
 UNSAFE INTERFACE  Relations;
 
-FROM IO		IMPORT tFile;
+FROM ReuseIO		IMPORT tFile;
 FROM Sets	IMPORT tSet;
 CONST Bound = 10000000 ; 
       (* ^mtc and/or cc get crabby if you make this too large. *)

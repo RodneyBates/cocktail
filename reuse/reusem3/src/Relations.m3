@@ -30,7 +30,7 @@ Initial revision
 
 FROM SYSTEM IMPORT M2LONGINT;
 FROM SYSTEM IMPORT SHORTCARD;
-FROM IO		IMPORT tFile, ReadI, ReadC, WriteI, WriteC;
+FROM ReuseIO		IMPORT tFile, ReadI, ReadC, WriteI, WriteC;
 FROM DynArray	IMPORT MakeArray, ReleaseArray;
 FROM Sets	IMPORT tSet;
 

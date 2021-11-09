@@ -19,7 +19,7 @@
 
 IMPORT Word;
 FROM Memory	IMPORT Alloc;
-FROM IO		IMPORT tFile;
+FROM ReuseIO		IMPORT tFile;
 
 PROCEDURE MakeList	(VAR List: tList) =
    BEGIN

@@ -17,7 +17,7 @@ UNSAFE INTERFACE  Errors;
 
 IMPORT Word;
 FROM Positions  IMPORT tPosition;
-FROM IO         IMPORT tFile;
+FROM ReuseIO         IMPORT tFile;
 FROM Strings    IMPORT tString; 
 
 CONST

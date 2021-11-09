@@ -16,7 +16,7 @@
 
 UNSAFE INTERFACE  Layout;
 
-FROM IO	IMPORT tFile;
+FROM ReuseIO	IMPORT tFile;
 
 PROCEDURE WriteChar	(f: tFile; Ch: CHAR);
 PROCEDURE WriteSpace	(f: tFile);

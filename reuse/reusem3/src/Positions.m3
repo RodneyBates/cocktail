@@ -15,7 +15,7 @@
 
  UNSAFE MODULE Positions;
 
-FROM IO		IMPORT tFile, WriteC, WriteI;
+FROM ReuseIO		IMPORT tFile, WriteC, WriteI;
 
 PROCEDURE Compare (Position1, Position2: tPosition): INTEGER =
    BEGIN

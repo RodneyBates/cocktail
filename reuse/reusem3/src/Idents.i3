@@ -31,7 +31,7 @@
 UNSAFE INTERFACE  Idents;
 
 FROM SYSTEM IMPORT SHORTCARD;
-FROM IO		IMPORT tFile		;
+FROM ReuseIO		IMPORT tFile		;
 FROM Strings	IMPORT tString		;
 FROM StringMem	IMPORT tStringRef	;
 

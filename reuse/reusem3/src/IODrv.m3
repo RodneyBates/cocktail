@@ -18,7 +18,7 @@ UNSAFE MODULE IODrv EXPORTS Main;				(* buffered IO		*)
 
 
 
-FROM IO		IMPORT
+FROM ReuseIO		IMPORT
    tFile	, StdInput	, StdOutput	, StdError	,
    ReadOpen	, ReadClose	, Read		,
    ReadC	, ReadI		, ReadR		, ReadB		,

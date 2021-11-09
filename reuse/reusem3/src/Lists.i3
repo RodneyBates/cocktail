@@ -15,7 +15,7 @@ UNSAFE INTERFACE  Lists;
 
 
 IMPORT Word;
-FROM IO		IMPORT tFile;
+FROM ReuseIO		IMPORT tFile;
 
 TYPE
    tElmt		= ADDRESS;

@@ -16,7 +16,7 @@ UNSAFE MODULE DynArrDrv EXPORTS Main;
 FROM SYSTEM IMPORT M2LONGINT;
 IMPORT Word;
 FROM DynArray	IMPORT MakeArray, ExtendArray;
-FROM IO		IMPORT StdOutput, WriteC, WriteI, WriteNl, WriteS, WriteLong, CloseIO;
+FROM ReuseIO		IMPORT StdOutput, WriteC, WriteI, WriteNl, WriteS, WriteLong, CloseIO;
 
 
 VAR  i : M2LONGINT;

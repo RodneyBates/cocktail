@@ -43,7 +43,7 @@ FROM SYSTEM IMPORT BITSET;
 IMPORT Word;
 FROM General	IMPORT Log2, MaxAlign, AlignMasks;
 FROM System	IMPORT SysAlloc;
-(* FROM IO	IMPORT StdOutput, WriteI, WriteC, WriteN, WriteS, WriteNl; *)
+(* FROM ReuseIO	IMPORT StdOutput, WriteI, WriteC, WriteN, WriteS, WriteNl; *)
 
 CONST
    MinSizeSmallBlock	= 4	;

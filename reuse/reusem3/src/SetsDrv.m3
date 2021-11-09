@@ -36,7 +36,7 @@ FROM Sets	IMPORT
    Exists1	, Assign	, AssignElmt	, AssignEmpty	,
    ForallDo	, ReadSet	, WriteSet	, Complement	;
 
-FROM IO		IMPORT
+FROM ReuseIO		IMPORT
    tFile	, StdOutput	, WriteOpen	, WriteClose	,
    ReadOpen	, ReadClose	, WriteNl	, WriteI	,
    CloseIO	, WriteS	, WriteFlush	, ReadI		,

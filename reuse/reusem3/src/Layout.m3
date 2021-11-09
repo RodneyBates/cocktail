@@ -16,7 +16,7 @@
 
  UNSAFE MODULE Layout;
 
-FROM IO	IMPORT tFile, WriteC, WriteS, WriteI, ReadC, UnRead;
+FROM ReuseIO	IMPORT tFile, WriteC, WriteS, WriteI, ReadC, UnRead;
 
 PROCEDURE WriteChar (f: tFile; Ch: CHAR) =
    BEGIN

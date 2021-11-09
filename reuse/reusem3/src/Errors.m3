@@ -22,7 +22,7 @@
 FROM SYSTEM IMPORT M2LONGINT;
 FROM SYSTEM IMPORT SHORTCARD;
 FROM Memory     IMPORT Alloc;
-FROM IO         IMPORT tFile, StdError, WriteC, WriteNl, WriteS, WriteI,
+FROM ReuseIO         IMPORT tFile, StdError, WriteC, WriteNl, WriteS, WriteI,
                        WriteB, WriteR, CloseIO;
 FROM Positions  IMPORT tPosition, Compare, WritePosition;
 FROM StringMem  IMPORT tStringRef, PutString, GetString;

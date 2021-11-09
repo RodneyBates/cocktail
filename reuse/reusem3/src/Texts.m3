@@ -17,7 +17,7 @@
  UNSAFE MODULE Texts;
 
 
-FROM IO		IMPORT tFile;
+FROM ReuseIO		IMPORT tFile;
 FROM Lists	IMPORT MakeList, Head, Tail;
 FROM Strings	IMPORT tString, WriteL;
 FROM StringMem	IMPORT tStringRef, PutString, GetString;

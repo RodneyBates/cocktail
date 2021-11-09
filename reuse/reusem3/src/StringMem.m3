@@ -31,7 +31,7 @@ FROM SYSTEM IMPORT M2LONGINT;
 IMPORT Word;
 FROM DynArray	IMPORT MakeArray, ExtendArray;
 FROM Strings	IMPORT tStringIndex, tString;
-FROM IO		IMPORT tFile, StdOutput, WriteC, WriteI, WriteNl, WriteS;
+FROM ReuseIO		IMPORT tFile, StdOutput, WriteC, WriteI, WriteNl, WriteS;
 
 CONST InitialMemorySize	= 1024 * 16;
 

@@ -20,7 +20,7 @@ IMPORT Word;
 FROM SYSTEM IMPORT M2LONGINT;
 FROM SYSTEM	IMPORT  WORD;
 FROM Memory	IMPORT Alloc, Free, MemoryUsed;
-FROM IO		IMPORT StdOutput, WriteS, WriteI, WriteLong, WriteN, WriteNl, CloseIO;
+FROM ReuseIO		IMPORT StdOutput, WriteS, WriteI, WriteLong, WriteN, WriteNl, CloseIO;
 
 VAR
    p1, p2, p3, p4	: ADDRESS;

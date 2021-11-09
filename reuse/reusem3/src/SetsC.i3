@@ -18,7 +18,7 @@ Initial revision
 
 UNSAFE INTERFACE  SetsC;
 
-FROM IO IMPORT tFile;
+FROM ReuseIO IMPORT tFile;
 
 IMPORT Word, Sets;
 

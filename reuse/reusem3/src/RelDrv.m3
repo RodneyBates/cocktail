@@ -19,7 +19,7 @@ Initial revision
 
 UNSAFE MODULE RelDrv EXPORTS Main;
 
-FROM IO		IMPORT StdInput, StdOutput, ReadI, ReadC, WriteI, WriteS,
+FROM ReuseIO		IMPORT StdInput, StdOutput, ReadI, ReadC, WriteI, WriteS,
    WriteFlush, WriteB, WriteNl, CloseIO;
 
 FROM Sets	IMPORT tSet, MakeSet, ReleaseSet, WriteSet;

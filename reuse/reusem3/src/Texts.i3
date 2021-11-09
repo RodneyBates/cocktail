@@ -16,7 +16,7 @@
 
 UNSAFE INTERFACE  Texts;
 
-FROM IO		IMPORT tFile	;
+FROM ReuseIO		IMPORT tFile	;
 FROM Lists	IMPORT tList	;
 FROM Strings	IMPORT tString	;
 

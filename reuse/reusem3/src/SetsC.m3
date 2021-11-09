@@ -23,7 +23,7 @@ Initial revision
 
 IMPORT Word, Sets;
 
-FROM IO		IMPORT tFile, StdError, WriteI, WriteN, WriteS, WriteNl;
+FROM ReuseIO		IMPORT tFile, StdError, WriteI, WriteN, WriteS, WriteNl;
 
 PROCEDURE CheckSetSet (VAR Set1, Set2: tSet;READONLY  Name: ARRAY OF CHAR) =
    BEGIN

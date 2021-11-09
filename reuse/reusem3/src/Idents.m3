@@ -43,7 +43,7 @@ FROM SYSTEM IMPORT M2LONGINT;
 FROM DynArray	IMPORT MakeArray, ExtendArray;
 FROM Strings	IMPORT tString, tStringIndex, AssignEmpty;
 FROM StringMem	IMPORT tStringRef, PutString, IsEqual;
-FROM IO		IMPORT tFile, StdOutput, WriteC, WriteI, WriteNl, WriteS;
+FROM ReuseIO		IMPORT tFile, StdOutput, WriteC, WriteI, WriteNl, WriteS;
 
 IMPORT Word, Strings, StringMem;
 

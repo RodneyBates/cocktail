@@ -36,7 +36,7 @@ FROM SYSTEM IMPORT M2LONGINT;
 FROM SYSTEM	IMPORT   ODD, WORD;
 FROM General	IMPORT Log2, Exp2, MaxAlign;
 FROM Memory	IMPORT Alloc, Free;
-FROM IO		IMPORT StdError, WriteS, WriteNl;
+FROM ReuseIO		IMPORT StdError, WriteS, WriteNl;
 
 (* INVARIANT ElmtCount * AlignedSize (ElmtSize) MOD TSIZE (M2LONGINT) = 0 *)
 

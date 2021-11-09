@@ -41,7 +41,7 @@ FROM SYSTEM IMPORT M2LONGINT;
 FROM SYSTEM IMPORT SHORTCARD, BITSET;
 FROM General	IMPORT MinSHORTCARD, MaxSHORTCARD;
 FROM DynArray	IMPORT MakeArray, ReleaseArray;
-FROM IO		IMPORT tFile, StdError, ReadCard, ReadC, WriteCard, WriteC, WriteS, WriteNl;
+FROM ReuseIO		IMPORT tFile, StdError, ReadCard, ReadC, WriteCard, WriteC, WriteS, WriteNl;
 
 CONST
    BitsPerBitset	= 32;

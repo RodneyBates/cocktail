@@ -24,7 +24,7 @@
 
 FROM SYSTEM IMPORT M2LONGINT;
 FROM System	IMPORT Time;
-FROM IO		IMPORT StdOutput, WriteS, WriteI, WriteNl;
+FROM ReuseIO		IMPORT StdOutput, WriteS, WriteI, WriteNl;
 
 VAR PrevTime	: M2LONGINT;
 
