@@ -27,6 +27,7 @@
  UNSAFE MODULE StringMem;
 
 
+FROM SYSTEM IMPORT M3LONGINT;
 IMPORT Word;
 FROM DynArray	IMPORT MakeArray, ExtendArray;
 FROM Strings	IMPORT tStringIndex, tString;
@@ -34,22 +35,22 @@ FROM IO		IMPORT tFile, StdOutput, WriteC, WriteI, WriteNl, WriteS;
 
 CONST InitialMemorySize	= 1024 * 16;
 
-TYPE Memory		= ARRAY LONGINT [0 .. 100000000] OF CHAR;
+TYPE Memory		= ARRAY M3LONGINT [0 .. 100000000] OF CHAR;
 
 VAR
    MemoryPtr		: UNTRACED BRANDED REF  Memory;
-   MemorySize		: LONGINT;
-   MemorySpaceLeft	: LONGINT;
-   MemoryFreePtr	: LONGINT;
+   MemorySize		: M3LONGINT;
+   MemorySpaceLeft	: M3LONGINT;
+   MemoryFreePtr	: M3LONGINT;
 
 PROCEDURE PutString (VAR s: tString): tStringRef =
    VAR
-      NeededSpace	: LONGINT;
-      OldMemorySize	: LONGINT;
-      StartPtr		: LONGINT;
+      NeededSpace	: M3LONGINT;
+      OldMemorySize	: M3LONGINT;
+      StartPtr		: M3LONGINT;
       i			: tStringIndex;
    BEGIN
-      NeededSpace := VAL (   s.Length,LONGINT ) + 2;
+      NeededSpace := VAL (   s.Length,M3LONGINT ) + 2;
       WHILE MemorySpaceLeft < NeededSpace DO
 	 OldMemorySize := MemorySize;
 	 ExtendArray (MemoryPtr, MemorySize, BYTESIZE(CHAR));
@@ -105,8 +106,8 @@ PROCEDURE WriteString (f: tFile; r: tStringRef) =
 
 PROCEDURE WriteStringMemory() =
    VAR
-      StringPtr	: LONGINT;
-      sLength	: LONGINT;
+      StringPtr	: M3LONGINT;
+      sLength	: M3LONGINT;
    BEGIN
       StringPtr := 0;
       WHILE StringPtr < MemoryFreePtr DO
@@ -115,7 +116,7 @@ PROCEDURE WriteStringMemory() =
 	 WriteString (StdOutput, StringPtr);
 	 WriteNl (StdOutput);
 	 sLength 
-           := VAL (   Length (StringPtr) + 2,LONGINT ); (* damned MODULA *)
+           := VAL (   Length (StringPtr) + 2,M3LONGINT ); (* damned MODULA *)
 	 INC (StringPtr, sLength);
       END;
       WriteNl (StdOutput);

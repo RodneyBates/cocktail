@@ -19,11 +19,12 @@
 
 UNSAFE INTERFACE  StringMem;
 
+FROM SYSTEM IMPORT M3LONGINT;
 IMPORT Word;
 FROM IO		IMPORT tFile	;
 FROM Strings	IMPORT tString	;
 
-TYPE tStringRef = LONGINT	;
+TYPE tStringRef = M3LONGINT	;
 
 PROCEDURE PutString	(VAR s: tString)			: tStringRef;
 			(* Stores string 's' in the string memory and	*)

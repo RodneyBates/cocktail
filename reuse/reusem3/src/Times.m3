@@ -22,20 +22,21 @@
 
  UNSAFE MODULE Times;
 
+FROM SYSTEM IMPORT M3LONGINT;
 FROM System	IMPORT Time;
 FROM IO		IMPORT StdOutput, WriteS, WriteI, WriteNl;
 
-VAR PrevTime	: LONGINT;
+VAR PrevTime	: M3LONGINT;
 
-PROCEDURE CpuTime (): LONGINT =
+PROCEDURE CpuTime (): M3LONGINT =
    BEGIN
       RETURN Time ();
    END CpuTime;
 
-PROCEDURE StepTime (): LONGINT =
+PROCEDURE StepTime (): M3LONGINT =
    VAR
-      ActTime	: LONGINT;
-      DeltaTime	: LONGINT;
+      ActTime	: M3LONGINT;
+      DeltaTime	: M3LONGINT;
    BEGIN
       ActTime	:= CpuTime ();
       DeltaTime	:= ActTime - PrevTime;

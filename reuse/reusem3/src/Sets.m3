@@ -1,3 +1,4 @@
+FROM SYSTEM IMPORT M3LONGINT;
 (* $Id: Sets.mi,v 1.4 1991/11/21 14:33:17 grosch rel $ *)
 
 (* $Log: Sets.mi,v $
@@ -36,7 +37,7 @@
 
  UNSAFE MODULE Sets;
 
-
+FROM SYSTEM IMPORT M3LONGINT;
 FROM SYSTEM IMPORT SHORTCARD, BITSET;
 FROM General	IMPORT MinSHORTCARD, MaxSHORTCARD;
 FROM DynArray	IMPORT MakeArray, ReleaseArray;
@@ -66,13 +67,13 @@ PROCEDURE InitNullSet ( VAR Set : tSet )
   END InitNullSet ; 
 
 PROCEDURE MakeSet (VAR Set: tSet; MaxElement: tElement) =
-   VAR BitsetCount : LONGINT;
+   VAR BitsetCount : M3LONGINT;
    BEGIN
       WITH m2tom3_with_27=Set DO
 	 BitsetCount 
            := VAL ( 
                    (MaxElement + BitsPerBitset - (MaxElement MOD BitsPerBitset))
-	            DIV BitsPerBitset,LONGINT
+	            DIV BitsPerBitset,M3LONGINT
                   );
 	 MakeArray (m2tom3_with_27.BitsetPtr, BitsetCount, BytesPerBitset);
 	 m2tom3_with_27.MaxElmt := VAL (   MaxElement,tInternalElmt ) ;
@@ -82,9 +83,9 @@ PROCEDURE MakeSet (VAR Set: tSet; MaxElement: tElement) =
    END MakeSet;
       
 PROCEDURE ReleaseSet (VAR Set: tSet) =
-   VAR BitsetCount : LONGINT;
+   VAR BitsetCount : M3LONGINT;
    BEGIN
-      BitsetCount := VAL (   Set.LastBitset + 1,LONGINT );
+      BitsetCount := VAL (   Set.LastBitset + 1,M3LONGINT );
       ReleaseArray (Set.BitsetPtr, BitsetCount, BytesPerBitset);
       InitNullSet ( Set ) 
    END ReleaseSet;

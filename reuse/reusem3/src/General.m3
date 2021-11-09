@@ -29,6 +29,7 @@
 
 
 IMPORT Word;
+FROM SYSTEM IMPORT M3LONGINT;
 FROM SYSTEM IMPORT BITSET, SHORTCARD;
 FROM Arguments	IMPORT ArgTable, GetArgs;
 FROM System	IMPORT PutArgs;
@@ -81,7 +82,7 @@ PROCEDURE MaxSHORTCARD	(a, b: SHORTCARD)		: SHORTCARD =
 
 (* Returns the logarithm to the base 2 of 'x'.	*)
 
-PROCEDURE Log2		(x: LONGINT)			: Word.T =
+PROCEDURE Log2		(x: M3LONGINT)			: Word.T =
    VAR y: Word.T;
    BEGIN
       y := 0;
@@ -95,7 +96,7 @@ PROCEDURE Log2		(x: LONGINT)			: Word.T =
 
 (* Returns the number of the lowest bit set in 'x'.	*)
 
-PROCEDURE AntiLog	(x: LONGINT)			: Word.T =
+PROCEDURE AntiLog	(x: M3LONGINT)			: Word.T =
    VAR y: Word.T;
    BEGIN
       y := 0;
@@ -109,8 +110,8 @@ PROCEDURE AntiLog	(x: LONGINT)			: Word.T =
 
 (* Returns 2 to the power of 'x'.		*)
 
-PROCEDURE Exp2		(x: Word.T)			: LONGINT =
-   VAR y: LONGINT;
+PROCEDURE Exp2		(x: Word.T)			: M3LONGINT =
+   VAR y: M3LONGINT;
    BEGIN
       y := 1;
       IF x >= 16 THEN DEC (x, 16); y := y * 65536; END;

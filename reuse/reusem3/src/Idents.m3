@@ -39,6 +39,7 @@
  UNSAFE MODULE Idents;
 
 
+FROM SYSTEM IMPORT M3LONGINT;
 FROM DynArray	IMPORT MakeArray, ExtendArray;
 FROM Strings	IMPORT tString, tStringIndex, AssignEmpty;
 FROM StringMem	IMPORT tStringRef, PutString, IsEqual;
@@ -63,7 +64,7 @@ TYPE
 VAR
    TablePtr		: UNTRACED BRANDED REF  
                           ARRAY tIdent [0 .. LAST(tIdent)] OF IdentTableEntry;
-   IdentTableSize	: LONGINT;
+   IdentTableSize	: M3LONGINT;
    IdentCount		: tIdent;
 
    HashTable		: ARRAY HashIndex OF tIdent; 

@@ -13,19 +13,20 @@
 
 UNSAFE INTERFACE  DynArray;
 
+FROM SYSTEM IMPORT M3LONGINT;
 
 
 PROCEDURE MakeArray    (VAR ArrayPtr	: ADDRESS	;
-			VAR ElmtCount	: LONGINT	;
-			    ElmtSize	: LONGINT)	;
+			VAR ElmtCount	: M3LONGINT	;
+			    ElmtSize	: M3LONGINT)	;
 
 PROCEDURE ExtendArray  (VAR ArrayPtr	: ADDRESS	;
-			VAR ElmtCount	: LONGINT	;
-			    ElmtSize	: LONGINT)	;
+			VAR ElmtCount	: M3LONGINT	;
+			    ElmtSize	: M3LONGINT)	;
 
 PROCEDURE ReleaseArray (VAR ArrayPtr	: ADDRESS	;
-			VAR ElmtCount	: LONGINT	;
-			    ElmtSize	: LONGINT)	;
+			VAR ElmtCount	: M3LONGINT	;
+			    ElmtSize	: M3LONGINT)	;
 
 END DynArray.
 

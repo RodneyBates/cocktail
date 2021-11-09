@@ -16,19 +16,20 @@
 
 UNSAFE INTERFACE  Memory;
 
+FROM SYSTEM IMPORT M3LONGINT, M3LONGCARD;
 
 
-VAR	  MemoryUsed	: LONGCARD;
+VAR	  MemoryUsed	: M3LONGCARD;
 			(* Holds the total amount of memory managed by	*)
 			(* this module.					*)
 
-PROCEDURE Alloc		(ByteCount: LONGINT) : ADDRESS;
+PROCEDURE Alloc		(ByteCount: M3LONGINT) : ADDRESS;
 			(* Returns a pointer to dynamically allocated	*)
 			(* space of size 'ByteCount' bytes.		*)
 			(* Returns NIL if space is exhausted.           *)
 
 
-PROCEDURE Free		(ByteCount: LONGINT; a: ADDRESS);
+PROCEDURE Free		(ByteCount: M3LONGINT; a: ADDRESS);
 			(* The dynamically allocated space starting at	*)
 			(* address 'a' of size 'ByteCount' bytes is	*)
 			(* released.					*)

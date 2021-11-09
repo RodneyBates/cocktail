@@ -17,6 +17,7 @@
 UNSAFE MODULE MemoryDrv EXPORTS Main;
 
 IMPORT Word;
+FROM SYSTEM IMPORT M3LONGINT;
 FROM SYSTEM	IMPORT  WORD;
 FROM Memory	IMPORT Alloc, Free, MemoryUsed;
 FROM IO		IMPORT StdOutput, WriteS, WriteI, WriteLong, WriteN, WriteNl, CloseIO;
@@ -24,9 +25,9 @@ FROM IO		IMPORT StdOutput, WriteS, WriteI, WriteLong, WriteN, WriteNl, CloseIO;
 VAR
    p1, p2, p3, p4	: ADDRESS;
    i			: Word.T;
-   small, best, notbest, large: LONGINT;
+   small, best, notbest, large: M3LONGINT;
 
-PROCEDURE AllocPrint (n: LONGINT): ADDRESS =
+PROCEDURE AllocPrint (n: M3LONGINT): ADDRESS =
 VAR a: ADDRESS;
 BEGIN
    a := Alloc (n);

@@ -25,6 +25,7 @@
 UNSAFE INTERFACE  General;
 
 IMPORT Word;
+FROM SYSTEM IMPORT M3LONGINT;
 FROM SYSTEM IMPORT SHORTCARD, BITSET;
 VAR	  MaxAlign	: INTEGER;
 VAR	  AlignMasks	: ARRAY [0..8] OF BITSET;
@@ -41,13 +42,13 @@ PROCEDURE MinSHORTCARD	(a, b: SHORTCARD)		: SHORTCARD;
 PROCEDURE MaxSHORTCARD	(a, b: SHORTCARD)		: SHORTCARD;
 			(* Returns the maximum of 'a' and 'b'.		*)
 
-PROCEDURE Log2		(x: LONGINT)			: Word.T;
+PROCEDURE Log2		(x: M3LONGINT)			: Word.T;
 			(* Returns the logarithm to the base 2 of 'x'.	*)
 
-PROCEDURE Exp2		(x: Word.T)			: LONGINT;
+PROCEDURE Exp2		(x: Word.T)			: M3LONGINT;
 			(* Returns 2 to the power of 'x'.		*)
 
-PROCEDURE AntiLog	(x: LONGINT)			: Word.T;
+PROCEDURE AntiLog	(x: M3LONGINT)			: Word.T;
 			(* Returns the number of the lowest bit set in 'x'. *)
 
 PROCEDURE Exp10		(x: INTEGER)			: REAL;
