@@ -38,8 +38,8 @@ FROM ReuseIO IMPORT tFile;
 TYPE
    tInternalElmt        = SHORTCARD;
    (* ^ Change this only, for different range of elements. *)
-   tElement             = Word.T [ 0 .. LAST ( tInternalElmt ) - 1 ];
-   ArrayOfBitset	= ARRAY SHORTCARD [0 .. LAST ( SHORTCARD ) ] OF BITSET;
+   tElement             = [ 0 .. LAST ( tInternalElmt ) - 1 ];
+   ArrayOfBitset	= ARRAY [0 .. LAST ( SHORTCARD ) ] OF BITSET;
    ProcOftElement		= PROCEDURE (p0: tElement);
    ProcOftElementToBool	= PROCEDURE (p0: tElement): BOOLEAN;
 

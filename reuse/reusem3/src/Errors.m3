@@ -81,7 +81,8 @@ PROCEDURE Message  (READONLY ErrorText: ARRAY OF CHAR; ErrorClass: Word.T; Posit
    BEGIN
       ArrayToString (ErrorText, String);
       HandleMessage 
-        (FALSE, VAL ( Word.T  MakeIdent (String), )
+        (FALSE
+        , MakeIdent (String)
         , ErrorClass, Position, None, NIL
         );
    END Message;
@@ -92,7 +93,8 @@ PROCEDURE MessageI (READONLY ErrorText: ARRAY OF CHAR; ErrorClass: Word.T; Posit
    BEGIN
       ArrayToString (ErrorText, String);
       HandleMessage 
-        (FALSE, VAL ( Word.T  MakeIdent (String), )
+        (FALSE
+        , MakeIdent (String)
         , ErrorClass, Position, InfoClass, Info
         );
    END MessageI;
@@ -103,7 +105,8 @@ PROCEDURE StringMessage
                         (* 'ErrorText' and classified by 'ErrorClass'.  *)
    BEGIN
       HandleMessage 
-        (FALSE, VAL ( Word.T  MakeIdent ( ErrorText ), )  
+        (FALSE
+        , MakeIdent ( ErrorText )  
         , ErrorClass, Position, None, NIL
         );
    END StringMessage ;
@@ -215,10 +218,13 @@ PROCEDURE WriteMessages (File: tFile) =
             ELSE
             END;
             WriteMessage 
-              ( m2tom3_with_1.IsErrorCode, VAL ( Word.T  m2tom3_with_1.ErrorCode, )
-              , VAL ( Word.T  m2tom3_with_1.ErrorClass, ) , m2tom3_with_1.Position
-              , VAL ( Word.T  m2tom3_with_1.InfoClass,(* $$ m2tom3 warning: application of variant field, possible cast of 'InfoClass' in line 208
- $$ *) ) , Info
+              ( m2tom3_with_1.IsErrorCode
+              , m2tom3_with_1.ErrorCode
+              , m2tom3_with_1.ErrorClass
+              , m2tom3_with_1.Position
+              , m2tom3_with_1.InfoClass
+              (* $$ m2tom3 warning: application of variant field, possible cast of 'InfoClass' in line 208*)
+              , Info
               );
          END;
       END;

@@ -35,7 +35,7 @@ FROM ReuseIO		IMPORT tFile, StdOutput, WriteC, WriteI, WriteNl, WriteS;
 
 CONST InitialMemorySize	= 1024 * 16;
 
-TYPE Memory		= ARRAY M2LONGINT [0 .. 100000000] OF CHAR;
+TYPE Memory		= ARRAY [0 .. 100000000] OF CHAR;
 
 VAR
    MemoryPtr		: UNTRACED BRANDED REF  Memory;

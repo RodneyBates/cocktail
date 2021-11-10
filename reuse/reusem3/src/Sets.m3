@@ -1,4 +1,3 @@
-FROM SYSTEM IMPORT M2LONGINT;
 (* $Id: Sets.mi,v 1.4 1991/11/21 14:33:17 grosch rel $ *)
 
 (* $Log: Sets.mi,v $

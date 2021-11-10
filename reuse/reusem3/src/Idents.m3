@@ -59,7 +59,7 @@ TYPE
 	 Collision	: tIdent;
       END;
 
-   HashIndex		= INTEGER [0 .. HashTableSize];
+   HashIndex		= [0 .. HashTableSize];
 
 VAR
    TablePtr		: UNTRACED BRANDED REF  
@@ -82,7 +82,7 @@ PROCEDURE MakeOrLookup (VAR s: tString; DoInsertIfAbsent : BOOLEAN ): tIdent =
 	 ELSE 
 	    HashTableIndex := ( ORD (m2tom3_with_4.Chars [1]) 
                                 + (ORD (m2tom3_with_4.Chars [m2tom3_with_4.Length]) * 11)
-			        + (VAL ( Word.T  m2tom3_with_4.Length, )* 26)
+			        + m2tom3_with_4.Length * 26)
                               ) 
                               MOD HashTableSize;
 	 END;

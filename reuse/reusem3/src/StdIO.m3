@@ -24,155 +24,155 @@ FROM SYSTEM IMPORT M2LONGINT, M2LONGCARD;
 FROM SYSTEM IMPORT SHORTINT;
 FROM ReuseIO	    IMPORT StdInput, StdOutput;
 
-IMPORT Word, IO;
+IMPORT Word, ReuseIO;
 
 PROCEDURE ReadClose()	 =			(* close input file	*)
    BEGIN
-      IO.ReadClose (StdInput);
+      ReuseIO.ReadClose (StdInput);
    END ReadClose;
 
 PROCEDURE Read		(Buffer: ADDRESS; Size: Word.T): INTEGER =
    BEGIN					(* binary		*)
-      RETURN IO.Read (StdInput, Buffer, Size);
+      RETURN ReuseIO.Read (StdInput, Buffer, Size);
    END Read;
 
 PROCEDURE ReadC		(): CHAR     =		(* character		*)
    BEGIN
-      RETURN IO.ReadC (StdInput);
+      RETURN ReuseIO.ReadC (StdInput);
    END ReadC;
 
 PROCEDURE ReadI		(): INTEGER  =		(* integer  number	*)
    BEGIN
-      RETURN IO.ReadI (StdInput);
+      RETURN ReuseIO.ReadI (StdInput);
    END ReadI;
 
 PROCEDURE ReadR		(): REAL     =		(* real     number	*)
    BEGIN
-      RETURN IO.ReadR (StdInput);
+      RETURN ReuseIO.ReadR (StdInput);
    END ReadR;
 
 PROCEDURE ReadB		(): BOOLEAN  =		(* boolean		*)
    BEGIN
-      RETURN IO.ReadB (StdInput);
+      RETURN ReuseIO.ReadB (StdInput);
    END ReadB;
 
 PROCEDURE ReadN		(Base: INTEGER): INTEGER =
    BEGIN					(* number of base 'Base'*)
-      RETURN IO.ReadN (StdInput, Base);
+      RETURN ReuseIO.ReadN (StdInput, Base);
    END ReadN;
 
 PROCEDURE ReadS		(VAR s: ARRAY OF CHAR) =	(* string		*)
    BEGIN
-      IO.ReadS (StdInput, s);
+      ReuseIO.ReadS (StdInput, s);
    END ReadS;
 
 PROCEDURE ReadShort	(): SHORTINT =		(* shortint number ?	*)
    BEGIN
-      RETURN IO.ReadShort (StdInput);
+      RETURN ReuseIO.ReadShort (StdInput);
    END ReadShort;
 
 PROCEDURE ReadLong	(): M2LONGINT  =		(* longint  number ?	*)
    BEGIN
-      RETURN IO.ReadLong (StdInput);
+      RETURN ReuseIO.ReadLong (StdInput);
    END ReadLong;
 
 PROCEDURE ReadCard	(): Word.T =		(* cardinal number ?	*)
    BEGIN
-      RETURN IO.ReadCard (StdInput);
+      RETURN ReuseIO.ReadCard (StdInput);
    END ReadCard;
 
 PROCEDURE ReadNl()	 =			(* new line		*)
    BEGIN
-      IO.ReadNl (StdInput);
+      ReuseIO.ReadNl (StdInput);
    END ReadNl;
 
 PROCEDURE UnRead()	 =			(* backspace 1 char.	*)
    BEGIN
-      IO.UnRead (StdInput);
+      ReuseIO.UnRead (StdInput);
    END UnRead;
 
 
 PROCEDURE EndOfLine	(): BOOLEAN  =		(* end of line ?	*)
    BEGIN
-      RETURN IO.EndOfLine (StdInput);
+      RETURN ReuseIO.EndOfLine (StdInput);
    END EndOfLine;
 
 PROCEDURE EndOfFile	(): BOOLEAN  =		(* end of file ?	*)
    BEGIN
-      RETURN IO.EndOfFile (StdInput);
+      RETURN ReuseIO.EndOfFile (StdInput);
    END EndOfFile;
 
 
 
 PROCEDURE WriteClose()	 =			(* close output file	*)
    BEGIN
-      IO.WriteClose (StdOutput);
+      ReuseIO.WriteClose (StdOutput);
    END WriteClose;
 
 PROCEDURE WriteFlush()	 =			(* flush output buffer	*)
    BEGIN
-      IO.WriteFlush (StdOutput);
+      ReuseIO.WriteFlush (StdOutput);
    END WriteFlush;
 
 PROCEDURE Write		(Buffer: ADDRESS; Size: Word.T): INTEGER =
    BEGIN					(* binary		*)
-      RETURN IO.Write (StdOutput, Buffer, Size);
+      RETURN ReuseIO.Write (StdOutput, Buffer, Size);
    END Write;
 
 PROCEDURE WriteC	(c: CHAR) =		(* character		*)
    BEGIN
-      IO.WriteC (StdOutput, c);
+      ReuseIO.WriteC (StdOutput, c);
    END WriteC;
 
 PROCEDURE WriteI	(n: INTEGER ; FieldWidth: Word.T) =
    BEGIN					(* integer  number	*)
-      IO.WriteI (StdOutput, n, FieldWidth);
+      ReuseIO.WriteI (StdOutput, n, FieldWidth);
    END WriteI;
 
 PROCEDURE WriteR	(n: REAL; Before, After, Exp: Word.T) =
    BEGIN					(* real     number	*)
-      IO.WriteR (StdOutput, n, Before, After, Exp);
+      ReuseIO.WriteR (StdOutput, n, Before, After, Exp);
    END WriteR;
 
 PROCEDURE WriteB	(b: BOOLEAN) =		(* boolean		*)
    BEGIN
-      IO.WriteB (StdOutput, b);
+      ReuseIO.WriteB (StdOutput, b);
    END WriteB;
 
 PROCEDURE WriteN	(n: M2LONGCARD; FieldWidth, Base: Word.T) =
    BEGIN					(* number of base 'Base'*)
-      IO.WriteN (StdOutput, n, FieldWidth, Base);
+      ReuseIO.WriteN (StdOutput, n, FieldWidth, Base);
    END WriteN;
 
 PROCEDURE WriteS	(READONLY s: ARRAY OF CHAR) =	(* string		*)
    BEGIN
-      IO.WriteS (StdOutput, s);
+      ReuseIO.WriteS (StdOutput, s);
    END WriteS;
 
 PROCEDURE WriteShort	(n: SHORTINT; FieldWidth: Word.T) =
    BEGIN					(* shortint number ?	*)
-      IO.WriteShort (StdOutput, n, FieldWidth);
+      ReuseIO.WriteShort (StdOutput, n, FieldWidth);
    END WriteShort;
 
 PROCEDURE WriteLong	(n: M2LONGINT ; FieldWidth: Word.T) =
    BEGIN					(* longint  number ?	*)
-      IO.WriteLong (StdOutput, n, FieldWidth);
+      ReuseIO.WriteLong (StdOutput, n, FieldWidth);
    END WriteLong;
 
 PROCEDURE WriteCard	(n: Word.T; FieldWidth: Word.T) =
    BEGIN					(* cardinal number ?	*)
-      IO.WriteCard (StdOutput, n, FieldWidth);
+      ReuseIO.WriteCard (StdOutput, n, FieldWidth);
    END WriteCard;
 
 PROCEDURE WriteNl()	 =			(* new line		*)
    BEGIN
-      IO.WriteNl (StdOutput);
+      ReuseIO.WriteNl (StdOutput);
    END WriteNl;
 
 
 PROCEDURE CloseIO() =				(* close all files	*)
    BEGIN
-      IO.WriteFlush (StdOutput);
+      ReuseIO.WriteFlush (StdOutput);
    END CloseIO;
 
 BEGIN

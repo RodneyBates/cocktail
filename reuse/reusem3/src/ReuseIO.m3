@@ -59,7 +59,7 @@ CONST
 
 TYPE
    BufferDescriptor	= RECORD
-	 Buffer		: UNTRACED BRANDED REF  ARRAY SHORTINT [0 .. BufferSize] OF CHAR;
+	 Buffer		: UNTRACED BRANDED REF  ARRAY [0 .. BufferSize] OF CHAR;
 	 BufferIndex	: SHORTINT;
 	 BytesRead	: SHORTINT;
 	 OpenForOutput	: BOOLEAN;
@@ -119,7 +119,7 @@ PROCEDURE ReadClose	(f: tFile) =		(* close input file	*)
 
 PROCEDURE Read		(f: tFile; Buffer: ADDRESS; Size: Word.T): INTEGER =
    VAR						(* binary		*)
-      BufferPtr : UNTRACED BRANDED REF  ARRAY Word.T [0 .. 100000000] OF CHAR;
+      BufferPtr : UNTRACED BRANDED REF  ARRAY [0 .. 100000000] OF CHAR;
       i		: Word.T;
    BEGIN
       BufferPtr := Buffer;
@@ -514,7 +514,7 @@ PROCEDURE WriteR	(f: tFile; n: REAL; Before, After, Exp: Word.T) =
       FirstDigit := StartIndex;			(* convert mantissa	*)
       REPEAT
 	 DEC (FirstDigit);
-	 Digits [FirstDigit] := VAL ( Word.T  Mantissa MOD 10, ) ;
+	 Digits [FirstDigit] := Mantissa MOD 10;
 	 Mantissa := Mantissa DIV 10;
       UNTIL Mantissa = 0;
       IF Exp = 0 THEN				(* add leading zeroes	*)

@@ -25,7 +25,7 @@ FROM ReuseIO IMPORT tFile;
 
 CONST	cMaxStrLength	= 255;
 
-TYPE	tStringIndex	= SHORTCARD [0 .. cMaxStrLength];
+TYPE	tStringIndex	= [0 .. cMaxStrLength];
 
 TYPE	tString		= RECORD
 		     	     Chars  : ARRAY tStringIndex OF CHAR;

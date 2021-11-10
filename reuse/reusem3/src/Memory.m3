@@ -66,8 +66,6 @@ VAR
    LargeChain	: ARRAY tLargeBlockRange OF ADDRESS;
    PoolFreePtr	: ADDRESS;
    PoolEndPtr	: ADDRESS;
-   i		: tSmallBlockRange;
-   j		: tLargeBlockRange;
 
 (* Returns a pointer to dynamically allocated	*)
 (* space of size 'ByteCount' bytes.		*)
@@ -82,7 +80,6 @@ VAR
    ChainNumber		: Word.T;
    CurrentBlockSize	,
    BestBlockSize	: M2LONGINT;
-   j			: tLargeBlockRange;
 BEGIN
    ByteCount 
      := LOOPHOLE 
@@ -107,7 +104,7 @@ BEGIN
 	    PoolFreePtr := Alloc (PoolSize);	(* allocate new pool *)
 	    PoolEndPtr  := PoolFreePtr + PoolSize;
 	 END;
-	 INC (PoolFreePtr, LOOPHOLE (ByteCount,ADDRESS));
+	 INC (PoolFreePtr, ByteCount);
 	 RETURN PoolFreePtr - LOOPHOLE (ByteCount,ADDRESS);
       END;
    ELSE						(* handle large block *)
@@ -144,7 +141,7 @@ BEGIN
 	 PredecessorBlock^.Successor := BestBlock^.Successor;
 	 IF (BestBlockSize - ByteCount) >= MinSizeSmallBlock THEN
 	    Free (BestBlockSize - ByteCount,
-		  LOOPHOLE (BestBlock,ADDRESS) + LOOPHOLE (ByteCount,ADDRESS));
+		  LOOPHOLE (BestBlock,INTEGER) + ByteCount);
 	 END;
 	 RETURN BestBlock;
       END;
@@ -157,7 +154,7 @@ BEGIN
 	    LargeChain [j] := CurrentBlock^.Successor;
 	    IF (CurrentBlock^.Size - ByteCount) >= MinSizeSmallBlock THEN
 	       Free (CurrentBlock^.Size - ByteCount,
-		     LOOPHOLE (CurrentBlock,ADDRESS) + LOOPHOLE (ByteCount,ADDRESS));
+		     LOOPHOLE (CurrentBlock,INTEGER) + ByteCount);
 	    END;
 	    RETURN CurrentBlock;
 	 END;
@@ -172,8 +169,8 @@ BEGIN
 	    PoolFreePtr := Alloc (PoolSize);	(* allocate new pool *)
 	    PoolEndPtr  := PoolFreePtr + PoolSize;
 	 END;
-	 INC (PoolFreePtr, LOOPHOLE (ByteCount,ADDRESS));
-	 RETURN PoolFreePtr - LOOPHOLE (ByteCount,ADDRESS);
+	 INC (PoolFreePtr, ByteCount);
+	 RETURN PoolFreePtr - ByteCount;
 
       ELSE				(* 4. allocate individual block *)
 	 BlockPtr := SysAlloc (ByteCount);

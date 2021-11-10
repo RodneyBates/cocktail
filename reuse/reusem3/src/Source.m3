@@ -14,15 +14,15 @@
 IMPORT Word;
 FROM System	IMPORT tFile, OpenInput, Read, Close;
 
-PROCEDURE BeginSource (READONLY FileName: ARRAY OF CHAR): tFile =
+PROCEDURE BeginSource (VAR FileName: ARRAY OF CHAR): tFile =
    BEGIN
       RETURN OpenInput (FileName);
    END BeginSource;
 
 PROCEDURE GetLine (File: tFile; Buffer: ADDRESS; Size: Word.T): INTEGER =
-   CONST IgnoreChar = ' ';
-   VAR n	: INTEGER;
-   VAR BufferPtr: UNTRACED BRANDED REF  ARRAY [0..30000] OF CHAR;
+   CONST <*UNUSED*> IgnoreChar = ' ';
+   VAR <*UNUSED*> n	: INTEGER;
+   VAR <*UNUSED*> BufferPtr: UNTRACED BRANDED REF  ARRAY [0..30000] OF CHAR;
    BEGIN
    (* # ifdef Dialog
       n := Read (File, Buffer, Size);

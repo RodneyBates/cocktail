@@ -33,7 +33,7 @@ CONST Bound = 10000000 ;
       (* ^mtc and/or cc get crabby if you make this too large. *)
 
 TYPE
-   Bounds = INTEGER [ 0 .. Bound ];
+   Bounds = [ 0 .. Bound ];
    ArrayOfSet	= ARRAY Bounds OF tSet;
    ProcOfIntInt		= PROCEDURE (p0: INTEGER; p1: INTEGER);
    ProcOfIntIntToBool	= PROCEDURE (p0: INTEGER; p1: INTEGER): BOOLEAN;

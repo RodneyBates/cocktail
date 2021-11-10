@@ -29,6 +29,7 @@
  UNSAFE MODULE Heap;
 
 
+FROM SYSTEM IMPORT M3LONGINT;
 FROM SYSTEM IMPORT BITSET;
 FROM General	IMPORT MaxAlign, AlignMasks;
 
@@ -68,8 +69,8 @@ BEGIN
       INC (HeapUsed, PoolSize);
    END;
 (* PoolFreePtr := PoolFreePtr + ADDRESS ( ByteCount ); *)
-   INC (PoolFreePtr, LOOPHOLE (ByteCount,ADDRESS));
-   RETURN PoolFreePtr - LOOPHOLE (ByteCount,ADDRESS);
+   INC (PoolFreePtr, ByteCount);
+   RETURN PoolFreePtr ByteCount);
 END Alloc;
 
 (* The complete space allocated for the heap	*)

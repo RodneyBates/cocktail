@@ -214,7 +214,7 @@ PROCEDURE GetCyclics	(Rel: tRelation; VAR Set: tSet) =
       Closure (r);
       Sets.AssignEmpty (Set);
       FOR i := 0 TO r.Max1 DO
-	 IF Sets.IsElement ( VAL ( Word.T  i, ) , r.ArrayPtr^[i]) 
+	 IF Sets.IsElement ( i ) , r.ArrayPtr^[i]) 
          THEN	(* IsReflexive *)
 	    Sets.Include (Set, VAL (   i,INTEGER ) );
 	 END;
@@ -250,7 +250,7 @@ PROCEDURE Closure	(VAR Rel: tRelation) =
 	    IF NOT Sets.IsEmpty (m2tom3_with_24.ArrayPtr^[j]) THEN
 	       aj := m2tom3_with_24.ArrayPtr^[j];
 	       FOR i := 0 TO m2tom3_with_24.Max1 DO
-	          IF Sets.IsElement ( VAL ( Word.T  j, ), m2tom3_with_24.ArrayPtr^[i]) THEN
+	          IF Sets.IsElement ( j, m2tom3_with_24.ArrayPtr^[i]) THEN
 		     Sets.Union (m2tom3_with_24.ArrayPtr^[i], aj);
 	          END;
 	       END;
