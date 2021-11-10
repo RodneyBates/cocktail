@@ -1,10 +1,3 @@
-(* $Id: Source.mi,v 1.0 1992/08/07 14:42:03 grosch rel $ *)
-
-(* $Log: Source.mi,v $
-# Revision 1.0  1992/08/07  14:42:03  grosch
-# Initial revision
-#
- *)
 
 (* Ich, Doktor Josef Grosch, Informatiker, Juli 1992 *)
 
@@ -14,15 +7,15 @@
 IMPORT Word;
 FROM System	IMPORT tFile, OpenInput, Read, Close;
 
-PROCEDURE BeginSource (VAR FileName: ARRAY OF CHAR): tFile =
+PROCEDURE BeginSource (READONLY FileName: ARRAY OF CHAR): tFile =
    BEGIN
       RETURN OpenInput (FileName);
    END BeginSource;
 
 PROCEDURE GetLine (File: tFile; Buffer: ADDRESS; Size: Word.T): INTEGER =
-   CONST <*UNUSED*> IgnoreChar = ' ';
-   VAR <*UNUSED*> n	: INTEGER;
-   VAR <*UNUSED*> BufferPtr: UNTRACED BRANDED REF  ARRAY [0..30000] OF CHAR;
+   <*UNUSED*> CONST IgnoreChar = ' ';
+   <*UNUSED*> VAR n : INTEGER;
+   <*UNUSED*> VAR BufferPtr : UNTRACED BRANDED REF  ARRAY [0..30000] OF CHAR;
    BEGIN
    (* # ifdef Dialog
       n := Read (File, Buffer, Size);

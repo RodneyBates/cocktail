@@ -26,9 +26,9 @@ FROM ReuseIO         IMPORT tFile, StdError, WriteC, WriteNl, WriteS, WriteI,
                        WriteB, WriteR, CloseIO;
 FROM Positions  IMPORT tPosition, Compare, WritePosition;
 FROM StringMem  IMPORT tStringRef, PutString, GetString;
-FROM Strings    IMPORT tString, ArrayToString, StringToArray;
+FROM Strings    IMPORT tString, ArrayToString;
 FROM Idents     IMPORT tIdent, WriteIdent, MakeIdent;
-FROM Sets       IMPORT tSet, WriteSet, Assign, MakeSet, Size;
+FROM Sets       IMPORT tSet, Assign, MakeSet, Size;
 FROM Sort       IMPORT Sort;
 
 IMPORT Word, System, Strings;
@@ -99,8 +99,7 @@ PROCEDURE MessageI (READONLY ErrorText: ARRAY OF CHAR; ErrorClass: Word.T; Posit
         );
    END MessageI;
 
-PROCEDURE StringMessage  
-  (ErrorText: tString; ErrorClass: Word.T; Position: tPosition) =
+PROCEDURE StringMessage (READONLY ErrorText: tString; ErrorClass: Word.T; Position: tPosition) =
                         (* Report a message represented by a tString     *)
                         (* 'ErrorText' and classified by 'ErrorClass'.  *)
    BEGIN
@@ -187,7 +186,6 @@ PROCEDURE WriteMessage  (IsErrorCode: BOOLEAN; ErrorCode, ErrorClass: Word.T;
    END WriteMessage;
 
 PROCEDURE WriteMessages (File: tFile) =
-   VAR i        : INTEGER;
    VAR Info     : ADDRESS;
    VAR s        : tString;
    BEGIN

@@ -14,7 +14,7 @@ UNSAFE INTERFACE  Source;
 IMPORT Word;
 FROM System	IMPORT tFile;
 
-PROCEDURE BeginSource (FileName: ARRAY OF CHAR): tFile;
+PROCEDURE BeginSource (READONLY FileName: ARRAY OF CHAR): tFile;
 
    (*
       BeginSource is called from the scanner to open files.

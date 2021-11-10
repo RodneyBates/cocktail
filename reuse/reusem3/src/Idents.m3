@@ -68,9 +68,8 @@ VAR
    IdentCount		: tIdent;
 
    HashTable		: ARRAY HashIndex OF tIdent; 
-   i			: HashIndex;
 
-PROCEDURE MakeOrLookup (VAR s: tString; DoInsertIfAbsent : BOOLEAN ): tIdent =
+PROCEDURE MakeOrLookup (READONLY s: tString; DoInsertIfAbsent : BOOLEAN ): tIdent =
    VAR
       HashTableIndex	: HashIndex;
       CurIdent		: tIdent;
@@ -82,7 +81,7 @@ PROCEDURE MakeOrLookup (VAR s: tString; DoInsertIfAbsent : BOOLEAN ): tIdent =
 	 ELSE 
 	    HashTableIndex := ( ORD (m2tom3_with_4.Chars [1]) 
                                 + (ORD (m2tom3_with_4.Chars [m2tom3_with_4.Length]) * 11)
-			        + m2tom3_with_4.Length * 26)
+			        + m2tom3_with_4.Length * 26
                               ) 
                               MOD HashTableSize;
 	 END;
@@ -104,7 +103,7 @@ PROCEDURE MakeOrLookup (VAR s: tString; DoInsertIfAbsent : BOOLEAN ): tIdent =
           INC (IdentCount);				(* not found: enter *)
           lIdentCount := IdentCount;		(* damned MODULA *)
           IF lIdentCount = VAL (   IdentTableSize,tIdent ) THEN
-             ExtendArray (TablePtr, IdentTableSize, BYTESIZE (IdentTableEntry));
+             ExtendArray (LOOPHOLE(TablePtr, ADDRESS), IdentTableSize, BYTESIZE (IdentTableEntry));
           END;
           WITH m2tom3_with_6=TablePtr^[IdentCount] DO
              m2tom3_with_6.String		:= PutString (s);
@@ -118,13 +117,13 @@ PROCEDURE MakeOrLookup (VAR s: tString; DoInsertIfAbsent : BOOLEAN ): tIdent =
       END (* IF *)
    END MakeOrLookup;
 
-PROCEDURE MakeIdent (VAR s: tString): tIdent =
+PROCEDURE MakeIdent (READONLY s: tString): tIdent =
 
    BEGIN
      RETURN MakeOrLookup ( s , TRUE )
    END MakeIdent;
 
-PROCEDURE LookupIdent (VAR s: tString): tIdent =
+PROCEDURE LookupIdent (READONLY s: tString): tIdent =
 
    BEGIN
      RETURN MakeOrLookup ( s , FALSE )
@@ -155,7 +154,6 @@ PROCEDURE WriteIdent (f: tFile; i: tIdent) =
    END WriteIdent;
 
 PROCEDURE WriteIdents() =
-   VAR i	: tIdent;
    BEGIN
       FOR i := 1 TO IdentCount DO
 	 WriteI (StdOutput, VAL (   i,INTEGER ) , 5);
@@ -168,7 +166,6 @@ PROCEDURE WriteIdents() =
 PROCEDURE WriteHashTable() =
    VAR
       CurIdent	: tIdent;
-      i		: HashIndex;
       Count	: Word.T;
    BEGIN
       FOR i := 0 TO HashTableSize DO
@@ -192,7 +189,7 @@ PROCEDURE WriteHashTable() =
       END;
 
       WriteNl (StdOutput);
-      WriteS (StdOutput, tString{'I','d','e','n','t','s',' ','=','\000',..});
+      WriteS (StdOutput, ARRAY OF CHAR {'I','d','e','n','t','s',' ','=','\000'});
       WriteI (StdOutput, VAL (   IdentCount,INTEGER ) , 5);
       WriteNl (StdOutput);
    END WriteHashTable;
@@ -210,7 +207,7 @@ PROCEDURE InitIdents() =
 
 BEGIN
    IdentTableSize := InitialTableSize;
-   MakeArray (TablePtr, IdentTableSize, BYTESIZE (IdentTableEntry));
+   MakeArray (LOOPHOLE(TablePtr,ADDRESS), IdentTableSize, BYTESIZE (IdentTableEntry));
    InitIdents();
 END Idents.
 

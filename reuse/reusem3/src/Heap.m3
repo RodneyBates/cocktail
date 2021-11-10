@@ -70,7 +70,7 @@ BEGIN
    END;
 (* PoolFreePtr := PoolFreePtr + ADDRESS ( ByteCount ); *)
    INC (PoolFreePtr, ByteCount);
-   RETURN PoolFreePtr - ByteCount);
+   RETURN PoolFreePtr - ByteCount;
 END Alloc;
 
 (* The complete space allocated for the heap	*)

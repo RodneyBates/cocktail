@@ -44,11 +44,11 @@ CONST
 VAR	  NoIdent	: tIdent;
 			(* A default identifer (empty string).		*)
 
-PROCEDURE MakeIdent	(VAR s: tString)		: tIdent;
+PROCEDURE MakeIdent	(READONLY s: tString)		: tIdent;
 			(* The string 's' is mapped to a unique number	*)
 			(* (an integer) which is returned.		*)
 
-PROCEDURE LookupIdent	(VAR s: tString)		: tIdent;
+PROCEDURE LookupIdent	(READONLY s: tString)		: tIdent;
                         (* If s has previously been  mapped by a call to*)
                         (* MakeIdent, return its tIdent value.  Else    *)
                         (* return cNoIdent.                             *)

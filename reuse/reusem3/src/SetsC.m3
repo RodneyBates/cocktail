@@ -77,7 +77,7 @@ PROCEDURE PrintSet (Set: tSet) =
    BEGIN
       WITH m2tom3_with_25=Set DO
         WriteS (StdError, ARRAY [0..12] OF CHAR{'B','i','t','s','e','t','P','t','r',' ','=',' ','\000'}); 
-        WriteN (StdError, LOOPHOLE(m2tom3_with_25.BitsetPtr,LONGCARD), 0, 16); WriteNl (StdError);
+        WriteN (StdError, LOOPHOLE(m2tom3_with_25.BitsetPtr,INTEGER), 0, 16); WriteNl (StdError);
         WriteS (StdError, ARRAY [0..12] OF CHAR{'M','a','x','E','l','m','t',' ',' ',' ','=',' ','\000'}); 
         WriteI (StdError, VAL (   m2tom3_with_25.MaxElmt,INTEGER ) , 0); WriteNl (StdError);
         WriteS (StdError, ARRAY [0..12] OF CHAR{'L','a','s','t','B','i','t','s','e','t','=',' ','\000'}); 

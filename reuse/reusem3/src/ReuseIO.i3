@@ -81,7 +81,7 @@ PROCEDURE WriteI	(f: tFile; n: INTEGER ; FieldWidth: Word.T);
 PROCEDURE WriteR	(f: tFile; n: REAL; Before, After, Exp: Word.T);
 						(* real     number	*)
 PROCEDURE WriteB	(f: tFile; b: BOOLEAN);	(* boolean		*)
-PROCEDURE WriteN	(f: tFile; n: M2LONGCARD; FieldWidth, Base: Word.T);
+PROCEDURE WriteN	(f: tFile; n: INTEGER; FieldWidth, Base: Word.T);
 						(* number of base 'Base'*)
 PROCEDURE WriteS	(f: tFile;READONLY  (*VAR*) s: ARRAY OF CHAR); 
 						(* string		*)

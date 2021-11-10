@@ -24,31 +24,36 @@ FROM StringMem	IMPORT tStringRef, PutString, GetString;
 
 IMPORT Lists;
 
+(*EXPORTED*)
 PROCEDURE MakeText (VAR Text: tText) =
    BEGIN
       MakeList (Text);
    END MakeText;
 
+(*EXPORTED*)
 PROCEDURE Append (VAR Text: tText; VAR String: tString) =
    BEGIN
       Lists.Append (Text, LOOPHOLE (PutString (String),ADDRESS));
    END Append;
 
+(*EXPORTED*)
 PROCEDURE Insert (VAR Text: tText; VAR String: tString) =
    BEGIN
       Lists.Insert (Text, LOOPHOLE (PutString (String),ADDRESS));
    END Insert;
 
+(*EXPORTED*)
 PROCEDURE IsEmpty (VAR Text: tText): BOOLEAN =
    BEGIN
       RETURN Lists.IsEmpty (Text);
    END IsEmpty;
 
+(*EXPORTED*)
 PROCEDURE WriteText (f: tFile; Text: tText) =
    VAR String	: tString;
    BEGIN
       WHILE NOT Lists.IsEmpty (Text) DO
-	 GetString (tStringRef (Head (Text)), String);
+	 GetString (LOOPHOLE (Head (Text),tStringRef), String);
 	 WriteL (f, String);
 	 Tail (Text);
       END;

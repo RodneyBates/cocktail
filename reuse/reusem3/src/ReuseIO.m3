@@ -573,7 +573,7 @@ PROCEDURE WriteB	(f: tFile; b: BOOLEAN) =	(* boolean		*)
       END;
    END WriteB;
 
-PROCEDURE WriteN	(f: tFile; n: M2LONGCARD; FieldWidth, Base: Word.T) =
+PROCEDURE WriteN	(f: tFile; n: INTEGER; FieldWidth, Base: Word.T) =
    VAR						(* number of base 'Base'*)
       length	: Word.T;
       digits	: ARRAY [0 .. 32] OF CHAR;
@@ -582,13 +582,13 @@ PROCEDURE WriteN	(f: tFile; n: M2LONGCARD; FieldWidth, Base: Word.T) =
       REPEAT
 	 INC (length);
 	 digits [length] 
-           := MyCHR [ VAL (   n MOD VAL (   Base,M2LONGCARD ),INTEGER ) ];
-	 n := n DIV VAL (   Base,M2LONGCARD );
+           := MyCHR [ n MOD Base ];
+	 n := n DIV Base;
       UNTIL n = 0;
-      FOR i := 1 TO LOOPHOLE (FieldWidth - length,INTEGER) DO
+      FOR i := 1 TO FieldWidth - length DO
 	 WriteC (f, '0');
       END;
-      FOR i := LOOPHOLE (length,INTEGER) TO 1 BY -1 DO
+      FOR i := length TO 1 BY -1 DO
 	 WriteC (f, digits [i]);
       END;
    END WriteN;

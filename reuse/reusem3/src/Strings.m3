@@ -1,144 +1,120 @@
-(* $Id: Strings.mi,v 1.3 1991/11/21 14:33:17 grosch rel $ *)
-
-(* $Log: Strings.mi,v $
-
- * RMB 93/10/13 Type changes and conversions for WRL.
-
- * Revision 1.3  1991/11/21  14:33:17  grosch
- * new version of RCS on SPARC
- *
- * Revision 1.2  90/06/26  12:25:13  grosch
- * StringToArray: terminate Array with 0C
- * 
- * Revision 1.1  89/05/22  10:45:49  grosch
- * added procedure IntToString
- * 
- * Revision 1.0  88/10/04  11:47:20  grosch
- * Initial revision
- * 
- *)
 
 (* Ich, Doktor Josef Grosch, Informatiker, Sept. 1987 *)
 
  UNSAFE MODULE Strings;
 
-FROM SYSTEM IMPORT SHORTCARD;
-FROM General	IMPORT MinSHORTCARD , Exp10;
-FROM ReuseIO		IMPORT tFile, StdError, ReadC, ReadNl, EndOfLine, WriteC, WriteNl;
+FROM General    IMPORT Exp10;
+FROM ReuseIO            IMPORT tFile, StdError, ReadC, WriteC, WriteNl;
 
-IMPORT	Word, IO;
+IMPORT  Word, ReuseIO;
 
-CONST	EolCh	= '\012';
+CONST   EolCh   = '\012';
 
-VAR	reported: BOOLEAN;
-VAR	MyCHR	: ARRAY [0 .. 15] OF CHAR;
+VAR     reported: BOOLEAN;
+VAR     MyCHR   : ARRAY [0 .. 15] OF CHAR;
 
 PROCEDURE Error() =
    BEGIN
-      IO.WriteS (StdError, ARRAY [0..25] OF CHAR{'s','t','r','i','n','g',' ','t','o','o',' ','l','o','n','g',',',' ','m','a','x','.',' ','2','5','5','\000'});
-      IO.WriteNl (StdError);
+      ReuseIO.WriteS (StdError, ARRAY [0..25] OF CHAR{'s','t','r','i','n','g',' ','t','o','o',' ','l','o','n','g',',',' ','m','a','x','.',' ','2','5','5','\000'});
+      ReuseIO.WriteNl (StdError);
    END Error;
 
-PROCEDURE Assign	(VAR s1, s2: tString) =
-   (* Zuweisung von Zeichenketten			*)
-   VAR i : tStringIndex;
+PROCEDURE Assign        (VAR s1, s2: tString) =
+   (* Zuweisung von Zeichenketten                       *)
    BEGIN
    (* s1 := s2; *)
       WITH m2tom3_with_49=s2 DO
-	 FOR i := 1 TO m2tom3_with_49.Length DO
-	    s1.Chars [i] := m2tom3_with_49.Chars [i];
-	 END;
-	 s1.Length := m2tom3_with_49.Length;
+         FOR i := 1 TO m2tom3_with_49.Length DO
+            s1.Chars [i] := m2tom3_with_49.Chars [i];
+         END;
+         s1.Length := m2tom3_with_49.Length;
       END;
    END Assign;
 
-PROCEDURE AssignEmpty	(VAR s: tString) =
-   (* leere Zeichenkette erzeugen 			*)
+PROCEDURE AssignEmpty   (VAR s: tString) =
+   (* leere Zeichenkette erzeugen                       *)
    BEGIN
       s.Length := 0;
       reported := FALSE;
    END AssignEmpty;
 
-PROCEDURE Concatenate	(VAR s1, s2: tString) =
-   (* Returns in parameter 's1' the concatenation	*)
-   (* of the strings 's1' and 's2'.			*)
-   VAR i : tStringIndex;
+PROCEDURE Concatenate   (VAR s1, s2: tString) =
+   (* Returns in parameter 's1' the concatenation       *)
+   (* of the strings 's1' and 's2'.                     *)
    BEGIN
       IF (s1.Length + s2.Length) > cMaxStrLength THEN
-	 Error();
+         Error();
       ELSE
-	 WITH m2tom3_with_50=s1 DO
-	    FOR i := 1 TO s2.Length DO
-	       m2tom3_with_50.Chars [m2tom3_with_50.Length+i] := s2.Chars [i];
-	    END;
-	    INC (m2tom3_with_50.Length, s2.Length);
-	 END;
+         WITH m2tom3_with_50=s1 DO
+            FOR i := 1 TO s2.Length DO
+               m2tom3_with_50.Chars [m2tom3_with_50.Length+i] := s2.Chars [i];
+            END;
+            INC (m2tom3_with_50.Length, s2.Length);
+         END;
       END;
    END Concatenate;
 
-PROCEDURE Append	(VAR s: tString; c: CHAR) =
-   (* 1 Zeichen an eine Zeichenkette anhaengen 		*)
+PROCEDURE Append        (VAR s: tString; c: CHAR) =
+   (* 1 Zeichen an eine Zeichenkette anhaengen          *)
    BEGIN
       IF s.Length = cMaxStrLength THEN
-	 IF NOT reported THEN
-	    Error();
-	    reported := TRUE;
-	 END;
+         IF NOT reported THEN
+            Error();
+            reported := TRUE;
+         END;
       ELSE
-	 INC (s.Length);
-	 s.Chars [s.Length] := c;
+         INC (s.Length);
+         s.Chars [s.Length] := c;
       END;
    END Append;
 
-PROCEDURE Length	(VAR s: tString)			: Word.T =
-   (* Laenge einer Zeichenkette 			*)
+PROCEDURE Length        (VAR s: tString)                        : Word.T =
+   (* Laenge einer Zeichenkette                         *)
    BEGIN
-      RETURN VAL ( Word.T  s.Length, );
+      RETURN s.Length;
    END Length;
 
-PROCEDURE IsEqual	(VAR s1, s2: tString)			: BOOLEAN =
-   (* Pruefung von 2 Zeichenketten auf Gleichheit 	*)
-   VAR i: tStringIndex;
+PROCEDURE IsEqual       (VAR s1, s2: tString)                   : BOOLEAN =
+   (* Pruefung von 2 Zeichenketten auf Gleichheit       *)
    BEGIN
       IF s1.Length # s2.Length THEN
-	 RETURN FALSE;
+         RETURN FALSE;
       ELSE
-	 FOR i := 1 TO s1.Length DO
-	    IF s1.Chars [i] # s2.Chars [i] THEN
-	       RETURN FALSE;
-	    END;
-	 END;
+         FOR i := 1 TO s1.Length DO
+            IF s1.Chars [i] # s2.Chars [i] THEN
+               RETURN FALSE;
+            END;
+         END;
       END;
       RETURN TRUE;
    END IsEqual;
 
-PROCEDURE IsInOrder	(VAR s1, s2: tString)			: BOOLEAN =
+PROCEDURE IsInOrder     (VAR s1, s2: tString)                   : BOOLEAN =
    (* Pruefung von 2 Zeichenketten auf lexikographische Ordnung *)
    VAR
-      i           : tStringIndex;
       rank1, rank2: Word.T;
    BEGIN
-      FOR i := 1 TO MinSHORTCARD (s1.Length, s2.Length) DO
-	 rank1 := Rank (s1.Chars [i]);
-	 rank2 := Rank (s2.Chars [i]);
-	 IF rank1 < rank2 THEN
-	    RETURN TRUE;
-	 ELSIF rank1 > rank2 THEN
-	    RETURN FALSE;
-	 END;
+      FOR i := 1 TO MIN (s1.Length, s2.Length) DO
+         rank1 := Rank (s1.Chars [i]);
+         rank2 := Rank (s2.Chars [i]);
+         IF rank1 < rank2 THEN
+            RETURN TRUE;
+         ELSIF rank1 > rank2 THEN
+            RETURN FALSE;
+         END;
       END;
       RETURN s1.Length <= s2.Length;
    END IsInOrder;
 
 PROCEDURE Rank (ch: CHAR): Word.T =
    (* Abbildung aller Zeichen auf einen Rang
-      gemaess ihrer lexikographischen Ordnung		*)
+      gemaess ihrer lexikographischen Ordnung           *)
    BEGIN
       RETURN ORD (ch);   (* maschinenabhaengig *)
    END Rank;
 
-PROCEDURE Exchange	(VAR s1, s2: tString) =
-   (* Vertauschen von 2 Zeichenketten 			*)
+PROCEDURE Exchange      (VAR s1, s2: tString) =
+   (* Vertauschen von 2 Zeichenketten                   *)
    VAR temp: tString;
    BEGIN
       Assign (temp, s1  );
@@ -146,57 +122,55 @@ PROCEDURE Exchange	(VAR s1, s2: tString) =
       Assign (s2  , temp);
    END Exchange;
 
-PROCEDURE SubString	(VAR s1: tString; from, to: tStringIndex; VAR s2: tString) =
-   (* Returns in 's2' the substring from 's1' com-	*)
-   (* prising the characters between 'from' and 'to'.	*)
-   (* PRE 1 <= from <= Length (s1)			*)
-   (* PRE 1 <=  to  <= Length (s1)			*)
-   VAR i: tStringIndex;
+PROCEDURE SubString     (VAR s1: tString; from, to: tStringIndex; VAR s2: tString) =
+   (* Returns in 's2' the substring from 's1' com-      *)
+   (* prising the characters between 'from' and 'to'.   *)
+   (* PRE 1 <= from <= Length (s1)                      *)
+   (* PRE 1 <=  to  <= Length (s1)                      *)
    BEGIN
       WITH m2tom3_with_51=s2 DO
-	 m2tom3_with_51.Length := 0;
-	 FOR i := from TO to DO
-	    INC (m2tom3_with_51.Length);
-	    m2tom3_with_51.Chars [m2tom3_with_51.Length] := s1.Chars [i];
-	 END;
+         m2tom3_with_51.Length := 0;
+         FOR i := from TO to DO
+            INC (m2tom3_with_51.Length);
+            m2tom3_with_51.Chars [m2tom3_with_51.Length] := s1.Chars [i];
+         END;
       END;
    END SubString;
 
-PROCEDURE Char		(VAR s: tString; i: tStringIndex)	: CHAR =
+PROCEDURE Char          (VAR s: tString; i: tStringIndex)       : CHAR =
    (* liefert ein Zeichen einer Zeichenkette: s [index] *)
-   (* PRE 1 <= index <= Length (s) 			*)
+   (* PRE 1 <= index <= Length (s)                      *)
    BEGIN
       RETURN s.Chars [i];
    END Char;
 
-PROCEDURE ArrayToString	(READONLY a: ARRAY OF CHAR; VAR s: tString) =
+PROCEDURE ArrayToString (READONLY a: ARRAY OF CHAR; VAR s: tString) =
    VAR i: tStringIndex;
    BEGIN
       i := 0;
       LOOP
-	 IF a [ VAL ( Word.T  i, ) ] = '\000' THEN EXIT; END;
-	 s.Chars [i+1] := a [ VAL ( Word.T  i, ) ];
-	 INC (i);
-	 IF i > LAST (a) THEN EXIT; END;
+         IF a [i] = '\000' THEN EXIT; END;
+         s.Chars [i+1] := a [i];
+         INC (i);
+         IF i > LAST (a) THEN EXIT; END;
       END;
       s.Length := i;
    END ArrayToString;
 
-PROCEDURE StringToArray	(VAR s: tString; VAR a: ARRAY OF CHAR) =
-   VAR i: tStringIndex;
+PROCEDURE StringToArray (VAR s: tString; VAR a: ARRAY OF CHAR) =
    BEGIN
       FOR i := 1 TO s.Length DO
-	 a [ VAL ( Word.T  i-1, ) ] := s.Chars [i];
+         a [i-1] := s.Chars [i];
       END;
-      a [ VAL ( Word.T  s.Length, ) ] := '\000';
+      a [s.Length] := '\000';
    END StringToArray;
 
-PROCEDURE StringToInt	(VAR s: tString)			: INTEGER =
-   (* Returns the integer value represented by 's'.	*)
+PROCEDURE StringToInt   (VAR s: tString)                        : INTEGER =
+   (* Returns the integer value represented by 's'.     *)
    VAR
-      i, start	: tStringIndex;
-      n		: INTEGER;
-      negative	: BOOLEAN;
+      start     : tStringIndex;
+      n         : INTEGER;
+      negative  : BOOLEAN;
    BEGIN
       CASE s.Chars [1] OF
       | '+' => negative := FALSE; start := 2;
@@ -205,7 +179,7 @@ PROCEDURE StringToInt	(VAR s: tString)			: INTEGER =
       END;
       n := 0;
       FOR i := start TO s.Length DO
-	 n := (n * 10) + LOOPHOLE (ORD (s.Chars [i]) - ORD ('0'),INTEGER);
+         n := (n * 10) + LOOPHOLE (ORD (s.Chars [i]) - ORD ('0'),INTEGER);
       END;
       IF negative
       THEN RETURN - n;
@@ -213,112 +187,111 @@ PROCEDURE StringToInt	(VAR s: tString)			: INTEGER =
       END;
    END StringToInt;
 
-PROCEDURE StringToNumber (VAR s: tString; Base: Word.T)	: Word.T =
-   (* Returns the integer value represented by 's'	*)
-   (* to the base 'Base'.				*)
+PROCEDURE StringToNumber (VAR s: tString; Base: Word.T) : Word.T =
+   (* Returns the integer value represented by 's'      *)
+   (* to the base 'Base'.                               *)
    VAR
-      i	: tStringIndex;
-      n	: Word.T;
+      n : Word.T;
       ch: CHAR;
    BEGIN
       n := 0;
       FOR i := 1 TO s.Length DO
-	 ch := s.Chars [i];
-	 IF ('A' <= ch) AND (ch <= 'F') THEN
-	    n := (n * Base) + ORD (ch) - ORD ('A') + 10;
-	 ELSIF ('a' <= ch) AND (ch <= 'f') THEN
-	    n := (n * Base) + ORD (ch) - ORD ('a') + 10;
-	 ELSE
-	    n := (n * Base) + ORD (ch) - ORD ('0');
-	 END;
+         ch := s.Chars [i];
+         IF ('A' <= ch) AND (ch <= 'F') THEN
+            n := (n * Base) + ORD (ch) - ORD ('A') + 10;
+         ELSIF ('a' <= ch) AND (ch <= 'f') THEN
+            n := (n * Base) + ORD (ch) - ORD ('a') + 10;
+         ELSE
+            n := (n * Base) + ORD (ch) - ORD ('0');
+         END;
       END;
       RETURN n;
    END StringToNumber;
 
-PROCEDURE StringToReal	(VAR s: tString)			: REAL =
-   (* Returns the real value represented by 's'.	*)
+PROCEDURE StringToReal  (VAR s: tString)                        : REAL =
+   (* Returns the real value represented by 's'.        *)
    CONST
-      MaxInt		= 2147483647;	(* 2 ** 31 - 1 *)
-      MaxIntDiv10	= MaxInt DIV 10;
+      MaxInt            = 2147483647;   (* 2 ** 31 - 1 *)
+      MaxIntDiv10       = MaxInt DIV 10;
    VAR
-      n			: REAL;
-      Mantissa		: LONGCARD;
-      Exponent		: INTEGER;
-      MantissaNeg	: BOOLEAN;
-      ExponentNeg	: BOOLEAN;
-      FractionDigits	: Word.T;
-      TruncatedDigits	: Word.T;
-      ch		: CHAR;
-      i			: tStringIndex;
+      n                 : REAL;
+      Mantissa          : CARDINAL;
+      Exponent          : INTEGER;
+      MantissaNeg       : BOOLEAN;
+      ExponentNeg       : BOOLEAN;
+      FractionDigits    : Word.T;
+      TruncatedDigits   : Word.T;
+      ch                : CHAR;
+      i                 : tStringIndex;
    BEGIN
-      MantissaNeg	:= FALSE;
-      Mantissa		:= 0;
-      Exponent		:= 0;
-      FractionDigits	:= 0;
-      TruncatedDigits	:= 0;
-      i			:= 0;
+      MantissaNeg       := FALSE;
+      Mantissa          := 0;
+      Exponent          := 0;
+      FractionDigits    := 0;
+      TruncatedDigits   := 0;
+      i                 := 0;
 
-      Append (s, ' ');		(* ASSERT Length (s) < cMaxStrLength	*)
+      Append (s, ' ');          (* ASSERT Length (s) < cMaxStrLength    *)
       INC (i); ch := s.Chars [i];
 
-      CASE ch OF				(* handle sign		*)
+      CASE ch OF                                (* handle sign          *)
       | '+' => INC (i); ch := s.Chars [i];
       | '-' => INC (i); ch := s.Chars [i]; MantissaNeg := TRUE;
       | 'E' ,
-	'e' => Mantissa := 1;
+        'e' => Mantissa := 1;
       ELSE
       END;
 
-      WHILE ('0' <= ch) AND (ch <= '9') DO	(* integer part		*)
-	 IF Mantissa <= MaxIntDiv10 THEN
-	    Mantissa := 10 * Mantissa;
-	    IF Mantissa 
-               <= VAL (   MaxInt - (ORD (ch) - ORD ('0')),LONGCARD ) THEN
-	       INC (Mantissa, VAL (   ORD (ch) - ORD ('0'),LONGCARD ) );
-	    ELSE
-	       INC (TruncatedDigits);
-	    END;
-	 ELSE
-	    INC (TruncatedDigits);
-	 END;
-	 INC (i); ch := s.Chars [i];
+      WHILE ('0' <= ch) AND (ch <= '9') DO      (* integer part         *)
+         IF Mantissa <= MaxIntDiv10 THEN
+            Mantissa := 10 * Mantissa;
+            IF Mantissa 
+               <= MaxInt - (ORD (ch) - ORD ('0')) THEN
+               INC (Mantissa, ORD (ch) - ORD ('0') );
+            ELSE
+               INC (TruncatedDigits);
+            END;
+         ELSE
+            INC (TruncatedDigits);
+         END;
+         INC (i); ch := s.Chars [i];
       END;
 
-      IF ch = '.' THEN INC (i); ch := s.Chars [i]; END;	(* decimal point	*)
+      IF ch = '.' THEN INC (i); ch := s.Chars [i]; END; (* decimal point        *)
 
-      WHILE ('0' <= ch) AND (ch <= '9') DO	(* fractional part	*)
-	 IF Mantissa <= MaxIntDiv10 THEN
-	    Mantissa := 10 * Mantissa;
-	    IF Mantissa 
-               <= VAL (   MaxInt - (ORD (ch) - ORD ('0')),LONGCARD ) THEN
-	       INC (Mantissa, VAL (   ORD (ch) - ORD ('0'),LONGCARD ) );
-	    ELSE
-	       INC (TruncatedDigits);
-	    END;
-	 ELSE
-	    INC (TruncatedDigits);
-	 END;
-	 INC (FractionDigits);
-	 INC (i); ch := s.Chars [i];
+      WHILE ('0' <= ch) AND (ch <= '9') DO      (* fractional part      *)
+         IF Mantissa <= MaxIntDiv10 THEN
+            Mantissa := 10 * Mantissa;
+            IF Mantissa 
+               <= MaxInt - (ORD (ch) - ORD ('0')) THEN
+               INC (Mantissa, ORD (ch) - ORD ('0') );
+            ELSE
+               INC (TruncatedDigits);
+            END;
+         ELSE
+            INC (TruncatedDigits);
+         END;
+         INC (FractionDigits);
+         INC (i); ch := s.Chars [i];
       END;
 
-      IF ch = 'E' THEN				(* exponent		*)
-	 INC (i); ch := s.Chars [i];
+      IF ch = 'E' THEN                          (* exponent             *)
+         INC (i); ch := s.Chars [i];
 
-	 CASE ch OF
-	 |  '+' => ExponentNeg := FALSE; INC (i); ch := s.Chars [i];
-	 |  '-' => ExponentNeg := TRUE ; INC (i); ch := s.Chars [i];
-	 ELSE     ExponentNeg := FALSE;
-	 END;
+         CASE ch OF
+         |  '+' => ExponentNeg := FALSE; INC (i); ch := s.Chars [i];
+         |  '-' => ExponentNeg := TRUE ; INC (i); ch := s.Chars [i];
+         ELSE     ExponentNeg := FALSE;
+         END;
 
-	 WHILE ('0' <= ch) AND (ch <= '9') DO
-	    Exponent := (10 * Exponent) + LOOPHOLE (ORD (ch) - ORD ('0'),INTEGER);
-	    INC (i); ch := s.Chars [i];
-	 END;
+         WHILE ('0' <= ch) AND (ch <= '9') DO
+            Exponent := (10 * Exponent) + LOOPHOLE (ORD (ch) - ORD ('0'),INTEGER);
+            INC (i); ch := s.Chars [i];
+         END;
 
-	 IF ExponentNeg THEN
-	    Exponent := - Exponent;
-	 END;
+         IF ExponentNeg THEN
+            Exponent := - Exponent;
+         END;
       END;
 
       DEC (Exponent, FractionDigits - TruncatedDigits);
@@ -329,76 +302,74 @@ PROCEDURE StringToReal	(VAR s: tString)			: REAL =
       END;
    END StringToReal;
 
-PROCEDURE IntToString	(n: INTEGER; VAR s: tString) =
-   (* Returns in 's' the string representation of 'n'.	*)
+PROCEDURE IntToString   (n: INTEGER; VAR s: tString) =
+   (* Returns in 's' the string representation of 'n'.  *)
    VAR
-      i, j	: tStringIndex;
-      length	: tStringIndex;
-      digits	: ARRAY SHORTCARD [0 .. 10] OF CHAR;
+      j : tStringIndex;
+      length    : tStringIndex;
+      digits    : ARRAY [0 .. 10] OF CHAR;
    BEGIN
       IF n < 0 THEN
-	 s.Chars [1] := '-';
-	 j := 1;
-	 n := - n;
+         s.Chars [1] := '-';
+         j := 1;
+         n := - n;
       ELSE
-	 j := 0;
+         j := 0;
       END;
       length := 0;
       REPEAT
-	 INC (length);
-	 digits [length] := MyCHR [n MOD 10];
-	 n := n DIV 10;
+         INC (length);
+         digits [length] := MyCHR [n MOD 10];
+         n := n DIV 10;
       UNTIL n = 0;
       FOR i := length TO 1 BY -1 DO
-	 INC (j);
-	 s.Chars [j] := digits [i];
+         INC (j);
+         s.Chars [j] := digits [i];
       END;
       s.Length := j;
    END IntToString;
 
-PROCEDURE ReadS		(f: tFile; VAR s: tString; FieldWidth: tStringIndex) =
-   (* Read 'FieldWidth' characters as string 's' 	*)
-   (* from file 'f'.					*)
-   VAR i: tStringIndex;
+PROCEDURE ReadS         (f: tFile; VAR s: tString; FieldWidth: tStringIndex) =
+   (* Read 'FieldWidth' characters as string 's'        *)
+   (* from file 'f'.                                    *)
    BEGIN
       FOR i := 1 TO FieldWidth DO
-	 s.Chars [i] := ReadC (f);
+         s.Chars [i] := ReadC (f);
       END;
       s.Length := FieldWidth;
    END ReadS;
 
-PROCEDURE ReadL		(f: tFile; VAR s: tString) =
-   (* Read rest of line as string 's' from file 'f'.	*)
+PROCEDURE ReadL         (f: tFile; VAR s: tString) =
+   (* Read rest of line as string 's' from file 'f'.    *)
    VAR
       i : tStringIndex;
       ch: CHAR;
    BEGIN
       i := 0;
       LOOP
-	 ch := ReadC (f);
-	 IF ch = EolCh THEN EXIT; END;
-	 IF i = cMaxStrLength THEN
-	    REPEAT
-	    UNTIL ReadC (f) = EolCh;
-	    EXIT;
-	 END;
-	 INC (i);
-	 s.Chars [i] := ch;
+         ch := ReadC (f);
+         IF ch = EolCh THEN EXIT; END;
+         IF i = cMaxStrLength THEN
+            REPEAT
+            UNTIL ReadC (f) = EolCh;
+            EXIT;
+         END;
+         INC (i);
+         s.Chars [i] := ch;
       END;
       s.Length := i;
    END ReadL;
 
-PROCEDURE WriteS	(f: tFile; VAR s: tString) =
-   (* Write string 's' to file 'f'.			*)
-   VAR i: tStringIndex;
+PROCEDURE WriteS        (f: tFile; VAR s: tString) =
+   (* Write string 's' to file 'f'.                     *)
    BEGIN
       FOR i := 1 TO s.Length DO
-	 WriteC (f, s.Chars [i]);
+         WriteC (f, s.Chars [i]);
       END;
    END WriteS;
 
-PROCEDURE WriteL	(f: tFile; VAR s: tString) =
-   (* Write string 's' as complete line to file 'f'. 	*)
+PROCEDURE WriteL        (f: tFile; VAR s: tString) =
+   (* Write string 's' as complete line to file 'f'.    *)
    BEGIN
       WriteS (f, s);
       WriteNl (f);

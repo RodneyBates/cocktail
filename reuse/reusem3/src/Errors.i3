@@ -83,8 +83,7 @@ PROCEDURE MessageI (READONLY ErrorText: ARRAY OF CHAR; ErrorClass: Word.T; Posit
                         (* information of type 'InfoClass' at the       *)
                         (* address 'Info'.                              *)
 
-PROCEDURE StringMessage  
-  (ErrorText: tString; ErrorClass: Word.T; Position: tPosition);
+PROCEDURE StringMessage (READONLY ErrorText: tString; ErrorClass: Word.T; Position: tPosition);
                         (* Report a message represented by a tString     *)
                         (* 'ErrorText' and classified by 'ErrorClass'.  *)
 

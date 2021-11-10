@@ -19,14 +19,14 @@
 
 UNSAFE INTERFACE  StringMem;
 
-FROM SYSTEM IMPORT M2LONGINT;
 IMPORT Word;
+
 FROM ReuseIO		IMPORT tFile	;
 FROM Strings	IMPORT tString	;
 
-TYPE tStringRef = M2LONGINT	;
+TYPE tStringRef = INTEGER	;
 
-PROCEDURE PutString	(VAR s: tString)			: tStringRef;
+PROCEDURE PutString	(READONLY s: tString)			: tStringRef;
 			(* Stores string 's' in the string memory and	*)
 			(* returns a reference to the stored string.	*)
 
@@ -38,7 +38,7 @@ PROCEDURE Length	(r: tStringRef)				: Word.T;
 			(* Returns the length of the string 's'		*)
 			(* which is referenced by 'r'.			*)
 
-PROCEDURE IsEqual	(r: tStringRef; VAR s: tString)		: BOOLEAN;
+PROCEDURE IsEqual	(r: tStringRef; READONLY s: tString)		: BOOLEAN;
 			(* Compares the string referenced by 'r' and	*)
 			(* the string 's'.				*)
 			(* Returns TRUE if both are equal.		*)
