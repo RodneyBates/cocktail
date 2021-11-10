@@ -48,8 +48,8 @@ TYPE tFile	= [-1 .. cMaxFile];
 
 			(* binary IO		*)
 
-PROCEDURE OpenInput	(VAR FileName: ARRAY OF CHAR): tFile;
-PROCEDURE OpenOutput	(VAR FileName: ARRAY OF CHAR): tFile;
+PROCEDURE OpenInput	(READONLY FileName: ARRAY OF CHAR): tFile;
+PROCEDURE OpenOutput	(READONLY FileName: ARRAY OF CHAR): tFile;
 PROCEDURE Read		(File: tFile; Buffer: ADDRESS; Size: INTEGER): INTEGER;
 PROCEDURE Write		(File: tFile; Buffer: ADDRESS; Size: INTEGER): INTEGER;
 PROCEDURE Close		(File: tFile);

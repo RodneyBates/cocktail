@@ -69,7 +69,7 @@ PROCEDURE EndOfLine	(f: tFile): BOOLEAN ;	(* end of line ?	*)
 (* NOTE!!! TRUE if we are _about to_ read the new line, _not_ have read it. *) 
 PROCEDURE EndOfFile	(f: tFile): BOOLEAN ;	(* end of file ?	*)
 
-PROCEDURE WriteOpen	(READONLY (*VAR*) FileName: ARRAY OF CHAR): tFile;
+PROCEDURE WriteOpen	(READONLY FileName: ARRAY OF CHAR): tFile;
 						(* open  output file	*)
 PROCEDURE WriteClose	(f: tFile);		(* close output file	*)
 PROCEDURE WriteFlush	(f: tFile);		(* flush output buffer	*)

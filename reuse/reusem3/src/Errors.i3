@@ -14,6 +14,7 @@
 
 UNSAFE INTERFACE  Errors;
 
+FROM SYSTEM IMPORT PROC;
 
 IMPORT Word;
 FROM Positions  IMPORT tPosition;

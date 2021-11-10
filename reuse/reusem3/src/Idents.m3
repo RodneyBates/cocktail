@@ -63,7 +63,7 @@ TYPE
 
 VAR
    TablePtr		: UNTRACED BRANDED REF  
-                          ARRAY tIdent [0 .. LAST(tIdent)] OF IdentTableEntry;
+                          ARRAY tIdent OF IdentTableEntry;
    IdentTableSize	: M2LONGINT;
    IdentCount		: tIdent;
 

@@ -105,7 +105,7 @@ BEGIN
 	    PoolEndPtr  := PoolFreePtr + PoolSize;
 	 END;
 	 INC (PoolFreePtr, ByteCount);
-	 RETURN PoolFreePtr - LOOPHOLE (ByteCount,ADDRESS);
+	 RETURN PoolFreePtr - ByteCount;
       END;
    ELSE						(* handle large block *)
 
@@ -141,7 +141,7 @@ BEGIN
 	 PredecessorBlock^.Successor := BestBlock^.Successor;
 	 IF (BestBlockSize - ByteCount) >= MinSizeSmallBlock THEN
 	    Free (BestBlockSize - ByteCount,
-		  LOOPHOLE (BestBlock,INTEGER) + ByteCount);
+		  BestBlock + ByteCount);
 	 END;
 	 RETURN BestBlock;
       END;
@@ -154,7 +154,7 @@ BEGIN
 	    LargeChain [j] := CurrentBlock^.Successor;
 	    IF (CurrentBlock^.Size - ByteCount) >= MinSizeSmallBlock THEN
 	       Free (CurrentBlock^.Size - ByteCount,
-		     LOOPHOLE (CurrentBlock,INTEGER) + ByteCount);
+		     CurrentBlock + ByteCount);
 	    END;
 	    RETURN CurrentBlock;
 	 END;

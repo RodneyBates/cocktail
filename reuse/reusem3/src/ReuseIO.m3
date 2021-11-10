@@ -44,7 +44,7 @@
 
 FROM SYSTEM IMPORT M2LONGINT, M2LONGCARD;
 FROM SYSTEM IMPORT SHORTINT;
-FROM	General	IMPORT Exp2	, Exp10	;
+FROM	General	IMPORT Exp10	;
 FROM	Memory	IMPORT Alloc	, Free	;
 
 IMPORT	Word, System;
@@ -71,7 +71,6 @@ TYPE
 
 VAR
    BufferPool	: ARRAY tFile OF BufferDescriptor;
-   i		: tFile;
    MyCHR	: ARRAY [0 .. 15] OF CHAR;
 
 PROCEDURE FillBuffer	(f: tFile) =
@@ -92,7 +91,7 @@ PROCEDURE FillBuffer	(f: tFile) =
       END;
    END FillBuffer;
 
-PROCEDURE ReadOpen	(READONLY (*VAR*) FileName: ARRAY OF CHAR): tFile =
+PROCEDURE ReadOpen	(READONLY FileName: ARRAY OF CHAR): tFile =
    VAR						(* open  input file	*)
       f		: tFile;
    BEGIN
@@ -140,7 +139,6 @@ PROCEDURE Read		(f: tFile; Buffer: ADDRESS; Size: Word.T): INTEGER =
    END Read;
 
 PROCEDURE ReadC		(f: tFile): CHAR =	(* character		*)
-   VAR i : SHORTINT;
    BEGIN
       WITH m2tom3_with_12=BufferPool [f] DO
 	 IF m2tom3_with_12.BufferIndex = m2tom3_with_12.BytesRead THEN
@@ -299,7 +297,6 @@ PROCEDURE ReadN		(f: tFile; Base: INTEGER): INTEGER =
    END ReadN;
 
 PROCEDURE ReadS		(f: tFile; VAR s: ARRAY OF CHAR) =
-   VAR i	: Word.T;			(* string		*)
    BEGIN
       WITH m2tom3_with_13=BufferPool [f] DO
 	 FOR i := 0 TO LAST (s) DO
@@ -341,7 +338,6 @@ PROCEDURE UnRead	(f: tFile) =		(* backspace 1 char.	*)
 
 
 PROCEDURE EndOfLine	(f: tFile): BOOLEAN =	(* end of line ?	*)
-   VAR ch : CHAR;
    BEGIN
       WITH m2tom3_with_14=BufferPool [f] DO
 	 IF m2tom3_with_14.BufferIndex = m2tom3_with_14.BytesRead THEN
@@ -366,7 +362,7 @@ PROCEDURE CheckFlushLine (f: tFile) =
       BufferPool [f].FlushLine := System.IsCharacterSpecial (f);
    END CheckFlushLine;
 
-PROCEDURE WriteOpen	(READONLY (*VAR*) FileName: ARRAY OF CHAR): tFile =
+PROCEDURE WriteOpen	(READONLY FileName: ARRAY OF CHAR): tFile =
    VAR						(* open  output file	*)
       f		: tFile;
    BEGIN
@@ -406,7 +402,6 @@ PROCEDURE WriteFlush	(f: tFile) =		(* flush output buffer	*)
 PROCEDURE Write		(f: tFile; Buffer: ADDRESS; Size: INTEGER): INTEGER =
    VAR						(* binary		*)
       BufferPtr : UNTRACED BRANDED REF  ARRAY [0 .. 100000000] OF CHAR;
-      i		: INTEGER;
    BEGIN
       BufferPtr := Buffer;
       WITH m2tom3_with_18=BufferPool [f] DO
@@ -432,7 +427,6 @@ PROCEDURE WriteC	(f: tFile; c: CHAR) =	(* character		*)
 
 PROCEDURE WriteI	(f: tFile; n: INTEGER ; FieldWidth: Word.T) =
    VAR						(* integer  number	*)
-      i		: INTEGER;
       length	: Word.T;
       negative	: Word.T;
       digits	: ARRAY [0 .. 10] OF CHAR;
@@ -463,7 +457,6 @@ PROCEDURE WriteR	(f: tFile; n: REAL; Before, After, Exp: Word.T) =
       StartIndex	= 100;
    VAR
       i			: Word.T;
-      j			: INTEGER;
       FirstDigit	: Word.T;
       IntegerDigits	: Word.T;
       TotalDigits	: Word.T;
@@ -582,7 +575,6 @@ PROCEDURE WriteB	(f: tFile; b: BOOLEAN) =	(* boolean		*)
 
 PROCEDURE WriteN	(f: tFile; n: M2LONGCARD; FieldWidth, Base: Word.T) =
    VAR						(* number of base 'Base'*)
-      i		: INTEGER;
       length	: Word.T;
       digits	: ARRAY [0 .. 32] OF CHAR;
    BEGIN
@@ -602,7 +594,6 @@ PROCEDURE WriteN	(f: tFile; n: M2LONGCARD; FieldWidth, Base: Word.T) =
    END WriteN;
 
 PROCEDURE WriteS	(f: tFile;READONLY  (*VAR*)s: ARRAY OF CHAR) = 
-   VAR i	: Word.T;			(* string		*)
    VAR c	: CHAR;
    BEGIN
       WITH m2tom3_with_20=BufferPool [f] DO
@@ -630,7 +621,6 @@ PROCEDURE WriteLong	(f: tFile; n: M2LONGINT ; FieldWidth: Word.T) =
 
 PROCEDURE WriteCard	(f: tFile; n: Word.T; FieldWidth: Word.T) =
    VAR						(* cardinal number	*)
-      i		: INTEGER;
       length	: Word.T;
       digits	: ARRAY [0 .. 10] OF CHAR;
    BEGIN
@@ -643,7 +633,7 @@ PROCEDURE WriteCard	(f: tFile; n: Word.T; FieldWidth: Word.T) =
       FOR i := 1 TO LOOPHOLE (FieldWidth - length,INTEGER) DO
 	 WriteC (f, ' ');
       END;
-      FOR i := LOOPHOLE (length,INTEGER) TO 1 BY -1 DO
+      FOR i := length TO 1 BY -1 DO
 	 WriteC (f, digits [i]);
       END;
    END WriteCard;
@@ -655,7 +645,6 @@ PROCEDURE WriteNl	(f: tFile) =		(* new line		*)
 
 
 PROCEDURE CloseIO() =				(* close all files	*)
-   VAR i	: tFile;
    BEGIN
       FOR i := 0 TO System.cMaxFile DO
 	 WITH m2tom3_with_21=BufferPool [i] DO
