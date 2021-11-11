@@ -17,8 +17,7 @@ Initial revision
 
 UNSAFE INTERFACE  Classes;
 
-FROM Sets(* $$ m2tom3 warning: unable to find interface for import 'Sets' in line 20
- $$ *)	IMPORT tSet;
+FROM Sets	IMPORT tSet;
 
 TYPE ClassInfo	= RECORD Set, Classes: tSet; END;
 

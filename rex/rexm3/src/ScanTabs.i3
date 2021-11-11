@@ -30,8 +30,7 @@ UNSAFE INTERFACE  ScanTabs;
 
 IMPORT Word;
 FROM SYSTEM IMPORT SHORTINT, SHORTCARD;
-FROM IO(* $$ m2tom3 warning: unable to find interface for import 'IO' in line 31
- $$ *)	IMPORT tFile;
+FROM IO	IMPORT tFile;
 
 CONST
    NoRule	= 0	;

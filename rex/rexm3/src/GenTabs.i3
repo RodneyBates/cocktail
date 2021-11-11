@@ -45,12 +45,9 @@ UNSAFE INTERFACE  GenTabs;
 
 FROM SYSTEM IMPORT SHORTINT, SHORTCARD;
 FROM Tree	IMPORT tTree	;
-FROM Texts(* $$ m2tom3 warning: unable to find interface for import 'Texts' in line 47
- $$ *)	IMPORT tText	;
-FROM Sets(* $$ m2tom3 warning: unable to find interface for import 'Sets' in line 48
- $$ *)	IMPORT tSet	;
-FROM Positions(* $$ m2tom3 warning: unable to find interface for import 'Positions' in line 49
- $$ *)	IMPORT tPosition;
+FROM Texts	IMPORT tText	;
+FROM Sets	IMPORT tSet	;
+FROM Positions	IMPORT tPosition;
 
 CONST
    NoContext		= 0	;

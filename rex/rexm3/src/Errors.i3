@@ -33,8 +33,7 @@ UNSAFE INTERFACE  Errors;
 
 
 IMPORT Word;
-FROM Positions(* $$ m2tom3 warning: unable to find interface for import 'Positions' in line 35
- $$ *)	IMPORT tPosition;
+FROM Positions	IMPORT tPosition;
 
 CONST
    NoText		= 0	;

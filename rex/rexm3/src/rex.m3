@@ -70,17 +70,13 @@ FROM Strings	IMPORT tString, AssignEmpty, Assign, Append, Concatenate,
 			ArrayToString, StringToArray;
 FROM IO		IMPORT StdOutput, CloseIO;
 FROM StdIO	IMPORT WriteI, WriteS, WriteNl;
-FROM Scanner(* $$ m2tom3 warning: unable to find interface for import 'Scanner' in line 72
- $$ *)	IMPORT BeginScanner, BeginFile, ScanTabName;
-FROM Parser(* $$ m2tom3 warning: unable to find interface for import 'Parser' in line 73
- $$ *)	IMPORT ParsTabName, Parser;
+FROM Scanner	IMPORT BeginScanner, BeginFile, ScanTabName;
+FROM Parser	IMPORT ParsTabName, Parser;
 FROM Errors	IMPORT ErrorCount;
 FROM Classes	IMPORT ComputeClasses, ReleaseSetMem;
-FROM Eval(* $$ m2tom3 warning: unable to find interface for import 'Eval' in line 76
- $$ *)	IMPORT BeginEval, Eval;
+FROM Eval	IMPORT BeginEval, Eval;
 FROM Tree	IMPORT WriteTree;
-FROM Tree0(* $$ m2tom3 warning: unable to find interface for import 'Tree0' in line 78
- $$ *)	IMPORT Tree0Root, WriteTree0, ReleaseTree0Module;
+FROM Tree0	IMPORT Tree0Root, WriteTree0, ReleaseTree0Module;
 FROM Dfa	IMPORT LastCh;
 FROM GenTabs	IMPORT StartStateCount, LeafCount, NodeCount, Root, GenerateTables;
 FROM ScanGen	IMPORT GenerateScanner, GenerateInterface, GenerateSupport,
@@ -218,14 +214,11 @@ WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'Wr
 	 ComputeClasses (b);
 	 Eval (Tree0Root);
 	 IF n >= 16 THEN WriteTree0 (StdOutput, Tree0Root); END;
-	 LeafCount := StartStateCount + Tree0Root(* $$ m2tom3 warning: unable to resolve qualification in designator 'Tree0Root' in line 198
- $$ *)^.List(* $$ m2tom3 warning: unable to resolve qualification in designator 'List' in line 198
+	 LeafCount := StartStateCount + Tree0Root^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 198
  $$ *).LeafCount;
-	 NodeCount := Tree0Root(* $$ m2tom3 warning: unable to resolve qualification in designator 'Tree0Root' in line 199
- $$ *)^.List(* $$ m2tom3 warning: unable to resolve qualification in designator 'List' in line 199
+	 NodeCount := Tree0Root^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 199
  $$ *).NodeCount;
-	 Root := Tree0Root(* $$ m2tom3 warning: unable to resolve qualification in designator 'Tree0Root' in line 200
- $$ *)^.List(* $$ m2tom3 warning: unable to resolve qualification in designator 'List' in line 200
+	 Root := Tree0Root^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 200
  $$ *).Tree;
 	 ReleaseSetMem();
 	 ReleaseTree0Module();

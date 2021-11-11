@@ -33,14 +33,10 @@ UNSAFE INTERFACE  Tree;
 
 IMPORT Word;
 FROM SYSTEM IMPORT SHORTCARD;
-FROM Sets(* $$ m2tom3 warning: unable to find interface for import 'Sets' in line 34
- $$ *)	IMPORT tSet;
-FROM Texts(* $$ m2tom3 warning: unable to find interface for import 'Texts' in line 35
- $$ *)	IMPORT tText;
-FROM StringMem(* $$ m2tom3 warning: unable to find interface for import 'StringMem' in line 36
- $$ *)	IMPORT tStringRef;
-FROM Positions(* $$ m2tom3 warning: unable to find interface for import 'Positions' in line 37
- $$ *)	IMPORT tPosition;
+FROM Sets	IMPORT tSet;
+FROM Texts	IMPORT tText;
+FROM StringMem	IMPORT tStringRef;
+FROM Positions	IMPORT tPosition;
 
 CONST
    NoTree	= NIL;

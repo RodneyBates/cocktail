@@ -33,12 +33,9 @@
 UNSAFE INTERFACE  ScanGen;
 
 FROM SYSTEM IMPORT SHORTCARD;
-FROM Texts(* $$ m2tom3 warning: unable to find interface for import 'Texts' in line 35
- $$ *)	IMPORT tText	;
-FROM Strings(* $$ m2tom3 warning: unable to find interface for import 'Strings' in line 36
- $$ *)	IMPORT tString	;
-FROM Idents(* $$ m2tom3 warning: unable to find interface for import 'Idents' in line 37
- $$ *)	IMPORT tIdent	;
+FROM Texts	IMPORT tText	;
+FROM Strings	IMPORT tString	;
+FROM Idents	IMPORT tIdent	;
 
 CONST
    Position	= 0		;

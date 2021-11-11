@@ -24,8 +24,7 @@
 UNSAFE INTERFACE  Dfa;
 
 FROM SYSTEM IMPORT SHORTINT;
-FROM Sets(* $$ m2tom3 warning: unable to find interface for import 'Sets' in line 26
- $$ *)	IMPORT tSet	;
+FROM Sets	IMPORT tSet	;
 
 CONST
    DNoState     	= 0	;

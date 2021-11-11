@@ -18,8 +18,7 @@
 UNSAFE INTERFACE  DefTable;
 
 FROM SYSTEM IMPORT SHORTCARD;
-FROM Idents(* $$ m2tom3 warning: unable to find interface for import 'Idents' in line 20
- $$ *)	IMPORT tIdent	;
+FROM Idents	IMPORT tIdent	;
 FROM Tree	IMPORT tTree	;
 
 CONST
