@@ -1,0 +1,23 @@
+% m3makefile for rex, converted to Modula3. 
+
+import("libm3")
+import("m2libs")
+import("reusem3")
+
+module("Classes")
+module("DefTable")
+module("Dfa")
+module("Eval")
+module("GenTabs")
+module("Nfa")
+module("Parser")
+module("ScanGen")
+module("Scanner")
+module("ScanTabs")
+module("Traces")
+module("Tree0")
+module("Tree")
+
+implementation("rex")
+
+program("rex")
