@@ -28,7 +28,7 @@
 
 FROM SYSTEM IMPORT M2LONGINT;
 FROM DynArray   IMPORT MakeArray, ExtendArray, ReleaseArray;
-FROM IO         IMPORT WriteC, WriteI, WriteNl, WriteS, StdOutput;
+FROM ReuseIO         IMPORT WriteC, WriteI, WriteNl, WriteS, StdOutput;
 FROM Layout     IMPORT WriteChar, WriteSpace;
 FROM ScanTabs   IMPORT RuleType, NoRule;
 FROM GenTabs    IMPORT LeafCount;

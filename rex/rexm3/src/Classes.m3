@@ -27,7 +27,7 @@ IMPORT Word;
 FROM DynArray	IMPORT MakeArray, ExtendArray, ReleaseArray;
 FROM Strings	IMPORT tString, Char, Length;
 FROM StringMem	IMPORT GetString;
-FROM IO		IMPORT StdOutput, WriteC, WriteI, WriteS, WriteNl;
+FROM ReuseIO		IMPORT StdOutput, WriteC, WriteI, WriteS, WriteNl;
 FROM Sets	IMPORT tSet, tElement, MakeSet, Assign, Include, IsEqual, ForallDo, WriteSet,
 			Intersection, Union, Difference, Complement, ReleaseSet, IsEmpty,
 			IsSubset;

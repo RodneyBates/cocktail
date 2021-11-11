@@ -46,7 +46,7 @@ FROM Sets	IMPORT
    IsSubset	, Union		, ForallDo	, ReleaseSet	,
    Maximum	, AssignElmt	, Select	;
 
-FROM IO		IMPORT StdOutput, WriteS, WriteNl, WriteC, WriteI;
+FROM ReuseIO		IMPORT StdOutput, WriteS, WriteNl, WriteC, WriteI;
 FROM Layout	IMPORT WriteChar, WriteSpace;
 FROM GenTabs	IMPORT PatternCount, StartStateCount, PatternTablePtr, VariableContext;
 FROM Classes	IMPORT ToClass;

@@ -68,7 +68,7 @@ FROM SYSTEM IMPORT SHORTCARD, SHORTINT;
 FROM System	IMPORT GetArgCount, GetArgument, Exit;
 FROM Strings	IMPORT tString, AssignEmpty, Assign, Append, Concatenate,
 			ArrayToString, StringToArray;
-FROM IO		IMPORT StdOutput, CloseIO;
+FROM ReuseIO		IMPORT StdOutput, CloseIO;
 FROM StdIO	IMPORT WriteI, WriteS, WriteNl;
 FROM Scanner	IMPORT BeginScanner, BeginFile, ScanTabName;
 FROM Parser	IMPORT ParsTabName, Parser;

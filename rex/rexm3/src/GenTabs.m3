@@ -80,7 +80,7 @@ FROM Sets       IMPORT
    Assign       , AssignElmt    , AssignEmpty   , ForallDo      ,
    Maximum      , IsSubset      , WriteSet      ;
 
-FROM IO         IMPORT WriteS, WriteNl, WriteI, WriteC, StdOutput, StdError;
+FROM ReuseIO         IMPORT WriteS, WriteNl, WriteI, WriteC, StdOutput, StdError;
 FROM Layout     IMPORT WriteSpace;
 FROM DefTable   IMPORT GetKind, DefRange, DefCount, GetStartDef, tKind;
 

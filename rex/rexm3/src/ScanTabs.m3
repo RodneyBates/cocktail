@@ -61,7 +61,7 @@ FROM Idents	IMPORT tIdent, NoIdent, GetString;
 FROM Sets	IMPORT tSet, MakeSet, IsElement, Minimum, Maximum, IsEmpty,
 			AssignEmpty, Union, Include;
 FROM System	IMPORT tFile, OpenOutput, OpenInput, Read, Write;
-FROM IO		IMPORT StdInput, StdOutput, WriteS, WriteNl, WriteC, WriteI,
+FROM ReuseIO		IMPORT StdInput, StdOutput, WriteS, WriteNl, WriteC, WriteI,
 			ReadI, ReadNl, EndOfLine;
 FROM Layout	IMPORT WriteSpace, WriteChar;
 FROM Dfa	IMPORT DStateCount, DStateRange, GetFirst, GetLast, FirstCh,

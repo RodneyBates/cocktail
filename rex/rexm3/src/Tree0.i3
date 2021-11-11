@@ -1,7 +1,7 @@
 UNSAFE INTERFACE  Tree0;
 
 FROM SYSTEM IMPORT SHORTINT, SHORTCARD;
-IMPORT SYSTEM, IO;
+IMPORT SYSTEM, ReuseIO.
 (* line 23 "../src/rex.cg" *)
 
 FROM Sets	IMPORT tSet;
@@ -108,7 +108,7 @@ PROCEDURE mRule (pPatterns: tTree0; pTargetCode: tText; pLine: SHORTCARD; pCodeM
 PROCEDURE mPattern (pStartStates: tSet; pRegExpr: tTree0; pRightContext: tTree0; pPatternNr: SHORTCARD; pPosition: tPosition): tTree0;
 
 PROCEDURE ReleaseTree0Module();
-PROCEDURE WriteTree0       (f: IO.tFile; Tree: tTree0);
+PROCEDURE WriteTree0       (f: ReuseIO.tFile; Tree: tTree0);
 PROCEDURE TraverseTree0TD  (Tree: tTree0; Proc: tProcTree);
 PROCEDURE BeginTree0();
 PROCEDURE CloseTree0();

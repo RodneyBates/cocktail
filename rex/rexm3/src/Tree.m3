@@ -38,7 +38,7 @@ FROM Texts	IMPORT tText, WriteText;
 FROM Sets	IMPORT tSet, WriteSet;
 FROM Strings	IMPORT tString, WriteL;
 FROM StringMem	IMPORT tStringRef, GetString;
-FROM IO		IMPORT StdOutput, WriteS, WriteI, WriteNl, WriteB;
+FROM ReuseIO		IMPORT StdOutput, WriteS, WriteI, WriteNl, WriteB;
 FROM Layout	IMPORT WriteSpace, WriteChar;
 FROM Positions	IMPORT tPosition;
 

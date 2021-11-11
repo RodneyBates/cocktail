@@ -12,7 +12,7 @@
  UNSAFE MODULE Scanner;
  
 FROM SYSTEM IMPORT SHORTCARD;
-IMPORT Word, SYSTEM, Checks, System, General, Positions, IO, DynArray, Strings, Source;
+IMPORT Word, SYSTEM, Checks, System, General, Positions, ReuseIO. DynArray, Strings, Source;
 (* line 84 "../src/rex.rex" *)
 
 
@@ -949,7 +949,7 @@ yyRestartFlag := FALSE; EXIT;
 		  Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart,SHORTCARD);
 		  INC (yyChBufferIndex);
 		  TokenLength := 1;
-IO.WriteC (IO.StdOutput, yyChBufferPtr^ [yyChBufferIndex-1]);
+ReuseIO.WriteC (ReuseIO.StdOutput, yyChBufferPtr^ [yyChBufferIndex-1]);
 	          yyRestartFlag := FALSE; EXIT;
 
 	    |  yyDNoState	=>		(* automatic initialization *)
@@ -1182,7 +1182,7 @@ PROCEDURE yyEcho() =
    VAR i	: INTEGER;
    BEGIN
       FOR i := yyChBufferIndex - TokenLength TO yyChBufferIndex - 1 DO
-	 IO.WriteC (IO.StdOutput, yyChBufferPtr^ [i]);
+	 ReuseIO.WriteC (ReuseIO.StdOutput, yyChBufferPtr^ [i]);
       END;
    END yyEcho;
  
@@ -1216,7 +1216,7 @@ PROCEDURE yyEol (Column: INTEGER) =
 
 PROCEDURE output (c: CHAR) =
    BEGIN
-      IO.WriteC (IO.StdOutput, c);
+      ReuseIO.WriteC (ReuseIO.StdOutput, c);
    END output;
 
 PROCEDURE unput (c: CHAR) =
@@ -1331,21 +1331,21 @@ PROCEDURE yyGetTable (TableFile: System.tFile; Address: SYSTEM.ADDRESS): Word.T 
  
 PROCEDURE yyErrorMessage (ErrorCode: SHORTCARD) =
    BEGIN
-      Positions.WritePosition (IO.StdError, Attribute.Position);
+      Positions.WritePosition (ReuseIO.StdError, Attribute.Position);
       CASE ErrorCode OF
-   | 0=> IO.WriteS (IO.StdError, ARRAY [0..25] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','i','n','t','e','r','n','a','l',' ','e','r','r','o','r','\000'});
-   | 1=> IO.WriteS (IO.StdError, ARRAY [0..24] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','o','u','t',' ','o','f',' ','m','e','m','o','r','y','\000'});
-   | 2=> IO.WriteS (IO.StdError, ARRAY [0..25] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','t','a','b','l','e',' ','m','i','s','m','a','t','c','h','\000'});
-   | 3=> IO.WriteS (IO.StdError, ARRAY [0..40] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','t','o','o',' ','m','a','n','y',' ','n','e','s','t','e','d',' ','i','n','c','l','u','d','e',' ','f','i','l','e','s','\000'});
-   | 4=> IO.WriteS (IO.StdError, ARRAY [0..61] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','f','i','l','e',' ','s','t','a','c','k',' ','u','n','d','e','r','f','l','o','w',' ','(','t','o','o',' ','m','a','n','y',' ','c','a','l','l','s',' ','o','f',' ','C','l','o','s','e','F','i','l','e',')','\000'});
-   | 5=> IO.WriteS (IO.StdError, ARRAY [0..33] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','c','a','n','n','o','t',' ','o','p','e','n',' ','i','n','p','u','t',' ','f','i','l','e','\000'});
+   | 0=> ReuseIO.WriteS (ReuseIO.StdError, ARRAY [0..25] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','i','n','t','e','r','n','a','l',' ','e','r','r','o','r','\000'});
+   | 1=> ReuseIO.WriteS (ReuseIO.StdError, ARRAY [0..24] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','o','u','t',' ','o','f',' ','m','e','m','o','r','y','\000'});
+   | 2=> ReuseIO.WriteS (ReuseIO.StdError, ARRAY [0..25] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','t','a','b','l','e',' ','m','i','s','m','a','t','c','h','\000'});
+   | 3=> ReuseIO.WriteS (ReuseIO.StdError, ARRAY [0..40] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','t','o','o',' ','m','a','n','y',' ','n','e','s','t','e','d',' ','i','n','c','l','u','d','e',' ','f','i','l','e','s','\000'});
+   | 4=> ReuseIO.WriteS (ReuseIO.StdError, ARRAY [0..61] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','f','i','l','e',' ','s','t','a','c','k',' ','u','n','d','e','r','f','l','o','w',' ','(','t','o','o',' ','m','a','n','y',' ','c','a','l','l','s',' ','o','f',' ','C','l','o','s','e','F','i','l','e',')','\000'});
+   | 5=> ReuseIO.WriteS (ReuseIO.StdError, ARRAY [0..33] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','c','a','n','n','o','t',' ','o','p','e','n',' ','i','n','p','u','t',' ','f','i','l','e','\000'});
       END;
-      IO.WriteNl (IO.StdError); Exit();
+      ReuseIO.WriteNl (ReuseIO.StdError); Exit();
    END yyErrorMessage;
  
 PROCEDURE yyExit() =
    BEGIN
-      IO.CloseIO(); System.Exit (1);
+      ReuseIO.CloseReuseIO.); System.Exit (1);
    END yyExit;
 
 BEGIN

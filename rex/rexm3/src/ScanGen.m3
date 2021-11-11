@@ -88,7 +88,7 @@ FROM SYSTEM IMPORT SHORTCARD;
 FROM Checks     IMPORT
    ErrorCheck;
 
-FROM IO         IMPORT
+FROM ReuseIO         IMPORT
    ReadOpen     , WriteOpen     , WriteClose    , ReadClose     ,
    EndOfFile    , WriteN        , WriteS        , WriteNl       ,
    WriteC       , WriteI        , tFile         ;
