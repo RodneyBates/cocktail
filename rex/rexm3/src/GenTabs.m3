@@ -133,13 +133,13 @@ TYPE
 
 VAR
    MapDToSetOfNPtr      : UNTRACED BRANDED REF  MapDToSetOfN;
-   MapDToSetOfNSize     : LONGINT       ;
+   MapDToSetOfNSize     : M2LONGINT       ;
 
    HashDToSetOfNPtr     : UNTRACED BRANDED REF  HashDToSetOfN;
-   HashDToSetOfNSize    : LONGINT       ;
+   HashDToSetOfNSize    : M2LONGINT       ;
 
    StackPtr             : UNTRACED BRANDED REF  Stack;
-   StackSize            : LONGINT       ;
+   StackSize            : M2LONGINT       ;
    StackTop             : DStateRange   ;
 
    StartSet             ,

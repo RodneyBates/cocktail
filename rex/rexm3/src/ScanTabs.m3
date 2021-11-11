@@ -231,11 +231,11 @@ PROCEDURE CompressTables (Optimize: SHORTINT) =
 			  END;
    VAR
       base		: TableRange;
-      lbase		: LONGINT;
+      lbase		: M2LONGINT;
       State		: DStateRange;
       Success		: BOOLEAN;
       Ch, LastElmt	: CHAR;
-      OldControlSize	: LONGINT;
+      OldControlSize	: M2LONGINT;
       i			: INTEGER;
       j			: Word.T;
       Hash		: SHORTINT;
@@ -244,7 +244,7 @@ PROCEDURE CompressTables (Optimize: SHORTINT) =
       Diffs		: ARRAY [0 .. 256] OF CHAR;
       StartCh, StopCh	: CHAR;
       HashTablePtr	: UNTRACED BRANDED REF  ARRAY [0 .. 100000] OF DiffsInfoPtr;
-      HashTableSize	: LONGINT;
+      HashTableSize	: M2LONGINT;
       Current		: DiffsInfoPtr;
       Domain		: tSet;
    BEGIN
@@ -261,7 +261,7 @@ PROCEDURE CompressTables (Optimize: SHORTINT) =
       ELSE
 	 ControlSize := LeafCount * 12;
       END;
-      ControlSize := Max (ControlSize, LOOPHOLE (ORD (OldLastCh),LONGINT) + 1);
+      ControlSize := Max (ControlSize, LOOPHOLE (ORD (OldLastCh),M2LONGINT) + 1);
       MakeArray (ControlPtr, ControlSize, BYTESIZE (ControlType));
       FOR i := 0 TO ControlSize - 1 DO
 	 ControlPtr^[i].Check := DNoState;
@@ -382,7 +382,7 @@ PROCEDURE CompressTables (Optimize: SHORTINT) =
 
 	    LOOP				(* search for a usable base *)
 	       lbase := base;
-	       IF lbase >= (ControlSize - LOOPHOLE (ORD (OldLastCh),LONGINT)) THEN
+	       IF lbase >= (ControlSize - LOOPHOLE (ORD (OldLastCh),M2LONGINT)) THEN
 		  OldControlSize := ControlSize;
 		  ExtendArray (ControlPtr, ControlSize, BYTESIZE (ControlType));
 		  FOR i := OldControlSize TO ControlSize - 1 DO

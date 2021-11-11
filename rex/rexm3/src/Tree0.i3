@@ -84,7 +84,7 @@ yyNode = RECORD
 END;
 
 VAR Tree0Root        : tTree0;
-VAR HeapUsed   : LONGCARD;
+VAR HeapUsed   : M2LONGCARD;
 VAR yyPoolFreePtr, yyPoolMaxPtr        : SYSTEM.ADDRESS;
 VAR yyNodeSize : ARRAY [0..13] OF SHORTCARD;
 VAR yyExit     : PROC;

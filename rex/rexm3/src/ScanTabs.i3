@@ -63,21 +63,21 @@ TYPE
 
 VAR
    RuleBasePtr	: UNTRACED BRANDED REF  RuleBase	;
-   RuleBaseSize	: LONGINT		;
+   RuleBaseSize	: M2LONGINT		;
    RulePtr	: UNTRACED BRANDED REF  Rule	;
-   RuleSize	: LONGINT		;
+   RuleSize	: M2LONGINT		;
    BasePtr	: UNTRACED BRANDED REF  Base	;
-   BaseSize	: LONGINT		;
+   BaseSize	: M2LONGINT		;
    DefaultPtr	: UNTRACED BRANDED REF  Default	;
-   DefaultSize	: LONGINT		;
+   DefaultSize	: M2LONGINT		;
    ControlPtr	: UNTRACED BRANDED REF  Control	;
-   ControlSize	: LONGINT		;
+   ControlSize	: M2LONGINT		;
    EobTransPtr	: UNTRACED BRANDED REF  EobTrans	;
-   EobTransSize	: LONGINT		;
+   EobTransSize	: M2LONGINT		;
    ContextPtr	: UNTRACED BRANDED REF  Context	;
-   ContextSize	: LONGINT		;
+   ContextSize	: M2LONGINT		;
    ActionPtr	: UNTRACED BRANDED REF  Action	;
-   ActionSize	: LONGINT		;
+   ActionSize	: M2LONGINT		;
 
    ActionNr	: ActionType	;
    TableSize	: TableRange	;

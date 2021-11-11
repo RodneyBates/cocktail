@@ -133,14 +133,14 @@ TYPE
    yyFileStackSubscript = yyFileStackPtrTyp [1 .. yyFileStackSize];
 
 VAR
-   yyBasePtr		: ARRAY yyStateRange	OF LONGCARD	;
+   yyBasePtr		: ARRAY yyStateRange	OF M2LONGCARD	;
    yyDefault		: ARRAY yyStateRange	OF yyStateRange	;
    yyComb		: ARRAY yyTableRange	OF yyCombType	;
    yyEobTrans		: ARRAY yyStateRange	OF yyStateRange	;
    yyToLower, yyToUpper	: ARRAY yyChRange	OF CHAR		;
 
    yyStateStack		: UNTRACED BRANDED REF  ARRAY [0 .. 1000000] OF yyStateRange;
-   yyStateStackSize	: LONGINT;
+   yyStateStackSize	: M2LONGINT;
    yyStartState		: yyStateRange;
    yyPreviousStart	: yyStateRange;
    yyCh			: CHAR;
@@ -149,7 +149,7 @@ VAR
    yyEof		: BOOLEAN;
    yyChBufferPtr	: yytChBufferPtr;
    yyChBufferStart	: INTEGER;
-   yyChBufferSize	: LONGINT;
+   yyChBufferSize	: M2LONGINT;
    yyChBufferIndex	: INTEGER;
    yyBytesRead		: INTEGER;
    yyLineCount		: SHORTCARD; (* Number of the current line,
@@ -164,7 +164,7 @@ VAR
 			     Eof		: BOOLEAN;
    			     ChBufferPtr	: yytChBufferPtr;
 			     ChBufferStart	: INTEGER;
-			     ChBufferSize	: LONGINT;
+			     ChBufferSize	: M2LONGINT;
    			     ChBufferIndex	: INTEGER;
    			     BytesRead		: INTEGER;
    			     LineCount		: SHORTCARD;
@@ -177,7 +177,7 @@ PROCEDURE GetToken (): INTEGER =
       yyTablePtr	: yyCombTypePtr;
       yyRestartFlag	: BOOLEAN;
       yyi, yySource, yyTarget : INTEGER;
-      yyChBufferFree	: LONGINT;
+      yyChBufferFree	: M2LONGINT;
 
 (* line 163 "../src/rex.rex" *)
  VAR TargetCode, String, Word: tString; 
@@ -203,8 +203,8 @@ BEGIN
 	 LOOP		(* execute as many state transitions as possible *)
 	    					(* determine next state *)
 	    yyTablePtr := LOOPHOLE (yyBasePtr [yyState] +
-	       (VAL(ORD (yyChBufferPtr^ [yyChBufferIndex]),LONGCARD )
-               * VAL( SYSTEM.BYTESIZE (yyCombType),LONGCARD)) ,yyCombTypePtr);
+	       (VAL(ORD (yyChBufferPtr^ [yyChBufferIndex]),M2LONGCARD )
+               * VAL( SYSTEM.BYTESIZE (yyCombType),M2LONGCARD)) ,yyCombTypePtr);
 	    IF yyTablePtr^.Check # yyState THEN
 	       yyState := yyDefault [yyState];
 	       IF yyState = yyDNoState THEN EXIT; END;
@@ -999,8 +999,8 @@ IO.WriteC (IO.StdOutput, yyChBufferPtr^ [yyChBufferIndex-1]);
                           := VAL(  
                                  General.Exp2 
                                   (General.Log2 
-                                     (yyChBufferSize - 4 - VAL(General.MaxAlign,LONGINT) -VAL( TokenLength,LONGINT))
-                                  ),LONGINT
+                                     (yyChBufferSize - 4 - VAL(General.MaxAlign,M2LONGINT) -VAL( TokenLength,M2LONGINT))
+                                  ),M2LONGINT
                                 );
 			IF yyChBufferFree < (yyChBufferSize DIV 8) THEN
 			   DynArray.ExtendArray (yyChBufferPtr, yyChBufferSize, SYSTEM.BYTESIZE (CHAR));
@@ -1009,8 +1009,8 @@ IO.WriteC (IO.StdOutput, yyChBufferPtr^ [yyChBufferIndex-1]);
                              := VAL ( 
                                      General.Exp2 
                                         (General.Log2 
-                                           (yyChBufferSize - 4 - VAL(General.MaxAlign,LONGINT) - VAL(TokenLength,LONGINT))
-                                        ),LONGINT
+                                           (yyChBufferSize - 4 - VAL(General.MaxAlign,M2LONGINT) - VAL(TokenLength,M2LONGINT))
+                                        ),M2LONGINT
                                     );
 			   IF yyStateStackSize < yyChBufferSize THEN
 			      DynArray.ExtendArray (yyStateStack, yyStateStackSize, SYSTEM.BYTESIZE (yyStateRange));
@@ -1313,7 +1313,7 @@ PROCEDURE yyGetTables() =
 
       FOR i := 0 TO yyDStateCount DO
 	 yyBasePtr [i] := LOOPHOLE (SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1291
- $$ *) (yyComb [Base [i]]),LONGCARD);
+ $$ *) (yyComb [Base [i]]),M2LONGCARD);
       END;
    END yyGetTables;
  
@@ -1357,7 +1357,7 @@ IF NUMBER(ScanTabName) > 11 THEN ScanTabName[FIRST(ScanTabName) + 11] := '\000';
    yyStartState		:= 1;			(* set up for auto init *)
    yyPreviousStart	:= 1;
    yyBasePtr [yyStartState] := LOOPHOLE (SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1332
- $$ *) (yyComb [0]),LONGCARD);
+ $$ *) (yyComb [0]),M2LONGCARD);
    yyDefault [yyStartState] := yyDNoState;
    yyComb [0].Check	:= yyDNoState;
    yyChBufferPtr	:= SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1335

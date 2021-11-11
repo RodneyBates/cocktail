@@ -44,9 +44,9 @@ TYPE
 
 VAR
    TracePtr		: UNTRACED BRANDED REF  Trace;
-   TraceSize		: LONGINT;
+   TraceSize		: M2LONGINT;
    PosToTracePtr	: UNTRACED BRANDED REF  PosToTrace;
-   PosToTraceSize	: LONGINT;
+   PosToTraceSize	: M2LONGINT;
    TraceCount		: INTEGER;
 
 PROCEDURE InitTraces()	 =

@@ -83,9 +83,9 @@ VAR
    EobAction		,
    DefaultAction	: SHORTCARD	;
    PatternTablePtr	: UNTRACED BRANDED REF  PatternTable;
-   PatternTableSize	: LONGINT	;
+   PatternTableSize	: M2LONGINT	;
    RuleToCodePtr	: UNTRACED BRANDED REF  RuleToCode;
-   RuleToCodeSize	: LONGINT	;
+   RuleToCodeSize	: M2LONGINT	;
 
 PROCEDURE GenerateTables (DebugLevel: SHORTCARD; ReduceCaseSize, Warnings: BOOLEAN; Optimize: SHORTINT);
 

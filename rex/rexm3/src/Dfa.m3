@@ -69,13 +69,13 @@ TYPE
 
 VAR
    TablePtr	: UNTRACED BRANDED REF  DStateTable;
-   TableSize	: LONGINT	;
+   TableSize	: M2LONGINT	;
    SuccSetPtr	: UNTRACED BRANDED REF  SuccSet;
-   SuccSetSize	: LONGINT	;
+   SuccSetSize	: M2LONGINT	;
 
 PROCEDURE MakeDState	(): DStateRange =
    VAR Ch	: CHAR;
-   VAR RowSize	: LONGINT;
+   VAR RowSize	: M2LONGINT;
    BEGIN
       INC (DStateCount);
       IF LOOPHOLE (DStateCount,SHORTINT) = TableSize THEN
@@ -96,7 +96,7 @@ PROCEDURE MakeDState	(): DStateRange =
    END MakeDState;
 
 PROCEDURE ReleaseDState	(State: DStateRange) =
-   VAR RowSize	: LONGINT;
+   VAR RowSize	: M2LONGINT;
    BEGIN
       DEC (DStateCount);
       RowSize := ORD (LastCh) + 1;
@@ -248,7 +248,7 @@ PROCEDURE MinimizeDfa() =
       DB		= ARRAY [0 .. 100000] OF DBElmt;
    VAR
       DBPtr		: UNTRACED BRANDED REF  DB;
-      DBSize		: LONGINT;
+      DBSize		: M2LONGINT;
       BlockCount	: BlockRange;
       OldBlockCount	: BlockRange;
       Block		: BlockRange;
@@ -466,9 +466,9 @@ PROCEDURE ComputeAmbiguousStates() =
       PredCount		= ARRAY [0 .. 100000] OF SHORTCARD;
    VAR
       PredCountPtr	: UNTRACED BRANDED REF  PredCount;
-      PredCountSize	: LONGINT;
+      PredCountSize	: M2LONGINT;
       PredCount2Ptr	: UNTRACED BRANDED REF  PredCount;
-      PredCount2Size	: LONGINT;
+      PredCount2Size	: M2LONGINT;
       State, State2	: DStateRange;
       Successor		: DStateRange;
       UnambiguousStates	: tSet;
@@ -538,7 +538,7 @@ PROCEDURE ComputeCyclicStates() =
       Succ		= ARRAY [0 .. 100000] OF tSet;
    VAR
       SuccPtr		: UNTRACED BRANDED REF  Succ;
-      SuccSize		: LONGINT;
+      SuccSize		: M2LONGINT;
       State		: DStateRange;
       i, j		: DStateRange;
    BEGIN
@@ -637,7 +637,7 @@ PROCEDURE ComputeDefaults (From, To: DStateRange) =	(* compute default states *)
       DB		= ARRAY [0 .. 100000] OF DBElmt;
    VAR
       DBPtr		: UNTRACED BRANDED REF  DB	;
-      DBSize		: LONGINT	;
+      DBSize		: M2LONGINT	;
       State, State1, State2,
       DefaultState	: DStateRange	;
       DefaultCard	: SHORTCARD	;

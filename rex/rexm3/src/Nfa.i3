@@ -22,37 +22,38 @@
 
 UNSAFE INTERFACE  Nfa;
 
-FROM ScanTabs	IMPORT	RuleType;
+FROM SYSTEM IMPORT M2LONGINT;
+FROM ScanTabs   IMPORT  RuleType;
 
 CONST
-   NoTransition		= 0;
+   NoTransition         = 0;
 
 TYPE
-   NStateRange		= LONGINT;
-   TransitionRange	= LONGINT;
+   NStateRange          = M2LONGINT;
+   TransitionRange      = M2LONGINT;
 
 VAR
-   NStateCount		: NStateRange;
-   TransitionCount	: TransitionRange;
+   NStateCount          : NStateRange;
+   TransitionCount      : TransitionRange;
 
 PROCEDURE BeginNfa();
-PROCEDURE MakeNState	(pTransitions: TransitionRange): NStateRange;
-PROCEDURE PutNSemantics	(State: NStateRange; pSemantics: RuleType);
-PROCEDURE GetNSemantics	(State: NStateRange): RuleType;
+PROCEDURE MakeNState    (pTransitions: TransitionRange): NStateRange;
+PROCEDURE PutNSemantics (State: NStateRange; pSemantics: RuleType);
+PROCEDURE GetNSemantics (State: NStateRange): RuleType;
 PROCEDURE PutTransitions(State: NStateRange; pTransition: TransitionRange);
 PROCEDURE GetTransitions(State: NStateRange): TransitionRange;
 PROCEDURE IsLastTransition
-			(Transition: TransitionRange): BOOLEAN;
+                        (Transition: TransitionRange): BOOLEAN;
 PROCEDURE NextTransition(Transition: TransitionRange): TransitionRange;
 
 PROCEDURE MakeTransition(pCh: CHAR; State: NStateRange): TransitionRange;
-PROCEDURE AddTransition	(Transition, Transitions: TransitionRange): TransitionRange;
-PROCEDURE GetCh		(Transition: TransitionRange): CHAR;
-PROCEDURE GetNextState	(Transition: TransitionRange): NStateRange;
+PROCEDURE AddTransition (Transition, Transitions: TransitionRange): TransitionRange;
+PROCEDURE GetCh         (Transition: TransitionRange): CHAR;
+PROCEDURE GetNextState  (Transition: TransitionRange): NStateRange;
 PROCEDURE UniteTransitions
-			(t1, t2: TransitionRange): TransitionRange;
+                        (t1, t2: TransitionRange): TransitionRange;
 PROCEDURE CopyTransitions
-			(t1: TransitionRange): TransitionRange;
+                        (t1: TransitionRange): TransitionRange;
 PROCEDURE WriteNfa();
 PROCEDURE FinalizeNfa();
 

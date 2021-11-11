@@ -231,8 +231,8 @@ PROCEDURE Parser (): Word.T =
       yyTerminal        : yySymbolRange;
       yyNonterminal     : yySymbolRange;        (* left-hand side symbol *)
       yyStackPtr        : yyStackPtrType;
-      yyStateStackSize  : LONGINT;
-      yyAttrStackSize   : LONGINT;
+      yyStateStackSize  : M2LONGINT;
+      yyAttrStackSize   : M2LONGINT;
       yyShortStackSize  : yyStackPtrType;
       yyStateStack      : yyStackType;
       yyAttributeStack  : yyAttributeStackType;
@@ -273,8 +273,8 @@ PROCEDURE Parser (): Word.T =
 
          LOOP   (* SPEC State := Next (State, Terminal); terminal transition *)
             yyTCombPtr := LOOPHOLE 
-                            ( LOOPHOLE ( yyTBasePtr [yyState] ,LONGCARD) 
-                              + (VAL (   yyTerminal,LONGCARD ) 
+                            ( LOOPHOLE ( yyTBasePtr [yyState] ,M2LONGCARD) 
+                              + (VAL (   yyTerminal,M2LONGCARD ) 
                                 * SYSTEM.BYTESIZE (yyTCombType))
                             ,yyTCombTypePtr);
             IF yyTCombPtr^.Check = yyState 
@@ -955,8 +955,8 @@ END;
                    := Next (Top (), Nonterminal); nonterminal transition *)
                yyNCombPtr 
                  := LOOPHOLE 
-                      ( LOOPHOLE (yyNBasePtr [yyStateStack^ [yyStackPtr]],LONGCARD)
-                        + (VAL (  yyNonterminal,LONGCARD )
+                      ( LOOPHOLE (yyNBasePtr [yyStateStack^ [yyStackPtr]],M2LONGCARD)
+                        + (VAL (  yyNonterminal,M2LONGCARD )
                           * SYSTEM.BYTESIZE (yyNCombType))
                       ,yyNCombTypePtr);
                yyState := yyNCombPtr^;
@@ -981,7 +981,7 @@ END;
 PROCEDURE ErrorRecovery (
       VAR Terminal      : yySymbolRange ;
           StateStack    : yyStackType   ;
-          StackSize     : LONGINT       ;
+          StackSize     : M2LONGINT       ;
           StackPtr      : yyStackPtrType) =
    VAR
       TokensSkipped     : BOOLEAN;
@@ -1041,7 +1041,7 @@ PROCEDURE ErrorRecovery (
 
 PROCEDURE ComputeContinuation (
           Stack         : yyStackType   ;
-          StackSize     : LONGINT       ;
+          StackSize     : M2LONGINT       ;
           StackPtr      : yyStackPtrType;
       VAR ContinueSet   : Sets.tSet     ) =
    VAR Terminal         : yySymbolRange;
@@ -1062,7 +1062,7 @@ PROCEDURE ComputeContinuation (
 PROCEDURE IsContinuation (
       Terminal          : yySymbolRange ;
       ParseStack        : yyStackType   ;
-      StackSize         : LONGINT       ;
+      StackSize         : M2LONGINT       ;
       StackPtr          : yyStackPtrType): BOOLEAN =
    VAR
       State             : yyStackPtrType;
@@ -1116,7 +1116,7 @@ PROCEDURE IsContinuation (
 
 PROCEDURE ComputeRestartPoints (
           ParseStack    : yyStackType   ;
-          StackSize     : LONGINT       ;
+          StackSize     : M2LONGINT       ;
           StackPtr      : yyStackPtrType;
       VAR RestartSet    : Sets.tSet     ) =
    VAR
@@ -1180,8 +1180,8 @@ PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange =
          LOOP
             TCombPtr 
               := LOOPHOLE 
-                   ( LOOPHOLE (yyTBasePtr [State],LONGCARD) 
-                     + (VAL (   Symbol,LONGCARD )
+                   ( LOOPHOLE (yyTBasePtr [State],M2LONGCARD) 
+                     + (VAL (   Symbol,M2LONGCARD )
                        * SYSTEM.BYTESIZE (yyTCombType))
                    ,yyTCombTypePtr);
             IF TCombPtr^.Check # State THEN
@@ -1194,8 +1194,8 @@ PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange =
       ELSE
         NCombPtr 
           := LOOPHOLE 
-               ( LOOPHOLE (yyNBasePtr [State],LONGCARD) 
-                 + (VAL (   Symbol,LONGCARD )
+               ( LOOPHOLE (yyNBasePtr [State],M2LONGCARD) 
+                 + (VAL (   Symbol,M2LONGCARD )
                    * SYSTEM.BYTESIZE (yyNCombType))
                ,yyNCombTypePtr);
         RETURN NCombPtr^;

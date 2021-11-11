@@ -17,21 +17,22 @@ Initial revision
 
 UNSAFE INTERFACE  Classes;
 
-FROM Sets	IMPORT tSet;
+FROM SYSTEM IMPORT M2LONGINT;
+FROM Sets       IMPORT tSet;
 
-TYPE ClassInfo	= RECORD Set, Classes: tSet; END;
+TYPE ClassInfo  = RECORD Set, Classes: tSet; END;
 
 VAR
-   CharSet, Unused	: tSet;
-   ToClass, ToChar	: ARRAY CHAR OF CHAR;
+   CharSet, Unused      : tSet;
+   ToClass, ToChar      : ARRAY CHAR OF CHAR;
 
-   SetMemPtr	: UNTRACED BRANDED REF  ARRAY [0 .. 100000] OF ClassInfo;
-   SetMemSize	: LONGINT;
-   SetCount	: INTEGER;
+   SetMemPtr    : UNTRACED BRANDED REF  ARRAY [0 .. 100000] OF ClassInfo;
+   SetMemSize   : M2LONGINT;
+   SetCount     : INTEGER;
 
-   ClassMemPtr	: UNTRACED BRANDED REF  ARRAY CHAR OF tSet;
-   ClassMemSize	: LONGINT;
-   ClassCount	: CHAR;
+   ClassMemPtr  : UNTRACED BRANDED REF  ARRAY CHAR OF tSet;
+   ClassMemSize : M2LONGINT;
+   ClassCount   : CHAR;
 
 PROCEDURE IsInSetMem (Set: tSet): INTEGER;
 PROCEDURE ComputeClasses (Blocking: BOOLEAN);

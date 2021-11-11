@@ -45,7 +45,7 @@ TYPE
 
 VAR
    DefTablePtr	: UNTRACED BRANDED REF  DefTable;
-   DefTableSize	: LONGINT;
+   DefTableSize	: M2LONGINT;
 
 PROCEDURE MakeIdentDef	(
 	  pSymbol 	: tIdent	;

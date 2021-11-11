@@ -25,7 +25,7 @@ CONST
    NoDef	= 0	;
 
 TYPE
-   DefRange	= LONGINT;
+   DefRange	= M2LONGINT;
    tKind	= {NoKind, Ident, Start};
 
 VAR

@@ -280,7 +280,7 @@ PROCEDURE yyAlloc (): tTree0 =
  END yyAlloc;
 
 PROCEDURE MakeTree0 (yyKind: SHORTCARD): tTree0 =
- VAR yyByteCount       : LONGINT;
+ VAR yyByteCount       : M2LONGINT;
  VAR yyt       : tTree0;
  BEGIN
    yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [yyKind] ); 
@@ -300,7 +300,7 @@ PROCEDURE IsType (yyTree: tTree0; yyKind: SHORTCARD): BOOLEAN =
 
 
 PROCEDURE mNode (): tTree0 =
- VAR yyByteCount    : LONGINT;
+ VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
    yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Node] ); 
@@ -319,7 +319,7 @@ PROCEDURE mNode (): tTree0 =
  END mNode;
 
 PROCEDURE mNode1 (pSon1: tTree0): tTree0 =
- VAR yyByteCount    : LONGINT;
+ VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
    yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Node1] ); 
@@ -339,7 +339,7 @@ PROCEDURE mNode1 (pSon1: tTree0): tTree0 =
  END mNode1;
 
 PROCEDURE mOption (pSon1: tTree0): tTree0 =
- VAR yyByteCount    : LONGINT;
+ VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
    yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Option] ); 
@@ -359,7 +359,7 @@ PROCEDURE mOption (pSon1: tTree0): tTree0 =
  END mOption;
 
 PROCEDURE mRepetition (pSon1: tTree0): tTree0 =
- VAR yyByteCount    : LONGINT;
+ VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
    yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Repetition] ); 
@@ -379,7 +379,7 @@ PROCEDURE mRepetition (pSon1: tTree0): tTree0 =
  END mRepetition;
 
 PROCEDURE mNode2 (pSon1: tTree0; pSon2: tTree0): tTree0 =
- VAR yyByteCount    : LONGINT;
+ VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
    yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Node2] ); 
@@ -400,7 +400,7 @@ PROCEDURE mNode2 (pSon1: tTree0; pSon2: tTree0): tTree0 =
  END mNode2;
 
 PROCEDURE mList (pSon1: tTree0; pSon2: tTree0): tTree0 =
- VAR yyByteCount    : LONGINT;
+ VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
    yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [List] ); 
@@ -421,7 +421,7 @@ PROCEDURE mList (pSon1: tTree0; pSon2: tTree0): tTree0 =
  END mList;
 
 PROCEDURE mSequence (pSon1: tTree0; pSon2: tTree0): tTree0 =
- VAR yyByteCount    : LONGINT;
+ VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
    yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Sequence] ); 
@@ -442,7 +442,7 @@ PROCEDURE mSequence (pSon1: tTree0; pSon2: tTree0): tTree0 =
  END mSequence;
 
 PROCEDURE mAlternative (pSon1: tTree0; pSon2: tTree0): tTree0 =
- VAR yyByteCount    : LONGINT;
+ VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
    yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Alternative] ); 
@@ -463,7 +463,7 @@ PROCEDURE mAlternative (pSon1: tTree0; pSon2: tTree0): tTree0 =
  END mAlternative;
 
 PROCEDURE mCh (pCh: CHAR): tTree0 =
- VAR yyByteCount    : LONGINT;
+ VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
    yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Ch] ); 
@@ -483,7 +483,7 @@ PROCEDURE mCh (pCh: CHAR): tTree0 =
  END mCh;
 
 PROCEDURE mSet (pSet: tSet): tTree0 =
- VAR yyByteCount    : LONGINT;
+ VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
    yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Set] ); 
@@ -504,7 +504,7 @@ PROCEDURE mSet (pSet: tSet): tTree0 =
  END mSet;
 
 PROCEDURE mString (pString: tStringRef): tTree0 =
- VAR yyByteCount    : LONGINT;
+ VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
    yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [String] ); 
@@ -524,7 +524,7 @@ PROCEDURE mString (pString: tStringRef): tTree0 =
  END mString;
 
 PROCEDURE mRule (pPatterns: tTree0; pTargetCode: tText; pLine: SHORTCARD; pCodeMode: SHORTCARD; pRuleNr: SHORTCARD): tTree0 =
- VAR yyByteCount    : LONGINT;
+ VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
    yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Rule] ); 
@@ -548,7 +548,7 @@ PROCEDURE mRule (pPatterns: tTree0; pTargetCode: tText; pLine: SHORTCARD; pCodeM
  END mRule;
 
 PROCEDURE mPattern (pStartStates: tSet; pRegExpr: tTree0; pRightContext: tTree0; pPatternNr: SHORTCARD; pPosition: tPosition): tTree0 =
- VAR yyByteCount    : LONGINT;
+ VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
    yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Pattern] ); 
@@ -635,7 +635,7 @@ yyt := yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible 
 
 CONST yyInitTreeStoreSize      = 32;
 
-VAR yyTreeStoreSize    : LONGINT;
+VAR yyTreeStoreSize    : M2LONGINT;
 VAR yyTreeStorePtr     : UNTRACED BRANDED REF  ARRAY [0..50000] OF tTree0;
 VAR yyLabelCount       : INTEGER;
 VAR yyRecursionLevel   : SHORTINT;
@@ -1100,7 +1100,7 @@ BEGIN
  yyNodeSize [Pattern] := SYSTEM.BYTESIZE (yPattern);
  yyMaxSize     := 0;
  FOR yyi := 1 TO 13 DO
-  yyNodeSize [yyi] := LOOPHOLE (LOOPHOLE (yyNodeSize [yyi] + LOOPHOLE (General.MaxAlign,Word.T) - 1,BITSET) * General.AlignMasks [General.MaxAlign],LONGINT);
+  yyNodeSize [yyi] := LOOPHOLE (LOOPHOLE (yyNodeSize [yyi] + LOOPHOLE (General.MaxAlign,Word.T) - 1,BITSET) * General.AlignMasks [General.MaxAlign],M2LONGINT);
   yyMaxSize := General.Max (yyNodeSize [yyi], yyMaxSize);
  END;
  yyTypeRange [Node] := Pattern;
