@@ -370,12 +370,12 @@ PROCEDURE CompressTables (Optimize: SHORTINT) =
 	       base := Current^.Base + ORD (Current^.DiffsPtr^[2]) + 1;
 	    ELSE				(* if not: enter and start from zero *)
 	       Current := Alloc (BYTESIZE (DiffsInfo));
-	       WITH m2tom3_with_11=Current^ DO
-		  m2tom3_with_11.Base := 0;
-		  m2tom3_with_11.Next := HashTablePtr^[Hash];
-		  m2tom3_with_11.Count := GroupCount * 2;
-		  m2tom3_with_11.DiffsPtr := Alloc (m2tom3_with_11.Count);
-		  FOR j := 1 TO m2tom3_with_11.Count DO m2tom3_with_11.DiffsPtr^[j] := Diffs [j]; END;
+	       WITH m2tom3_with_13=Current^ DO
+		  m2tom3_with_13.Base := 0;
+		  m2tom3_with_13.Next := HashTablePtr^[Hash];
+		  m2tom3_with_13.Count := GroupCount * 2;
+		  m2tom3_with_13.DiffsPtr := Alloc (m2tom3_with_13.Count);
+		  FOR j := 1 TO m2tom3_with_13.Count DO m2tom3_with_13.DiffsPtr^[j] := Diffs [j]; END;
 	       END;
 	       HashTablePtr^[Hash] := Current;
 	    END;
@@ -419,9 +419,9 @@ PROCEDURE CompressTables (Optimize: SHORTINT) =
 	       Ch := Group [j].First;
 	       StopCh := Group [j].Last;
 	       LOOP
-		  WITH m2tom3_with_12=ControlPtr^[base + ORD (Ch)] DO
-		     m2tom3_with_12.Check := State;
-		     m2tom3_with_12.Next  := GetTableNoDef (State, ToClass [Ch]);
+		  WITH m2tom3_with_14=ControlPtr^[base + ORD (Ch)] DO
+		     m2tom3_with_14.Check := State;
+		     m2tom3_with_14.Next  := GetTableNoDef (State, ToClass [Ch]);
 		  END;
 		  INC (TableEntries);
 		  IF Ch = StopCh THEN EXIT; END;

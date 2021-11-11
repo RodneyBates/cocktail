@@ -48,10 +48,10 @@ PROCEDURE MakeTree1 (pRule: SHORTCARD; pSon1: tTree): tTree =
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (Node1));
-      WITH m2tom3_with_14=Tree^.vNode1(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode1' in line 50
+      WITH m2tom3_with_29=Tree^.vNode1(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode1' in line 50
  $$ *) DO
-	 m2tom3_with_14.Rule := pRule;
-	 m2tom3_with_14.Son1 := pSon1;
+	 m2tom3_with_29.Rule := pRule;
+	 m2tom3_with_29.Son1 := pSon1;
       END;
       RETURN Tree;
    END MakeTree1;
@@ -60,11 +60,11 @@ PROCEDURE MakeTree2 (pRule: SHORTCARD; pSon1, pSon2: tTree): tTree =
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (Node2));
-      WITH m2tom3_with_15=Tree^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 61
+      WITH m2tom3_with_30=Tree^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 61
  $$ *) DO
-	 m2tom3_with_15.Rule := pRule;
-	 m2tom3_with_15.Son1 := pSon1;
-	 m2tom3_with_15.Son2 := pSon2;
+	 m2tom3_with_30.Rule := pRule;
+	 m2tom3_with_30.Son1 := pSon1;
+	 m2tom3_with_30.Son2 := pSon2;
       END;
       RETURN Tree;
    END MakeTree2;
@@ -73,10 +73,10 @@ PROCEDURE MakeTreeCh (pRule: SHORTCARD; pCh: CHAR): tTree =
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (NodeCh));
-      WITH m2tom3_with_16=Tree^.vNodeCh(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeCh' in line 73
+      WITH m2tom3_with_31=Tree^.vNodeCh(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeCh' in line 73
  $$ *) DO
-	 m2tom3_with_16.Rule := pRule;
-	 m2tom3_with_16.Ch   := pCh;
+	 m2tom3_with_31.Rule := pRule;
+	 m2tom3_with_31.Ch   := pCh;
       END;
       RETURN Tree;
    END MakeTreeCh;
@@ -85,10 +85,10 @@ PROCEDURE MakeTreeSet (pRule: SHORTCARD; pSet: tSet): tTree =
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (NodeSet));
-      WITH m2tom3_with_17=Tree^.vNodeSet(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeSet' in line 84
+      WITH m2tom3_with_32=Tree^.vNodeSet(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeSet' in line 84
  $$ *) DO
-	 m2tom3_with_17.Rule := pRule;
-	 m2tom3_with_17.Set  := pSet;
+	 m2tom3_with_32.Rule := pRule;
+	 m2tom3_with_32.Set  := pSet;
       END;
       RETURN Tree;
    END MakeTreeSet;
@@ -97,10 +97,10 @@ PROCEDURE MakeTreeString(pRule: SHORTCARD; pString: tStringRef): tTree =
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (NodeString));
-      WITH m2tom3_with_18=Tree^.vNodeString(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeString' in line 95
+      WITH m2tom3_with_33=Tree^.vNodeString(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeString' in line 95
  $$ *) DO
-	 m2tom3_with_18.Rule	:= pRule;
-	 m2tom3_with_18.String	:= pString;
+	 m2tom3_with_33.Rule	:= pRule;
+	 m2tom3_with_33.String	:= pString;
       END;
       RETURN Tree;
    END MakeTreeString;
@@ -110,14 +110,14 @@ PROCEDURE MakeTreeRule	(pRule: SHORTCARD; pPatterns: tTree; pTargetCode:
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (NodeRule));
-      WITH m2tom3_with_19=Tree^.vNodeRule(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 107
+      WITH m2tom3_with_34=Tree^.vNodeRule(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 107
  $$ *) DO
-	 m2tom3_with_19.Rule		:= pRule;
-	 m2tom3_with_19.Patterns	:= pPatterns;
-	 m2tom3_with_19.TargetCode	:= pTargetCode;
-	 m2tom3_with_19.Line		:= pLine;
-	 m2tom3_with_19.CodeMode	:= pCodeMode;
-	 m2tom3_with_19.RuleNr		:= pRuleNr;
+	 m2tom3_with_34.Rule		:= pRule;
+	 m2tom3_with_34.Patterns	:= pPatterns;
+	 m2tom3_with_34.TargetCode	:= pTargetCode;
+	 m2tom3_with_34.Line		:= pLine;
+	 m2tom3_with_34.CodeMode	:= pCodeMode;
+	 m2tom3_with_34.RuleNr		:= pRuleNr;
       END;
       RETURN Tree;
    END MakeTreeRule;
@@ -128,15 +128,15 @@ PROCEDURE MakeTreePattern(pRule: SHORTCARD; pStartStates: tSet; pRegExpr,
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (NodePattern));
-      WITH m2tom3_with_20=Tree^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 124
+      WITH m2tom3_with_35=Tree^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 124
  $$ *) DO
-	 m2tom3_with_20.Rule		:= pRule;
-	 m2tom3_with_20.StartStates	:= pStartStates;
-	 m2tom3_with_20.RegExpr	:= pRegExpr;
-	 m2tom3_with_20.RightContext	:= pRightContext;
-	 m2tom3_with_20.IsConstantRE	:= pIsConstantRE;
-	 m2tom3_with_20.PatternNr	:= pPatternNr;
-	 m2tom3_with_20.Position	:= pPosition;
+	 m2tom3_with_35.Rule		:= pRule;
+	 m2tom3_with_35.StartStates	:= pStartStates;
+	 m2tom3_with_35.RegExpr	:= pRegExpr;
+	 m2tom3_with_35.RightContext	:= pRightContext;
+	 m2tom3_with_35.IsConstantRE	:= pIsConstantRE;
+	 m2tom3_with_35.PatternNr	:= pPatternNr;
+	 m2tom3_with_35.Position	:= pPosition;
       END;
       RETURN Tree;
    END MakeTreePattern;

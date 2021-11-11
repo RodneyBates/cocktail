@@ -75,10 +75,10 @@ PROCEDURE ResetTraces	(StringLength: INTEGER) =
 PROCEDURE RecordTrace	(Position: SHORTCARD; pTraceState, pNewState: DStateRange) =
    BEGIN
       INC (TraceCount);				(* record trace step *)
-      WITH m2tom3_with_13=TracePtr^[TraceCount] DO
-	 m2tom3_with_13.TraceState := pTraceState;
-	 m2tom3_with_13.NewState   := pNewState;
-	 m2tom3_with_13.Next 	    := PosToTracePtr^[Position];
+      WITH m2tom3_with_15=TracePtr^[TraceCount] DO
+	 m2tom3_with_15.TraceState := pTraceState;
+	 m2tom3_with_15.NewState   := pNewState;
+	 m2tom3_with_15.Next 	    := PosToTracePtr^[Position];
       END;
       PosToTracePtr^[Position] := ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 82
  $$ *) (TracePtr^[TraceCount]);

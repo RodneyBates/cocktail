@@ -31,8 +31,7 @@ FROM IO		IMPORT StdOutput, WriteC, WriteI, WriteS, WriteNl;
 FROM Sets	IMPORT tSet, tElement, MakeSet, Assign, Include, IsEqual, ForallDo, WriteSet,
 			Intersection, Union, Difference, Complement, ReleaseSet, IsEmpty,
 			IsSubset;
-FROM Tree0(* $$ m2tom3 warning: unable to find interface for import 'Tree0' in line 33
- $$ *)	IMPORT tTree0, Tree0Root, TraverseTree0TD, Ch, Set, String;
+FROM Tree0	IMPORT tTree0, Tree0Root, TraverseTree0TD, Ch, Set, String;
 FROM Dfa	IMPORT FirstCh, LastCh, OldLastCh, EobCh;
 
 PROCEDURE IsInSetMem (Set: tSet): INTEGER =
@@ -48,30 +47,25 @@ PROCEDURE CollectSets (t: tTree0) =
    VAR i	: Word.T;
    VAR string	: tString;
    BEGIN
-      CASE t(* $$ m2tom3 warning: unable to resolve qualification in designator 't' in line 49
- $$ *)^.Kind OF
-      | Ch	=> Include (CharSet, ORD (t(* $$ m2tom3 warning: unable to resolve qualification in designator 't' in line 50
- $$ *)^.Ch(* $$ m2tom3 warning: unable to resolve qualification in designator 'Ch' in line 50
+      CASE t^.Kind(* $$ m2tom3 warning: application of variant field, possible cast of 'Kind' in line 49
+ $$ *) OF
+      | Ch	=> Include (CharSet, ORD (t^.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 50
  $$ *).Ch));
 
-      | Set	=> IF IsInSetMem (t(* $$ m2tom3 warning: unable to resolve qualification in designator 't' in line 52
- $$ *)^.Set(* $$ m2tom3 warning: unable to resolve qualification in designator 'Set' in line 52
+      | Set	=> IF IsInSetMem (t^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 52
  $$ *).Set) = 0 THEN
 		     INC (SetCount);
 		     IF SetCount = SetMemSize THEN
 			ExtendArray (SetMemPtr, SetMemSize, BYTESIZE (ClassInfo));
 		     END;
 		     MakeSet (SetMemPtr^[SetCount].Set, ORD (LastCh));
-		     Assign (SetMemPtr^[SetCount].Set, t(* $$ m2tom3 warning: unable to resolve qualification in designator 't' in line 58
- $$ *)^.Set(* $$ m2tom3 warning: unable to resolve qualification in designator 'Set' in line 58
+		     Assign (SetMemPtr^[SetCount].Set, t^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 58
  $$ *).Set);
-		     Union (Unused, t(* $$ m2tom3 warning: unable to resolve qualification in designator 't' in line 59
- $$ *)^.Set(* $$ m2tom3 warning: unable to resolve qualification in designator 'Set' in line 59
+		     Union (Unused, t^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 59
  $$ *).Set);
 		  END;
 
-      | String	=> GetString (t(* $$ m2tom3 warning: unable to resolve qualification in designator 't' in line 62
- $$ *)^.String(* $$ m2tom3 warning: unable to resolve qualification in designator 'String' in line 62
+      | String	=> GetString (t^.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 62
  $$ *).String, string);
 		  FOR i := Length (string) TO 1 BY -1 DO
 		     Include (CharSet, ORD (Char (string, i)));
