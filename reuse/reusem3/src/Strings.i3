@@ -32,7 +32,8 @@ TYPE	tString		= RECORD
 		     	     Length : tStringIndex;
 		  	  END;
 
-PROCEDURE Assign	(VAR s1, s2: tString);
+PROCEDURE Assign        (VAR s1: tString; READONLY s2: tString);
+   (* Zuweisung von Zeichenketten                       *)
 
 			(* Assigns the string 's2' to the string 's1',
                            i.e. s1 := s2 *)
@@ -41,7 +42,7 @@ PROCEDURE AssignEmpty	(VAR s: tString);
 
 			(* Returns an empty string 's'.			*)
 
-PROCEDURE Concatenate	(VAR s1, s2: tString);
+PROCEDURE Concatenate   (VAR s1: tString; READONLY s2: tString);
 
 			(* Returns in parameter 's1' the concatenation	*)
 			(* of the strings 's1' and 's2'.		*)
@@ -51,17 +52,17 @@ PROCEDURE Append	(VAR s: tString; c: CHAR);
 			(* The character 'c' is concatenated at the end	*)
 			(* of the string 's'.				*)
 
-PROCEDURE Length	(VAR s: tString)			: Word.T;
+PROCEDURE Length	(READONLY s: tString)			: Word.T;
 
 			(* Returns the length of the string 's'.	*)
 
-PROCEDURE IsEqual	(VAR s1, s2: tString)			: BOOLEAN;
+PROCEDURE IsEqual	(READONLY s1, s2: tString)			: BOOLEAN;
 
 			(* Returns TRUE if the strings 's1' and 's2'	*)
 			(* are equal.					*)
 
-PROCEDURE IsInOrder	(VAR s1, s2: tString)			: BOOLEAN;
-
+PROCEDURE IsInOrder     (READONLY s1, s2: tString): BOOLEAN;
+   (* Pruefung von 2 Zeichenketten auf lexikographische Ordnung *)
 			(* Returns TRUE if the string 's1' is lexico-	*)
 			(* graphically less or equal to the string 's2'.*)
 
@@ -69,14 +70,14 @@ PROCEDURE Exchange	(VAR s1, s2: tString);
 
 			(* Exchanges the strings 's1' and 's2'.		*)
 
-PROCEDURE SubString	(VAR s1: tString; from, to: tStringIndex; VAR s2: tString);
+PROCEDURE SubString	(READONLY s1: tString; from, to: tStringIndex; VAR s2: tString);
 
 			(* Returns in 's2' the substring from 's1' com-	*)
 			(* prising the characters between 'from' and 'to'. *)
 			(* PRE	1 <= from <= Length (s1)		*)
 			(* PRE	1 <=  to  <= Length (s1)		*)
 
-PROCEDURE Char		(VAR s: tString; i: tStringIndex)	: CHAR;
+PROCEDURE Char		(READONLY s: tString; i: tStringIndex)	: CHAR;
 
 			(* Returns the 'i'-th character of the string 's'. *)
 			(* The characters are counted from 1 to Length (s). *)
@@ -88,22 +89,22 @@ PROCEDURE ArrayToString	(READONLY a: ARRAY OF CHAR; VAR s: tString);
 			(* MODULA string is converted to a string 's'	*)
 			(* of type tString.				*)
 
-PROCEDURE StringToArray	(VAR s: tString; VAR a: ARRAY OF CHAR);
+PROCEDURE StringToArray	(READONLY s: tString; VAR a: ARRAY OF CHAR);
 
 			(* A string 's' of type tString is converted to *)
 			(* an array 'a' of characters representing a	*)
 			(* MODULA string.				*)
 
-PROCEDURE StringToInt	(VAR s: tString)			: INTEGER;
+PROCEDURE StringToInt	(READONLY s: tString)			: INTEGER;
 
 			(* Returns the integer value represented by 's'. *)
 
-PROCEDURE StringToNumber(VAR s: tString; Base: Word.T)	: Word.T;
+PROCEDURE StringToNumber(READONLY s: tString; Base: Word.T)	: Word.T;
 
 			(* Returns the integer value represented by 's'	*)
 			(* to the base 'Base'.				*)
 
-PROCEDURE StringToReal	(VAR s: tString)			: REAL;
+PROCEDURE StringToReal	(READONLY s: tString)			: REAL;
 
 			(* Returns the real value represented by 's'.	*)
 
@@ -121,11 +122,11 @@ PROCEDURE ReadL		(f: tFile; VAR s: tString);
 			(* Read rest of line as string 's' from file	*)
 			(* 'f'.	Skip to next line.			*)
 
-PROCEDURE WriteS	(f: tFile; VAR s: tString);
+PROCEDURE WriteS	(f: tFile; READONLY s: tString);
 
 			(* Write string 's' to file 'f'.		*)
 
-PROCEDURE WriteL	(f: tFile; VAR s: tString);
+PROCEDURE WriteL	(f: tFile; READONLY s: tString);
 
 			(* Write string 's' as complete line.		*)
 

@@ -19,7 +19,7 @@ PROCEDURE Error() =
       ReuseIO.WriteNl (StdError);
    END Error;
 
-PROCEDURE Assign        (VAR s1, s2: tString) =
+PROCEDURE Assign        (VAR s1: tString; READONLY s2: tString) =
    (* Zuweisung von Zeichenketten                       *)
    BEGIN
    (* s1 := s2; *)
@@ -38,7 +38,7 @@ PROCEDURE AssignEmpty   (VAR s: tString) =
       reported := FALSE;
    END AssignEmpty;
 
-PROCEDURE Concatenate   (VAR s1, s2: tString) =
+PROCEDURE Concatenate   (VAR s1: tString; READONLY s2: tString) =
    (* Returns in parameter 's1' the concatenation       *)
    (* of the strings 's1' and 's2'.                     *)
    BEGIN
@@ -68,13 +68,13 @@ PROCEDURE Append        (VAR s: tString; c: CHAR) =
       END;
    END Append;
 
-PROCEDURE Length        (VAR s: tString)                        : Word.T =
+PROCEDURE Length        (READONLY s: tString)                        : Word.T =
    (* Laenge einer Zeichenkette                         *)
    BEGIN
       RETURN s.Length;
    END Length;
 
-PROCEDURE IsEqual       (VAR s1, s2: tString)                   : BOOLEAN =
+PROCEDURE IsEqual       (READONLY s1, s2: tString)                   : BOOLEAN =
    (* Pruefung von 2 Zeichenketten auf Gleichheit       *)
    BEGIN
       IF s1.Length # s2.Length THEN
@@ -89,7 +89,7 @@ PROCEDURE IsEqual       (VAR s1, s2: tString)                   : BOOLEAN =
       RETURN TRUE;
    END IsEqual;
 
-PROCEDURE IsInOrder     (VAR s1, s2: tString)                   : BOOLEAN =
+PROCEDURE IsInOrder     (READONLY s1, s2: tString): BOOLEAN =
    (* Pruefung von 2 Zeichenketten auf lexikographische Ordnung *)
    VAR
       rank1, rank2: Word.T;
@@ -122,7 +122,7 @@ PROCEDURE Exchange      (VAR s1, s2: tString) =
       Assign (s2  , temp);
    END Exchange;
 
-PROCEDURE SubString     (VAR s1: tString; from, to: tStringIndex; VAR s2: tString) =
+PROCEDURE SubString (READONLY s1: tString; from, to: tStringIndex; VAR s2: tString) =
    (* Returns in 's2' the substring from 's1' com-      *)
    (* prising the characters between 'from' and 'to'.   *)
    (* PRE 1 <= from <= Length (s1)                      *)
@@ -137,7 +137,7 @@ PROCEDURE SubString     (VAR s1: tString; from, to: tStringIndex; VAR s2: tStrin
       END;
    END SubString;
 
-PROCEDURE Char          (VAR s: tString; i: tStringIndex)       : CHAR =
+PROCEDURE Char          (READONLY s: tString; i: tStringIndex)       : CHAR =
    (* liefert ein Zeichen einer Zeichenkette: s [index] *)
    (* PRE 1 <= index <= Length (s)                      *)
    BEGIN
@@ -157,7 +157,7 @@ PROCEDURE ArrayToString (READONLY a: ARRAY OF CHAR; VAR s: tString) =
       s.Length := i;
    END ArrayToString;
 
-PROCEDURE StringToArray (VAR s: tString; VAR a: ARRAY OF CHAR) =
+PROCEDURE StringToArray (READONLY s: tString; VAR a: ARRAY OF CHAR) =
    BEGIN
       FOR i := 1 TO s.Length DO
          a [i-1] := s.Chars [i];
@@ -165,7 +165,7 @@ PROCEDURE StringToArray (VAR s: tString; VAR a: ARRAY OF CHAR) =
       a [s.Length] := '\000';
    END StringToArray;
 
-PROCEDURE StringToInt   (VAR s: tString)                        : INTEGER =
+PROCEDURE StringToInt   (READONLY s: tString)                        : INTEGER =
    (* Returns the integer value represented by 's'.     *)
    VAR
       start     : tStringIndex;
@@ -187,7 +187,7 @@ PROCEDURE StringToInt   (VAR s: tString)                        : INTEGER =
       END;
    END StringToInt;
 
-PROCEDURE StringToNumber (VAR s: tString; Base: Word.T) : Word.T =
+PROCEDURE StringToNumber (READONLY s: tString; Base: Word.T) : Word.T =
    (* Returns the integer value represented by 's'      *)
    (* to the base 'Base'.                               *)
    VAR
@@ -208,7 +208,7 @@ PROCEDURE StringToNumber (VAR s: tString; Base: Word.T) : Word.T =
       RETURN n;
    END StringToNumber;
 
-PROCEDURE StringToReal  (VAR s: tString)                        : REAL =
+PROCEDURE StringToReal  (READONLY Fs: tString)                        : REAL =
    (* Returns the real value represented by 's'.        *)
    CONST
       MaxInt            = 2147483647;   (* 2 ** 31 - 1 *)
@@ -223,6 +223,7 @@ PROCEDURE StringToReal  (VAR s: tString)                        : REAL =
       TruncatedDigits   : Word.T;
       ch                : CHAR;
       i                 : tStringIndex;
+      s                 : tString;
    BEGIN
       MantissaNeg       := FALSE;
       Mantissa          := 0;
@@ -231,6 +232,7 @@ PROCEDURE StringToReal  (VAR s: tString)                        : REAL =
       TruncatedDigits   := 0;
       i                 := 0;
 
+      Assign (s, Fs);
       Append (s, ' ');          (* ASSERT Length (s) < cMaxStrLength    *)
       INC (i); ch := s.Chars [i];
 
@@ -360,7 +362,7 @@ PROCEDURE ReadL         (f: tFile; VAR s: tString) =
       s.Length := i;
    END ReadL;
 
-PROCEDURE WriteS        (f: tFile; VAR s: tString) =
+PROCEDURE WriteS        (f: tFile; READONLY s: tString) =
    (* Write string 's' to file 'f'.                     *)
    BEGIN
       FOR i := 1 TO s.Length DO
@@ -368,7 +370,7 @@ PROCEDURE WriteS        (f: tFile; VAR s: tString) =
       END;
    END WriteS;
 
-PROCEDURE WriteL        (f: tFile; VAR s: tString) =
+PROCEDURE WriteL        (f: tFile; READONLY s: tString) =
    (* Write string 's' as complete line to file 'f'.    *)
    BEGIN
       WriteS (f, s);
