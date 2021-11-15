@@ -196,8 +196,8 @@ PROCEDURE MakeTables	(ReduceCaseSize: BOOLEAN) =
       Pattern	: SHORTCARD;
    BEGIN
       DefaultSize := DStateCount + 1;
-      MakeArray (DefaultPtr , DefaultSize, BYTESIZE (StateRange));
-      MakeArray (EobTransPtr, DefaultSize, BYTESIZE (StateRange));
+      MakeArray (LOOPHOLE(DefaultPtr,ADDRESS) , DefaultSize, BYTESIZE (StateRange));
+      MakeArray (LOOPHOLE(EobTransPtr,ADDRESS), DefaultSize, BYTESIZE (StateRange));
       DefaultPtr ^[DNoState] := DNoState;
       EobTransPtr^[DNoState] := DNoState;
       FOR State := 1 TO DStateCount DO
@@ -205,7 +205,7 @@ PROCEDURE MakeTables	(ReduceCaseSize: BOOLEAN) =
 	 EobTransPtr^[State] := GetEobTrans (State);
       END;
       IF ReduceCaseSize THEN
-	 MakeArray (ActionPtr, DefaultSize, BYTESIZE (TableElmt));
+	 MakeArray (LOOPHOLE(ActionPtr,ADDRESS), DefaultSize, BYTESIZE (TableElmt));
 	 ActionPtr^[DNoState] := DNoState;
 	 FOR State := 1 TO DStateCount DO
 	    ActionPtr^[State] := PatternCount + 1;
@@ -250,7 +250,7 @@ PROCEDURE CompressTables (Optimize: SHORTINT) =
       Domain		: tSet;
    BEGIN
       BaseSize := DStateCount + 1;
-      MakeArray (BasePtr, BaseSize, BYTESIZE (TableRange));
+      MakeArray (LOOPHOLE(BasePtr,ADDRESS), BaseSize, BYTESIZE (TableRange));
       FOR State := 0 TO DStateCount DO
 	 BasePtr^[State] := 0;
       END;
@@ -263,14 +263,14 @@ PROCEDURE CompressTables (Optimize: SHORTINT) =
 	 ControlSize := LeafCount * 12;
       END;
       ControlSize := Max (ControlSize, LOOPHOLE (ORD (OldLastCh),M2LONGINT) + 1);
-      MakeArray (ControlPtr, ControlSize, BYTESIZE (ControlType));
+      MakeArray (LOOPHOLE(ControlPtr,ADDRESS), ControlSize, BYTESIZE (ControlType));
       FOR i := 0 TO ControlSize - 1 DO
 	 ControlPtr^[i].Check := DNoState;
 	 ControlPtr^[i].Next  := DNoState;
       END;
 
       HashTableSize := DStateCount;
-      MakeArray (HashTablePtr, HashTableSize, BYTESIZE (DiffsInfoPtr));
+      MakeArray (LOOPHOLE(HashTablePtr,ADDRESS), HashTableSize, BYTESIZE (DiffsInfoPtr));
       FOR i := 0 TO HashTableSize - 1 DO
 	 HashTablePtr^[i] := NIL;
       END;
@@ -385,7 +385,7 @@ PROCEDURE CompressTables (Optimize: SHORTINT) =
 	       lbase := base;
 	       IF lbase >= (ControlSize - LOOPHOLE (ORD (OldLastCh),M2LONGINT)) THEN
 		  OldControlSize := ControlSize;
-		  ExtendArray (ControlPtr, ControlSize, BYTESIZE (ControlType));
+		  ExtendArray (LOOPHOLE(ControlPtr,ADDRESS), ControlSize, BYTESIZE (ControlType));
 		  FOR i := OldControlSize TO ControlSize - 1 DO
 		     ControlPtr^[i].Check := DNoState;
 		     ControlPtr^[i].Next  := DNoState;

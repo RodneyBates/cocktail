@@ -4,17 +4,15 @@
 
  UNSAFE MODULE Parser;
 
-FROM SYSTEM IMPORT SHORTCARD;
-IMPORT Word, SYSTEM, Scanner, Positions, Errors, Strings, DynArray, Sets, System;
+FROM SYSTEM IMPORT M2LONGINT, M2LONGCARD, SHORTCARD;
+IMPORT Word, SYSTEM, Scanner, Positions, Strings, DynArray, Sets, System;
 
 (* line 24 "/tmp/lalr4706" *)
 (* line 26 ../src/rex.lalr *)
 
 
 
-
-FROM Errors	IMPORT
-   ErrorMessageI;
+IMPORT RexErrors AS Errors;
 
 FROM Tree0	IMPORT
    tTree0	, Tree0Root	,
@@ -26,8 +24,8 @@ FROM Tree	IMPORT
    tTree	;
 
 FROM Sets	IMPORT
-   tSet		, MakeSet	, ReleaseSet	, WriteSet	,
-   Assign	, Union		, Include	, Exclude	,
+   tSet		, MakeSet	, ReleaseSet	,
+   Union		, Include	, Exclude	,
    Complement	;
 
 FROM Strings	IMPORT
@@ -58,7 +56,7 @@ FROM ScanGen	IMPORT
    Close	, Eof		, Position	, NoPosition	,
    ExportLine	, GlobalLine	, LocalLine	, BeginLine	,
    CloseLine	, EofLine	, DefaultLine	, Default	,
-   BlankText	, TabText	, EolText	, RexLib	,
+   BlankText	, TabText	, EolText	,
    ScannerName	, InitScanGen	;
 
 CONST
@@ -81,16 +79,13 @@ TYPE
 
 VAR
    Number	: SHORTCARD	;
-   ch		: CHAR		;
    bool		: BOOLEAN	;
    string	: tString	;
    stringref	: tStringRef	;
-   Text		: tList		;
    set		: tSet		;
    tree		: tTree0	;
    tree1	: tTree		;
    Definition	: DefRange	;
-   Kind		: tKind		;
    Identifier	: tIdent	;
    nNode	,
    EOLTree	: tTree0	;
@@ -138,62 +133,67 @@ CONST
 
 TYPE
    yyTableElmt          = SHORTCARD;
-   yyTCombRange         = yyTableElmt [0 .. yyTableMax];
-   yyNCombRange         = yyTableElmt [yyLastTerminal + 1 .. yyNTableMax];
-   yyStateRange         = yyTableElmt [0 .. yyLastState];
-   yyReadRange          = yyTableElmt [yyFirstReadState .. yyLastReadState];
-   yyReadReduceRange    = yyTableElmt 
+   yyTCombRange         = (*yyTableElmt*) [0 .. yyTableMax];
+   yyNCombRange         = (*yyTableElmt*) [yyLastTerminal + 1 .. yyNTableMax];
+   yyStateRange         = (*yyTableElmt*) [0 .. yyLastState];
+   yyReadRange          = (*yyTableElmt*) [yyFirstReadState .. yyLastReadState];
+   yyReadReduceRange    = (*yyTableElmt*) 
                             [yyFirstReadTermState ..yyLastReadNontermState];
-   yyReduceRange        = yyTableElmt [yyFirstReduceState .. yyLastReduceState];
-   yySymbolRange        = yyTableElmt [yyFirstSymbol .. yyLastSymbol];
+   yyReduceRange        = (*yyTableElmt*) [yyFirstReduceState .. yyLastReduceState];
+   yySymbolRange        = (*yyTableElmt*) [yyFirstSymbol .. yyLastSymbol];
    yyTCombType          = RECORD Check, Next: yyStateRange; END;
    yyNCombType          = yyStateRange;
    yyTCombTypePtr       = UNTRACED BRANDED REF  yyTCombType;
    yyNCombTypePtr       = UNTRACED BRANDED REF  yyNCombType;
-   yyStackPtrType       = yyTableElmt [ FIRST(yyTableElmt) .. LAST (yyTableElmt) ];
+   yyStackPtrType       = (*yyTableElmt*) [ FIRST(yyTableElmt) .. LAST (yyTableElmt) ];
    yyStackType          = UNTRACED BRANDED REF  ARRAY yyStackPtrType OF yyStateRange;
    yyAttributeStackType = UNTRACED BRANDED REF  ARRAY yyStackPtrType OF tParsAttribute;
 
 VAR
-   yyTBasePtr           : ARRAY yyTableElmt [0 .. yyLastReadState] 
+   yyTBasePtr           : ARRAY (*yyTableElmt*) [0 .. yyLastReadState] 
                           OF yyTCombTypePtr;
-   yyNBasePtr           : ARRAY yyTableElmt [0 .. yyLastReadState]      
+   yyNBasePtr           : ARRAY (*yyTableElmt*) [0 .. yyLastReadState]      
                           OF yyNCombTypePtr;
-   yyDefault            : ARRAY yyTableElmt [0 .. yyLastReadState]      
+   yyDefault            : ARRAY (*yyTableElmt*) [0 .. yyLastReadState]      
                           OF yyReadRange  ;
    yyTComb              : ARRAY yyTCombRange            OF yyTCombType  ;
    yyNComb              : ARRAY yyNCombRange            OF yyNCombType  ;
    yyLength             : ARRAY yyReduceRange           OF yyTableElmt  ;
    yyLeftHandSide       : ARRAY yyReduceRange           OF yySymbolRange;
-   yyContinuation       : ARRAY yyTableElmt [0 .. yyLastReadState]      
+   yyContinuation       : ARRAY (*yyTableElmt*) [0 .. yyLastReadState]      
                           OF yySymbolRange;
    yyFinalToProd        : ARRAY yyReadReduceRange       OF yyReduceRange;
    yyIsInitialized      : BOOLEAN;
    yyTableFile          : System.tFile;
 
 PROCEDURE TokenName (Token: SHORTCARD; VAR Name: ARRAY OF CHAR) =
-   PROCEDURE Copy (READONLY Source: ARRAY OF CHAR; VAR Target: ARRAY OF CHAR) =
-      VAR i, j: Word.T;
+   PROCEDURE CopyA (READONLY Source: ARRAY OF CHAR; VAR Target: ARRAY OF CHAR) =
+      VAR j: Word.T;
       BEGIN
          IF LAST (Source) < LAST (Target)
          THEN j := LAST (Source); ELSE j := LAST (Target); END;
          FOR i := 0 TO j DO Target [i] := Source [i]; END;
          IF LAST (Target) > j THEN Target [j + 1] := VAL (0,CHAR); END;
+      END CopyA;
+   PROCEDURE Copy (Ch: CHAR; VAR Target: ARRAY OF CHAR) =
+      BEGIN
+         Target [0] := Ch;
+         IF LAST (Target) > 0 THEN Target [1] := VAL (0,CHAR); END;
       END Copy;
    BEGIN
       CASE Token OF
-      | 0=> Copy (ARRAY [0..10] OF CHAR{'_','E','n','d','O','f','F','i','l','e','\000'}, Name);
-      | 1=> Copy (ARRAY [0..5] OF CHAR{'I','d','e','n','t','\000'}, Name);
-      | 2=> Copy (ARRAY [0..6] OF CHAR{'N','u','m','b','e','r','\000'}, Name);
-      | 3=> Copy (ARRAY [0..6] OF CHAR{'S','t','r','i','n','g','\000'}, Name);
-      | 4=> Copy (ARRAY [0..4] OF CHAR{'C','h','a','r','\000'}, Name);
-      | 5=> Copy (ARRAY [0..10] OF CHAR{'T','a','r','g','e','t','C','o','d','e','\000'}, Name);
-      | 6=> Copy (ARRAY [0..6] OF CHAR{'G','L','O','B','A','L','\000'}, Name);
-      | 7=> Copy (ARRAY [0..5] OF CHAR{'B','E','G','I','N','\000'}, Name);
-      | 8=> Copy (ARRAY [0..5] OF CHAR{'C','L','O','S','E','\000'}, Name);
-      | 9=> Copy (ARRAY [0..6] OF CHAR{'D','E','F','I','N','E','\000'}, Name);
-      | 10=> Copy (ARRAY [0..5] OF CHAR{'S','T','A','R','T','\000'}, Name);
-      | 11=> Copy (ARRAY [0..5] OF CHAR{'R','U','L','E','S','\000'}, Name);
+      | 0=> CopyA (ARRAY [0..10] OF CHAR{'_','E','n','d','O','f','F','i','l','e','\000'}, Name);
+      | 1=> CopyA (ARRAY [0..5] OF CHAR{'I','d','e','n','t','\000'}, Name);
+      | 2=> CopyA (ARRAY [0..6] OF CHAR{'N','u','m','b','e','r','\000'}, Name);
+      | 3=> CopyA (ARRAY [0..6] OF CHAR{'S','t','r','i','n','g','\000'}, Name);
+      | 4=> CopyA (ARRAY [0..4] OF CHAR{'C','h','a','r','\000'}, Name);
+      | 5=> CopyA (ARRAY [0..10] OF CHAR{'T','a','r','g','e','t','C','o','d','e','\000'}, Name);
+      | 6=> CopyA (ARRAY [0..6] OF CHAR{'G','L','O','B','A','L','\000'}, Name);
+      | 7=> CopyA (ARRAY [0..5] OF CHAR{'B','E','G','I','N','\000'}, Name);
+      | 8=> CopyA (ARRAY [0..5] OF CHAR{'C','L','O','S','E','\000'}, Name);
+      | 9=> CopyA (ARRAY [0..6] OF CHAR{'D','E','F','I','N','E','\000'}, Name);
+      | 10=> CopyA (ARRAY [0..5] OF CHAR{'S','T','A','R','T','\000'}, Name);
+      | 11=> CopyA (ARRAY [0..5] OF CHAR{'R','U','L','E','S','\000'}, Name);
       | 12=> Copy ('.', Name);
       | 13=> Copy (',', Name);
       | 14=> Copy ('=', Name);
@@ -212,15 +212,15 @@ PROCEDURE TokenName (Token: SHORTCARD; VAR Name: ARRAY OF CHAR) =
       | 27=> Copy ('}', Name);
       | 28=> Copy ('<', Name);
       | 29=> Copy ('>', Name);
-      | 30=> Copy (ARRAY [0..3] OF CHAR{'N','O','T','\000'}, Name);
-      | 31=> Copy (ARRAY [0..5] OF CHAR{'L','O','C','A','L','\000'}, Name);
-      | 32=> Copy (ARRAY [0..6] OF CHAR{'E','X','P','O','R','T','\000'}, Name);
+      | 30=> CopyA (ARRAY [0..3] OF CHAR{'N','O','T','\000'}, Name);
+      | 31=> CopyA (ARRAY [0..5] OF CHAR{'L','O','C','A','L','\000'}, Name);
+      | 32=> CopyA (ARRAY [0..6] OF CHAR{'E','X','P','O','R','T','\000'}, Name);
       | 33=> Copy ('#', Name);
-      | 34=> Copy (ARRAY [0..3] OF CHAR{'E','O','F','\000'}, Name);
-      | 35=> Copy (ARRAY [0..2] OF CHAR{':','-','\000'}, Name);
-      | 36=> Copy (ARRAY [0..7] OF CHAR{'D','E','F','A','U','L','T','\000'}, Name);
-      | 37=> Copy (ARRAY [0..7] OF CHAR{'S','C','A','N','N','E','R','\000'}, Name);
-      | 38=> Copy (ARRAY [0..8] OF CHAR{'S','E','Q','U','E','N','C','E','\000'}, Name);
+      | 34=> CopyA (ARRAY [0..3] OF CHAR{'E','O','F','\000'}, Name);
+      | 35=> CopyA (ARRAY [0..2] OF CHAR{':','-','\000'}, Name);
+      | 36=> CopyA (ARRAY [0..7] OF CHAR{'D','E','F','A','U','L','T','\000'}, Name);
+      | 37=> CopyA (ARRAY [0..7] OF CHAR{'S','C','A','N','N','E','R','\000'}, Name);
+      | 38=> CopyA (ARRAY [0..8] OF CHAR{'S','E','Q','U','E','N','C','E','\000'}, Name);
       END;
    END TokenName;
 
@@ -251,9 +251,9 @@ PROCEDURE Parser (): Word.T =
       yyStateStackSize  := yyInitStackSize;
       yyAttrStackSize   := yyInitStackSize;
       DynArray.MakeArray 
-        (yyStateStack, yyStateStackSize, SYSTEM.BYTESIZE (yyStateRange));
+        (LOOPHOLE(yyStateStack,ADDRESS), yyStateStackSize, BYTESIZE (yyStateRange));
       DynArray.MakeArray 
-        (yyAttributeStack, yyAttrStackSize, SYSTEM.BYTESIZE (tParsAttribute));
+        (LOOPHOLE(yyAttributeStack,ADDRESS), yyAttrStackSize, BYTESIZE (tParsAttribute));
       yyShortStackSize  := VAL (   yyStateStackSize,yyStackPtrType ) - 1;
       yyStackPtr        := 0;
       yyErrorCount      := 0;
@@ -262,10 +262,10 @@ PROCEDURE Parser (): Word.T =
       LOOP
          IF yyStackPtr >= yyShortStackSize THEN
             DynArray.ExtendArray 
-              (yyStateStack, yyStateStackSize, SYSTEM.BYTESIZE (yyStateRange));
+              (LOOPHOLE(yyStateStack,ADDRESS), yyStateStackSize, BYTESIZE (yyStateRange));
             DynArray.ExtendArray 
-              (yyAttributeStack, yyAttrStackSize, 
-               SYSTEM.BYTESIZE (tParsAttribute)
+              (LOOPHOLE(yyAttributeStack,ADDRESS), yyAttrStackSize, 
+               BYTESIZE (tParsAttribute)
               );
             yyShortStackSize := VAL (   yyStateStackSize,yyStackPtrType ) - 1;
          END (* IF *) ;
@@ -275,7 +275,7 @@ PROCEDURE Parser (): Word.T =
             yyTCombPtr := LOOPHOLE 
                             ( LOOPHOLE ( yyTBasePtr [yyState] ,M2LONGCARD) 
                               + (VAL (   yyTerminal,M2LONGCARD ) 
-                                * SYSTEM.BYTESIZE (yyTCombType))
+                                * BYTESIZE (yyTCombType))
                             ,yyTCombTypePtr);
             IF yyTCombPtr^.Check = yyState 
             THEN
@@ -299,7 +299,7 @@ PROCEDURE Parser (): Word.T =
                      Errors.ErrorMessageI 
                        (Errors.TokenInserted, Errors.Repair,
                      Scanner.Attribute.Position, Errors.Array, 
-                        SYSTEM.ADR (yyTokenString[FIRST(yyTokenString)])
+                        ADR (yyTokenString[FIRST(yyTokenString)])
                        );
                      IF yyState >= yyFirstFinalState 
                      THEN (* avoid second push *)
@@ -337,8 +337,8 @@ PROCEDURE Parser (): Word.T =
             LOOP (* reduce *)
 CASE yyState OF
   | 100=> (* _0000_ : input _EndOfFile .*)
-  DynArray.ReleaseArray (yyStateStack, yyStateStackSize, SYSTEM.BYTESIZE (yyTableElmt));
-  DynArray.ReleaseArray (yyAttributeStack, yyAttrStackSize, SYSTEM.BYTESIZE (tParsAttribute));
+  DynArray.ReleaseArray (yyStateStack, yyStateStackSize, BYTESIZE (yyTableElmt));
+  DynArray.ReleaseArray (yyAttributeStack, yyAttrStackSize, BYTESIZE (tParsAttribute));
   RETURN yyErrorCount;
 
   | 101,99=> (* input : init name code define start rules .*)
@@ -509,7 +509,7 @@ CASE yyState OF
   		     GetString (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 475
  $$ *).Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 475
  $$ *), string);
-  		     ErrorMessageI (IdentDefBefore, Error, yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 476
+  		     Errors.ErrorMessageI (IdentDefBefore, Error, yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 476
  $$ *).Position,
   			String, ADR (string));
   		  END;							
@@ -571,14 +571,14 @@ CASE yyState OF
   		     GetString (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 507
  $$ *).Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 507
  $$ *), string);
-  		     ErrorMessageI (IdentUndefined, Error, yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 508
+  		     Errors.ErrorMessageI (IdentUndefined, Error, yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 508
  $$ *).Position,
   			String, ADR (string));
   		  ELSIF GetKind (Definition) # tKind.Start THEN
   		     GetString (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 511
  $$ *).Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 511
  $$ *), string);
-  		     ErrorMessageI (ImproperUse, Error, yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 512
+  		     Errors.ErrorMessageI (ImproperUse, Error, yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 512
  $$ *).Position,
   			String, ADR (string));
   		  ELSE
@@ -602,7 +602,7 @@ CASE yyState OF
   		     GetString (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 525
  $$ *).Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 525
  $$ *), string);
-  		     ErrorMessageI (IdentDefBefore, Error, yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 526
+  		     Errors.ErrorMessageI (IdentDefBefore, Error, yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 526
  $$ *).Position,
   			String, ADR (string));
   		  END;							
@@ -862,7 +862,7 @@ CASE yyState OF
   			GetString (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 696
  $$ *).Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 696
  $$ *), string);
-  			ErrorMessageI (ImproperUse, Error, yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 697
+  			Errors.ErrorMessageI (ImproperUse, Error, yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 697
  $$ *).Position,
   			   String, ADR (string));
   			yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 699
@@ -957,7 +957,7 @@ END;
                  := LOOPHOLE 
                       ( LOOPHOLE (yyNBasePtr [yyStateStack^ [yyStackPtr]],M2LONGCARD)
                         + (VAL (  yyNonterminal,M2LONGCARD )
-                          * SYSTEM.BYTESIZE (yyNCombType))
+                          * BYTESIZE (yyNCombType))
                       ,yyNCombTypePtr);
                yyState := yyNCombPtr^;
                INC (yyStackPtr);
@@ -987,7 +987,6 @@ PROCEDURE ErrorRecovery (
       TokensSkipped     : BOOLEAN;
       ContinueSet       : Sets.tSet;
       RestartSet        : Sets.tSet;
-      Token             : yySymbolRange;
       TokenArray        : ARRAY [0..127] OF CHAR;
       TokenString       : Strings.tString;
       ContinueString    : Strings.tString;
@@ -996,7 +995,7 @@ PROCEDURE ErrorRecovery (
          TokenName ( Terminal , TokenArray );
          Strings.ArrayToString (TokenArray, TokenString);
          Errors.ErrorMessageI (Errors.SyntaxError, Errors.Error, 
-         Scanner.Attribute.Position, Errors.String, SYSTEM.ADR(TokenString) );
+         Scanner.Attribute.Position, Errors.String, ADR(TokenString) );
 
    (* 2. report the set of expected terminal symbols *)
       Sets.MakeSet (ContinueSet, yyLastTerminal);
@@ -1013,7 +1012,7 @@ PROCEDURE ErrorRecovery (
          END;
       END;
       Errors.ErrorMessageI (Errors.ExpectedTokens, Errors.Information,
-      Scanner.Attribute.Position, Errors.String, SYSTEM.ADR (ContinueString));
+      Scanner.Attribute.Position, Errors.String, ADR (ContinueString));
       Sets.ReleaseSet (ContinueSet);
 
    (* 3. compute the set of terminal symbols for restart of the parse *)
@@ -1044,7 +1043,6 @@ PROCEDURE ComputeContinuation (
           StackSize     : M2LONGINT       ;
           StackPtr      : yyStackPtrType;
       VAR ContinueSet   : Sets.tSet     ) =
-   VAR Terminal         : yySymbolRange;
    BEGIN
       Sets.AssignEmpty (ContinueSet);
       FOR Terminal := yyFirstTerminal TO yyLastTerminal DO
@@ -1069,7 +1067,7 @@ PROCEDURE IsContinuation (
       Nonterminal       : yySymbolRange;
       Stack             : yyStackType;
    BEGIN
-      DynArray.MakeArray (Stack, StackSize, SYSTEM.BYTESIZE (yyStateRange));
+      DynArray.MakeArray (LOOPHOLE(Stack,ADDRESS), StackSize, BYTESIZE (yyStateRange));
       FOR State := 0 TO StackPtr DO
          Stack^ [State] := ParseStack^ [State];
       END;
@@ -1078,17 +1076,17 @@ PROCEDURE IsContinuation (
          Stack^ [StackPtr] := State;
          State := Next (State, Terminal);
          IF State = yyNoState THEN
-            DynArray.ReleaseArray (Stack, StackSize, SYSTEM.BYTESIZE (yyStateRange));
+            DynArray.ReleaseArray (Stack, StackSize, BYTESIZE (yyStateRange));
             RETURN FALSE;
          END;
          IF State <= yyLastReadTermState THEN           (* read or read terminal reduce ? *)
-            DynArray.ReleaseArray (Stack, StackSize, SYSTEM.BYTESIZE (yyStateRange));
+            DynArray.ReleaseArray (Stack, StackSize, BYTESIZE (yyStateRange));
             RETURN TRUE;
          END;
 
          LOOP                                           (* reduce *)
             IF State =  yyStopState THEN
-               DynArray.ReleaseArray (Stack, StackSize, SYSTEM.BYTESIZE (yyStateRange));
+               DynArray.ReleaseArray (Stack, StackSize, BYTESIZE (yyStateRange));
                RETURN TRUE;
             ELSE 
                DEC (StackPtr, yyLength [State]);
@@ -1097,7 +1095,7 @@ PROCEDURE IsContinuation (
 
             State := Next (Stack^ [StackPtr], Nonterminal);
             IF StackPtr >= VAL (   StackSize,yyStackPtrType ) THEN
-               DynArray.ExtendArray (Stack, StackSize, SYSTEM.BYTESIZE (yyStateRange));
+               DynArray.ExtendArray (LOOPHOLE(Stack,ADDRESS), StackSize, BYTESIZE (yyStateRange));
             END;
             INC (StackPtr);
             IF State < yyFirstFinalState THEN EXIT; END; (* read nonterminal ? *)
@@ -1125,7 +1123,7 @@ PROCEDURE ComputeRestartPoints (
       Nonterminal       : yySymbolRange;
       ContinueSet       : Sets.tSet;
    BEGIN
-      DynArray.MakeArray (Stack, StackSize, SYSTEM.BYTESIZE (yyStateRange));
+      DynArray.MakeArray (LOOPHOLE(Stack,ADDRESS), StackSize, BYTESIZE (yyStateRange));
       FOR State := 0 TO StackPtr DO
          Stack^ [State] := ParseStack^ [State];
       END;
@@ -1135,7 +1133,7 @@ PROCEDURE ComputeRestartPoints (
 
       LOOP
          IF StackPtr >= VAL (   StackSize,yyStackPtrType ) THEN
-            DynArray.ExtendArray (Stack, StackSize, SYSTEM.BYTESIZE (yyStateRange));
+            DynArray.ExtendArray (LOOPHOLE(Stack,ADDRESS), StackSize, BYTESIZE (yyStateRange));
          END;
          Stack^ [StackPtr] := State;
          ComputeContinuation (Stack, StackSize, StackPtr, ContinueSet);
@@ -1150,7 +1148,7 @@ PROCEDURE ComputeRestartPoints (
 
             LOOP                                        (* reduce *)
                IF State = yyStopState THEN
-                  DynArray.ReleaseArray (Stack, StackSize, SYSTEM.BYTESIZE (yyStateRange));
+                  DynArray.ReleaseArray (Stack, StackSize, BYTESIZE (yyStateRange));
                   Sets.ReleaseSet (ContinueSet);
                   RETURN;
                ELSE 
@@ -1182,7 +1180,7 @@ PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange =
               := LOOPHOLE 
                    ( LOOPHOLE (yyTBasePtr [State],M2LONGCARD) 
                      + (VAL (   Symbol,M2LONGCARD )
-                       * SYSTEM.BYTESIZE (yyTCombType))
+                       * BYTESIZE (yyTCombType))
                    ,yyTCombTypePtr);
             IF TCombPtr^.Check # State THEN
                State := yyDefault [State];
@@ -1196,7 +1194,7 @@ PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange =
           := LOOPHOLE 
                ( LOOPHOLE (yyNBasePtr [State],M2LONGCARD) 
                  + (VAL (   Symbol,M2LONGCARD )
-                   * SYSTEM.BYTESIZE (yyNCombType))
+                   * BYTESIZE (yyNCombType))
                ,yyNCombTypePtr);
         RETURN NCombPtr^;
       END;
@@ -1205,29 +1203,28 @@ PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange =
 PROCEDURE yyGetTables() =
    VAR
       BlockSize, j, n   : Word.T;
-      State     : yyStateRange;
-      TBase     : ARRAY yyTableElmt[0 .. yyLastReadState] OF yyTCombRange;
-      NBase     : ARRAY yyTableElmt[0 .. yyLastReadState] OF yyNCombRange;
+      TBase     : ARRAY (*yyTableElmt*)[0 .. yyLastReadState] OF yyTCombRange;
+      NBase     : ARRAY (*yyTableElmt*)[0 .. yyLastReadState] OF yyNCombRange;
    BEGIN
-      BlockSize := 64000 DIV SYSTEM.BYTESIZE (yyTCombType);
+      BlockSize := 64000 DIV BYTESIZE (yyTCombType);
       yyTableFile := System.OpenInput (ParsTabName);
       yyErrorCheck (Errors.OpenParseTable, yyTableFile);
       IF 
-         ((yyGetTable (SYSTEM.ADR (TBase[FIRST(TBase)]         )) DIV SYSTEM.BYTESIZE (yyTCombRange ) - 1)
+         ((yyGetTable (ADR (TBase[FIRST(TBase)]         )) DIV BYTESIZE (yyTCombRange ) - 1)
             # yyLastReadState) OR
-         ((yyGetTable (SYSTEM.ADR (NBase[FIRST(NBase)]         )) DIV SYSTEM.BYTESIZE (yyNCombRange ) - 1)
+         ((yyGetTable (ADR (NBase[FIRST(NBase)]         )) DIV BYTESIZE (yyNCombRange ) - 1)
             # yyLastReadState) OR
-         ((yyGetTable (SYSTEM.ADR (yyDefault[FIRST(yyDefault)]     )) DIV SYSTEM.BYTESIZE (yyReadRange  ) - 1)
+         ((yyGetTable (ADR (yyDefault[FIRST(yyDefault)]     )) DIV BYTESIZE (yyReadRange  ) - 1)
             # yyLastReadState) OR
-         ((yyGetTable (SYSTEM.ADR (yyNComb[FIRST(yyNComb)]       )) DIV SYSTEM.BYTESIZE (yyNCombType  ))
+         ((yyGetTable (ADR (yyNComb[FIRST(yyNComb)]       )) DIV BYTESIZE (yyNCombType  ))
             # (yyNTableMax - yyLastTerminal)) OR
-         ((yyGetTable (SYSTEM.ADR (yyLength[FIRST(yyLength)]      )) DIV SYSTEM.BYTESIZE (yyTableElmt  ) - 1)
+         ((yyGetTable (ADR (yyLength[FIRST(yyLength)]      )) DIV BYTESIZE (yyTableElmt  ) - 1)
             # (yyLastReduceState - yyFirstReduceState)) OR
-         ((yyGetTable (SYSTEM.ADR (yyLeftHandSide[FIRST(yyLeftHandSide)])) DIV SYSTEM.BYTESIZE (yySymbolRange) - 1)
+         ((yyGetTable (ADR (yyLeftHandSide[FIRST(yyLeftHandSide)])) DIV BYTESIZE (yySymbolRange) - 1)
             # (yyLastReduceState - yyFirstReduceState)) OR
-         ((yyGetTable (SYSTEM.ADR (yyContinuation[FIRST(yyContinuation)])) DIV SYSTEM.BYTESIZE (yySymbolRange) - 1)
+         ((yyGetTable (ADR (yyContinuation[FIRST(yyContinuation)])) DIV BYTESIZE (yySymbolRange) - 1)
             # yyLastReadState) OR
-         ((yyGetTable (SYSTEM.ADR (yyFinalToProd[FIRST(yyFinalToProd)] )) DIV SYSTEM.BYTESIZE (yyReduceRange) - 1)
+         ((yyGetTable (ADR (yyFinalToProd[FIRST(yyFinalToProd)] )) DIV BYTESIZE (yyReduceRange) - 1)
             # (yyLastReadNontermState - yyFirstReadTermState))
       THEN
          Errors.ErrorMessage (Errors.WrongParseTable, Errors.Fatal, Positions.NoPosition);
@@ -1235,8 +1232,8 @@ PROCEDURE yyGetTables() =
       n := 0;
       j := 0;
       WHILE j <= yyTableMax DO
-         INC (n, yyGetTable (SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1037
- $$ *) (yyTComb [VAL(j,yyStateRange)])) DIV SYSTEM.BYTESIZE (yyTCombType));
+         INC (n, yyGetTable (ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1037
+ $$ *) (yyTComb [VAL(j,yyStateRange)])) DIV BYTESIZE (yyTCombType));
          INC (j, BlockSize);
       END;
       IF n # (yyTableMax + 1) THEN 
@@ -1245,24 +1242,24 @@ PROCEDURE yyGetTables() =
       System.Close (yyTableFile);
 
       FOR State := 1 TO yyLastReadState DO
-         yyTBasePtr [State] := SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1046
+         yyTBasePtr [State] := ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1046
  $$ *) (yyTComb [TBase [State]]);
       END;
       FOR State := 1 TO yyLastReadState DO
-         yyNBasePtr [State] := SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1049
+         yyNBasePtr [State] := ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1049
  $$ *) (yyNComb [NBase [State]]);
       END;
    END yyGetTables;
 
-PROCEDURE yyGetTable (Address: SYSTEM.ADDRESS): Word.T =
+PROCEDURE yyGetTable (Address: ADDRESS): Word.T =
    VAR
       N         : INTEGER;
       Length    : yyTableElmt;
       LongLength : Word.T;
    BEGIN
-      N := System.Read (yyTableFile, SYSTEM.ADR (Length), SYSTEM.BYTESIZE (yyTableElmt));
+      N := System.Read (yyTableFile, ADR (Length), BYTESIZE (yyTableElmt));
       yyErrorCheck (Errors.ReadParseTable, N);
-      LongLength := VAL ( Word.T  Length, );
+      LongLength := Length;
       N := System.Read (yyTableFile, Address, LongLength);
       yyErrorCheck (Errors.ReadParseTable, N);
       RETURN LongLength;
@@ -1274,7 +1271,7 @@ PROCEDURE yyErrorCheck (ErrorCode: INTEGER; Info: INTEGER) =
      IF Info < 0 THEN
         ErrNo := System.ErrNum ();
         Errors.ErrorMessageI (ErrorCode, Errors.Fatal, Positions.NoPosition,
-           Errors.Integer, SYSTEM.ADR (ErrNo));
+           Errors.Integer, ADR (ErrNo));
      END;
    END yyErrorCheck;
 

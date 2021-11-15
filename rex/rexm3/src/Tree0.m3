@@ -2,256 +2,14 @@
 
 
 
-FROM SYSTEM IMPORT BYTE, BITSET, SHORTINT, SHORTCARD;
-IMPORT Word, SYSTEM, System, General, Memory, DynArray, ReuseIO. Layout, StringMem, Strings, Idents, Texts, Sets, Positions;
+FROM SYSTEM IMPORT BYTE, BITSET, SHORTINT, SHORTCARD, M2LONGINT;
+IMPORT Word, SYSTEM, System, General, Memory, DynArray, ReuseIO, Layout, StringMem, Strings, Idents, Texts, Sets, Positions;
 (* line 31 "../src/rex.cg" *)
 
 FROM Sets	IMPORT tSet;
 FROM Texts	IMPORT tText;
 FROM StringMem	IMPORT tStringRef;
 FROM Positions	IMPORT tPosition;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 CONST yyBlockSize = 20480;
 
@@ -270,9 +28,9 @@ PROCEDURE yyAlloc (): tTree0 =
  VAR yyBlockPtr        : yytBlockPtr;
  BEGIN
   yyBlockPtr   := yyBlockList;
-  yyBlockList  := Memory.Alloc (SYSTEM.BYTESIZE (yytBlock));
+  yyBlockList  := Memory.Alloc (BYTESIZE (yytBlock));
   yyBlockList^.yySuccessor := yyBlockPtr;
-  yyPoolFreePtr        := SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 274
+  yyPoolFreePtr        := ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 274
  $$ *) (yyBlockList^.yyBlock);
   yyPoolMaxPtr := yyPoolFreePtr + yyBlockSize - yyMaxSize + 1;
   INC (HeapUsed, yyBlockSize);
@@ -283,7 +41,7 @@ PROCEDURE MakeTree0 (yyKind: SHORTCARD): tTree0 =
  VAR yyByteCount       : M2LONGINT;
  VAR yyt       : tTree0;
  BEGIN
-   yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [yyKind] ); 
+   yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [yyKind] ); 
   yyt^.yyHead(* $$ m2tom3 warning: application of variant field, possible cast of 'yyHead' in line 285
  $$ *).yyMark := 0;
   yyt^.Kind(* $$ m2tom3 warning: application of variant field, possible cast of 'Kind' in line 286
@@ -303,7 +61,7 @@ PROCEDURE mNode (): tTree0 =
  VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
-   yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Node] ); 
+   yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Node] ); 
   yyt^.yyHead(* $$ m2tom3 warning: application of variant field, possible cast of 'yyHead' in line 301
  $$ *).yyMark := 0;
   yyt^.Kind(* $$ m2tom3 warning: application of variant field, possible cast of 'Kind' in line 302
@@ -322,7 +80,7 @@ PROCEDURE mNode1 (pSon1: tTree0): tTree0 =
  VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
-   yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Node1] ); 
+   yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Node1] ); 
   yyt^.yyHead(* $$ m2tom3 warning: application of variant field, possible cast of 'yyHead' in line 317
  $$ *).yyMark := 0;
   yyt^.Kind(* $$ m2tom3 warning: application of variant field, possible cast of 'Kind' in line 318
@@ -342,7 +100,7 @@ PROCEDURE mOption (pSon1: tTree0): tTree0 =
  VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
-   yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Option] ); 
+   yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Option] ); 
   yyt^.yyHead(* $$ m2tom3 warning: application of variant field, possible cast of 'yyHead' in line 334
  $$ *).yyMark := 0;
   yyt^.Kind(* $$ m2tom3 warning: application of variant field, possible cast of 'Kind' in line 335
@@ -362,7 +120,7 @@ PROCEDURE mRepetition (pSon1: tTree0): tTree0 =
  VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
-   yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Repetition] ); 
+   yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Repetition] ); 
   yyt^.yyHead(* $$ m2tom3 warning: application of variant field, possible cast of 'yyHead' in line 351
  $$ *).yyMark := 0;
   yyt^.Kind(* $$ m2tom3 warning: application of variant field, possible cast of 'Kind' in line 352
@@ -382,7 +140,7 @@ PROCEDURE mNode2 (pSon1: tTree0; pSon2: tTree0): tTree0 =
  VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
-   yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Node2] ); 
+   yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Node2] ); 
   yyt^.yyHead(* $$ m2tom3 warning: application of variant field, possible cast of 'yyHead' in line 368
  $$ *).yyMark := 0;
   yyt^.Kind(* $$ m2tom3 warning: application of variant field, possible cast of 'Kind' in line 369
@@ -403,7 +161,7 @@ PROCEDURE mList (pSon1: tTree0; pSon2: tTree0): tTree0 =
  VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
-   yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [List] ); 
+   yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [List] ); 
   yyt^.yyHead(* $$ m2tom3 warning: application of variant field, possible cast of 'yyHead' in line 386
  $$ *).yyMark := 0;
   yyt^.Kind(* $$ m2tom3 warning: application of variant field, possible cast of 'Kind' in line 387
@@ -424,7 +182,7 @@ PROCEDURE mSequence (pSon1: tTree0; pSon2: tTree0): tTree0 =
  VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
-   yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Sequence] ); 
+   yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Sequence] ); 
   yyt^.yyHead(* $$ m2tom3 warning: application of variant field, possible cast of 'yyHead' in line 404
  $$ *).yyMark := 0;
   yyt^.Kind(* $$ m2tom3 warning: application of variant field, possible cast of 'Kind' in line 405
@@ -445,7 +203,7 @@ PROCEDURE mAlternative (pSon1: tTree0; pSon2: tTree0): tTree0 =
  VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
-   yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Alternative] ); 
+   yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Alternative] ); 
   yyt^.yyHead(* $$ m2tom3 warning: application of variant field, possible cast of 'yyHead' in line 422
  $$ *).yyMark := 0;
   yyt^.Kind(* $$ m2tom3 warning: application of variant field, possible cast of 'Kind' in line 423
@@ -466,7 +224,7 @@ PROCEDURE mCh (pCh: CHAR): tTree0 =
  VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
-   yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Ch] ); 
+   yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Ch] ); 
   yyt^.yyHead(* $$ m2tom3 warning: application of variant field, possible cast of 'yyHead' in line 440
  $$ *).yyMark := 0;
   yyt^.Kind(* $$ m2tom3 warning: application of variant field, possible cast of 'Kind' in line 441
@@ -486,7 +244,7 @@ PROCEDURE mSet (pSet: tSet): tTree0 =
  VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
-   yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Set] ); 
+   yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Set] ); 
   yyt^.yyHead(* $$ m2tom3 warning: application of variant field, possible cast of 'yyHead' in line 457
  $$ *).yyMark := 0;
   yyt^.Kind(* $$ m2tom3 warning: application of variant field, possible cast of 'Kind' in line 458
@@ -507,7 +265,7 @@ PROCEDURE mString (pString: tStringRef): tTree0 =
  VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
-   yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [String] ); 
+   yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [String] ); 
   yyt^.yyHead(* $$ m2tom3 warning: application of variant field, possible cast of 'yyHead' in line 475
  $$ *).yyMark := 0;
   yyt^.Kind(* $$ m2tom3 warning: application of variant field, possible cast of 'Kind' in line 476
@@ -527,7 +285,7 @@ PROCEDURE mRule (pPatterns: tTree0; pTargetCode: tText; pLine: SHORTCARD; pCodeM
  VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
-   yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Rule] ); 
+   yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Rule] ); 
   yyt^.yyHead(* $$ m2tom3 warning: application of variant field, possible cast of 'yyHead' in line 492
  $$ *).yyMark := 0;
   yyt^.Kind(* $$ m2tom3 warning: application of variant field, possible cast of 'Kind' in line 493
@@ -551,7 +309,7 @@ PROCEDURE mPattern (pStartStates: tSet; pRegExpr: tTree0; pRightContext: tTree0;
  VAR yyByteCount    : M2LONGINT;
  VAR yyt    : tTree0;
  BEGIN
-   yyt  := yyPoolFreePtr; IF SYSTEM.LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Pattern] ); 
+   yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Pattern] ); 
   yyt^.yyHead(* $$ m2tom3 warning: application of variant field, possible cast of 'yyHead' in line 513
  $$ *).yyMark := 0;
   yyt^.Kind(* $$ m2tom3 warning: application of variant field, possible cast of 'Kind' in line 514
@@ -648,7 +406,7 @@ PROCEDURE yyMapToLabel (yyTree: tTree0): SHORTCARD =
   END;
   INC (yyLabelCount);
   IF yyLabelCount = yyTreeStoreSize THEN
-   DynArray.ExtendArray (yyTreeStorePtr, yyTreeStoreSize, SYSTEM.BYTESIZE (tTree0));
+   DynArray.ExtendArray (LOOPHOLE(yyTreeStorePtr,ADDRESS), yyTreeStoreSize, BYTESIZE (tTree0));
   END;
   yyTreeStorePtr^[yyLabelCount] := yyTree;
   RETURN yyLabelCount;
@@ -997,7 +755,7 @@ PROCEDURE ReleaseTree0Module() =
   WHILE yyBlockList # NIL DO
    yyBlockPtr  := yyBlockList;
    yyBlockList := yyBlockList^.yySuccessor;
-   Memory.Free (SYSTEM.BYTESIZE (yytBlock), yyBlockPtr);
+   Memory.Free (BYTESIZE (yytBlock), yyBlockPtr);
   END;
   yyPoolFreePtr        := NIL;
   yyPoolMaxPtr := NIL;
@@ -1076,7 +834,7 @@ PROCEDURE CloseTree0() =
 
 PROCEDURE xxExit() =
  BEGIN
-  ReuseIO.CloseReuseIO.); System.Exit (1);
+  ReuseIO.CloseIO(); System.Exit (1);
  END xxExit;
 
 BEGIN
@@ -1085,19 +843,19 @@ BEGIN
  yyPoolMaxPtr  := NIL;
  HeapUsed      := 0;
  yyExit        := xxExit;
- yyNodeSize [Node] := SYSTEM.BYTESIZE (yNode);
- yyNodeSize [Node1] := SYSTEM.BYTESIZE (yNode1);
- yyNodeSize [Option] := SYSTEM.BYTESIZE (yOption);
- yyNodeSize [Repetition] := SYSTEM.BYTESIZE (yRepetition);
- yyNodeSize [Node2] := SYSTEM.BYTESIZE (yNode2);
- yyNodeSize [List] := SYSTEM.BYTESIZE (yList);
- yyNodeSize [Sequence] := SYSTEM.BYTESIZE (ySequence);
- yyNodeSize [Alternative] := SYSTEM.BYTESIZE (yAlternative);
- yyNodeSize [Ch] := SYSTEM.BYTESIZE (yCh);
- yyNodeSize [Set] := SYSTEM.BYTESIZE (ySet);
- yyNodeSize [String] := SYSTEM.BYTESIZE (yString);
- yyNodeSize [Rule] := SYSTEM.BYTESIZE (yRule);
- yyNodeSize [Pattern] := SYSTEM.BYTESIZE (yPattern);
+ yyNodeSize [Node] := BYTESIZE (yNode);
+ yyNodeSize [Node1] := BYTESIZE (yNode1);
+ yyNodeSize [Option] := BYTESIZE (yOption);
+ yyNodeSize [Repetition] := BYTESIZE (yRepetition);
+ yyNodeSize [Node2] := BYTESIZE (yNode2);
+ yyNodeSize [List] := BYTESIZE (yList);
+ yyNodeSize [Sequence] := BYTESIZE (ySequence);
+ yyNodeSize [Alternative] := BYTESIZE (yAlternative);
+ yyNodeSize [Ch] := BYTESIZE (yCh);
+ yyNodeSize [Set] := BYTESIZE (ySet);
+ yyNodeSize [String] := BYTESIZE (yString);
+ yyNodeSize [Rule] := BYTESIZE (yRule);
+ yyNodeSize [Pattern] := BYTESIZE (yPattern);
  yyMaxSize     := 0;
  FOR yyi := 1 TO 13 DO
   yyNodeSize [yyi] := LOOPHOLE (LOOPHOLE (yyNodeSize [yyi] + LOOPHOLE (General.MaxAlign,Word.T) - 1,BITSET) * General.AlignMasks [General.MaxAlign],M2LONGINT);
@@ -1118,7 +876,7 @@ BEGIN
  yyTypeRange [Pattern] := Pattern;
  yyRecursionLevel := 0;
  yyTreeStoreSize := yyInitTreeStoreSize;
- DynArray.MakeArray (yyTreeStorePtr, yyTreeStoreSize, SYSTEM.BYTESIZE (tTree0));
+ DynArray.MakeArray (LOOPHOLE(yyTreeStorePtr,ADDRESS), yyTreeStoreSize, BYTESIZE (tTree0));
  BeginTree0();
 END Tree0.
 

@@ -11,8 +11,8 @@
 
  UNSAFE MODULE Scanner;
  
-FROM SYSTEM IMPORT SHORTCARD;
-IMPORT Word, SYSTEM, Checks, System, General, Positions, ReuseIO. DynArray, Strings, Source;
+FROM SYSTEM IMPORT M2LONGINT , M2LONGCARD, SHORTCARD;
+IMPORT Word, SYSTEM, Checks, System, General, Positions, ReuseIO, DynArray, Strings, Source;
 (* line 84 "../src/rex.rex" *)
 
 
@@ -123,14 +123,14 @@ CStr2	= 19;
  
 TYPE
    yyTableElmt		= SHORTCARD;
-   yyStateRange		= yyTableElmt [0 .. yyDStateCount];
-   yyTableRange		= yyTableElmt [0 .. yyTableSize];
+   yyStateRange		= (*yyTableElmt*) [0 .. yyDStateCount];
+   yyTableRange		= (*yyTableElmt*) [0 .. yyTableSize];
    yyCombType		= RECORD Check, Next: yyStateRange; END;
    yyCombTypePtr	= UNTRACED BRANDED REF  yyCombType;
    yytChBufferPtr	= UNTRACED BRANDED REF  ARRAY [0 .. 1000000] OF CHAR;
    yyChRange		= [yyFirstCh .. yyLastCh];
    yyFileStackPtrTyp    = SHORTCARD;
-   yyFileStackSubscript = yyFileStackPtrTyp [1 .. yyFileStackSize];
+   yyFileStackSubscript = (*yyFileStackPtrTyp*) [1 .. yyFileStackSize];
 
 VAR
    yyBasePtr		: ARRAY yyStateRange	OF M2LONGCARD	;
@@ -204,7 +204,7 @@ BEGIN
 	    					(* determine next state *)
 	    yyTablePtr := LOOPHOLE (yyBasePtr [yyState] +
 	       (VAL(ORD (yyChBufferPtr^ [yyChBufferIndex]),M2LONGCARD )
-               * VAL( SYSTEM.BYTESIZE (yyCombType),M2LONGCARD)) ,yyCombTypePtr);
+               * VAL( BYTESIZE (yyCombType),M2LONGCARD)) ,yyCombTypePtr);
 	    IF yyTablePtr^.Check # yyState THEN
 	       yyState := yyDefault [yyState];
 	       IF yyState = yyDNoState THEN EXIT; END;
@@ -308,7 +308,7 @@ yyRestartFlag := FALSE; EXIT;
 (* line 280 "../src/rex.rex" *)
 
 			   IF BraceNestingLevel > 0 THEN
-			      Strings.Append (TargetCode, '\');
+			      Strings.Append (TargetCode, '\'');
 			   END;
 			
 yyRestartFlag := FALSE; EXIT;
@@ -860,7 +860,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 			   GetWord (Word);
 			   SubString (Word, 2, Length (Word), TargetCode);
 			   Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 843
- $$ *) := VAL (LOOPHOLE (StringToInt (TargetCode),Word.T),CHAR);
+ $$ *) := VAL (StringToInt (TargetCode),CHAR);
 	  		   RETURN SymChar;
 			
 yyRestartFlag := FALSE; EXIT;
@@ -1003,7 +1003,7 @@ ReuseIO.WriteC (ReuseIO.StdOutput, yyChBufferPtr^ [yyChBufferIndex-1]);
                                   ),M2LONGINT
                                 );
 			IF yyChBufferFree < (yyChBufferSize DIV 8) THEN
-			   DynArray.ExtendArray (yyChBufferPtr, yyChBufferSize, SYSTEM.BYTESIZE (CHAR));
+			   DynArray.ExtendArray (LOOPHOLE(yyChBufferPtr,ADDRESS), yyChBufferSize, BYTESIZE (CHAR));
 			   IF yyChBufferPtr = NIL THEN yyErrorMessage (1); END;
 			   yyChBufferFree 
                              := VAL ( 
@@ -1013,16 +1013,16 @@ ReuseIO.WriteC (ReuseIO.StdOutput, yyChBufferPtr^ [yyChBufferIndex-1]);
                                         ),M2LONGINT
                                     );
 			   IF yyStateStackSize < yyChBufferSize THEN
-			      DynArray.ExtendArray (yyStateStack, yyStateStackSize, SYSTEM.BYTESIZE (yyStateRange));
+			      DynArray.ExtendArray (LOOPHOLE(yyStateStack,ADDRESS), yyStateStackSize, BYTESIZE (yyStateRange));
 			      IF yyStateStack = NIL THEN yyErrorMessage (1); END;
 			   END;
 			END;
 			yyChBufferIndex := yyChBufferStart;
 			yyBytesRead := Source.GetLine 
                                  (yySourceFile
-                                  , SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1001
+                                  , ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1001
  $$ *) (yyChBufferPtr^ [yyChBufferIndex])
-                                  , VAL ( Word.T  yyChBufferFree, )
+                                  , yyChBufferFree
                                   );
 			IF yyBytesRead <= 0 THEN yyBytesRead := 0; yyEof := TRUE; END;
 			yyChBufferPtr^ [yyChBufferStart + yyBytesRead    ] := yyEobCh;
@@ -1098,7 +1098,7 @@ PROCEDURE yyInitialize() =
       END;
 						(* initialize file state *)
       yyChBufferSize	:= yyInitBufferSize;
-      DynArray.MakeArray (yyChBufferPtr, yyChBufferSize, SYSTEM.BYTESIZE (CHAR));
+      DynArray.MakeArray (LOOPHOLE(yyChBufferPtr,ADDRESS), yyChBufferSize, BYTESIZE (CHAR));
       IF yyChBufferPtr = NIL THEN yyErrorMessage (1); END;
       yyChBufferStart	:= General.MaxAlign;
       yyChBufferPtr^ [yyChBufferStart - 1] := yyEolCh; (* begin of line indicator *)
@@ -1116,7 +1116,7 @@ PROCEDURE CloseFile() =
    BEGIN
       IF yyFileStackPtr = 0 THEN yyErrorMessage (4); END;
       Source.CloseSource (yySourceFile);
-      DynArray.ReleaseArray (yyChBufferPtr, yyChBufferSize, SYSTEM.BYTESIZE (CHAR));
+      DynArray.ReleaseArray (yyChBufferPtr, yyChBufferSize, BYTESIZE (CHAR));
       WITH m2tom3_with_12=yyFileStack [yyFileStackPtr] DO	(* pop file *)
 	 yySourceFile	:= m2tom3_with_12.SourceFile		;
 	 yyEof		:= m2tom3_with_12.Eof			;
@@ -1235,7 +1235,7 @@ PROCEDURE input (): CHAR =
 	    yyChBufferStart := 0;
 	    yyBytesRead := Source.GetLine 
                     (yySourceFile, yyChBufferPtr
-                    , VAL(Word.TGeneral.Exp2 (General.Log2 (yyChBufferSize)),)
+                    , General.Exp2 (General.Log2 (yyChBufferSize))
                     );
 	    IF yyBytesRead <= 0 THEN yyBytesRead := 0; yyEof := TRUE; END;
 	    yyChBufferPtr^ [yyBytesRead    ] := yyEobCh;
@@ -1289,14 +1289,14 @@ PROCEDURE yyGetTables() =
       i		: yyStateRange;
       Base	: ARRAY yyStateRange OF yyTableRange;
    BEGIN
-      BlockSize	:= 64000 DIV SYSTEM.BYTESIZE (yyCombType);
+      BlockSize	:= 64000 DIV BYTESIZE (yyCombType);
       TableFile := System.OpenInput (ScanTabName);
       Checks.ErrorCheck (ARRAY [0..21] OF CHAR{'y','y','G','e','t','T','a','b','l','e','s','.','O','p','e','n','I','n','p','u','t','\000'}, TableFile);
-      IF ((yyGetTable (TableFile, SYSTEM.ADR (Base[FIRST(Base)]      )) DIV SYSTEM.BYTESIZE (yyTableElmt) - 1) 
+      IF ((yyGetTable (TableFile, ADR (Base[FIRST(Base)]      )) DIV BYTESIZE (yyTableElmt) - 1) 
          # yyDStateCount) OR
-         ((yyGetTable (TableFile, SYSTEM.ADR (yyDefault[FIRST(yyDefault)] )) DIV SYSTEM.BYTESIZE (yyTableElmt) - 1) 
+         ((yyGetTable (TableFile, ADR (yyDefault[FIRST(yyDefault)] )) DIV BYTESIZE (yyTableElmt) - 1) 
          # yyDStateCount) OR
-         ((yyGetTable (TableFile, SYSTEM.ADR (yyEobTrans[FIRST(yyEobTrans)])) DIV SYSTEM.BYTESIZE (yyTableElmt) - 1) 
+         ((yyGetTable (TableFile, ADR (yyEobTrans[FIRST(yyEobTrans)])) DIV BYTESIZE (yyTableElmt) - 1) 
          # yyDStateCount)
 	 THEN
 	 yyErrorMessage (2);
@@ -1304,29 +1304,29 @@ PROCEDURE yyGetTables() =
       n := 0;
       j := 0;
       WHILE j <= yyTableSize DO
-         INC (n, yyGetTable (TableFile, SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1284
- $$ *) (yyComb [VAL(j,SHORTCARD)])) DIV SYSTEM.BYTESIZE (yyCombType));
+         INC (n, yyGetTable (TableFile, ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1284
+ $$ *) (yyComb [VAL(j,SHORTCARD)])) DIV BYTESIZE (yyCombType));
          INC (j, BlockSize);
       END;
       IF n # (yyTableSize + 1) THEN yyErrorMessage (2); END;
       System.Close (TableFile);
 
       FOR i := 0 TO yyDStateCount DO
-	 yyBasePtr [i] := LOOPHOLE (SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1291
+	 yyBasePtr [i] := LOOPHOLE (ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1291
  $$ *) (yyComb [Base [i]]),M2LONGCARD);
       END;
    END yyGetTables;
  
-PROCEDURE yyGetTable (TableFile: System.tFile; Address: SYSTEM.ADDRESS): Word.T =
+PROCEDURE yyGetTable (TableFile: System.tFile; Address: ADDRESS): Word.T =
    VAR
       N		: INTEGER;
       Length	: yyTableElmt;
    BEGIN
-      N := System.Read (TableFile, SYSTEM.ADR (Length), SYSTEM.BYTESIZE (yyTableElmt));
+      N := System.Read (TableFile, ADR (Length), BYTESIZE (yyTableElmt));
       Checks.ErrorCheck (ARRAY [0..16] OF CHAR{'y','y','G','e','t','T','a','b','l','e','.','R','e','a','d','1','\000'}, N);
       N := System.Read (TableFile, Address, VAL(Length,INTEGER));
       Checks.ErrorCheck (ARRAY [0..16] OF CHAR{'y','y','G','e','t','T','a','b','l','e','.','R','e','a','d','2','\000'}, N);
-      RETURN VAL(Word.TLength,);
+      RETURN Length;
    END yyGetTable;
  
 PROCEDURE yyErrorMessage (ErrorCode: SHORTCARD) =
@@ -1345,7 +1345,7 @@ PROCEDURE yyErrorMessage (ErrorCode: SHORTCARD) =
  
 PROCEDURE yyExit() =
    BEGIN
-      ReuseIO.CloseReuseIO.); System.Exit (1);
+      ReuseIO.CloseIO(); System.Exit (1);
    END yyExit;
 
 BEGIN
@@ -1356,15 +1356,15 @@ IF NUMBER(ScanTabName) > 11 THEN ScanTabName[FIRST(ScanTabName) + 11] := '\000';
    yyFileStackPtr	:= 0;
    yyStartState		:= 1;			(* set up for auto init *)
    yyPreviousStart	:= 1;
-   yyBasePtr [yyStartState] := LOOPHOLE (SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1332
+   yyBasePtr [yyStartState] := LOOPHOLE (ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1332
  $$ *) (yyComb [0]),M2LONGCARD);
    yyDefault [yyStartState] := yyDNoState;
    yyComb [0].Check	:= yyDNoState;
-   yyChBufferPtr	:= SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1335
+   yyChBufferPtr	:= ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1335
  $$ *) (yyComb [0]);	(* dirty trick *)
    yyChBufferIndex	:= 1;				(* dirty trick *)
    yyStateStackSize	:= yyInitBufferSize;
-   DynArray.MakeArray (yyStateStack, yyStateStackSize, SYSTEM.BYTESIZE (yyStateRange));
+   DynArray.MakeArray (LOOPHOLE(yyStateStack,ADDRESS), yyStateStackSize, BYTESIZE (yyStateRange));
    yyStateStack^ [0]	:= yyDNoState;
    
    FOR yyCh := yyFirstCh TO yyLastCh DO yyToLower [yyCh] := yyCh; END;

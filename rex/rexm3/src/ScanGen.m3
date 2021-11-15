@@ -105,9 +105,6 @@ FROM Strings    IMPORT
    Length       , ArrayToString , StringToArray , Assign        ,
    Append       , Concatenate   ;
 
-FROM StringMem  IMPORT
-   tStringRef   , PutString     , GetString     ;
-
 FROM Idents     IMPORT
    tIdent       , NoIdent       , WriteIdent    ;
 
@@ -115,11 +112,11 @@ FROM Errors     IMPORT
    ErrorMessage ;
 
 FROM DefTable   IMPORT
-   GetKind      , DefRange      , DefCount      , tKind         ,
+   GetKind      , DefCount      , tKind         ,
    GetStartDef  ;
 
 FROM Dfa        IMPORT
-   FirstCh      , LastCh        , EolCh         , EobCh         ,
+   FirstCh      , EolCh         , EobCh         ,
    DStateCount  , OldLastCh     ;
 
 FROM ScanTabs   IMPORT
@@ -168,7 +165,7 @@ VAR
    DummyCount   : Word.T;
    gGenLine     : BOOLEAN;
 
-PROCEDURE ExpandLine (Out: tFile; Line: tString) =
+PROCEDURE ExpandLine (Out: tFile; READONLY Line: tString) =
    VAR
       Ch        : CHAR;
       i         : Word.T;
@@ -193,12 +190,15 @@ PROCEDURE ExpandLine (Out: tFile; Line: tString) =
 PROCEDURE GenerateSupport() =
    VAR SourceName, DriverName, Suffix   : tString;
 
-   PROCEDURE CopyFile (READONLY InputA: ARRAY OF CHAR; OutputS: tString;READONLY  SuffixA: ARRAY OF CHAR) =
+   PROCEDURE CopyFile
+     (READONLY InputA: ARRAY OF CHAR; READONLY OutputS: tString;
+      READONLY  SuffixA: ARRAY OF CHAR) =
       VAR
          In, Out        : tFile;
          FileNameS      ,
          PathS          ,
          Line           : tString;
+         LOutputS       : tString;
          PathA          : ARRAY [0..127] OF CHAR;
       BEGIN
          ArrayToString  (InputA, FileNameS);
@@ -209,10 +209,11 @@ PROCEDURE GenerateSupport() =
          In := ReadOpen (PathA);
          ErrorCheck     (PathA, In);
 
+         Assign         (LOutputS, OutputS);
          ArrayToString  (SuffixA, FileNameS);
-         Concatenate    (OutputS, FileNameS);
-         Append         (OutputS, '\000');
-         StringToArray  (OutputS, PathA);
+         Concatenate    (LOutputS, FileNameS);
+         Append         (LOutputS, '\000');
+         StringToArray  (LOutputS, PathA);
          Out := WriteOpen (PathA);
          ErrorCheck     (PathA, Out);
 
@@ -398,7 +399,6 @@ PROCEDURE GenerateScanner       (ReduceCaseSize, Warnings, GenLine: BOOLEAN) =
 
 PROCEDURE GenerateConstants (Out: tFile) =
    VAR
-      Definition: DefRange      ;
       String    : tString       ;
       Ident     : tIdent        ;
       Number    : SHORTCARD     ;
@@ -431,8 +431,7 @@ PROCEDURE GenerateConstants (Out: tFile) =
 
 PROCEDURE GenerateActions (Out: tFile; ReduceCaseSize, Warnings: BOOLEAN) =
    VAR
-      Rule      ,
-      Pattern   : SHORTCARD     ;
+      Rule      : INTEGER;
       String    ,
       String2   : tString       ;
       Label     : Word.T      ;
@@ -508,7 +507,7 @@ PROCEDURE GenerateActions (Out: tFile; ReduceCaseSize, Warnings: BOOLEAN) =
       END;
    END GenerateActions;
 
-PROCEDURE GenerateDecConstDef (Out: tFile; Name: tString; Value: INTEGER) =
+PROCEDURE GenerateDecConstDef (Out: tFile; READONLY Name: tString; Value: INTEGER) =
    BEGIN
       CASE Language OF
       | tLanguage.Modula=>
@@ -526,7 +525,7 @@ PROCEDURE GenerateDecConstDef (Out: tFile; Name: tString; Value: INTEGER) =
       END;
    END GenerateDecConstDef;
 
-PROCEDURE GenerateCharConstDef (Out: tFile; Name: tString; Value: CHAR) =
+PROCEDURE GenerateCharConstDef (Out: tFile; READONLY Name: tString; Value: CHAR) =
    BEGIN
       CASE Language OF
       | tLanguage.Modula=>
@@ -538,14 +537,14 @@ PROCEDURE GenerateCharConstDef (Out: tFile; Name: tString; Value: CHAR) =
       | tLanguage.C=>
          WriteS (Out, ARRAY [0..9] OF CHAR{'#',' ','d','e','f','i','n','e',' ','\000'});
          Strings.WriteS (Out, Name);
-         WriteS (Out, ARRAY [0..19] OF CHAR{' ','(','u','n','s','i','g','n','e','d',' ','c','h','a','r',')',' ','\'','\','\000'});
+         WriteS (Out, ARRAY [0..19] OF CHAR{' ','(','u','n','s','i','g','n','e','d',' ','c','h','a','r',')',' ','\'','\'','\000'});
          WriteN (Out, ORD (Value), 1, 8);
          WriteC (Out, '\'');
          WriteNl (Out);
       END;
    END GenerateCharConstDef;
 
-PROCEDURE GenerateDecrement (Out: tFile; Name: tString; Value: INTEGER) =
+PROCEDURE GenerateDecrement (Out: tFile; READONLY Name: tString; Value: INTEGER) =
    BEGIN
       CASE Language OF
       | tLanguage.Modula=>
@@ -647,7 +646,7 @@ PROCEDURE WriteLine (Out: tFile; Line: SHORTCARD) =
                WriteI (Out, Line, 0);
                WriteS (Out, ARRAY [0..2] OF CHAR{' ','"','\000'});
                WriteS (Out, SourceFile);
-               WriteS (Out, '"');
+               WriteS (Out, ARRAY [0..1] OF CHAR{'"','\000'});
             ELSE
                WriteS (Out, ARRAY [0..8] OF CHAR{'/','*',' ','l','i','n','e',' ','\000'});
                WriteI (Out, Line, 0);
@@ -786,7 +785,7 @@ END;
    ConvertAppend (ARRAY [0..22] OF CHAR{' ',' ',' ','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x',' ','-','-',';','\000'}                      , Context2);
    ConvertAppend2(ARRAY [0..3] OF CHAR{' ',' ',' ','\000'}, ARRAY [0..15] OF CHAR{'T','o','k','e','n','L','e','n','g','t','h',' ','-','-',';','\000'}                      , Context2);
    ConvertAppend (ARRAY [0..17] OF CHAR{' ',' ',' ','y','y','S','t','a','t','e','P','t','r',' ','-','-',';','\000'}                           , Context2);
-   ConvertAppend ('}'                                           , Context2);
+   ConvertAppend (ARRAY [0..1] OF CHAR{'}','\000'}                                           , Context2);
 
    ConvertAppend (ARRAY [0..10] OF CHAR{'f','o','r',' ','(',';',';',')',' ','{','\000'}                                  , Context3);
    ConvertAppend (ARRAY [0..26] OF CHAR{' ',' ',' ','s','w','i','t','c','h',' ','(','*',' ','y','y','S','t','a','t','e','P','t','r',')',' ','{','\000'}                  , Context3);
@@ -796,7 +795,7 @@ END;
    ConvertAppend2(ARRAY [0..6] OF CHAR{' ',' ',' ',' ',' ',' ','\000'}, ARRAY [0..15] OF CHAR{'T','o','k','e','n','L','e','n','g','t','h',' ','-','-',';','\000'}                   , Context4);
    ConvertAppend (ARRAY [0..20] OF CHAR{' ',' ',' ',' ',' ',' ','y','y','S','t','a','t','e','P','t','r',' ','-','-',';','\000'}                        , Context4);
    ConvertAppend (ARRAY [0..4] OF CHAR{' ',' ',' ','}','\000'}                                        , Context4);
-   ConvertAppend ('}'                                           , Context4);
+   ConvertAppend (ARRAY [0..1] OF CHAR{'}','\000'}                                           , Context4);
 
 IF Texts.IsEmpty (Export) THEN
    ConvertAppend (ARRAY [0..23] OF CHAR{'#',' ','i','n','c','l','u','d','e',' ','"','P','o','s','i','t','i','o','n','s','.','h','"','\000'}                     , Export);

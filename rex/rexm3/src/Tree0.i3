@@ -2,7 +2,7 @@ UNSAFE INTERFACE  Tree0;
 
 FROM SYSTEM IMPORT M2LONGCARD;
 FROM SYSTEM IMPORT SHORTINT, SHORTCARD;
-IMPORT SYSTEM, ReuseIO.
+IMPORT SYSTEM, ReuseIO;
 (* line 23 "../src/rex.cg" *)
 
 FROM Sets	IMPORT tSet;
@@ -86,9 +86,9 @@ END;
 
 VAR Tree0Root        : tTree0;
 VAR HeapUsed   : M2LONGCARD;
-VAR yyPoolFreePtr, yyPoolMaxPtr        : SYSTEM.ADDRESS;
+VAR yyPoolFreePtr, yyPoolMaxPtr        : ADDRESS;
 VAR yyNodeSize : ARRAY [0..13] OF SHORTCARD;
-VAR yyExit     : PROC;
+VAR yyExit     : SYSTEM.PROC;
 
 PROCEDURE yyAlloc      (): tTree0;
 PROCEDURE MakeTree0  (Kind: SHORTCARD): tTree0;

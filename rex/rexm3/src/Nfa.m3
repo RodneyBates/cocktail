@@ -63,7 +63,7 @@ PROCEDURE MakeNState (pTransitions: TransitionRange): NStateRange =
    BEGIN
       INC (NStateCount);
       IF NStateCount = NStateTableSize THEN
-         ExtendArray (NStateTablePtr, NStateTableSize, BYTESIZE (NStateInfo));
+         ExtendArray (LOOPHOLE(NStateTablePtr,ADDRESS), NStateTableSize, BYTESIZE (NStateInfo));
       END;
       WITH m2tom3_with_8=NStateTablePtr^[NStateCount] DO
          m2tom3_with_8.Transitions := pTransitions;
@@ -106,7 +106,7 @@ PROCEDURE MakeTransition (pCh: CHAR; State: NStateRange): TransitionRange =
    BEGIN
       INC (TransitionCount);
       IF TransitionCount = TransitionTableSize THEN
-         ExtendArray (TransitionTablePtr, TransitionTableSize, BYTESIZE (Transition));
+         ExtendArray (LOOPHOLE(TransitionTablePtr,ADDRESS), TransitionTableSize, BYTESIZE (Transition));
       END;
       WITH m2tom3_with_9=TransitionTablePtr^[TransitionCount] DO
          m2tom3_with_9.Ch          := pCh;
@@ -158,7 +158,6 @@ PROCEDURE CopyTransitions (t1: TransitionRange): TransitionRange =
    END CopyTransitions;
 
 PROCEDURE WriteNfa() =
-   VAR State    : NStateRange;
    BEGIN
       WriteS (StdOutput, ARRAY [0..5] OF CHAR{'N','F','A',' ',':','\000'});
       WriteNl (StdOutput);
@@ -203,11 +202,11 @@ PROCEDURE FinalizeNfa() =
 PROCEDURE BeginNfa() =
    BEGIN
       NStateTableSize   := LeafCount + 1;
-      MakeArray (NStateTablePtr, NStateTableSize, BYTESIZE (NStateInfo));
+      MakeArray (LOOPHOLE(NStateTablePtr,ADDRESS), NStateTableSize, BYTESIZE (NStateInfo));
       NStateCount               := 0;
 
       TransitionTableSize       := InitialTransitionTableSize;
-      MakeArray (TransitionTablePtr, TransitionTableSize, BYTESIZE (Transition));
+      MakeArray (LOOPHOLE(TransitionTablePtr,ADDRESS), TransitionTableSize, BYTESIZE (Transition));
       TransitionCount   := 0;
    END BeginNfa;
 

@@ -9,6 +9,7 @@
 UNSAFE INTERFACE  Scanner;
 
 FROM SYSTEM IMPORT SHORTCARD;
+IMPORT SYSTEM;
 IMPORT Word, Strings;
 
 (* line 62 "../src/rex.rex" *)
@@ -39,7 +40,7 @@ CONST EofToken	= 0;
 VAR TokenLength	: INTEGER;
 VAR Attribute	: tScanAttribute;
 VAR ScanTabName	: ARRAY [0 .. 127] OF CHAR;
-VAR Exit	: PROC;
+VAR Exit	: SYSTEM.PROC;
 
 PROCEDURE BeginScanner()	;
 PROCEDURE BeginFile	(READONLY FileName: ARRAY OF CHAR);

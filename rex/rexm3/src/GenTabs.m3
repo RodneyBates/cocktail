@@ -82,8 +82,7 @@ FROM Sets       IMPORT
    Maximum      , IsSubset      , WriteSet      ;
 
 FROM ReuseIO         IMPORT WriteS, WriteNl, WriteI, WriteC, StdOutput, StdError;
-FROM Layout     IMPORT WriteSpace;
-FROM DefTable   IMPORT GetKind, DefRange, DefCount, GetStartDef, tKind;
+FROM DefTable   IMPORT GetKind, DefCount, GetStartDef, tKind;
 
 FROM Tree       IMPORT
    nAlternative , nSequence     , nRepetition   , nOption       ,
@@ -161,7 +160,6 @@ PROCEDURE ComputeNfa() =
       patternList       : tTree         ;
       pattern           : tTree         ;
       RuleNr            : SHORTCARD     ;
-      NState            : NStateRange   ;
       length            : SHORTINT      ;
    BEGIN
       BeginNfa();
@@ -294,7 +292,6 @@ PROCEDURE AttributeEvaluator (
       o1, o2            : BOOLEAN;
       NState            : NStateRange;
       string            : tString;
-      i                 : Word.T;
    BEGIN
       IF t = NoTree THEN
          Transitions := NoTransition;
@@ -430,7 +427,7 @@ PROCEDURE MapSetOfNToD (t: tSet): DStateRange =
 
       DState := MakeDState ();                  (* no: S' := S' UNION {t} *)
       IF DState = MapDToSetOfNSize THEN
-         ExtendArray (MapDToSetOfNPtr, MapDToSetOfNSize, BYTESIZE (SetOfNInfoPtr));
+         ExtendArray (LOOPHOLE(MapDToSetOfNPtr,ADDRESS), MapDToSetOfNSize, BYTESIZE (SetOfNInfoPtr));
       END;
       MapDToSetOfNPtr^[DState] := Alloc (BYTESIZE (SetOfNInfo));
       MakeSet (MapDToSetOfNPtr^[DState]^.Set, NStateCount);
@@ -441,7 +438,7 @@ PROCEDURE MapSetOfNToD (t: tSet): DStateRange =
 
       INC (StackTop);                           (* push (y) *)
       IF StackTop = StackSize THEN
-         ExtendArray (StackPtr, StackSize, BYTESIZE (DStateRange));
+         ExtendArray (LOOPHOLE(StackPtr,ADDRESS), StackSize, BYTESIZE (DStateRange));
       END;
       StackPtr^[StackTop] := DState;
       RETURN DState;
@@ -451,22 +448,20 @@ PROCEDURE ComputeDfa() =
    CONST InitialStackSize = 64;
    VAR
       DState    : DStateRange;
-      NState    : NStateRange;
       x         : tSet;
       y         : ARRAY CHAR OF tSet;
       Transition: TransitionRange;
       Ch        : CHAR;
       CharSet   : tSet;
-      Pattern   : SHORTCARD;
       nStates   : tSet;
    BEGIN
       StackSize         := InitialStackSize;    (* initialize *)
-      MakeArray (StackPtr, StackSize, BYTESIZE (DStateRange));
+      MakeArray (LOOPHOLE(StackPtr,ADDRESS), StackSize, BYTESIZE (DStateRange));
       StackTop          := 0;
       MapDToSetOfNSize  := LeafCount;
-      MakeArray (MapDToSetOfNPtr, MapDToSetOfNSize, BYTESIZE (SetOfNInfoPtr));
+      MakeArray (LOOPHOLE(MapDToSetOfNPtr,ADDRESS), MapDToSetOfNSize, BYTESIZE (SetOfNInfoPtr));
       HashDToSetOfNSize := NStateCount;
-      MakeArray (HashDToSetOfNPtr, HashDToSetOfNSize, BYTESIZE (SetOfNInfoPtr));
+      MakeArray (LOOPHOLE(HashDToSetOfNPtr,ADDRESS), HashDToSetOfNSize, BYTESIZE (SetOfNInfoPtr));
       FOR NState := 0 TO NStateCount - 1 DO
          HashDToSetOfNPtr^[NState] := NIL;
       END;
@@ -558,7 +553,6 @@ PROCEDURE EnterDSemantics (NState: tElement ) =
 
 PROCEDURE SaveSentinels() =
    VAR
-      DState    ,
       Default   : DStateRange;
       Success   : BOOLEAN;
       Ch, LastCh: CHAR;
@@ -616,7 +610,6 @@ PROCEDURE AddConstantREs() =
       patternList       : tTree         ;
       pattern           : tTree         ;
       string1, string2  : tString       ;
-      StartState        : DStateRange   ;
       PatternNr         : SHORTCARD     ;
    BEGIN
       InitTraces();
@@ -685,7 +678,7 @@ PROCEDURE ComputeConstantRE (t: tTree; VAR String: tString) =
       END;
    END ComputeConstantRE;
 
-PROCEDURE AddConstantRE (StartState: DStateRange; String: tString;
+PROCEDURE AddConstantRE (StartState: DStateRange; READONLY String: tString;
                         PatternNr: SHORTCARD; StartStates: tSet) =
    VAR
       Ch                : CHAR          ;
@@ -796,9 +789,6 @@ PROCEDURE AddConstantRE (StartState: DStateRange; String: tString;
 
 PROCEDURE UpdateContext() =
    VAR
-      Pattern   : SHORTCARD     ;
-      State1    : DStateRange   ;
-      State2    : DStateRange   ;
       Max       : DStateRange   ;
    BEGIN
       IF DStateCount > NodeCount THEN
@@ -824,7 +814,6 @@ PROCEDURE UpdateContext() =
 PROCEDURE InvertMapping() =
    VAR
       Pattern   : SHORTCARD     ;
-      State     : DStateRange   ;
    BEGIN
       FOR Pattern := 0 TO PatternCount DO
          MakeSet (PatternTablePtr^[Pattern].Finals, DStateCount);
@@ -844,7 +833,6 @@ PROCEDURE InvertMapping() =
 
 PROCEDURE CheckTables() =          (* check automaton for completeness *)
    VAR
-      Definition: DefRange      ;
       Ident     : Idents.tIdent ;
       StartState: SHORTCARD     ;
    BEGIN
@@ -912,7 +900,7 @@ PROCEDURE CheckStartState (StartState: SHORTCARD; Ident: Idents.tIdent; LeftJust
                WriteC (StdError, Ch);
                WriteC (StdError, '\'');
             ELSE
-               WriteC (StdError, '\');
+               WriteC (StdError, '\'');
                WriteI (StdError, ORD (Ch), 0);
             END;
             INC (Count);
@@ -926,7 +914,6 @@ PROCEDURE CheckStartState (StartState: SHORTCARD; Ident: Idents.tIdent; LeftJust
    END CheckStartState;
 
 PROCEDURE WritePattern() =
-   VAR Pattern  : SHORTCARD;
    BEGIN
       FOR Pattern := 0 TO PatternCount - 2 DO
          IF PatternTablePtr^[Pattern].ContextLng # NoContext THEN
@@ -1003,9 +990,9 @@ BEGIN
    INC (RuleCount); INC (PatternCount); EobAction       := PatternCount;
    INC (RuleCount); INC (PatternCount); DefaultAction   := PatternCount;
    RuleToCodeSize       := RuleCount + 1;
-   MakeArray            (RuleToCodePtr, RuleToCodeSize, BYTESIZE (CodeInfo));
+   MakeArray            (LOOPHOLE(RuleToCodePtr,ADDRESS), RuleToCodeSize, BYTESIZE (CodeInfo));
    PatternTableSize     := PatternCount + 1;
-   MakeArray            (PatternTablePtr, PatternTableSize, BYTESIZE (PatternInfo));
+   MakeArray            (LOOPHOLE(PatternTablePtr,ADDRESS), PatternTableSize, BYTESIZE (PatternInfo));
    PatternTablePtr^[0].ContextLng := NoContext;
 
    MakeSet              (dSemantics, PatternCount);

@@ -2,31 +2,29 @@
 
  UNSAFE MODULE Eval;
 
-IMPORT Word, SYSTEM, Tree0;
+IMPORT Word, Tree0;
 (* line 61 "../src/rex.cg" *)
 
-FROM Strings	IMPORT tString, AssignEmpty, Length, Append, Char;
-FROM StringMem	IMPORT GetString, PutString;
-FROM Sets	IMPORT tSet, MakeSet, Card, Assign, Intersection, Select, Minimum,
-			IsEmpty, Union, Maximum, IsElement, Include;
-FROM Classes	IMPORT ToClass, IsInSetMem, SetMemPtr, CharSet;
-FROM Dfa	IMPORT LastCh;
+FROM Strings    IMPORT tString, AssignEmpty, Length, Append, Char;
+FROM StringMem  IMPORT GetString, PutString;
+FROM Sets       IMPORT tSet, MakeSet, Card, Assign, Intersection, Select, Minimum,
+                        IsEmpty, Maximum, IsElement, Include;
+FROM Classes    IMPORT ToClass, IsInSetMem, SetMemPtr, CharSet;
+FROM Dfa        IMPORT LastCh;
 IMPORT StringMem;
 
-FROM Tree	IMPORT
-   tTree	, NoTree	, MakeTree1	, MakeTree2	,
-   MakeTreeRule	, MakeTreePattern, MakeTreeCh	, MakeTreeSet	,
-   MakeTreeString, nList	, nRule		, nPattern	,
-   nAlternative	, nSequence	, nRepetition	, nOption	,
-   nChar	, nSet		, nString	;
+FROM Tree       IMPORT
+   NoTree       , MakeTree1     , MakeTree2     ,
+   MakeTreeRule , MakeTreePattern, MakeTreeCh   , MakeTreeSet   ,
+   MakeTreeString, nList        , nRule         , nPattern      ,
+   nAlternative , nSequence     , nRepetition   , nOption       ,
+   nChar        , nSet          , nString       ;
 
 VAR
-   String1, String2	: tString;
-   Set1, Set2		: tSet;
-   i, j			: Word.T;
+   String1, String2     : tString;
+   Set1, Set2           : tSet;
+   j                    : Word.T;
 
-
-VAR yyb	: BOOLEAN;
 
 PROCEDURE Eval (yyt: Tree0.tTree0) =
  BEGIN yyVisit1 (yyt); END Eval;
@@ -242,61 +240,61 @@ yyVisit1 (yyt^.Alternative(* $$ m2tom3 warning: application of variant field, po
 | Tree0.Set=>
 (* line 97 "../src/rex.cg" *)
 
-		    j := IsInSetMem (yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 132
+                    j := IsInSetMem (yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 132
  $$ *).Set);
-		    IF j # 0 THEN
-		       yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 134
+                    IF j # 0 THEN
+                       yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 134
  $$ *).card := Card (SetMemPtr^[j].Classes);
-		       Assign (Set1, yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 135
+                       Assign (Set1, yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 135
  $$ *).Set);
-		       Intersection (Set1, CharSet);
-		       INC (yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 137
+                       Intersection (Set1, CharSet);
+                       INC (yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 137
  $$ *).card, Card (Set1));
-		       IF yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 138
+                       IF yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 138
  $$ *).card = 1 THEN
-			  IF Card (SetMemPtr^[j].Classes) = 1 THEN
-			     yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 140
+                          IF Card (SetMemPtr^[j].Classes) = 1 THEN
+                             yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 140
  $$ *).Tree := MakeTreeCh (nChar, VAL (Select (SetMemPtr^[j].Classes),CHAR));
-			  ELSE
-			     yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 142
+                          ELSE
+                             yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 142
  $$ *).Tree := MakeTreeCh (nChar, ToClass [VAL (Select (Set1),CHAR)]);
-			  END;
-		       ELSE
-			  MakeSet (Set2, ORD (LastCh));
-			  IF NOT IsEmpty (Set1) THEN
-			     FOR i := Minimum (Set1) TO Maximum (Set1) DO
-				IF IsElement (i, Set1) THEN
-				   Include (Set2, ORD (ToClass [VAL (i,CHAR)]));
-				END;
-			     END;
-			  END;
-					
-			  IF NOT IsEmpty (SetMemPtr^[j].Classes) THEN
-			     FOR i := Minimum (SetMemPtr^[j].Classes) TO Maximum (SetMemPtr^[j].Classes) DO
-				IF IsElement (i, SetMemPtr^[j].Classes) THEN
-				   Include (Set2, i);
-				END;
-			     END;
-			  END;
-			  yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 161
+                          END;
+                       ELSE
+                          MakeSet (Set2, ORD (LastCh));
+                          IF NOT IsEmpty (Set1) THEN
+                             FOR i := Minimum (Set1) TO Maximum (Set1) DO
+                                IF IsElement (i, Set1) THEN
+                                   Include (Set2, ORD (ToClass [VAL (i,CHAR)]));
+                                END;
+                             END;
+                          END;
+                                        
+                          IF NOT IsEmpty (SetMemPtr^[j].Classes) THEN
+                             FOR i := Minimum (SetMemPtr^[j].Classes) TO Maximum (SetMemPtr^[j].Classes) DO
+                                IF IsElement (i, SetMemPtr^[j].Classes) THEN
+                                   Include (Set2, i);
+                                END;
+                             END;
+                          END;
+                          yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 161
  $$ *).Tree := MakeTreeSet (nSet, Set2);
-		       END;
-		    ELSE
-		       yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 164
+                       END;
+                    ELSE
+                       yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 164
  $$ *).card := Card (yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 164
  $$ *).Set);
-		       IF yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 165
+                       IF yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 165
  $$ *).card = 1 THEN
-			  yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 166
+                          yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 166
  $$ *).Tree := MakeTreeCh (nChar, VAL (Select (yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 166
  $$ *).Set),CHAR));
-		       ELSE
-			  yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 168
+                       ELSE
+                          yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 168
  $$ *).Tree := MakeTreeSet (nSet, yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 168
  $$ *).Set);
-		       END;
-		    END;
-		  
+                       END;
+                    END;
+                  
 (* line 204 "../src/rex.cg" *)
  yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 173
  $$ *).NodeCount := 1;
@@ -321,15 +319,15 @@ yyVisit1 (yyt^.Alternative(* $$ m2tom3 warning: application of variant field, po
  $$ *).IsConstantRE := TRUE;
 (* line 138 "../src/rex.cg" *)
 
-		       GetString (yyt^.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 187
+                       GetString (yyt^.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 187
  $$ *).String, String1);
-		       AssignEmpty (String2);
-		       FOR i := 1 TO Length (String1) DO
-			  Append (String2, ToClass [Char (String1, i)]);
-		       END;
-		       yyt^.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 192
+                       AssignEmpty (String2);
+                       FOR i := 1 TO Length (String1) DO
+                          Append (String2, ToClass [Char (String1, i)]);
+                       END;
+                       yyt^.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 192
  $$ *).Tree := MakeTreeString (nString, PutString (String2));
-		    
+                    
 | Tree0.Rule=>
 yyVisit1 (yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 195
  $$ *).Patterns);
@@ -353,7 +351,7 @@ yyVisit1 (yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible 
  $$ *).Tree, yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 203
  $$ *).TargetCode, yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 203
  $$ *).Line,
-				yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 204
+                                yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 204
  $$ *).CodeMode, yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 204
  $$ *).RuleNr);
 | Tree0.Pattern=>
@@ -363,44 +361,44 @@ yyVisit1 (yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possib
  $$ *).RegExpr);
 (* line 207 "../src/rex.cg" *)
 
-		       IF yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 210
+                       IF yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 210
  $$ *).RegExpr^.Node(* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 210
  $$ *).IsConstantRE AND yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 210
  $$ *).RightContext^.Node(* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 210
  $$ *).IsConstantRE THEN
-			  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 211
+                          yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 211
  $$ *).card := Card (yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 211
  $$ *).StartStates);
-			  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 212
+                          yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 212
  $$ *).NodeCount := (yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 212
  $$ *).RegExpr^.Node(* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 212
  $$ *).NodeCount + yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 212
  $$ *).RightContext^.Node(* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 212
  $$ *).NodeCount) * yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 212
  $$ *).card;
-		       ELSE
-			  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 214
+                       ELSE
+                          yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 214
  $$ *).NodeCount := 0;
-		       END;
-		    
+                       END;
+                    
 (* line 183 "../src/rex.cg" *)
 
-		       IF NOT (yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 219
+                       IF NOT (yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 219
  $$ *).RegExpr^.Node(* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 219
  $$ *).IsConstantRE AND yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 219
  $$ *).RightContext^.Node(* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 219
  $$ *).IsConstantRE) THEN
-			  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 220
+                          yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 220
  $$ *).LeafCount := yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 220
  $$ *).RegExpr^.Node(* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 220
  $$ *).LeafCount + yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 220
  $$ *).RightContext^.Node(* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 220
  $$ *).LeafCount;
-		       ELSE
-			  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 222
+                       ELSE
+                          yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 222
  $$ *).LeafCount := 0;
-		       END;
-		    
+                       END;
+                    
 (* line 159 "../src/rex.cg" *)
  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 226
  $$ *).IsConstantRE := TRUE;
@@ -412,7 +410,7 @@ yyVisit1 (yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possib
  $$ *).Tree, yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 228
  $$ *).RightContext^.Node(* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 228
  $$ *).Tree,
-				yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 229
+                                yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 229
  $$ *).RegExpr^.Node(* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 229
  $$ *).IsConstantRE AND yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 229
  $$ *).RightContext^.Node(* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 229

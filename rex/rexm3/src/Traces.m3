@@ -53,19 +53,19 @@ VAR
 PROCEDURE InitTraces()	 =
    BEGIN
       PosToTraceSize := InitialRELength;
-      MakeArray (PosToTracePtr, PosToTraceSize, BYTESIZE (TraceStepPtr));
+      MakeArray (LOOPHOLE(PosToTracePtr,ADDRESS), PosToTraceSize, BYTESIZE (TraceStepPtr));
       TraceSize := StartStateCount * PosToTraceSize;
-      MakeArray (TracePtr, TraceSize, BYTESIZE (TraceStep));
+      MakeArray (LOOPHOLE(TracePtr,ADDRESS), TraceSize, BYTESIZE (TraceStep));
    END InitTraces;
 
 PROCEDURE ResetTraces	(StringLength: INTEGER) =
    VAR i	: INTEGER;
    BEGIN
       WHILE PosToTraceSize <= StringLength DO
-	 ExtendArray (PosToTracePtr, PosToTraceSize, BYTESIZE (TraceStepPtr));
+	 ExtendArray (LOOPHOLE(PosToTracePtr,ADDRESS), PosToTraceSize, BYTESIZE (TraceStepPtr));
       END;
       WHILE TraceSize <= (StartStateCount * StringLength) DO
-	 ExtendArray (TracePtr, TraceSize, BYTESIZE (TraceStep));
+	 ExtendArray (LOOPHOLE(TracePtr,ADDRESS), TraceSize, BYTESIZE (TraceStep));
       END;
       TraceCount := 0;
       FOR i := 1 TO StringLength DO
