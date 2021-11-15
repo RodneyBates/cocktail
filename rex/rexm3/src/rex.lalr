@@ -25,10 +25,7 @@
 
 GLOBAL {
 
-FROM SYSTEM	IMPORT
-   ADDRESS	, ADR		;
-
-FROM Errors	IMPORT
+FROM RexErrors	IMPORT
    ErrorMessageI;
 
 FROM Tree0	IMPORT

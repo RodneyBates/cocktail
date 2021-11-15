@@ -83,7 +83,6 @@ PROCEDURE ErrorAttribute (Token: CARDINAL; VAR Attribute: tScanAttribute);
 
 GLOBAL	{
 
-FROM SYSTEM	IMPORT ADDRESS;
 FROM Strings	IMPORT tString, Concatenate, Char, SubString,
 			StringToInt, AssignEmpty, Length;
 FROM Texts	IMPORT MakeText, Append;
