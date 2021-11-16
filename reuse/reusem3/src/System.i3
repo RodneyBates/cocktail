@@ -32,39 +32,44 @@
 
 (* Ich, Doktor Josef Grosch, Informatiker, Jan. 1992 *)
 
-(*FOREIGN*) UNSAFE INTERFACE  System;			(* interface for machine dependencies	*)
+UNSAFE INTERFACE  System; (* interface for machine dependencies   *)
 
 
 
 FROM SYSTEM IMPORT M2LONGINT;
+IMPORT OSError; 
 IMPORT Word;
+
+EXCEPTION TooManyFiles; 
 CONST
-   cMaxFile	= 32;
-   StdInput	= 0;
-   StdOutput	= 1;
-   StdError	= 2;
+   cMaxFile     = 32;
+   StdInput     = 0;
+   StdOutput    = 1;
+   StdError     = 2;
 
-TYPE tFile	= [-1 .. cMaxFile];
+TYPE tFile      = [-1 .. cMaxFile];
 
-			(* binary IO		*)
+                        (* binary IO            *)
 
-PROCEDURE OpenInput	(READONLY FileName: ARRAY OF CHAR): tFile;
-PROCEDURE OpenOutput	(READONLY FileName: ARRAY OF CHAR): tFile;
-PROCEDURE Read		(File: tFile; Buffer: ADDRESS; Size: INTEGER): INTEGER;
-PROCEDURE Write		(File: tFile; Buffer: ADDRESS; Size: INTEGER): INTEGER;
-PROCEDURE Close		(File: tFile);
+PROCEDURE OpenInput (READONLY FileName: ARRAY OF CHAR): tFile
+    RAISES {OSError.T, TooManyFiles}; 
+PROCEDURE OpenOutput    (READONLY FileName: ARRAY OF CHAR): tFile
+    RAISES {OSError.T, TooManyFiles};
+PROCEDURE Read          (File: tFile; Buffer: ADDRESS; Size: INTEGER): INTEGER;
+PROCEDURE Write         (File: tFile; Buffer: ADDRESS; Size: INTEGER): INTEGER;
+PROCEDURE Close         (File: tFile);
 PROCEDURE IsCharacterSpecial (File: tFile): BOOLEAN;
 
-			(* calls other than IO	*)
+                        (* calls other than IO  *)
 
-PROCEDURE SysAlloc	(ByteCount: M2LONGINT): ADDRESS;
-PROCEDURE Time		(): M2LONGINT;
-PROCEDURE GetArgCount	(): Word.T;
-PROCEDURE GetArgument	(ArgNum: INTEGER; VAR Argument: ARRAY OF CHAR);
-PROCEDURE PutArgs	(Argc: INTEGER; Argv: ADDRESS);
-PROCEDURE ErrNum	(): INTEGER;
-PROCEDURE System	(VAR String: ARRAY OF CHAR): INTEGER;
-PROCEDURE Exit		(Status: INTEGER);
+PROCEDURE SysAlloc      (ByteCount: M2LONGINT): ADDRESS;
+PROCEDURE Time          (): M2LONGINT;
+PROCEDURE GetArgCount   (): Word.T;
+PROCEDURE GetArgument   (ArgNum: INTEGER; VAR Argument: ARRAY OF CHAR);
+PROCEDURE PutArgs       (Argc: INTEGER; Argv: ADDRESS);
+PROCEDURE ErrNum        (): INTEGER;
+PROCEDURE System        (VAR String: ARRAY OF CHAR): INTEGER;
+PROCEDURE Exit          (Status: INTEGER);
 
 END System.
 
