@@ -39,7 +39,6 @@ FROM SYSTEM IMPORT M2LONGINT;
 IMPORT OSError;
 IMPORT Rd;
 IMPORT Thread;
-IMPORT Word;
 IMPORT Wr;
 
 EXCEPTION FileNoError; 
@@ -65,7 +64,7 @@ PROCEDURE Read (File: tFile; Buffer: ADDRESS; Size: INTEGER): INTEGER
       , FileNoError (*File not open for reading.*)
       };
 
-PROCEDURE Write (File: tFile; Buffer: ADDRESS; Size: INTEGER)
+PROCEDURE Write (File: tFile; Buffer: ADDRESS; Size: INTEGER) : INTEGER 
   RAISES
     {Thread.Alerted, Wr.Failure, FileNoError (*File not open for writing.*)};
 
@@ -80,14 +79,19 @@ PROCEDURE IsCharacterSpecial (File: tFile): BOOLEAN;
                         (* calls other than IO  *)
 
 PROCEDURE SysAlloc      (ByteCount: M2LONGINT): ADDRESS;
+(* Neither implemented nor used. *)
 
 PROCEDURE Time          (): M2LONGINT;
+  (* WARNING: This is wall-clock time in seconds.  It appears Cocktail
+     wants CPU time, but I don't easily see how to get that. *)
 
-PROCEDURE GetArgCount   (): Word.T;
+PROCEDURE GetArgCount   (): CARDINAL;
 
-PROCEDURE GetArgument   (ArgNum: INTEGER; VAR Argument: ARRAY OF CHAR);
+PROCEDURE GetArgument   (ArgNum: CARDINAL; VAR Argument: ARRAY OF CHAR);
 
 PROCEDURE PutArgs       (Argc: INTEGER; Argv: ADDRESS);
+
+CONST UnknownErrNum = 99999;  
 
 PROCEDURE ErrNum        (): INTEGER;
 

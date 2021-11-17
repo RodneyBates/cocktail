@@ -8,10 +8,13 @@ UNSAFE MODULE System
 ; FROM SYSTEM IMPORT M2LONGINT  
 
 ; IMPORT FileRd 
-; IMPORT FileWr 
+; IMPORT FileWr
+; IMPORT Params
+; IMPORT Process 
 ; IMPORT Rd
 ; IMPORT Stdio
-; IMPORT Text 
+; IMPORT Text
+; IMPORT Time AS M3Time 
 ; IMPORT Thread 
 ; IMPORT Wr 
 ; IMPORT Word
@@ -93,6 +96,7 @@ UNSAFE MODULE System
   
 (*EXPORTED*)
 ; PROCEDURE Write ( File : tFile ; Buffer : ADDRESS ; Size : INTEGER )
+  : INTEGER (* What's this ????? *) 
     RAISES
       { Thread.Alerted , Wr.Failure
       , FileNoError (*File not open for writing.*)
@@ -104,6 +108,7 @@ UNSAFE MODULE System
     ; IF LWrT = NIL THEN RAISE FileNoError END
     ; Wr . PutString
         ( LWrT , SUBARRAY ( LOOPHOLE ( Buffer , CharsRef ) ^ , 0 , Size ) )
+    ; RETURN Size (* Huh? *)
     END Write 
   
 (*EXPORTED*)
@@ -131,23 +136,54 @@ UNSAFE MODULE System
     END IsCharacterSpecial 
   
 (*EXPORTED*)
-; PROCEDURE SysAlloc      (ByteCount: M2LONGINT): ADDRESS
+; PROCEDURE SysAlloc (ByteCount: M2LONGINT): ADDRESS
+  (* Not used or implemented. *)
   = BEGIN
-    END SysAlloc 
+      <*ASSERT FALSE *>
+    END SysAlloc
   
 (*EXPORTED*)
-; PROCEDURE Time          (): M2LONGINT
-  = BEGIN
+; PROCEDURE Time ( ) : M2LONGINT 
+  (* WARNING: This is wall-clock time in seconds.  It appears Cocktail
+     wants CPU time, but I don't easily see how to get that. *)
+  = VAR LLRTime : LONGREAL
+  ; BEGIN
+      LLRTime := M3Time . Now ( )
+    ; RETURN ROUND ( LLRTime ) 
     END Time 
   
 (*EXPORTED*)
-; PROCEDURE GetArgCount   (): Word.T
+; PROCEDURE GetArgCount ( ) : CARDINAL 
   = BEGIN
+      RETURN Params . Count
     END GetArgCount 
-  
+
+; PROCEDURE TextToChars
+    ( T : TEXT ; VAR Ct : CARDINAL (* Not counting added nul char. *)
+    ; VAR Chars : ARRAY OF CHAR
+    )
+
+  = VAR LCharsNum , LTextNum , LMinNum : CARDINAL 
+  ; BEGIN
+      LCharsNum := NUMBER ( Chars )
+    ; IF LCharsNum <= 0 THEN Ct := 0 ; RETURN END 
+    ; IF T = NIL THEN LTextNum := 0
+      ELSE
+        LTextNum := Text . Length ( T )
+      ; Text . SetChars ( Chars , T , start := 0 )
+      END (*IF*)
+    ; LMinNum := MIN ( LCharsNum , LTextNum )
+    ; IF LMinNum < LCharsNum THEN Chars [ LCharsNum ] := '\000' END
+    ; Ct := LMinNum 
+    END TextToChars 
+
 (*EXPORTED*)
-; PROCEDURE GetArgument   (ArgNum: INTEGER; VAR Argument: ARRAY OF CHAR)
-  = BEGIN
+; PROCEDURE GetArgument ( ArgNum : CARDINAL ; VAR Argument : ARRAY OF CHAR )
+  = VAR LText : TEXT
+  ; VAR LCt : CARDINAL 
+  ; BEGIN
+      LText := Params . Get ( ArgNum )
+    ; TextToChars ( LText , LCt , Argument ) 
     END GetArgument 
   
 (*EXPORTED*)
@@ -156,18 +192,21 @@ UNSAFE MODULE System
     END PutArgs 
   
 (*EXPORTED*)
-; PROCEDURE ErrNum        (): INTEGER
+; PROCEDURE ErrNum ( ) : INTEGER
   = BEGIN
+      RETURN UnknownErrNum 
     END ErrNum 
   
 (*EXPORTED*)
-; PROCEDURE System        (VAR String: ARRAY OF CHAR): INTEGER
+; PROCEDURE System ( VAR String : ARRAY OF CHAR ) : INTEGER
   = BEGIN
+      <*ASSERT FALSE*> 
     END System 
   
 (*EXPORTED*)
-; PROCEDURE Exit          (Status: INTEGER)
+; PROCEDURE Exit ( Status : INTEGER )
   = BEGIN
+      Process . Exit ( Status ) 
     END Exit 
   
 ; BEGIN
