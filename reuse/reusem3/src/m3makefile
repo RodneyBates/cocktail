@@ -23,7 +23,7 @@ Module("Source")
 Module("StdIO")
 Module("StringMem")
 Module("Strings")
-Interface("System")
+Module("System")
 Module("Texts")
 Module("Times")
 

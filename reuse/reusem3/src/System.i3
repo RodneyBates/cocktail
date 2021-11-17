@@ -34,13 +34,15 @@
 
 UNSAFE INTERFACE  System; (* interface for machine dependencies   *)
 
-
-
 FROM SYSTEM IMPORT M2LONGINT;
-IMPORT OSError; 
-IMPORT Word;
 
-EXCEPTION TooManyFiles; 
+IMPORT OSError;
+IMPORT Rd;
+IMPORT Thread;
+IMPORT Word;
+IMPORT Wr;
+
+EXCEPTION FileNoError; 
 CONST
    cMaxFile     = 32;
    StdInput     = 0;
@@ -52,23 +54,45 @@ TYPE tFile      = [-1 .. cMaxFile];
                         (* binary IO            *)
 
 PROCEDURE OpenInput (READONLY FileName: ARRAY OF CHAR): tFile
-    RAISES {OSError.T, TooManyFiles}; 
+  RAISES {OSError.E, FileNoError (*No available tFile value.*)}; 
+
 PROCEDURE OpenOutput    (READONLY FileName: ARRAY OF CHAR): tFile
-    RAISES {OSError.T, TooManyFiles};
-PROCEDURE Read          (File: tFile; Buffer: ADDRESS; Size: INTEGER): INTEGER;
-PROCEDURE Write         (File: tFile; Buffer: ADDRESS; Size: INTEGER): INTEGER;
-PROCEDURE Close         (File: tFile);
+  RAISES {OSError.E, FileNoError (*No available tFile value.*)};
+
+PROCEDURE Read (File: tFile; Buffer: ADDRESS; Size: INTEGER): INTEGER
+    RAISES 
+      { Thread.Alerted , Rd.Failure
+      , FileNoError (*File not open for reading.*)
+      };
+
+PROCEDURE Write (File: tFile; Buffer: ADDRESS; Size: INTEGER)
+  RAISES
+    {Thread.Alerted, Wr.Failure, FileNoError (*File not open for writing.*)};
+
+PROCEDURE Close (File: tFile)
+      RAISES
+      { Thread.Alerted, Rd.Failure, Wr.Failure
+      , FileNoError (* File is char special or not open.*)
+      };
+
 PROCEDURE IsCharacterSpecial (File: tFile): BOOLEAN;
 
                         (* calls other than IO  *)
 
 PROCEDURE SysAlloc      (ByteCount: M2LONGINT): ADDRESS;
+
 PROCEDURE Time          (): M2LONGINT;
+
 PROCEDURE GetArgCount   (): Word.T;
+
 PROCEDURE GetArgument   (ArgNum: INTEGER; VAR Argument: ARRAY OF CHAR);
+
 PROCEDURE PutArgs       (Argc: INTEGER; Argv: ADDRESS);
+
 PROCEDURE ErrNum        (): INTEGER;
+
 PROCEDURE System        (VAR String: ARRAY OF CHAR): INTEGER;
+
 PROCEDURE Exit          (Status: INTEGER);
 
 END System.

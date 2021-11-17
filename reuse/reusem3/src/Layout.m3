@@ -38,7 +38,6 @@ PROCEDURE WriteSpace (f: tFile) =
    END WriteSpace;
 
 PROCEDURE WriteSpaces (f: tFile; Count: INTEGER) =
-   VAR i	: INTEGER;
    BEGIN
       FOR i := 1 TO Count DO
 	 WriteC (f, ' ');
@@ -52,7 +51,6 @@ PROCEDURE ReadSpace (f: tFile) =
    END ReadSpace;
 
 PROCEDURE ReadSpaces (f: tFile; Count: INTEGER) =
-   VAR i	: INTEGER;
    VAR Ch	: CHAR;
    BEGIN
       FOR i := 1 TO Count DO

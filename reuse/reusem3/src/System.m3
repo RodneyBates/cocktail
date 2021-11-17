@@ -1,26 +1,29 @@
 (* Ich, Dr. Rodney Bates, Informatiker, Nov., 2021. *)
 
-UNSAFE MODULE  System
+UNSAFE MODULE System
 (* In Modula2, this was an interface for machine dependencies,implemented
    by C code.  This version uses Modula3 libraries, while preserving
-   function.  *)
+   function. *)
 
-; FROM SYSTEM IMPORT M2LONGINT
+; FROM SYSTEM IMPORT M2LONGINT  
+
+; IMPORT FileRd 
+; IMPORT FileWr 
 ; IMPORT Rd
 ; IMPORT Stdio
+; IMPORT Text 
+; IMPORT Thread 
 ; IMPORT Wr 
 ; IMPORT Word
 
 ; IMPORT OSError 
 
-; CONST cMaxFile     = 32
-; CONST StdInput     = 0
-; CONST StdOutput    = 1
-; CONST StdError     = 2
-
+; CONST CharSpecFiles = SET OF tFile { StdInput , StdOutput , StdError }
 ; CONST FirstDynFile = 3
 
-; TYPE tFile      = [-1 .. cMaxFile]
+; CONST FakeArrayLast = 100000
+
+; TYPE CharsRef = UNTRACED REF ARRAY [ 0 .. FakeArrayLast ] OF CHAR
 
 (* Binary IO. *)
 
@@ -28,65 +31,103 @@ UNSAFE MODULE  System
 
 ; VAR OutMap := ARRAY tFile OF Wr . T { NIL , .. } 
 
-; PROCEDURE NewWrFileNo ( ) : tFile  
+; PROCEDURE NewFileNo ( ) : tFile  
+    RAISES { FileNoError (*No available tFile value.*)} 
+  = VAR LResult : tFile
+  ; BEGIN
+      LResult := FirstDynFile
+    ; LOOP
+        IF LResult > LAST ( InMap ) THEN RAISE FileNoError END 
+      ; IF InMap [ LResult ] = NIL AND OutMap [ LResult ] = NIL
+        THEN RETURN LResult
+        END (*IF*)
+      ; INC ( LResult ) 
+      END (*LOOP*)
+    END NewFileNo
 
 (*EXPORTED*)
 ; PROCEDURE OpenInput ( READONLY FileName : ARRAY OF CHAR ) : tFile
-    RAISES { OSError . E , TooManyFiles } 
+    RAISES { OSError . E , FileNoError (*No available tFile value.*) } 
   = VAR FileNameText : TEXT
   ; VAR RdT : Rd . T
-  ; VAR Result : tFile
+  ; VAR LResult : tFile
   ; BEGIN
-      LResult := FirstDynFile
-    ; LOOP
-        IF LResult > LAST ( InMap ) THEN RAISE TooManyFiles END 
-      ; IF InMap [ LResult ] = NIL AND OutMap [ LResult ] = NIL THEN EXIT END
-      ; INC ( LResult ) 
-      END (*LOOP*)
+      LResult := NewFileNo ( ) 
     ; FileNameText := Text . FromChars ( FileName )
     ; RdT := FileRd . Open ( FileNameText )
-    ; InMap [ LResult := RdT ]
-    ; RETURN RdT 
+    ; InMap [ LResult ] := RdT 
+    ; RETURN LResult  
     END OpenInput
   
 (*EXPORTED*)
-; PROCEDURE OpenOutput    (READONLY FileName: ARRAY OF CHAR): tFile
-    RAISES { OSError . E , TooManyFiles } 
+; PROCEDURE OpenOutput ( READONLY FileName : ARRAY OF CHAR ) : tFile
+    RAISES { OSError . E , FileNoError (*No available tFile value.*)} 
   = VAR FileNameText : TEXT
-  ; VAR WrT : Wr . t
-  ; VAR Result : tFile
+  ; VAR WrT : Wr . T
+  ; VAR LResult : tFile
   ; BEGIN
-      LResult := FirstDynFile
-    ; LOOP
-        IF LResult > LAST ( InMap ) THEN RAISE TooManyFiles END 
-      ; IF InMap [ LResult ] = NIL AND OutMap [ LResult ] = NIL THEN EXIT END
-      ; INC ( LResult ) 
-      END (*LOOP*)
+      LResult := NewFileNo ( ) 
     ; FileNameText := Text . FromChars ( FileName )
-    ; WrT := FileRd . Open ( FileNameText )
-    ; OutMap [ LResult := WrT ]
-    ; RETURN WrT 
-    END OpenIutput
+    ; WrT := FileWr . Open ( FileNameText )
+    ; OutMap [ LResult ] := WrT 
+    ; RETURN LResult  
+    END OpenOutput
   
 (*EXPORTED*)
-; PROCEDURE Read          (File: tFile; Buffer: ADDRESS; Size: INTEGER): INTEGER
-  = BEGIN
-    END Re<d 
+; PROCEDURE Read ( File : tFile ; Buffer : ADDRESS ; Size : INTEGER ) : INTEGER 
+    RAISES 
+      { Thread.Alerted , Rd.Failure
+      , FileNoError (*File not open for reading.*)
+      }
+  = VAR LRdT : Rd . T
+  ; VAR LResult : INTEGER
+  ; BEGIN
+      IF InMap [ File ] = NIL THEN RAISE FileNoError END
+    ; LRdT :=  InMap [ File ] 
+    ; IF LRdT = NIL THEN RAISE FileNoError END
+    ; LResult
+        := Rd . GetSub
+	     ( LRdT , SUBARRAY ( LOOPHOLE ( Buffer , CharsRef ) ^ , 0 , Size ) )
+    ; RETURN LResult     
+    END Read 
   
 (*EXPORTED*)
-; PROCEDURE Write         (File: tFile; Buffer: ADDRESS; Size: INTEGER): INTEGER
-(*EXPORTED*)
-  = BEGIN
+; PROCEDURE Write ( File : tFile ; Buffer : ADDRESS ; Size : INTEGER )
+    RAISES
+      { Thread.Alerted , Wr.Failure
+      , FileNoError (*File not open for writing.*)
+      }
+  = VAR LWrT : Wr . T
+  ; BEGIN
+      IF OutMap [ File ] = NIL THEN RAISE FileNoError END
+    ; LWrT :=  OutMap [ File ] 
+    ; IF LWrT = NIL THEN RAISE FileNoError END
+    ; Wr . PutString
+        ( LWrT , SUBARRAY ( LOOPHOLE ( Buffer , CharsRef ) ^ , 0 , Size ) )
     END Write 
   
 (*EXPORTED*)
-; PROCEDURE Close         (File: tFile)
+; PROCEDURE Close ( File : tFile )
+    RAISES
+      { Thread.Alerted, Rd.Failure, Wr.Failure
+      , FileNoError (* File is char special or not open.*)
+      }
   = BEGIN
+      IF File IN CharSpecFiles THEN RAISE FileNoError END 
+    ; IF InMap [ File ] # NIL
+      THEN Rd . Close ( InMap [ File ] ) 
+      ELSIF OutMap [ File ] # NIL
+      THEN Wr . Close ( OutMap [ File ] ) 
+      ELSE RAISE FileNoError 
+      END (*IF*)
+    ; InMap [ File ] := NIL 
+    ; OutMap [ File ] := NIL 
     END Close 
   
 (*EXPORTED*)
-; PROCEDURE IsCharacterSpecial (File: tFile): BOOLEAN
+; PROCEDURE IsCharacterSpecial ( File : tFile ) : BOOLEAN
   = BEGIN
+      RETURN File IN CharSpecFiles 
     END IsCharacterSpecial 
   
 (*EXPORTED*)
@@ -135,5 +176,3 @@ UNSAFE MODULE  System
   ; OutMap [ StdError ] := Stdio . stderr 
   END System
 .
-
-

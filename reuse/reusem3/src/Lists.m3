@@ -71,7 +71,10 @@ PROCEDURE Last		(    List: tList): tElmt =
    END Last;
 
 PROCEDURE Front		(VAR List: tList) =
+(* Not implemented. *)
    BEGIN
+     <* ASSERT FALSE *> 
+     EVAL List;
    END Front;
 
 PROCEDURE IsEmpty	(    List: tList): BOOLEAN =
