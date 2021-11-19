@@ -31,13 +31,13 @@
 IMPORT Word;
 FROM SYSTEM IMPORT M2LONGINT;
 FROM SYSTEM IMPORT BITSET, SHORTCARD;
-FROM Arguments	IMPORT ArgTable, GetArgs;
-FROM System	IMPORT PutArgs;
-
+(* FROM Arguments	IMPORT ArgTable, GetArgs;
+   FROM System	IMPORT PutArgs;
+*)
 VAR
    ForAlign	: RECORD char: CHAR; longreal: LONGREAL; END;
    argc		: INTEGER;
-   argv		: ArgTable;
+(*   argv		: ArgTable; *)
 
 
 (* Returns the minimum of 'a' and 'b'.		*)
@@ -159,8 +159,10 @@ BEGIN
    AlignMasks [7] := LOOPHOLE (16_0FFFFFFFF,BITSET);
    AlignMasks [8] := LOOPHOLE (16_0FFFFFFF8,BITSET);
 
+(*
    GetArgs (argc, argv);
    PutArgs (argc, LOOPHOLE(argv,ADDRESS));
+*)
 END General.
 
 

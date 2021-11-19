@@ -24,9 +24,9 @@ UNSAFE MODULE System
 ; CONST CharSpecFiles = SET OF tFile { StdInput , StdOutput , StdError }
 ; CONST FirstDynFile = 3
 
-; CONST FakeArrayLast = 100000
+; CONST FakeArrayLast = 1000000
 
-; TYPE CharsRef = UNTRACED REF ARRAY [ 0 .. FakeArrayLast ] OF CHAR
+; TYPE CharsRefTyp = UNTRACED REF ARRAY [ 0 .. FakeArrayLast ] OF CHAR
 
 (* Binary IO. *)
 
@@ -75,6 +75,15 @@ UNSAFE MODULE System
     ; OutMap [ LResult ] := WrT 
     ; RETURN LResult  
     END OpenOutput
+
+; PROCEDURE Test ( VAR Form : ARRAY OF CHAR )
+  = VAR Adr := ADR ( Form )
+  ; VAR First := ADR ( Form )
+  ; VAR Last := LAST ( Form )
+  ; VAR Number := NUMBER ( Form )
+  ; BEGIN
+      EVAL First 
+    END Test 
   
 (*EXPORTED*)
 ; PROCEDURE Read ( File : tFile ; Buffer : ADDRESS ; Size : INTEGER ) : INTEGER 
@@ -84,13 +93,19 @@ UNSAFE MODULE System
       }
   = VAR LRdT : Rd . T
   ; VAR LResult : INTEGER
+  ; VAR LCharsRef : CharsRefTyp
+; VAR LCharsRef2 : UNTRACED REF ARRAY [ 0 .. 18000 ] OF CHAR 
   ; BEGIN
       IF InMap [ File ] = NIL THEN RAISE FileNoError END
     ; LRdT :=  InMap [ File ] 
     ; IF LRdT = NIL THEN RAISE FileNoError END
-    ; LResult
-        := Rd . GetSub
-	     ( LRdT , SUBARRAY ( LOOPHOLE ( Buffer , CharsRef ) ^ , 0 , Size ) )
+    ; LCharsRef := LOOPHOLE ( Buffer , CharsRefTyp ) 
+; LCharsRef2 := LOOPHOLE ( Buffer , UNTRACED REF ARRAY [ 0 .. 18000 ] OF CHAR )
+; Test ( LCharsRef2 ^ ) 
+; Test ( SUBARRAY ( LCharsRef2 ^ , 0 , 16 ) ) 
+; Test ( LCharsRef ^ ) 
+; Test ( SUBARRAY ( LCharsRef ^ , 0 , 16 ) ) 
+    ; LResult := Rd . GetSub ( LRdT , SUBARRAY ( LCharsRef ^ , 0 , Size ) )
     ; RETURN LResult     
     END Read 
   
@@ -102,12 +117,13 @@ UNSAFE MODULE System
       , FileNoError (*File not open for writing.*)
       }
   = VAR LWrT : Wr . T
+  ; VAR LCharsRef : CharsRefTyp 
   ; BEGIN
       IF OutMap [ File ] = NIL THEN RAISE FileNoError END
     ; LWrT :=  OutMap [ File ] 
     ; IF LWrT = NIL THEN RAISE FileNoError END
-    ; Wr . PutString
-        ( LWrT , SUBARRAY ( LOOPHOLE ( Buffer , CharsRef ) ^ , 0 , Size ) )
+    ; LCharsRef := LOOPHOLE ( Buffer , CharsRefTyp ) 
+    ; Wr . PutString ( LWrT , SUBARRAY ( LCharsRef ^ , 0 , Size ) )
     ; RETURN Size (* Huh? *)
     END Write 
   
@@ -118,7 +134,7 @@ UNSAFE MODULE System
       , FileNoError (* File is char special or not open.*)
       }
   = BEGIN
-      IF File IN CharSpecFiles THEN RAISE FileNoError END 
+      IF File IN CharSpecFiles THEN (*RAISE FileNoError*) END 
     ; IF InMap [ File ] # NIL
       THEN Rd . Close ( InMap [ File ] ) 
       ELSIF OutMap [ File ] # NIL
@@ -173,7 +189,7 @@ UNSAFE MODULE System
       ; Text . SetChars ( Chars , T , start := 0 )
       END (*IF*)
     ; LMinNum := MIN ( LCharsNum , LTextNum )
-    ; IF LMinNum < LCharsNum THEN Chars [ LCharsNum ] := '\000' END
+    ; IF LMinNum < LCharsNum THEN Chars [ LMinNum ] := '\000' END
     ; Ct := LMinNum 
     END TextToChars 
 

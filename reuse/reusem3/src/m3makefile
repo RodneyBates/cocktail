@@ -3,7 +3,7 @@ import ("libm3")
 
 import("m2libs")
 
-interface("Arguments")
+% interface("Arguments")
 Module("Checks")
 Module("DynArray")
 Module("Errors")

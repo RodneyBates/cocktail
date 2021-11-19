@@ -12,9 +12,10 @@
 (*FOREIGN*) UNSAFE INTERFACE  Arguments
 ; TYPE ArgTable = UNTRACED BRANDED REF  ARRAY [0 .. 999 ] 
                              OF UNTRACED BRANDED REF  ARRAY [ 0 .. 999 ] OF CHAR
-
+(*
 ; PROCEDURE GetArgs ( VAR argc : INTEGER ; VAR argv : ArgTable )
 ; PROCEDURE GetEnv ( VAR env : ArgTable )
+*)
 
 ; END Arguments
 .
