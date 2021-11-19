@@ -61,7 +61,7 @@
 
 (* Ich, Doktor Josef Grosch, Informatiker, Nov. 1987 *)
 
-UNSAFE MODULE rex EXPORTS Main;
+UNSAFE MODULE rexm3 EXPORTS Main;
 
 
 FROM SYSTEM IMPORT SHORTCARD, SHORTINT;
@@ -238,5 +238,5 @@ WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'Wr
    IF s THEN GenerateSupport()  ; END;
    CloseIO();
    Exit (0);
-END rex.
+END rexm3.
 

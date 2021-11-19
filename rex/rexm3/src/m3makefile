@@ -19,6 +19,6 @@ module("Traces")
 module("Tree0")
 module("Tree")
 
-implementation("rex")
+implementation("rexm3")
 
-program("rex")
+program("rexm3")
