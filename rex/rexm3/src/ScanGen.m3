@@ -129,25 +129,25 @@ FROM GenTabs    IMPORT
 IMPORT Word, Texts, Strings, Idents;
 
 CONST
-   ScannerMd    = ARRAY [0..10] OF CHAR{'S','c','a','n','n','e','r','.','m','d','\000'}  ;       (* file names for Modula-2      *)
-   ScannerMi    = ARRAY [0..10] OF CHAR{'S','c','a','n','n','e','r','.','m','i','\000'}  ;
-   SourceMd     = ARRAY [0..9] OF CHAR{'S','o','u','r','c','e','.','m','d','\000'}   ;
-   SourceMi     = ARRAY [0..9] OF CHAR{'S','o','u','r','c','e','.','m','i','\000'}   ;
-   ScanDrvMi    = ARRAY [0..10] OF CHAR{'S','c','a','n','D','r','v','.','m','i','\000'}  ;
+   ScannerMd    = "Scanner.md"  ;       (* file names for Modula-2      *)
+   ScannerMi    = "Scanner.mi"  ;
+   SourceMd     = "Source.md"   ;
+   SourceMi     = "Source.mi"   ;
+   ScanDrvMi    = "ScanDrv.mi"  ;
 
-   ScannerH     = ARRAY [0..9] OF CHAR{'S','c','a','n','n','e','r','.','h','\000'}   ;       (* file names for C             *)
-   ScannerC     = ARRAY [0..9] OF CHAR{'S','c','a','n','n','e','r','.','c','\000'}   ;
-   SourceH      = ARRAY [0..8] OF CHAR{'S','o','u','r','c','e','.','h','\000'}    ;
-   SourceC      = ARRAY [0..8] OF CHAR{'S','o','u','r','c','e','.','c','\000'}    ;
-   ScanDrvC     = ARRAY [0..9] OF CHAR{'S','c','a','n','D','r','v','.','c','\000'}   ;
+   ScannerH     = "Scanner.h"   ;       (* file names for C             *)
+   ScannerC     = "Scanner.c"   ;
+   SourceH      = "Source.h"    ;
+   SourceC      = "Source.c"    ;
+   ScanDrvC     = "ScanDrv.c"   ;
 
-   Scanner      = ARRAY [0..7] OF CHAR{'S','c','a','n','n','e','r','\000'}; 
-   Source       = ARRAY [0..6] OF CHAR{'S','o','u','r','c','e','\000'};
-   Drv          = ARRAY [0..3] OF CHAR{'D','r','v','\000'};
-   ExtMd        = ARRAY [0..3] OF CHAR{'.','m','d','\000'};
-   ExtMi        = ARRAY [0..3] OF CHAR{'.','m','i','\000'};
-   ExtH         = ARRAY [0..2] OF CHAR{'.','h','\000'};
-   ExtC         = ARRAY [0..2] OF CHAR{'.','c','\000'};
+   Scanner      = "Scanner"; 
+   Source       = "Source";
+   Drv          = "Drv";
+   ExtMd        = ".md";
+   ExtMi        = ".mi";
+   ExtH         = ".h";
+   ExtC         = ".c";
 
    PatternNoMatch = 15  ;
    Warning        = 4   ;
@@ -403,21 +403,21 @@ PROCEDURE GenerateConstants (Out: tFile) =
       Ident     : tIdent        ;
       Number    : SHORTCARD     ;
    BEGIN
-      ArrayToString             (ARRAY [0..9] OF CHAR{'y','y','F','i','r','s','t','C','h','\000'}    , String);
+      ArrayToString             ("yyFirstCh"    , String);
       GenerateCharConstDef      (Out, String, FirstCh   );
-      ArrayToString             (ARRAY [0..8] OF CHAR{'y','y','L','a','s','t','C','h','\000'}     , String);
+      ArrayToString             ("yyLastCh"     , String);
       GenerateCharConstDef      (Out, String, OldLastCh );
-      ArrayToString             (ARRAY [0..7] OF CHAR{'y','y','E','o','l','C','h','\000'}      , String);
+      ArrayToString             ("yyEolCh"      , String);
       GenerateCharConstDef      (Out, String, EolCh     );
-      ArrayToString             (ARRAY [0..7] OF CHAR{'y','y','E','o','b','C','h','\000'}      , String);
+      ArrayToString             ("yyEobCh"      , String);
       GenerateCharConstDef      (Out, String, EobCh     );
-      ArrayToString             (ARRAY [0..13] OF CHAR{'y','y','D','S','t','a','t','e','C','o','u','n','t','\000'}, String);
+      ArrayToString             ("yyDStateCount", String);
       GenerateDecConstDef       (Out, String, DStateCount);
-      ArrayToString             (ARRAY [0..11] OF CHAR{'y','y','T','a','b','l','e','S','i','z','e','\000'}  , String);
+      ArrayToString             ("yyTableSize"  , String);
       GenerateDecConstDef       (Out, String, TableSize );
-      ArrayToString             (ARRAY [0..10] OF CHAR{'y','y','E','o','b','S','t','a','t','e','\000'}   , String);
+      ArrayToString             ("yyEobState"   , String);
       GenerateDecConstDef       (Out, String, Select (PatternTablePtr^[EobAction].Finals));
-      ArrayToString             (ARRAY [0..14] OF CHAR{'y','y','D','e','f','a','u','l','t','S','t','a','t','e','\000'}, String);
+      ArrayToString             ("yyDefaultState", String);
       GenerateDecConstDef       (Out, String, Select (PatternTablePtr^[DefaultAction].Finals));
 
       FOR Definition := 1 TO DefCount DO
@@ -466,25 +466,25 @@ PROCEDURE GenerateActions (Out: tFile; ReduceCaseSize, Warnings: BOOLEAN) =
                   END;
                END;
             ELSIF PatternTablePtr^[Pattern].ContextLng > 0 THEN
-               ArrayToString (ARRAY [0..15] OF CHAR{'y','y','C','h','B','u','f','f','e','r','I','n','d','e','x','\000'}, String);
+               ArrayToString ("yyChBufferIndex", String);
                GenerateDecrement (Out, String, PatternTablePtr^[Pattern].ContextLng);
                IF Language = tLanguage.C THEN
                   IF ScannerName = NoIdent THEN
-                     ArrayToString (ARRAY [0..11] OF CHAR{'T','o','k','e','n','L','e','n','g','t','h','\000'}, String);
+                     ArrayToString ("TokenLength", String);
                   ELSE
                      Idents.GetString (ScannerName, String);
                      Append (String, '_');
-                     ArrayToString (ARRAY [0..11] OF CHAR{'T','o','k','e','n','L','e','n','g','t','h','\000'}, String2);
+                     ArrayToString ("TokenLength", String2);
                      Concatenate (String, String2);
                   END;
                ELSE
-                  ArrayToString (ARRAY [0..11] OF CHAR{'T','o','k','e','n','L','e','n','g','t','h','\000'}, String);
+                  ArrayToString ("TokenLength", String);
                END;
                GenerateDecrement (Out, String, PatternTablePtr^[Pattern].ContextLng);
             ELSIF PatternTablePtr^[Pattern].ContextLng < 0 THEN
-               WriteS (Out, ARRAY [0..8] OF CHAR{'y','y','L','e','s','s',' ','(','\000'});
+               WriteS (Out, "yyLess (");
                WriteI (Out, - PatternTablePtr^[Pattern].ContextLng, 0);
-               WriteS (Out, ARRAY [0..2] OF CHAR{')',';','\000'});
+               WriteS (Out, ");");
                WriteNl (Out);
             END;
             Rule := PatternTablePtr^[Pattern].Rule;
@@ -496,9 +496,9 @@ PROCEDURE GenerateActions (Out: tFile; ReduceCaseSize, Warnings: BOOLEAN) =
             WriteText (Out, RuleToCodePtr^[Rule].Text);
             IF Language = tLanguage.C THEN
                INC (DummyCount);
-               WriteS (Out, ARRAY [0..4] OF CHAR{'}',' ','y','y','\000'});
+               WriteS (Out, "} yy");
                WriteI (Out, DummyCount, 0);
-               WriteS (Out, ARRAY [0..2] OF CHAR{':',' ','\000'});
+               WriteS (Out, ": ");
             END;
             WriteText (Out, Trailer);
          ELSIF (PatternTablePtr^[Pattern].Position.Line # 0) AND Warnings THEN
@@ -512,12 +512,12 @@ PROCEDURE GenerateDecConstDef (Out: tFile; READONLY Name: tString; Value: INTEGE
       CASE Language OF
       | tLanguage.Modula=>
          Strings.WriteS (Out, Name);
-         WriteS (Out, ARRAY [0..3] OF CHAR{' ','=',' ','\000'});
+         WriteS (Out, " = ");
          WriteI (Out, Value, 0);
          WriteC (Out, ';');
          WriteNl (Out);
       | tLanguage.C=>
-         WriteS (Out, ARRAY [0..9] OF CHAR{'#',' ','d','e','f','i','n','e',' ','\000'});
+         WriteS (Out, "# define ");
          Strings.WriteS (Out, Name);
          WriteC (Out, ' ');
          WriteI (Out, Value, 0);
@@ -530,14 +530,20 @@ PROCEDURE GenerateCharConstDef (Out: tFile; READONLY Name: tString; Value: CHAR)
       CASE Language OF
       | tLanguage.Modula=>
          Strings.WriteS (Out, Name);
-         WriteS (Out, ARRAY [0..3] OF CHAR{' ','=',' ','\000'});
+         WriteS (Out, " = ");
          WriteN (Out, ORD (Value), 1, 8);
-         WriteS (Out, ARRAY [0..2] OF CHAR{'C',';','\000'});
+         WriteS (Out, "C;");
          WriteNl (Out);
       | tLanguage.C=>
-         WriteS (Out, ARRAY [0..9] OF CHAR{'#',' ','d','e','f','i','n','e',' ','\000'});
+         WriteS (Out, "# define ");
          Strings.WriteS (Out, Name);
+<<<<<<< src.1st/ScanGen.m3
          WriteS (Out, ARRAY [0..19] OF CHAR{' ','(','u','n','s','i','g','n','e','d',' ','c','h','a','r',')',' ','\'','\'','\000'});
+||||||| m2tom3src.1st/ScanGen.m3
+         WriteS (Out, ARRAY [0..19] OF CHAR{' ','(','u','n','s','i','g','n','e','d',' ','c','h','a','r',')',' ','\'','\','\000'});
+=======
+         WriteS (Out, " (unsigned char) '\");
+>>>>>>> m2tom3src/ScanGen.m3
          WriteN (Out, ORD (Value), 1, 8);
          WriteC (Out, '\'');
          WriteNl (Out);
@@ -548,15 +554,15 @@ PROCEDURE GenerateDecrement (Out: tFile; READONLY Name: tString; Value: INTEGER)
    BEGIN
       CASE Language OF
       | tLanguage.Modula=>
-         WriteS (Out, ARRAY [0..5] OF CHAR{'D','E','C',' ','(','\000'});
+         WriteS (Out, "DEC (");
          Strings.WriteS (Out, Name);
-         WriteS (Out, ARRAY [0..2] OF CHAR{',',' ','\000'});
+         WriteS (Out, ", ");
          WriteI (Out, Value, 0);
-         WriteS (Out, ARRAY [0..2] OF CHAR{')',';','\000'});
+         WriteS (Out, ");");
          WriteNl (Out);
       | tLanguage.C=>
          Strings.WriteS (Out, Name);
-         WriteS (Out, ARRAY [0..4] OF CHAR{' ','-','=',' ','\000'});
+         WriteS (Out, " -= ");
          WriteI (Out, Value, 0);
          WriteC (Out, ';');
          WriteNl (Out);
@@ -567,12 +573,12 @@ PROCEDURE GenerateCaseLabel (Out: tFile; Label: INTEGER) =
    BEGIN
       CASE Language OF
       | tLanguage.Modula=>
-         WriteS (Out, ARRAY [0..2] OF CHAR{'|',' ','\000'});
+         WriteS (Out, "| ");
          WriteI (Out, Label, 0);
          WriteC (Out, ':');
          WriteNl (Out);
       | tLanguage.C=>
-         WriteS (Out, ARRAY [0..5] OF CHAR{'c','a','s','e',' ','\000'});
+         WriteS (Out, "case ");
          WriteI (Out, Label, 0);
          WriteC (Out, ':');
          WriteNl (Out);
@@ -599,9 +605,9 @@ PROCEDURE GenerateCaseLabels (Out: tFile; Set: tSet) =
          WriteNl (Out);
       | tLanguage.C=>
          WHILE NOT IsEmpty (Set) DO
-            WriteS (Out, ARRAY [0..5] OF CHAR{'c','a','s','e',' ','\000'});
+            WriteS (Out, "case ");
             WriteI (Out, Extract (Set), 0);
-            WriteS (Out, ARRAY [0..2] OF CHAR{':',';','\000'});   (* ; helps to avoid yacc stack overflow in SUN's cc *)
+            WriteS (Out, ":;");   (* ; helps to avoid yacc stack overflow in SUN's cc *)
             WriteNl (Out);
          END;
       END;
@@ -615,7 +621,7 @@ PROCEDURE MakeLabel (): Word.T =
 
 PROCEDURE GenerateGoto (Out: tFile; Label: Word.T) =
    BEGIN
-      WriteS (Out, ARRAY [0..6] OF CHAR{'g','o','t','o',' ','L','\000'});
+      WriteS (Out, "goto L");
       WriteI (Out, Label, 0);
       WriteC (Out, ';');
       WriteNl (Out);
@@ -625,7 +631,7 @@ PROCEDURE GenerateLabel (Out: tFile; Label: Word.T) =
    BEGIN
       WriteC (Out, 'L');
       WriteI (Out, Label, 0);
-      WriteS (Out, ARRAY [0..3] OF CHAR{':',' ',';','\000'});
+      WriteS (Out, ": ;");
       WriteNl (Out);
    END GenerateLabel;
 
@@ -634,25 +640,25 @@ PROCEDURE WriteLine (Out: tFile; Line: SHORTCARD) =
       IF Line # 0 THEN
          CASE Language OF
          | tLanguage.Modula=>
-            WriteS (Out, ARRAY [0..8] OF CHAR{'(','*',' ','l','i','n','e',' ','\000'});
+            WriteS (Out, "(* line ");
             WriteI (Out, Line, 0);
-            WriteS (Out, ARRAY [0..2] OF CHAR{' ','"','\000'});
+            WriteS (Out, " "");
             WriteS (Out, SourceFile);
-            WriteS (Out, ARRAY [0..4] OF CHAR{'"',' ','*',')','\000'});
+            WriteS (Out, "" *)");
             WriteNl (Out);
          | tLanguage.C=>
             IF gGenLine THEN
-               WriteS (Out, ARRAY [0..7] OF CHAR{'#',' ','l','i','n','e',' ','\000'});
+               WriteS (Out, "# line ");
                WriteI (Out, Line, 0);
-               WriteS (Out, ARRAY [0..2] OF CHAR{' ','"','\000'});
+               WriteS (Out, " "");
                WriteS (Out, SourceFile);
                WriteS (Out, ARRAY [0..1] OF CHAR{'"','\000'});
             ELSE
-               WriteS (Out, ARRAY [0..8] OF CHAR{'/','*',' ','l','i','n','e',' ','\000'});
+               WriteS (Out, "/* line ");
                WriteI (Out, Line, 0);
-               WriteS (Out, ARRAY [0..2] OF CHAR{' ','"','\000'});
+               WriteS (Out, " "");
                WriteS (Out, SourceFile);
-               WriteS (Out, ARRAY [0..4] OF CHAR{'"',' ','*','/','\000'});
+               WriteS (Out, "" */");
             END;
             WriteNl (Out);
          END;
@@ -705,111 +711,141 @@ PROCEDURE InitScanGen() =
    BEGIN
 CASE Language OF
 | tLanguage.Modula=>
-   ConvertAppend (ARRAY [0..35] OF CHAR{'C','A','S','E',' ','y','y','S','t','a','t','e','S','t','a','c','k','^',' ','[','T','o','k','e','n','L','e','n','g','t','h',']',' ','O','F','\000'} , Case1);
+   ConvertAppend ("CASE yyStateStack^ [TokenLength] OF" , Case1);
 
-   ConvertAppend (ARRAY [0..46] OF CHAR{'C','A','S','E',' ','y','y','A','c','t','i','o','n',' ','[','y','y','S','t','a','t','e','S','t','a','c','k','^',' ','[','T','o','k','e','n','L','e','n','g','t','h',']',']',' ','O','F','\000'}, Case2);
+   ConvertAppend ("CASE yyAction [yyStateStack^ [TokenLength]] OF", Case2);
 
-   ConvertAppend (ARRAY [0..41] OF CHAR{'A','t','t','r','i','b','u','t','e','.','P','o','s','i','t','i','o','n','.','L','i','n','e',' ',' ',' ',':','=',' ','y','y','L','i','n','e','C','o','u','n','t',';','\000'}   , Leader);
-   ConvertAppend (ARRAY [0..88] OF CHAR{'A','t','t','r','i','b','u','t','e','.','P','o','s','i','t','i','o','n','.','C','o','l','u','m','n',' ',':','=',' ','V','A','L','(','S','H','O','R','T','C','A','R','D',',','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x',' ','-',' ','y','y','L','i','n','e','S','t','a','r','t',' ','-',' ','T','o','k','e','n','L','e','n','g','t','h',')',';','\000'}, Leader);
+   ConvertAppend ("Attribute.Position.Line   := yyLineCount;"   , Leader);
+   ConvertAppend ("Attribute.Position.Column := VAL(SHORTCARD,yyChBufferIndex - yyLineStart - TokenLength);", Leader);
 
-   ConvertAppend (ARRAY [0..29] OF CHAR{'y','y','R','e','s','t','a','r','t','F','l','a','g',' ',':','=',' ','F','A','L','S','E',';',' ','E','X','I','T',';','\000'}               , Trailer);
+   ConvertAppend ("yyRestartFlag := FALSE; EXIT;"               , Trailer);
 
-   ConvertAppend (ARRAY [0..17] OF CHAR{'(','*',' ','B','l','a','n','k','A','c','t','i','o','n',' ','*',')','\000'}                           , BlankText);
-   ConvertAppend (ARRAY [0..75] OF CHAR{'W','H','I','L','E',' ','y','y','C','h','B','u','f','f','e','r','P','t','r','^',' ','[','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x',']',' ','=',' ','\'',' ','\'',' ','D','O',' ','I','N','C',' ','(','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x',')',';',' ','E','N','D',';','\000'}, BlankText);
+   ConvertAppend ("(* BlankAction *)"                           , BlankText);
+   ConvertAppend ("WHILE yyChBufferPtr^ [yyChBufferIndex] = ' ' DO INC (yyChBufferIndex); END;", BlankText);
 
-   ConvertAppend (ARRAY [0..15] OF CHAR{'(','*',' ','T','a','b','A','c','t','i','o','n',' ','*',')','\000'}                             , TabText);
-   ConvertAppend (ARRAY [0..65] OF CHAR{'D','E','C',' ','(','y','y','L','i','n','e','S','t','a','r','t',',',' ','7',' ','-',' ','(','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x',' ','-',' ','y','y','L','i','n','e','S','t','a','r','t',' ','-',' ','2',')',' ','M','O','D',' ','8',')',';','\000'}, TabText);
+   ConvertAppend ("(* TabAction *)"                             , TabText);
+   ConvertAppend ("DEC (yyLineStart, 7 - (yyChBufferIndex - yyLineStart - 2) MOD 8);", TabText);
 
-   ConvertAppend (ARRAY [0..15] OF CHAR{'(','*',' ','E','o','l','A','c','t','i','o','n',' ','*',')','\000'}                             , EolText);
-   ConvertAppend (ARRAY [0..18] OF CHAR{'I','N','C',' ','(','y','y','L','i','n','e','C','o','u','n','t',')',';','\000'}                          , EolText);
-   ConvertAppend (ARRAY [0..35] OF CHAR{'y','y','L','i','n','e','S','t','a','r','t',' ',':','=',' ','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x',' ','-',' ','1',';','\000'}         , EolText);
+   ConvertAppend ("(* EolAction *)"                             , EolText);
+   ConvertAppend ("INC (yyLineCount);"                          , EolText);
+   ConvertAppend ("yyLineStart := yyChBufferIndex - 1;"         , EolText);
 
-   ConvertAppend (ARRAY [0..36] OF CHAR{'W','H','I','L','E',' ','y','y','S','t','a','t','e','S','t','a','c','k','^',' ','[','T','o','k','e','n','L','e','n','g','t','h',']',' ','#',' ','\000'}        , Context1);
+   ConvertAppend ("WHILE yyStateStack^ [TokenLength] # "        , Context1);
 
-   ConvertAppend (ARRAY [0..3] OF CHAR{' ','D','O','\000'}                                         , Context2);
-   ConvertAppend (ARRAY [0..25] OF CHAR{' ',' ',' ','D','E','C',' ','(','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x',')',';','\000'}                   , Context2);
-   ConvertAppend (ARRAY [0..21] OF CHAR{' ',' ',' ','D','E','C',' ','(','T','o','k','e','n','L','e','n','g','t','h',')',';','\000'}                       , Context2);
-   ConvertAppend (ARRAY [0..4] OF CHAR{'E','N','D',';','\000'}                                        , Context2);
+   ConvertAppend (" DO"                                         , Context2);
+   ConvertAppend ("   DEC (yyChBufferIndex);"                   , Context2);
+   ConvertAppend ("   DEC (TokenLength);"                       , Context2);
+   ConvertAppend ("END;"                                        , Context2);
 
-   ConvertAppend (ARRAY [0..4] OF CHAR{'L','O','O','P','\000'}                                        , Context3);
-   ConvertAppend (ARRAY [0..38] OF CHAR{' ',' ',' ','C','A','S','E',' ','y','y','S','t','a','t','e','S','t','a','c','k','^',' ','[','T','o','k','e','n','L','e','n','g','t','h',']',' ','O','F','\000'}      , Context3);
+   ConvertAppend ("LOOP"                                        , Context3);
+   ConvertAppend ("   CASE yyStateStack^ [TokenLength] OF"      , Context3);
 
-   ConvertAppend (ARRAY [0..11] OF CHAR{' ',' ',' ',' ',' ',' ','E','X','I','T',';','\000'}                                 , Context4);
-   ConvertAppend (ARRAY [0..7] OF CHAR{' ',' ',' ','E','L','S','E','\000'}                                     , Context4);
-   ConvertAppend (ARRAY [0..28] OF CHAR{' ',' ',' ',' ',' ',' ','D','E','C',' ','(','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x',')',';','\000'}                , Context4);
-   ConvertAppend (ARRAY [0..24] OF CHAR{' ',' ',' ',' ',' ',' ','D','E','C',' ','(','T','o','k','e','n','L','e','n','g','t','h',')',';','\000'}                    , Context4);
-   ConvertAppend (ARRAY [0..7] OF CHAR{' ',' ',' ','E','N','D',';','\000'}                                     , Context4);
-   ConvertAppend (ARRAY [0..4] OF CHAR{'E','N','D',';','\000'}                                        , Context4);
+   ConvertAppend ("      EXIT;"                                 , Context4);
+   ConvertAppend ("   ELSE"                                     , Context4);
+   ConvertAppend ("      DEC (yyChBufferIndex);"                , Context4);
+   ConvertAppend ("      DEC (TokenLength);"                    , Context4);
+   ConvertAppend ("   END;"                                     , Context4);
+   ConvertAppend ("END;"                                        , Context4);
 
 IF Texts.IsEmpty (Export) THEN
-   ConvertAppend (ARRAY [0..17] OF CHAR{'I','M','P','O','R','T',' ','P','o','s','i','t','i','o','n','s',';','\000'}                           , Export);
-   ConvertAppend (ARRAY [0..65] OF CHAR{'T','Y','P','E',' ','t','S','c','a','n','A','t','t','r','i','b','u','t','e',' ',' ','=',' ','R','E','C','O','R','D',' ','P','o','s','i','t','i','o','n',':',' ','P','o','s','i','t','i','o','n','s','.','t','P','o','s','i','t','i','o','n',';',' ','E','N','D',';','\000'}, Export);
-   ConvertAppend (ARRAY [0..73] OF CHAR{'P','R','O','C','E','D','U','R','E',' ','E','r','r','o','r','A','t','t','r','i','b','u','t','e',' ','(','T','o','k','e','n',':',' ','I','N','T','E','G','E','R',';',' ','V','A','R',' ','A','t','t','r','i','b','u','t','e',':',' ','t','S','c','a','n','A','t','t','r','i','b','u','t','e',')',';','\000'}, Export);
+   ConvertAppend ("IMPORT Positions;"                           , Export);
+   ConvertAppend ("TYPE tScanAttribute  = RECORD Position: Positions.tPosition; END;", Export);
+   ConvertAppend ("PROCEDURE ErrorAttribute (Token: INTEGER; VAR Attribute: tScanAttribute);", Export);
 END;
 IF Texts.IsEmpty (Global) THEN
-   ConvertAppend (ARRAY [0..73] OF CHAR{'P','R','O','C','E','D','U','R','E',' ','E','r','r','o','r','A','t','t','r','i','b','u','t','e',' ','(','T','o','k','e','n',':',' ','I','N','T','E','G','E','R',';',' ','V','A','R',' ','A','t','t','r','i','b','u','t','e',':',' ','t','S','c','a','n','A','t','t','r','i','b','u','t','e',')',';','\000'}, Global);
-   ConvertAppend (ARRAY [0..8] OF CHAR{' ',' ',' ','B','E','G','I','N','\000'}                                    , Global);
-   ConvertAppend (ARRAY [0..22] OF CHAR{' ',' ',' ','E','N','D',' ','E','r','r','o','r','A','t','t','r','i','b','u','t','e',';','\000'}                      , Global);
+   ConvertAppend ("PROCEDURE ErrorAttribute (Token: INTEGER; VAR Attribute: tScanAttribute);", Global);
+   ConvertAppend ("   BEGIN"                                    , Global);
+   ConvertAppend ("   END ErrorAttribute;"                      , Global);
 END;
 IF Texts.IsEmpty (Default) THEN
-   ConvertAppend (ARRAY [0..61] OF CHAR{'I','O','.','W','r','i','t','e','C',' ','(','I','O','.','S','t','d','O','u','t','p','u','t',',',' ','y','y','C','h','B','u','f','f','e','r','P','t','r','^',' ','[','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x','-','1',']',')',';','\000'}, Default);
+   ConvertAppend ("IO.WriteC (IO.StdOutput, yyChBufferPtr^ [yyChBufferIndex-1]);", Default);
 END;
 
 | tLanguage.C=>
-   ConvertAppend (ARRAY [0..26] OF CHAR{'s','w','i','t','c','h',' ','(','*',' ','-','-',' ','y','y','S','t','a','t','e','P','t','r',')',' ','{','\000'}                  , Case1);
+   ConvertAppend ("switch (* -- yyStatePtr) {"                  , Case1);
 
-   ConvertAppend (ARRAY [0..37] OF CHAR{'s','w','i','t','c','h',' ','(','y','y','A','c','t','i','o','n',' ','[','*',' ','-','-',' ','y','y','S','t','a','t','e','P','t','r',']',')',' ','{','\000'}       , Case2);
+   ConvertAppend ("switch (yyAction [* -- yyStatePtr]) {"       , Case2);
 
-   ConvertAppend2(ARRAY [0..0] OF CHAR{'\000'}, ARRAY [0..40] OF CHAR{'A','t','t','r','i','b','u','t','e','.','P','o','s','i','t','i','o','n','.','L','i','n','e',' ',' ',' ','=',' ','y','y','L','i','n','e','C','o','u','n','t',';','\000'}, Leader);
-   ConvertAppend3(ARRAY [0..0] OF CHAR{'\000'}, ARRAY [0..46] OF CHAR{'A','t','t','r','i','b','u','t','e','.','P','o','s','i','t','i','o','n','.','C','o','l','u','m','n',' ','=',' ','(','u','n','s','i','g','n','e','d',' ','c','h','a','r',' ','*',')',' ','\000'}, ARRAY [0..23] OF CHAR{'T','o','k','e','n','P','t','r',' ','-',' ','y','y','L','i','n','e','S','t','a','r','t',';','\000'}, Leader);
+   ConvertAppend2("", "Attribute.Position.Line   = yyLineCount;", Leader);
+   ConvertAppend3("", "Attribute.Position.Column = (unsigned char *) ", "TokenPtr - yyLineStart;", Leader);
 
-   ConvertAppend (ARRAY [0..13] OF CHAR{'g','o','t','o',' ','y','y','B','e','g','i','n',';','\000'}                               , Trailer);
+   ConvertAppend ("goto yyBegin;"                               , Trailer);
 
-   ConvertAppend (ARRAY [0..17] OF CHAR{'/','*',' ','B','l','a','n','k','A','c','t','i','o','n',' ','*','/','\000'}                           , BlankText);
-   ConvertAppend (ARRAY [0..40] OF CHAR{'w','h','i','l','e',' ','(','*',' ','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x','R','e','g',' ','+','+',' ','=','=',' ','\'',' ','\'',')',' ',';','\000'}    , BlankText);
-   ConvertAppend2(ARRAY [0..0] OF CHAR{'\000'}, ARRAY [0..42] OF CHAR{'T','o','k','e','n','P','t','r',' ','=',' ','(','c','h','a','r',' ','*',')',' ','-','-',' ','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x','R','e','g',';','\000'}      , BlankText);
-   ConvertAppend (ARRAY [0..23] OF CHAR{'y','y','S','t','a','t','e',' ','=',' ','y','y','S','t','a','r','t','S','t','a','t','e',';','\000'}                     , BlankText);
-   ConvertAppend (ARRAY [0..32] OF CHAR{'y','y','S','t','a','t','e','P','t','r',' ','=',' ','&',' ','y','y','S','t','a','t','e','S','t','a','c','k',' ','[','1',']',';','\000'}            , BlankText);
-   ConvertAppend (ARRAY [0..16] OF CHAR{'g','o','t','o',' ','y','y','C','o','n','t','i','n','u','e',';','\000'}                            , BlankText);
+   ConvertAppend ("/* BlankAction */"                           , BlankText);
+   ConvertAppend ("while (* yyChBufferIndexReg ++ == ' ') ;"    , BlankText);
+   ConvertAppend2("", "TokenPtr = (char *) -- yyChBufferIndexReg;"      , BlankText);
+   ConvertAppend ("yyState = yyStartState;"                     , BlankText);
+   ConvertAppend ("yyStatePtr = & yyStateStack [1];"            , BlankText);
+   ConvertAppend ("goto yyContinue;"                            , BlankText);
 
-   ConvertAppend (ARRAY [0..15] OF CHAR{'/','*',' ','T','a','b','A','c','t','i','o','n',' ','*','/','\000'}                             , TabText);
-   ConvertAppend2(ARRAY [0..38] OF CHAR{'y','y','L','i','n','e','S','t','a','r','t',' ','-','=',' ','7',' ','-',' ','(','(','u','n','s','i','g','n','e','d',' ','c','h','a','r',' ','*',')',' ','\000'}, ARRAY [0..44] OF CHAR{'T','o','k','e','n','P','t','r',' ','-',' ','y','y','L','i','n','e','S','t','a','r','t',' ','-',' ','1',')',' ','&',' ','0','x','7',';',' ','/','*',' ','%',' ','8',' ','*','/','\000'}, TabText);
+   ConvertAppend ("/* TabAction */"                             , TabText);
+   ConvertAppend2("yyLineStart -= 7 - ((unsigned char *) ", "TokenPtr - yyLineStart - 1) & 0x7; /* % 8 */", TabText);
 
-   ConvertAppend (ARRAY [0..15] OF CHAR{'/','*',' ','E','o','l','A','c','t','i','o','n',' ','*','/','\000'}                             , EolText);
-   ConvertAppend (ARRAY [0..15] OF CHAR{'y','y','L','i','n','e','C','o','u','n','t',' ','+','+',';','\000'}                             , EolText);
-   ConvertAppend (ARRAY [0..37] OF CHAR{'y','y','L','i','n','e','S','t','a','r','t',' ','=',' ','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x','R','e','g',' ','-',' ','1',';','\000'}       , EolText);
+   ConvertAppend ("/* EolAction */"                             , EolText);
+   ConvertAppend ("yyLineCount ++;"                             , EolText);
+   ConvertAppend ("yyLineStart = yyChBufferIndexReg - 1;"       , EolText);
 
-   ConvertAppend (ARRAY [0..23] OF CHAR{'w','h','i','l','e',' ','(','*',' ','y','y','S','t','a','t','e','P','t','r',' ','!','=',' ','\000'}                     , Context1);
+   ConvertAppend ("while (* yyStatePtr != "                     , Context1);
 
+<<<<<<< src.1st/ScanGen.m3
    ConvertAppend (ARRAY [0..3] OF CHAR{')',' ','{','\000'}                                         , Context2);
    ConvertAppend (ARRAY [0..22] OF CHAR{' ',' ',' ','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x',' ','-','-',';','\000'}                      , Context2);
    ConvertAppend2(ARRAY [0..3] OF CHAR{' ',' ',' ','\000'}, ARRAY [0..15] OF CHAR{'T','o','k','e','n','L','e','n','g','t','h',' ','-','-',';','\000'}                      , Context2);
    ConvertAppend (ARRAY [0..17] OF CHAR{' ',' ',' ','y','y','S','t','a','t','e','P','t','r',' ','-','-',';','\000'}                           , Context2);
    ConvertAppend (ARRAY [0..1] OF CHAR{'}','\000'}                                           , Context2);
+||||||| m2tom3src.1st/ScanGen.m3
+   ConvertAppend (ARRAY [0..3] OF CHAR{')',' ','{','\000'}                                         , Context2);
+   ConvertAppend (ARRAY [0..22] OF CHAR{' ',' ',' ','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x',' ','-','-',';','\000'}                      , Context2);
+   ConvertAppend2(ARRAY [0..3] OF CHAR{' ',' ',' ','\000'}, ARRAY [0..15] OF CHAR{'T','o','k','e','n','L','e','n','g','t','h',' ','-','-',';','\000'}                      , Context2);
+   ConvertAppend (ARRAY [0..17] OF CHAR{' ',' ',' ','y','y','S','t','a','t','e','P','t','r',' ','-','-',';','\000'}                           , Context2);
+   ConvertAppend ('}'                                           , Context2);
+=======
+   ConvertAppend (") {"                                         , Context2);
+   ConvertAppend ("   yyChBufferIndex --;"                      , Context2);
+   ConvertAppend2("   ", "TokenLength --;"                      , Context2);
+   ConvertAppend ("   yyStatePtr --;"                           , Context2);
+   ConvertAppend ('}'                                           , Context2);
+>>>>>>> m2tom3src/ScanGen.m3
 
-   ConvertAppend (ARRAY [0..10] OF CHAR{'f','o','r',' ','(',';',';',')',' ','{','\000'}                                  , Context3);
-   ConvertAppend (ARRAY [0..26] OF CHAR{' ',' ',' ','s','w','i','t','c','h',' ','(','*',' ','y','y','S','t','a','t','e','P','t','r',')',' ','{','\000'}                  , Context3);
+   ConvertAppend ("for (;;) {"                                  , Context3);
+   ConvertAppend ("   switch (* yyStatePtr) {"                  , Context3);
 
+<<<<<<< src.1st/ScanGen.m3
    ConvertAppend (ARRAY [0..11] OF CHAR{' ',' ',' ','d','e','f','a','u','l','t',':','\000'}                                 , Context4);
    ConvertAppend (ARRAY [0..25] OF CHAR{' ',' ',' ',' ',' ',' ','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x',' ','-','-',';','\000'}                   , Context4);
    ConvertAppend2(ARRAY [0..6] OF CHAR{' ',' ',' ',' ',' ',' ','\000'}, ARRAY [0..15] OF CHAR{'T','o','k','e','n','L','e','n','g','t','h',' ','-','-',';','\000'}                   , Context4);
    ConvertAppend (ARRAY [0..20] OF CHAR{' ',' ',' ',' ',' ',' ','y','y','S','t','a','t','e','P','t','r',' ','-','-',';','\000'}                        , Context4);
    ConvertAppend (ARRAY [0..4] OF CHAR{' ',' ',' ','}','\000'}                                        , Context4);
    ConvertAppend (ARRAY [0..1] OF CHAR{'}','\000'}                                           , Context4);
+||||||| m2tom3src.1st/ScanGen.m3
+   ConvertAppend (ARRAY [0..11] OF CHAR{' ',' ',' ','d','e','f','a','u','l','t',':','\000'}                                 , Context4);
+   ConvertAppend (ARRAY [0..25] OF CHAR{' ',' ',' ',' ',' ',' ','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x',' ','-','-',';','\000'}                   , Context4);
+   ConvertAppend2(ARRAY [0..6] OF CHAR{' ',' ',' ',' ',' ',' ','\000'}, ARRAY [0..15] OF CHAR{'T','o','k','e','n','L','e','n','g','t','h',' ','-','-',';','\000'}                   , Context4);
+   ConvertAppend (ARRAY [0..20] OF CHAR{' ',' ',' ',' ',' ',' ','y','y','S','t','a','t','e','P','t','r',' ','-','-',';','\000'}                        , Context4);
+   ConvertAppend (ARRAY [0..4] OF CHAR{' ',' ',' ','}','\000'}                                        , Context4);
+   ConvertAppend ('}'                                           , Context4);
+=======
+   ConvertAppend ("   default:"                                 , Context4);
+   ConvertAppend ("      yyChBufferIndex --;"                   , Context4);
+   ConvertAppend2("      ", "TokenLength --;"                   , Context4);
+   ConvertAppend ("      yyStatePtr --;"                        , Context4);
+   ConvertAppend ("   }"                                        , Context4);
+   ConvertAppend ('}'                                           , Context4);
+>>>>>>> m2tom3src/ScanGen.m3
 
 IF Texts.IsEmpty (Export) THEN
-   ConvertAppend (ARRAY [0..23] OF CHAR{'#',' ','i','n','c','l','u','d','e',' ','"','P','o','s','i','t','i','o','n','s','.','h','"','\000'}                     , Export);
-   ConvertAppend2(ARRAY [0..39] OF CHAR{'t','y','p','e','d','e','f',' ','s','t','r','u','c','t',' ','{',' ','t','P','o','s','i','t','i','o','n',' ','P','o','s','i','t','i','o','n',';',' ','}',' ','\000'}, ARRAY [0..15] OF CHAR{'t','S','c','a','n','A','t','t','r','i','b','u','t','e',';','\000'}, Export);
-   ConvertAppend3(ARRAY [0..12] OF CHAR{'e','x','t','e','r','n',' ','v','o','i','d',' ','\000'}, ARRAY [0..32] OF CHAR{'E','r','r','o','r','A','t','t','r','i','b','u','t','e',' ','A','R','G','S','(','(','i','n','t',' ','T','o','k','e','n',',',' ','\000'}, ARRAY [0..29] OF CHAR{'t','S','c','a','n','A','t','t','r','i','b','u','t','e',' ','*',' ','A','t','t','r','i','b','u','t','e',')',')',';','\000'}, Export);
+   ConvertAppend ("# include "Positions.h""                     , Export);
+   ConvertAppend2("typedef struct { tPosition Position; } ", "tScanAttribute;", Export);
+   ConvertAppend3("extern void ", "ErrorAttribute ARGS((int Token, ", "tScanAttribute * Attribute));", Export);
 END;
 IF Texts.IsEmpty (Global) THEN
-   ConvertAppend2(ARRAY [0..5] OF CHAR{'v','o','i','d',' ','\000'}, ARRAY [0..33] OF CHAR{'E','r','r','o','r','A','t','t','r','i','b','u','t','e',' ','(','T','o','k','e','n',',',' ','A','t','t','r','i','b','u','t','e',')','\000'}  , Global);
-   ConvertAppend (ARRAY [0..13] OF CHAR{' ',' ',' ','i','n','t',' ','T','o','k','e','n',';','\000'}                               , Global);
-   ConvertAppend2(ARRAY [0..3] OF CHAR{' ',' ',' ','\000'}, ARRAY [0..27] OF CHAR{'t','S','c','a','n','A','t','t','r','i','b','u','t','e',' ','*',' ','A','t','t','r','i','b','u','t','e',';','\000'}          , Global);
-   ConvertAppend (ARRAY [0..6] OF CHAR{' ',' ',' ','{',' ','}','\000'}                                      , Global);
+   ConvertAppend2("void ", "ErrorAttribute (Token, Attribute)"  , Global);
+   ConvertAppend ("   int Token;"                               , Global);
+   ConvertAppend2("   ", "tScanAttribute * Attribute;"          , Global);
+   ConvertAppend ("   { }"                                      , Global);
 END;
 IF Texts.IsEmpty (Default) THEN
-   ConvertAppend (ARRAY [0..47] OF CHAR{'(','v','o','i','d',')',' ','p','u','t','c','h','a','r',' ','(','(','i','n','t',')',' ','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x','R','e','g',' ','[','-','1',']',')',';','\000'}, Default);
+   ConvertAppend ("(void) putchar ((int) yyChBufferIndexReg [-1]);", Default);
 END;
 
 END;

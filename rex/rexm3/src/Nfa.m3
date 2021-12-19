@@ -159,17 +159,17 @@ PROCEDURE CopyTransitions (t1: TransitionRange): TransitionRange =
 
 PROCEDURE WriteNfa() =
    BEGIN
-      WriteS (StdOutput, ARRAY [0..5] OF CHAR{'N','F','A',' ',':','\000'});
+      WriteS (StdOutput, "NFA :");
       WriteNl (StdOutput);
       WriteNl (StdOutput);
       FOR State := 1 TO NStateCount DO
-         WriteS (StdOutput, ARRAY [0..18] OF CHAR{'S','t','a','t','e',',',' ','S','e','m','a','n','t','i','c','s',' ','=','\000'});
-         WriteI (StdOutput, State, 5);
-         WriteI (StdOutput, GetNSemantics (State), 5);
-         WriteNl (StdOutput);
-         WriteTransitions (GetTransitions (State));
-         WriteNl (StdOutput);
-         WriteNl (StdOutput);
+	 WriteS (StdOutput, "State, Semantics =");
+	 WriteI (StdOutput, State, 5);
+	 WriteI (StdOutput, GetNSemantics (State), 5);
+	 WriteNl (StdOutput);
+	 WriteTransitions (GetTransitions (State));
+	 WriteNl (StdOutput);
+	 WriteNl (StdOutput);
       END;
       WriteNl (StdOutput);
    END WriteNfa;

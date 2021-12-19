@@ -195,36 +195,36 @@ PROCEDURE WriteDfa() =
    VAR
       Count     : INTEGER;
    BEGIN
-      WriteS (StdOutput, ARRAY [0..5] OF CHAR{'D','F','A',' ',':','\000'});
+      WriteS (StdOutput, "DFA :");
       WriteNl (StdOutput);
       WriteNl (StdOutput);
       FOR State := 1 TO DStateCount DO
-         WriteS (StdOutput, ARRAY [0..47] OF CHAR{'S','t','a','t','e',',',' ','D','e','f','a','u','l','t',',',' ','E','o','b','T','r','a','n','s',',',' ','S','e','m','a','n','t','i','c','s',',',' ','S','t','a','r','t','S','e','t',' ','=','\000'});
-         WriteI (StdOutput, State, 5);
-         WriteI (StdOutput, TablePtr^[State].Default, 5);
-         WriteI (StdOutput, TablePtr^[State].EobTrans, 5);
-         WriteSpace (StdOutput);
-         WriteSet (StdOutput, TablePtr^[State].Semantics);
-         WriteSpace (StdOutput);
-         WriteSet (StdOutput, TablePtr^[State].StartSet);
-         WriteNl (StdOutput);
-         Count := 0;
-         FOR Ch := GetFirst (State) TO GetLast (State) DO
-            IF GetTableNoDef (State, Ch) # DNoState THEN
-               IF Count = 10 THEN
-                  WriteNl (StdOutput);
-                  Count := 0;
-               END;
-               INC (Count);
-               WriteChar (StdOutput, Ch);
-               WriteSpace (StdOutput);
-               WriteI (StdOutput, GetTable (State, Ch), 1);
-               WriteC (StdOutput, ',');
-               WriteSpace (StdOutput);
-            END;
-         END;
-         WriteNl (StdOutput);
-         WriteNl (StdOutput);
+	 WriteS (StdOutput, "State, Default, EobTrans, Semantics, StartSet =");
+	 WriteI (StdOutput, State, 5);
+	 WriteI (StdOutput, TablePtr^[State].Default, 5);
+	 WriteI (StdOutput, TablePtr^[State].EobTrans, 5);
+	 WriteSpace (StdOutput);
+	 WriteSet (StdOutput, TablePtr^[State].Semantics);
+	 WriteSpace (StdOutput);
+	 WriteSet (StdOutput, TablePtr^[State].StartSet);
+	 WriteNl (StdOutput);
+	 Count := 0;
+	 FOR Ch := GetFirst (State) TO GetLast (State) DO
+	    IF GetTableNoDef (State, Ch) # DNoState THEN
+	       IF Count = 10 THEN
+		  WriteNl (StdOutput);
+		  Count := 0;
+	       END;
+	       INC (Count);
+	       WriteChar (StdOutput, Ch);
+	       WriteSpace (StdOutput);
+	       WriteI (StdOutput, GetTable (State, Ch), 1);
+	       WriteC (StdOutput, ',');
+	       WriteSpace (StdOutput);
+	    END;
+	 END;
+	 WriteNl (StdOutput);
+	 WriteNl (StdOutput);
       END;
    END WriteDfa;
 

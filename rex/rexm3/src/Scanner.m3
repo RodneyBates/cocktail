@@ -17,6 +17,7 @@ IMPORT Word, SYSTEM, Checks, System, General, Positions, ReuseIO, DynArray, Stri
 
 
 
+FROM SYSTEM	IMPORT SHORTCARD, M2LONGINT, M2LONGCARD;
 FROM Strings	IMPORT tString, Concatenate, Char, SubString,
 			StringToInt, AssignEmpty, Length;
 FROM Texts	IMPORT MakeText, Append;
@@ -82,15 +83,15 @@ VAR
 PROCEDURE ErrorAttribute (Token: Word.T; VAR Attribute: tScanAttribute) =
    BEGIN
       CASE Token OF
-      |  SymIdent	=> Attribute.Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 84
+      |  SymIdent	=> Attribute.Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 85
  $$ *)  := NoIdent;
-      |  SymNumber	=> Attribute.Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 85
+      |  SymNumber	=> Attribute.Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 86
  $$ *) := 0;
-      |  SymString	=> Attribute.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 86
+      |  SymString	=> Attribute.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 87
  $$ *) := NoString;
-      |  SymChar	=> Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 87
+      |  SymChar	=> Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 88
  $$ *)	   := '?';
-      |  SymTargetcode	=> MakeText (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 88
+      |  SymTargetcode	=> MakeText (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 89
  $$ *));
       ELSE
       END;
@@ -225,7 +226,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 (* line 223 "../src/rex.rex" *)
 
 			   IF BraceNestingLevel = 0 THEN
-			      MakeText (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 222
+			      MakeText (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 223
  $$ *));
 			      AssignEmpty (TargetCode);
 			      TargetPos := Attribute.Position;
@@ -245,7 +246,7 @@ yyRestartFlag := FALSE; EXIT;
 			   IF BraceNestingLevel = 0 THEN
 			      yyStart (PrevState);
                               InsideTarget := FALSE; 
-			      Append (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 241
+			      Append (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 242
  $$ *), TargetCode);
 			      Attribute.Position := TargetPos;
 			      RETURN SymTargetcode;
@@ -286,7 +287,7 @@ yyRestartFlag := FALSE; EXIT;
 (* line 265 "../src/rex.rex" *)
 
 			   IF BraceNestingLevel > 0 THEN
-			      Append (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 281
+			      Append (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 282
  $$ *), TargetCode);
 			      AssignEmpty (TargetCode);
 			   END;
@@ -489,7 +490,7 @@ yyRestartFlag := FALSE; EXIT;
 
 			   IF InsideTarget AND ( BraceNestingLevel > 0 ) 
                            THEN
-			      Append (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 483
+			      Append (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 484
  $$ *), TargetCode);
 			      AssignEmpty (TargetCode);
 			   END;
@@ -633,7 +634,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 (* line 390 "../src/rex.rex" *)
 
 			   GetWord (Word);
-			   Attribute.Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 626
+			   Attribute.Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 627
  $$ *)  := MakeIdent (Word);
 			   RETURN SymIdent;
 			
@@ -645,7 +646,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 (* line 396 "../src/rex.rex" *)
 
 			   GetWord (Word);
-			   Attribute.Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 637
+			   Attribute.Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 638
  $$ *) := StringToInt (Word);
 			   RETURN SymNumber;
 			
@@ -658,7 +659,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 
 			   GetWord (Word);
 			   SubString (Word, 2, Length (Word) - 1, TargetCode);
-			   Attribute.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 649
+			   Attribute.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 650
  $$ *) := PutString (TargetCode);
 			   RETURN SymString;
 			
@@ -808,7 +809,7 @@ yyRestartFlag := FALSE; EXIT;
 Attribute.Position.Line   := yyLineCount;
 Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHORTCARD);
 (* line 430 "../src/rex.rex" *)
-Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 798
+Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 799
  $$ *) := '\012'; RETURN SymChar;
 yyRestartFlag := FALSE; EXIT;
 |84
@@ -816,7 +817,7 @@ yyRestartFlag := FALSE; EXIT;
 Attribute.Position.Line   := yyLineCount;
 Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHORTCARD);
 (* line 431 "../src/rex.rex" *)
-Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 805
+Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 806
  $$ *) := '\011'; RETURN SymChar;
 yyRestartFlag := FALSE; EXIT;
 |83
@@ -824,7 +825,7 @@ yyRestartFlag := FALSE; EXIT;
 Attribute.Position.Line   := yyLineCount;
 Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHORTCARD);
 (* line 432 "../src/rex.rex" *)
-Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 812
+Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 813
  $$ *) := '\013'; RETURN SymChar;
 yyRestartFlag := FALSE; EXIT;
 |82
@@ -832,7 +833,7 @@ yyRestartFlag := FALSE; EXIT;
 Attribute.Position.Line   := yyLineCount;
 Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHORTCARD);
 (* line 433 "../src/rex.rex" *)
-Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 819
+Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 820
  $$ *) := '\010'; RETURN SymChar;
 yyRestartFlag := FALSE; EXIT;
 |81
@@ -840,7 +841,7 @@ yyRestartFlag := FALSE; EXIT;
 Attribute.Position.Line   := yyLineCount;
 Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHORTCARD);
 (* line 434 "../src/rex.rex" *)
-Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 826
+Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 827
  $$ *) := '\015'; RETURN SymChar;
 yyRestartFlag := FALSE; EXIT;
 |80
@@ -848,7 +849,7 @@ yyRestartFlag := FALSE; EXIT;
 Attribute.Position.Line   := yyLineCount;
 Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHORTCARD);
 (* line 435 "../src/rex.rex" *)
-Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 833
+Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 834
  $$ *) := '\014'; RETURN SymChar;
 yyRestartFlag := FALSE; EXIT;
 |31
@@ -871,7 +872,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 (* line 444 "../src/rex.rex" *)
 
 			   GetWord (Word);
-			   Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 854
+			   Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 855
  $$ *) := Char (Word, 2);
 	  		   RETURN SymChar;
 			
@@ -886,7 +887,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 (* line 450 "../src/rex.rex" *)
 
 			   GetWord (Word);
-			   Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 868
+			   Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 869
  $$ *) := Char (Word, 1);
 	  		   RETURN SymChar;
 			
@@ -1291,8 +1292,8 @@ PROCEDURE yyGetTables() =
    BEGIN
       BlockSize	:= 64000 DIV BYTESIZE (yyCombType);
       TableFile := System.OpenInput (ScanTabName);
-      Checks.ErrorCheck (ARRAY [0..21] OF CHAR{'y','y','G','e','t','T','a','b','l','e','s','.','O','p','e','n','I','n','p','u','t','\000'}, TableFile);
-      IF ((yyGetTable (TableFile, ADR (Base[FIRST(Base)]      )) DIV BYTESIZE (yyTableElmt) - 1) 
+      Checks.ErrorCheck ("yyGetTables.OpenInput", TableFile);
+      IF ((yyGetTable (TableFile, SYSTEM.ADR (Base[FIRST(Base)]      )) DIV SYSTEM.BYTESIZE (yyTableElmt) - 1) 
          # yyDStateCount) OR
          ((yyGetTable (TableFile, ADR (yyDefault[FIRST(yyDefault)] )) DIV BYTESIZE (yyTableElmt) - 1) 
          # yyDStateCount) OR
@@ -1324,21 +1325,24 @@ PROCEDURE yyGetTable (TableFile: System.tFile; Address: ADDRESS): Word.T =
    BEGIN
       N := System.Read (TableFile, ADR (Length), BYTESIZE (Length));
       Checks.ErrorCheck (ARRAY [0..16] OF CHAR{'y','y','G','e','t','T','a','b','l','e','.','R','e','a','d','1','\000'}, N);
+||||||| m2tom3src.1st/Scanner.m3
+      N := System.Read (TableFile, SYSTEM.ADR (Length), SYSTEM.BYTESIZE (yyTableElmt));
+      Checks.ErrorCheck (ARRAY [0..16] OF CHAR{'y','y','G','e','t','T','a','b','l','e','.','R','e','a','d','1','\000'}, N);
       N := System.Read (TableFile, Address, VAL(Length,INTEGER));
-      Checks.ErrorCheck (ARRAY [0..16] OF CHAR{'y','y','G','e','t','T','a','b','l','e','.','R','e','a','d','2','\000'}, N);
-      RETURN Length;
+      Checks.ErrorCheck ("yyGetTable.Read2", N);
+      RETURN VAL(Word.TLength,);
    END yyGetTable;
  
 PROCEDURE yyErrorMessage (ErrorCode: SHORTCARD) =
    BEGIN
       Positions.WritePosition (ReuseIO.StdError, Attribute.Position);
       CASE ErrorCode OF
-   | 0=> ReuseIO.WriteS (ReuseIO.StdError, ARRAY [0..25] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','i','n','t','e','r','n','a','l',' ','e','r','r','o','r','\000'});
-   | 1=> ReuseIO.WriteS (ReuseIO.StdError, ARRAY [0..24] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','o','u','t',' ','o','f',' ','m','e','m','o','r','y','\000'});
-   | 2=> ReuseIO.WriteS (ReuseIO.StdError, ARRAY [0..25] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','t','a','b','l','e',' ','m','i','s','m','a','t','c','h','\000'});
-   | 3=> ReuseIO.WriteS (ReuseIO.StdError, ARRAY [0..40] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','t','o','o',' ','m','a','n','y',' ','n','e','s','t','e','d',' ','i','n','c','l','u','d','e',' ','f','i','l','e','s','\000'});
-   | 4=> ReuseIO.WriteS (ReuseIO.StdError, ARRAY [0..61] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','f','i','l','e',' ','s','t','a','c','k',' ','u','n','d','e','r','f','l','o','w',' ','(','t','o','o',' ','m','a','n','y',' ','c','a','l','l','s',' ','o','f',' ','C','l','o','s','e','F','i','l','e',')','\000'});
-   | 5=> ReuseIO.WriteS (ReuseIO.StdError, ARRAY [0..33] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','c','a','n','n','o','t',' ','o','p','e','n',' ','i','n','p','u','t',' ','f','i','l','e','\000'});
+   | 0=> IO.WriteS (IO.StdError, ": Scanner: internal error");
+   | 1=> IO.WriteS (IO.StdError, ": Scanner: out of memory");
+   | 2=> IO.WriteS (IO.StdError, ": Scanner: table mismatch");
+   | 3=> IO.WriteS (IO.StdError, ": Scanner: too many nested include files");
+   | 4=> IO.WriteS (IO.StdError, ": Scanner: file stack underflow (too many calls of CloseFile)");
+   | 5=> IO.WriteS (IO.StdError, ": Scanner: cannot open input file");
       END;
       ReuseIO.WriteNl (ReuseIO.StdError); Exit();
    END yyErrorMessage;
@@ -1349,9 +1353,7 @@ PROCEDURE yyExit() =
    END yyExit;
 
 BEGIN
-   SUBARRAY(ScanTabName		, 0, 11) := ARRAY [0..10] OF CHAR{'S','c','a','n','n','e','r','.','T','a','b'};
-IF NUMBER(ScanTabName) > 11 THEN ScanTabName[FIRST(ScanTabName) + 11] := '\000'; END
-;
+   ScanTabName		:= "Scanner.Tab";
    Exit			:= yyExit;
    yyFileStackPtr	:= 0;
    yyStartState		:= 1;			(* set up for auto init *)

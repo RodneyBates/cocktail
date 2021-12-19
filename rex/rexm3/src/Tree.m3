@@ -151,20 +151,20 @@ PROCEDURE WriteTree (t: tTree) =
       END;
 
       IF t = NoTree THEN
-	 WriteS (StdOutput, ARRAY [0..6] OF CHAR{'N','o','T','r','e','e','\000'});	WriteNl (StdOutput);
+	 WriteS (StdOutput, "NoTree");	WriteNl (StdOutput);
 	 RETURN;
       END;
 
       CASE t^.vNode0(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode0' in line 150
  $$ *).Rule OF
-      |  nRule		=> WriteS (StdOutput, ARRAY [0..5] OF CHAR{'R','u','l','e',' ','\000'});
+      |  nRule		=> WriteS (StdOutput, "Rule ");
 			  WriteI (StdOutput, t^.vNodeRule(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 152
  $$ *).RuleNr, 1);
 								WriteNl (StdOutput);
 			  WriteText (StdOutput, t^.vNodeRule(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 154
  $$ *).TargetCode);
-      |  nList		=> WriteS (StdOutput, ARRAY [0..4] OF CHAR{'L','i','s','t','\000'});		WriteNl (StdOutput);
-      |  nPattern	=> WriteS (StdOutput, ARRAY [0..8] OF CHAR{'P','a','t','t','e','r','n',' ','\000'});
+      |  nList		=> WriteS (StdOutput, "List");		WriteNl (StdOutput);
+      |  nPattern	=> WriteS (StdOutput, "Pattern ");
 			  WriteSet (StdOutput, t^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 157
  $$ *).StartStates);
 	 		  WriteSpace (StdOutput);
@@ -173,17 +173,17 @@ PROCEDURE WriteTree (t: tTree) =
 			  WriteI (StdOutput, t^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 160
  $$ *).PatternNr, 5);
 								WriteNl (StdOutput);
-      |  nAlternative	=> WriteS (StdOutput, ARRAY [0..11] OF CHAR{'A','l','t','e','r','n','a','t','i','v','e','\000'});	WriteNl (StdOutput);
-      |  nSequence	=> WriteS (StdOutput, ARRAY [0..8] OF CHAR{'S','e','q','u','e','n','c','e','\000'});	WriteNl (StdOutput);
-      |  nRepetition	=> WriteS (StdOutput, ARRAY [0..10] OF CHAR{'R','e','p','e','t','i','t','i','o','n','\000'});	WriteNl (StdOutput);
-      |  nOption	=> WriteS (StdOutput, ARRAY [0..6] OF CHAR{'O','p','t','i','o','n','\000'});		WriteNl (StdOutput);
-      |  nChar		=> WriteS (StdOutput, ARRAY [0..5] OF CHAR{'C','h','a','r',' ','\000'});
+      |  nAlternative	=> WriteS (StdOutput, "Alternative");	WriteNl (StdOutput);
+      |  nSequence	=> WriteS (StdOutput, "Sequence");	WriteNl (StdOutput);
+      |  nRepetition	=> WriteS (StdOutput, "Repetition");	WriteNl (StdOutput);
+      |  nOption	=> WriteS (StdOutput, "Option");		WriteNl (StdOutput);
+      |  nChar		=> WriteS (StdOutput, "Char ");
 			  WriteChar (StdOutput, t^.vNodeCh(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeCh' in line 167
  $$ *).Ch);	WriteNl (StdOutput);
-      |  nSet		=> WriteS (StdOutput, ARRAY [0..4] OF CHAR{'S','e','t',' ','\000'});
+      |  nSet		=> WriteS (StdOutput, "Set ");
 			  WriteSet (StdOutput, t^.vNodeSet(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeSet' in line 169
  $$ *).Set);WriteNl (StdOutput);
-      |  nString	=> WriteS (StdOutput, ARRAY [0..7] OF CHAR{'S','t','r','i','n','g',' ','\000'});
+      |  nString	=> WriteS (StdOutput, "String ");
 			  GetString (t^.vNodeString(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeString' in line 171
  $$ *).String, string);
 			  Strings.WriteS (StdOutput, string);	WriteNl (StdOutput);

@@ -14,86 +14,86 @@ IMPORT Word, SYSTEM, Scanner, Positions, Strings, DynArray, Sets, System;
 
 IMPORT RexErrors AS Errors;
 
-FROM Tree0	IMPORT
-   tTree0	, Tree0Root	,
-   mNode	, mRule		, mPattern	,
-   mCh		, mSet		, mString	, mList		,
-   mAlternative	, mSequence	, mRepetition	, mOption	;
+FROM Tree0      IMPORT
+   tTree0       , Tree0Root     ,
+   mNode        , mRule         , mPattern      ,
+   mCh          , mSet          , mString       , mList         ,
+   mAlternative , mSequence     , mRepetition   , mOption       ;
 
-FROM Tree	IMPORT
-   tTree	;
+FROM Tree       IMPORT
+   tTree        ;
 
-FROM Sets	IMPORT
-   tSet		, MakeSet	, ReleaseSet	,
-   Union		, Include	, Exclude	,
-   Complement	;
+FROM Sets       IMPORT
+   tSet         , MakeSet       , ReleaseSet    ,
+   Union                , Include       , Exclude       ,
+   Complement   ;
 
-FROM Strings	IMPORT
-   tString	, ArrayToString	, IntToString	;
+FROM Strings    IMPORT
+   tString      , ArrayToString , IntToString   ;
 
-FROM Lists	IMPORT
-   tList	;
+FROM Lists      IMPORT
+   tList        ;
 
-FROM StringMem	IMPORT
-   tStringRef	, PutString	;
+FROM StringMem  IMPORT
+   tStringRef   , PutString     ;
 
-FROM Idents	IMPORT
-   tIdent	, MakeIdent	, GetString	, GetStringRef	, NoIdent	;
+FROM Idents     IMPORT
+   tIdent       , MakeIdent     , GetString     , GetStringRef  , NoIdent       ;
 
-FROM DefTable	IMPORT
-   NoDef	, DefRange	, tKind		, GetKind	,
-   MakeIdentDef	, MakeStartDef	, GetDef	, GetIdentDef	,
-   GetStartDef	;
+FROM DefTable   IMPORT
+   NoDef        , DefRange      , tKind         , GetKind       ,
+   MakeIdentDef , MakeStartDef  , GetDef        , GetIdentDef   ,
+   GetStartDef  ;
 
-FROM GenTabs	IMPORT
-   StartStateCount, RuleCount	, PatternCount	, LeftJustUsed	;
+FROM GenTabs    IMPORT
+   StartStateCount, RuleCount   , PatternCount  , LeftJustUsed  ;
 
-FROM Dfa	IMPORT
-   BlankCh	, TabCh		, EolCh		, LastCh	;
+FROM Dfa        IMPORT
+   BlankCh      , TabCh         , EolCh         , LastCh        ;
 
-FROM ScanGen	IMPORT
-   Export	, Global	, Local		, Begin		,
-   Close	, Eof		, Position	, NoPosition	,
-   ExportLine	, GlobalLine	, LocalLine	, BeginLine	,
-   CloseLine	, EofLine	, DefaultLine	, Default	,
-   BlankText	, TabText	, EolText	,
-   ScannerName	, InitScanGen	;
+FROM ScanGen    IMPORT
+   Export       , Global        , Local         , Begin         ,
+   Close        , Eof           , Position      , NoPosition    ,
+   ExportLine   , GlobalLine    , LocalLine     , BeginLine     ,
+   CloseLine    , EofLine       , DefaultLine   , Default       ,
+   BlankText    , TabText       , EolText       ,
+   ScannerName  , InitScanGen   ;
 
 CONST
-   IdentUndefined	= 10	;
-   ImproperUse		= 11	;
-   IdentDefBefore	= 12	;
-   Error		= 3	;
-   String		= 7	;
+   IdentUndefined       = 10    ;
+   ImproperUse          = 11    ;
+   IdentDefBefore       = 12    ;
+   Error                = 3     ;
+   String               = 7     ;
 
 TYPE
    tParsAttribute = RECORD
        
-        Scan		: Scanner.tScanAttribute;
-        Tree		: tTree0	;
-        IsLeftJust	: BOOLEAN	;
-	   Position	: Positions.tPosition;
-        Set		: tSet		;
+        Scan            : Scanner.tScanAttribute;
+        Tree            : tTree0        ;
+        IsLeftJust      : BOOLEAN       ;
+           Position     : Positions.tPosition;
+        Set             : tSet          ;
       
    END;
 
 VAR
-   Number	: SHORTCARD	;
-   bool		: BOOLEAN	;
-   string	: tString	;
-   stringref	: tStringRef	;
-   set		: tSet		;
-   tree		: tTree0	;
-   tree1	: tTree		;
-   Definition	: DefRange	;
-   Identifier	: tIdent	;
-   nNode	,
-   EOLTree	: tTree0	;
+   Number       : SHORTCARD     ;
+   bool         : BOOLEAN       ;
+   string       : tString       ;
+   stringref    : tStringRef    ;
+   set          : tSet          ;
+   tree         : tTree0        ;
+   tree1        : tTree         ;
+   Definition   : DefRange      ;
+   Identifier   : tIdent        ;
+   nNode        ,
+   EOLTree      : tTree0        ;
 
 PROCEDURE AppendRule (Tree: tTree0; Ch: CHAR; Text: tList): tTree0 =
    VAR
-      Set	: tSet	;
-      t		: tTree0;
+      Set       : tSet  ;
+      t         : tTree0;
    BEGIN
       MakeSet (Set, StartStateCount);
       Complement (Set);
@@ -112,21 +112,21 @@ CONST
    yyInitStackSize      = 100;
    yyNoState            = 0;
 
-   yyFirstTerminal		= 0;
-   yyLastTerminal		= 38;
-   yyFirstSymbol		= 0;
-   yyLastSymbol		= 64;
-   yyTableMax		= 221;
-   yyNTableMax		= 89;
-   yyFirstReadState		= 1;
-   yyLastReadState		= 55;
-   yyFirstReadTermState		= 56;
-   yyLastReadTermState		= 84;
-   yyLastReadNontermState		= 99;
-   yyFirstReduceState		= 100;
-   yyLastReduceState		= 164;
-   yyStartState		= 1;
-   yyStopState		= 100;
+   yyFirstTerminal              = 0;
+   yyLastTerminal               = 38;
+   yyFirstSymbol                = 0;
+   yyLastSymbol         = 64;
+   yyTableMax           = 221;
+   yyNTableMax          = 89;
+   yyFirstReadState             = 1;
+   yyLastReadState              = 55;
+   yyFirstReadTermState         = 56;
+   yyLastReadTermState          = 84;
+   yyLastReadNontermState               = 99;
+   yyFirstReduceState           = 100;
+   yyLastReduceState            = 164;
+   yyStartState         = 1;
+   yyStopState          = 100;
 
    yyFirstFinalState    = yyFirstReadTermState;
    yyLastState          = yyLastReduceState;
@@ -182,18 +182,18 @@ PROCEDURE TokenName (Token: SHORTCARD; VAR Name: ARRAY OF CHAR) =
       END Copy;
    BEGIN
       CASE Token OF
-      | 0=> CopyA (ARRAY [0..10] OF CHAR{'_','E','n','d','O','f','F','i','l','e','\000'}, Name);
-      | 1=> CopyA (ARRAY [0..5] OF CHAR{'I','d','e','n','t','\000'}, Name);
-      | 2=> CopyA (ARRAY [0..6] OF CHAR{'N','u','m','b','e','r','\000'}, Name);
-      | 3=> CopyA (ARRAY [0..6] OF CHAR{'S','t','r','i','n','g','\000'}, Name);
-      | 4=> CopyA (ARRAY [0..4] OF CHAR{'C','h','a','r','\000'}, Name);
-      | 5=> CopyA (ARRAY [0..10] OF CHAR{'T','a','r','g','e','t','C','o','d','e','\000'}, Name);
-      | 6=> CopyA (ARRAY [0..6] OF CHAR{'G','L','O','B','A','L','\000'}, Name);
-      | 7=> CopyA (ARRAY [0..5] OF CHAR{'B','E','G','I','N','\000'}, Name);
-      | 8=> CopyA (ARRAY [0..5] OF CHAR{'C','L','O','S','E','\000'}, Name);
-      | 9=> CopyA (ARRAY [0..6] OF CHAR{'D','E','F','I','N','E','\000'}, Name);
-      | 10=> CopyA (ARRAY [0..5] OF CHAR{'S','T','A','R','T','\000'}, Name);
-      | 11=> CopyA (ARRAY [0..5] OF CHAR{'R','U','L','E','S','\000'}, Name);
+      | 0=> CopyA ("_EndOfFile", Name);
+      | 1=> CopyA ("Ident", Name);
+      | 2=> CopyA ("Number", Name);
+      | 3=> CopyA ("String", Name);
+      | 4=> CopyA ("Char", Name);
+      | 5=> CopyA ("TargetCode", Name);
+      | 6=> CopyA ("GLOBAL", Name);
+      | 7=> CopyA ("BEGIN", Name);
+      | 8=> CopyA ("CLOSE", Name);
+      | 9=> CopyA ("DEFINE", Name);
+      | 10=> CopyA ("START", Name);
+      | 11=> CopyA ("RULES", Name);
       | 12=> Copy ('.', Name);
       | 13=> Copy (',', Name);
       | 14=> Copy ('=', Name);
@@ -212,15 +212,15 @@ PROCEDURE TokenName (Token: SHORTCARD; VAR Name: ARRAY OF CHAR) =
       | 27=> Copy ('}', Name);
       | 28=> Copy ('<', Name);
       | 29=> Copy ('>', Name);
-      | 30=> CopyA (ARRAY [0..3] OF CHAR{'N','O','T','\000'}, Name);
-      | 31=> CopyA (ARRAY [0..5] OF CHAR{'L','O','C','A','L','\000'}, Name);
-      | 32=> CopyA (ARRAY [0..6] OF CHAR{'E','X','P','O','R','T','\000'}, Name);
+      | 30=> CopyA ("NOT", Name);
+      | 31=> CopyA ("LOCAL", Name);
+      | 32=> CopyA ("EXPORT", Name);
       | 33=> Copy ('#', Name);
-      | 34=> CopyA (ARRAY [0..3] OF CHAR{'E','O','F','\000'}, Name);
-      | 35=> CopyA (ARRAY [0..2] OF CHAR{':','-','\000'}, Name);
-      | 36=> CopyA (ARRAY [0..7] OF CHAR{'D','E','F','A','U','L','T','\000'}, Name);
-      | 37=> CopyA (ARRAY [0..7] OF CHAR{'S','C','A','N','N','E','R','\000'}, Name);
-      | 38=> CopyA (ARRAY [0..8] OF CHAR{'S','E','Q','U','E','N','C','E','\000'}, Name);
+      | 34=> CopyA ("EOF", Name);
+      | 35=> CopyA (":-", Name);
+      | 36=> CopyA ("DEFAULT", Name);
+      | 37=> CopyA ("SCANNER", Name);
+      | 38=> CopyA ("SEQUENCE", Name);
       END;
    END TokenName;
 
@@ -349,20 +349,20 @@ CASE yyState OF
 (* line 185 "/tmp/lalr4706" *)
   (* line 186 ../src/rex.lalr *)
    StartStateCount := 0;
-  		  RuleCount	  := 0;
-  		  PatternCount	  := 0;
-  		  LeftJustUsed	  := FALSE;
-  		  EOLTree	  := mCh (EolCh);
+                  RuleCount       := 0;
+                  PatternCount    := 0;
+                  LeftJustUsed    := FALSE;
+                  EOLTree         := mCh (EolCh);
   
-  		  ArrayToString (ARRAY [0..3] OF CHAR{'A','N','Y','\000'}, string);
-  		  MakeSet (set, ORD (LastCh));
-  		  Complement (set);
-  		  Exclude (set, ORD (EolCh));
-  		  MakeIdentDef (MakeIdent (string), LOOPHOLE (mSet (set),ADDRESS), 1, FALSE);
+                  ArrayToString ("ANY", string);
+                  MakeSet (set, ORD (LastCh));
+                  Complement (set);
+                  Exclude (set, ORD (EolCh));
+                  MakeIdentDef (MakeIdent (string), LOOPHOLE (mSet (set),ADDRESS), 1, FALSE);
   
-  		  ArrayToString (ARRAY [0..3] OF CHAR{'S','T','D','\000'}, string);
-  		  MakeStartDef (MakeIdent (string), StartStateCount + 1);
-  		  INC (StartStateCount, 2);				
+                  ArrayToString ("STD", string);
+                  MakeStartDef (MakeIdent (string), StartStateCount + 1);
+                  INC (StartStateCount, 2);                             
   | 103=> (* name : .*)
   DEC (yyStackPtr, 0); yyNonterminal := 40;
 (* line 203 "/tmp/lalr4706" *)
@@ -372,7 +372,7 @@ CASE yyState OF
   DEC (yyStackPtr, 1); yyNonterminal := 40;
 (* line 205 "/tmp/lalr4706" *)
   (* line 203 ../src/rex.lalr *)
-   ArrayToString (ARRAY [0..7] OF CHAR{'S','c','a','n','n','e','r','\000'}, string); ScannerName := MakeIdent (string); 
+   ArrayToString ("Scanner", string); ScannerName := MakeIdent (string); 
   | 105,56=> (* name : 'SCANNER' Ident .*)
   DEC (yyStackPtr, 2); yyNonterminal := 40;
 (* line 207 "/tmp/lalr4706" *)
@@ -389,7 +389,7 @@ CASE yyState OF
   (* line 207 ../src/rex.lalr *)
    Export  := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 386
  $$ *).Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 386
- $$ *);	ExportLine	:= yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 386
+ $$ *); ExportLine      := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 386
  $$ *).Position.Line; 
   | 108,57=> (* code : code 'GLOBAL' TargetCode .*)
   DEC (yyStackPtr, 3); yyNonterminal := 41;
@@ -397,7 +397,7 @@ CASE yyState OF
   (* line 208 ../src/rex.lalr *)
    Global  := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 391
  $$ *).Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 391
- $$ *);	GlobalLine	:= yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 391
+ $$ *); GlobalLine      := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 391
  $$ *).Position.Line; 
   | 109,73=> (* code : code 'LOCAL' TargetCode .*)
   DEC (yyStackPtr, 3); yyNonterminal := 41;
@@ -405,7 +405,7 @@ CASE yyState OF
   (* line 209 ../src/rex.lalr *)
    Local   := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 396
  $$ *).Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 396
- $$ *);	LocalLine	:= yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 396
+ $$ *); LocalLine       := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 396
  $$ *).Position.Line; 
   | 110,58=> (* code : code 'BEGIN' TargetCode .*)
   DEC (yyStackPtr, 3); yyNonterminal := 41;
@@ -413,7 +413,7 @@ CASE yyState OF
   (* line 210 ../src/rex.lalr *)
    Begin   := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 401
  $$ *).Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 401
- $$ *);	BeginLine	:= yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 401
+ $$ *); BeginLine       := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 401
  $$ *).Position.Line; 
   | 111,59=> (* code : code 'CLOSE' TargetCode .*)
   DEC (yyStackPtr, 3); yyNonterminal := 41;
@@ -421,7 +421,7 @@ CASE yyState OF
   (* line 211 ../src/rex.lalr *)
    Close   := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 406
  $$ *).Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 406
- $$ *);	CloseLine	:= yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 406
+ $$ *); CloseLine       := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 406
  $$ *).Position.Line; 
   | 112,76=> (* code : code DEFAULT TargetCode .*)
   DEC (yyStackPtr, 3); yyNonterminal := 41;
@@ -429,7 +429,7 @@ CASE yyState OF
   (* line 212 ../src/rex.lalr *)
    Default := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 411
  $$ *).Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 411
- $$ *);	DefaultLine	:= yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 411
+ $$ *); DefaultLine     := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 411
  $$ *).Position.Line; 
   | 113,75=> (* code : code EOF TargetCode .*)
   DEC (yyStackPtr, 3); yyNonterminal := 41;
@@ -437,7 +437,7 @@ CASE yyState OF
   (* line 213 ../src/rex.lalr *)
    Eof     := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 416
  $$ *).Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 416
- $$ *);	EofLine		:= yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 416
+ $$ *); EofLine         := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 416
  $$ *).Position.Line; 
   | 114=> (* define : .*)
   DEC (yyStackPtr, 0); yyNonterminal := 42;
@@ -461,9 +461,9 @@ CASE yyState OF
   (* line 222 ../src/rex.lalr *)
    Tree0Root := yyAttributeStack^[yyStackPtr+2].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 437
  $$ *);
-  		  Tree0Root := AppendRule (Tree0Root, BlankCh, BlankText);
-  		  Tree0Root := AppendRule (Tree0Root, TabCh  , TabText  );
-  		  Tree0Root := AppendRule (Tree0Root, EolCh  , EolText  );	
+                  Tree0Root := AppendRule (Tree0Root, BlankCh, BlankText);
+                  Tree0Root := AppendRule (Tree0Root, TabCh  , TabText  );
+                  Tree0Root := AppendRule (Tree0Root, EolCh  , EolText  );      
   | 119=> (* definitionList : .*)
   DEC (yyStackPtr, 0); yyNonterminal := 46;
 
@@ -475,7 +475,7 @@ CASE yyState OF
 (* line 245 "/tmp/lalr4706" *)
   (* line 231 ../src/rex.lalr *)
    yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 451
- $$ *) := nNode;					
+ $$ *) := nNode;                                        
   | 122,95=> (* ruleList : ruleList rule .*)
   DEC (yyStackPtr, 2); yyNonterminal := 48;
 (* line 247 "/tmp/lalr4706" *)
@@ -483,7 +483,7 @@ CASE yyState OF
    yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 456
  $$ *) := mList (yyAttributeStack^[yyStackPtr+1].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 456
  $$ *), yyAttributeStack^[yyStackPtr+2].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 456
- $$ *));			
+ $$ *));                        
   | 123,91=> (* identListDef : IdentDef .*)
   DEC (yyStackPtr, 1); yyNonterminal := 47;
 
@@ -500,33 +500,33 @@ CASE yyState OF
    Definition := GetDef (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 470
  $$ *).Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 470
  $$ *));
-  		  IF Definition = NoDef THEN
-  		     MakeStartDef (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 472
+                  IF Definition = NoDef THEN
+                     MakeStartDef (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 472
  $$ *).Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 472
  $$ *), StartStateCount + 1);
-  		     INC (StartStateCount, 2);
-  		  ELSE
-  		     GetString (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 475
+                     INC (StartStateCount, 2);
+                  ELSE
+                     GetString (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 475
  $$ *).Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 475
  $$ *), string);
-  		     Errors.ErrorMessageI (IdentDefBefore, Error, yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 476
+                     Errors.ErrorMessageI (IdentDefBefore, Error, yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 476
  $$ *).Position,
-  			String, ADR (string));
-  		  END;							
+                        String, ADR (string));
+                  END;                                                  
   | 127,92=> (* identListUse : IdentUse .*)
   DEC (yyStackPtr, 1); yyNonterminal := 53;
 (* line 268 "/tmp/lalr4706" *)
   (* line 252 ../src/rex.lalr *)
    MakeSet (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 483
  $$ *), StartStateCount);
-  		  Include (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 484
+                  Include (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 484
  $$ *), yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 484
  $$ *).Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 484
  $$ *));
-  		  Include (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 485
+                  Include (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 485
  $$ *), yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 485
  $$ *).Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 485
- $$ *) + 1);			
+ $$ *) + 1);                    
   | 128,94=> (* identListUse : identListUse IdentUse .*)
   DEC (yyStackPtr, 2); yyNonterminal := 53;
 (* line 274 "/tmp/lalr4706" *)
@@ -534,14 +534,14 @@ CASE yyState OF
    yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 490
  $$ *) := yyAttributeStack^[yyStackPtr+1].Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 490
  $$ *);
-  		  Include (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 491
+                  Include (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 491
  $$ *), yyAttributeStack^[yyStackPtr+2].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 491
  $$ *).Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 491
  $$ *));
-  		  Include (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 492
+                  Include (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 492
  $$ *), yyAttributeStack^[yyStackPtr+2].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 492
  $$ *).Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 492
- $$ *) + 1);			
+ $$ *) + 1);                    
   | 129,93=> (* identListUse : identListUse ',' IdentUse .*)
   DEC (yyStackPtr, 3); yyNonterminal := 53;
 (* line 280 "/tmp/lalr4706" *)
@@ -549,14 +549,14 @@ CASE yyState OF
    yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 497
  $$ *) := yyAttributeStack^[yyStackPtr+1].Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 497
  $$ *);
-  		  Include (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 498
+                  Include (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 498
  $$ *), yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 498
  $$ *).Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 498
  $$ *));
-  		  Include (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 499
+                  Include (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 499
  $$ *), yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 499
  $$ *).Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 499
- $$ *) + 1);			
+ $$ *) + 1);                    
   | 130,78=> (* IdentUse : Ident .*)
   DEC (yyStackPtr, 1); yyNonterminal := 52;
 (* line 287 "/tmp/lalr4706" *)
@@ -564,28 +564,28 @@ CASE yyState OF
    yySynAttribute.Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 504
  $$ *).Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 504
  $$ *) := 0;
-  		  Definition := GetDef (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 505
+                  Definition := GetDef (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 505
  $$ *).Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 505
  $$ *));
-  		  IF Definition = NoDef THEN
-  		     GetString (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 507
+                  IF Definition = NoDef THEN
+                     GetString (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 507
  $$ *).Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 507
  $$ *), string);
-  		     Errors.ErrorMessageI (IdentUndefined, Error, yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 508
+                     Errors.ErrorMessageI (IdentUndefined, Error, yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 508
  $$ *).Position,
-  			String, ADR (string));
-  		  ELSIF GetKind (Definition) # tKind.Start THEN
-  		     GetString (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 511
+                        String, ADR (string));
+                  ELSIF GetKind (Definition) # tKind.Start THEN
+                     GetString (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 511
  $$ *).Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 511
  $$ *), string);
-  		     Errors.ErrorMessageI (ImproperUse, Error, yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 512
+                     Errors.ErrorMessageI (ImproperUse, Error, yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 512
  $$ *).Position,
-  			String, ADR (string));
-  		  ELSE
-  		     GetStartDef (Definition, Identifier, yySynAttribute.Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 515
+                        String, ADR (string));
+                  ELSE
+                     GetStartDef (Definition, Identifier, yySynAttribute.Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 515
  $$ *).Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 515
  $$ *));
-  		  END;							
+                  END;                                                  
   | 131,72=> (* definition : Ident '=' regExpr '.' .*)
   DEC (yyStackPtr, 4); yyNonterminal := 49;
 (* line 304 "/tmp/lalr4706" *)
@@ -593,25 +593,25 @@ CASE yyState OF
    Definition := GetDef (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 521
  $$ *).Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 521
  $$ *));
-  		  IF Definition = NoDef THEN
-  		     MakeIdentDef (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 523
+                  IF Definition = NoDef THEN
+                     MakeIdentDef (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 523
  $$ *).Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 523
  $$ *), LOOPHOLE (yyAttributeStack^[yyStackPtr+3].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 523
  $$ *),ADDRESS), 0, FALSE);
-  		  ELSE
-  		     GetString (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 525
+                  ELSE
+                     GetString (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 525
  $$ *).Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 525
  $$ *), string);
-  		     Errors.ErrorMessageI (IdentDefBefore, Error, yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 526
+                     Errors.ErrorMessageI (IdentDefBefore, Error, yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 526
  $$ *).Position,
-  			String, ADR (string));
-  		  END;							
+                        String, ADR (string));
+                  END;                                                  
   | 132,83=> (* rule : patternList ':' TargetCode .*)
   DEC (yyStackPtr, 3); yyNonterminal := 50;
 (* line 316 "/tmp/lalr4706" *)
   (* line 292 ../src/rex.lalr *)
    INC (RuleCount);
-  		  yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 534
+                  yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 534
  $$ *) := mRule (yyAttributeStack^[yyStackPtr+1].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 534
  $$ *), yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 534
  $$ *).Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 534
@@ -622,7 +622,7 @@ CASE yyState OF
 (* line 321 "/tmp/lalr4706" *)
   (* line 295 ../src/rex.lalr *)
    INC (RuleCount);
-  		  yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 540
+                  yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 540
  $$ *) := mRule (yyAttributeStack^[yyStackPtr+1].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 540
  $$ *), yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 540
  $$ *).Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 540
@@ -634,7 +634,7 @@ CASE yyState OF
   (* line 299 ../src/rex.lalr *)
    yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 545
  $$ *) := mList (nNode, yyAttributeStack^[yyStackPtr+1].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 545
- $$ *));			
+ $$ *));                        
   | 135,96=> (* patternList : patternList ',' pattern .*)
   DEC (yyStackPtr, 3); yyNonterminal := 55;
 (* line 328 "/tmp/lalr4706" *)
@@ -642,59 +642,59 @@ CASE yyState OF
    yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 550
  $$ *) := mList (yyAttributeStack^[yyStackPtr+1].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 550
  $$ *), yyAttributeStack^[yyStackPtr+3].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 550
- $$ *));			
+ $$ *));                        
   | 136,97=> (* pattern : startStates leftJust regExpr rightContext rightJust .*)
   DEC (yyStackPtr, 5); yyNonterminal := 56;
 (* line 332 "/tmp/lalr4706" *)
   (* line 305 ../src/rex.lalr *)
    IF yyAttributeStack^[yyStackPtr+4].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 555
  $$ *) = nNode THEN
-  		     tree := yyAttributeStack^[yyStackPtr+5].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 556
+                     tree := yyAttributeStack^[yyStackPtr+5].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 556
  $$ *);
-  		  ELSE
-  		     IF yyAttributeStack^[yyStackPtr+5].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 558
+                  ELSE
+                     IF yyAttributeStack^[yyStackPtr+5].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 558
  $$ *) = nNode THEN
-  			tree := yyAttributeStack^[yyStackPtr+4].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 559
+                        tree := yyAttributeStack^[yyStackPtr+4].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 559
  $$ *);
-  		     ELSE
-  			tree := mSequence (yyAttributeStack^[yyStackPtr+4].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 561
+                     ELSE
+                        tree := mSequence (yyAttributeStack^[yyStackPtr+4].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 561
  $$ *), yyAttributeStack^[yyStackPtr+5].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 561
  $$ *));
-  		     END;
-  		  END;
+                     END;
+                  END;
   
-  		  IF yyAttributeStack^[yyStackPtr+2].IsLeftJust(* $$ m2tom3 warning: application of variant field, possible cast of 'IsLeftJust' in line 565
+                  IF yyAttributeStack^[yyStackPtr+2].IsLeftJust(* $$ m2tom3 warning: application of variant field, possible cast of 'IsLeftJust' in line 565
  $$ *) THEN
-  		     FOR Number := 1 TO LOOPHOLE (StartStateCount,SHORTCARD) BY 2 DO
-  			Exclude (yyAttributeStack^[yyStackPtr+1].Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 567
+                     FOR Number := 1 TO LOOPHOLE (StartStateCount,SHORTCARD) BY 2 DO
+                        Exclude (yyAttributeStack^[yyStackPtr+1].Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 567
  $$ *), Number);
-  		     END;
-  		  END;
+                     END;
+                  END;
   
-  		  INC (PatternCount);
-  		  yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 572
+                  INC (PatternCount);
+                  yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 572
  $$ *) := mPattern (yyAttributeStack^[yyStackPtr+1].Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 572
  $$ *), yyAttributeStack^[yyStackPtr+3].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 572
  $$ *), tree,
-  		     PatternCount, yyAttributeStack^[yyStackPtr+2].Position(* $$ m2tom3 warning: application of variant field, possible cast of 'Position' in line 573
- $$ *)); 			
+                     PatternCount, yyAttributeStack^[yyStackPtr+2].Position(* $$ m2tom3 warning: application of variant field, possible cast of 'Position' in line 573
+ $$ *));                        
   | 137=> (* startStates : .*)
   DEC (yyStackPtr, 0); yyNonterminal := 57;
 (* line 355 "/tmp/lalr4706" *)
   (* line 326 ../src/rex.lalr *)
    MakeSet (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 578
  $$ *), StartStateCount);
-  		  Complement (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 579
+                  Complement (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 579
  $$ *));
-  		  Exclude (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 580
- $$ *), 0);					
+                  Exclude (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 580
+ $$ *), 0);                                     
   | 138,80=> (* startStates : '#' identListUse '#' .*)
   DEC (yyStackPtr, 3); yyNonterminal := 57;
 (* line 360 "/tmp/lalr4706" *)
   (* line 331 ../src/rex.lalr *)
    yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 585
  $$ *) := yyAttributeStack^[yyStackPtr+2].Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 585
- $$ *);					
+ $$ *);                                 
   | 139,79=> (* startStates : NOT '#' identListUse '#' .*)
   DEC (yyStackPtr, 4); yyNonterminal := 57;
 (* line 363 "/tmp/lalr4706" *)
@@ -702,52 +702,52 @@ CASE yyState OF
    yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 590
  $$ *) := yyAttributeStack^[yyStackPtr+3].Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 590
  $$ *);
-  		  Complement (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 591
+                  Complement (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 591
  $$ *));
-  		  Exclude (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 592
- $$ *), 0);					
+                  Exclude (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 592
+ $$ *), 0);                                     
   | 140=> (* leftJust : .*)
   DEC (yyStackPtr, 0); yyNonterminal := 58;
 (* line 370 "/tmp/lalr4706" *)
   (* line 339 ../src/rex.lalr *)
    yySynAttribute.IsLeftJust(* $$ m2tom3 warning: application of variant field, possible cast of 'IsLeftJust' in line 597
  $$ *) := FALSE;
-  		  yySynAttribute.Position(* $$ m2tom3 warning: application of variant field, possible cast of 'Position' in line 598
- $$ *)	:= Scanner.Attribute.Position;		
+                  yySynAttribute.Position(* $$ m2tom3 warning: application of variant field, possible cast of 'Position' in line 598
+ $$ *)  := Scanner.Attribute.Position;          
   | 141,81=> (* leftJust : '<' .*)
   DEC (yyStackPtr, 1); yyNonterminal := 58;
 (* line 375 "/tmp/lalr4706" *)
   (* line 343 ../src/rex.lalr *)
    yySynAttribute.IsLeftJust(* $$ m2tom3 warning: application of variant field, possible cast of 'IsLeftJust' in line 603
  $$ *) := TRUE;
-  		  LeftJustUsed  := TRUE;
-  		  yySynAttribute.Position(* $$ m2tom3 warning: application of variant field, possible cast of 'Position' in line 605
- $$ *)	:= Scanner.Attribute.Position;		
+                  LeftJustUsed  := TRUE;
+                  yySynAttribute.Position(* $$ m2tom3 warning: application of variant field, possible cast of 'Position' in line 605
+ $$ *)  := Scanner.Attribute.Position;          
   | 142=> (* rightContext : .*)
   DEC (yyStackPtr, 0); yyNonterminal := 59;
 (* line 381 "/tmp/lalr4706" *)
   (* line 348 ../src/rex.lalr *)
    yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 610
- $$ *) := nNode;					
+ $$ *) := nNode;                                        
   | 143=> (* rightContext : '/' regExpr .*)
   DEC (yyStackPtr, 2); yyNonterminal := 59;
 (* line 383 "/tmp/lalr4706" *)
   (* line 351 ../src/rex.lalr *)
    yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 615
  $$ *) := yyAttributeStack^[yyStackPtr+2].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 615
- $$ *);					
+ $$ *);                                 
   | 144=> (* rightJust : .*)
   DEC (yyStackPtr, 0); yyNonterminal := 60;
 (* line 386 "/tmp/lalr4706" *)
   (* line 354 ../src/rex.lalr *)
    yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 620
- $$ *) := nNode;					
+ $$ *) := nNode;                                        
   | 145,82=> (* rightJust : '>' .*)
   DEC (yyStackPtr, 1); yyNonterminal := 60;
 (* line 388 "/tmp/lalr4706" *)
   (* line 357 ../src/rex.lalr *)
    yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 625
- $$ *) := EOLTree;					
+ $$ *) := EOLTree;                                      
   | 146=> (* regExpr : regExpr '|' regExpr .*)
   DEC (yyStackPtr, 3); yyNonterminal := 54;
 (* line 391 "/tmp/lalr4706" *)
@@ -755,7 +755,7 @@ CASE yyState OF
    yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 630
  $$ *) := mAlternative (yyAttributeStack^[yyStackPtr+1].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 630
  $$ *), yyAttributeStack^[yyStackPtr+3].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 630
- $$ *));		
+ $$ *));                
   | 147=> (* regExpr : regExpr regExpr .*)
   DEC (yyStackPtr, 2); yyNonterminal := 54;
 (* line 393 "/tmp/lalr4706" *)
@@ -763,81 +763,81 @@ CASE yyState OF
    yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 635
  $$ *) := mSequence (yyAttributeStack^[yyStackPtr+1].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 635
  $$ *), yyAttributeStack^[yyStackPtr+2].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 635
- $$ *));		
+ $$ *));                
   | 148,66=> (* regExpr : regExpr '+' .*)
   DEC (yyStackPtr, 2); yyNonterminal := 54;
 (* line 395 "/tmp/lalr4706" *)
   (* line 367 ../src/rex.lalr *)
    yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 640
  $$ *) := mRepetition (yyAttributeStack^[yyStackPtr+1].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 640
- $$ *));			
+ $$ *));                        
   | 149,67=> (* regExpr : regExpr '*' .*)
   DEC (yyStackPtr, 2); yyNonterminal := 54;
 (* line 397 "/tmp/lalr4706" *)
   (* line 370 ../src/rex.lalr *)
    yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 645
  $$ *) := mOption (mRepetition (yyAttributeStack^[yyStackPtr+1].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 645
- $$ *)));		
+ $$ *)));               
   | 150,68=> (* regExpr : regExpr '?' .*)
   DEC (yyStackPtr, 2); yyNonterminal := 54;
 (* line 399 "/tmp/lalr4706" *)
   (* line 373 ../src/rex.lalr *)
    yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 650
  $$ *) := mOption (yyAttributeStack^[yyStackPtr+1].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 650
- $$ *));				
+ $$ *));                                
   | 151,70=> (* regExpr : regExpr '[' Number ']' .*)
   DEC (yyStackPtr, 4); yyNonterminal := 54;
 (* line 402 "/tmp/lalr4706" *)
   (* line 376 ../src/rex.lalr *)
    yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 655
  $$ *) := nNode;
-  		  FOR Number := 1 TO yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 656
+                  FOR Number := 1 TO yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 656
  $$ *).Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 656
  $$ *) DO
-  		     yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 657
+                     yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 657
  $$ *) := mSequence (yyAttributeStack^[yyStackPtr+1].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 657
  $$ *), yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 657
  $$ *));
-  		  END;							
+                  END;                                                  
   | 152,69=> (* regExpr : regExpr '[' Number '-' Number ']' .*)
   DEC (yyStackPtr, 6); yyNonterminal := 54;
 (* line 409 "/tmp/lalr4706" *)
   (* line 382 ../src/rex.lalr *)
    yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 663
  $$ *) := nNode;
-  		  tree := mOption (yyAttributeStack^[yyStackPtr+1].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 664
+                  tree := mOption (yyAttributeStack^[yyStackPtr+1].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 664
  $$ *));
-  		  FOR Number := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 665
+                  FOR Number := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 665
  $$ *).Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 665
  $$ *) + 1 TO yyAttributeStack^[yyStackPtr+5].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 665
  $$ *).Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 665
  $$ *) DO
-  		     yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 666
+                     yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 666
  $$ *) := mSequence (tree, yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 666
  $$ *));
-  		  END;
-  		  FOR Number := 1 TO yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 668
+                  END;
+                  FOR Number := 1 TO yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 668
  $$ *).Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 668
  $$ *) DO
-  		     yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 669
+                     yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 669
  $$ *) := mSequence (yyAttributeStack^[yyStackPtr+1].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 669
  $$ *), yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 669
  $$ *));
-  		  END;							
+                  END;                                                  
   | 153,71=> (* regExpr : '(' regExpr ')' .*)
   DEC (yyStackPtr, 3); yyNonterminal := 54;
 (* line 419 "/tmp/lalr4706" *)
   (* line 392 ../src/rex.lalr *)
    yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 675
  $$ *) := yyAttributeStack^[yyStackPtr+2].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 675
- $$ *);					
+ $$ *);                                 
   | 154,87=> (* regExpr : charSet .*)
   DEC (yyStackPtr, 1); yyNonterminal := 54;
 (* line 421 "/tmp/lalr4706" *)
   (* line 395 ../src/rex.lalr *)
    yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 680
  $$ *) := mSet (yyAttributeStack^[yyStackPtr+1].Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 680
- $$ *));				
+ $$ *));                                
   | 155,63=> (* regExpr : Char .*)
   DEC (yyStackPtr, 1); yyNonterminal := 54;
 (* line 423 "/tmp/lalr4706" *)
@@ -845,7 +845,7 @@ CASE yyState OF
    yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 685
  $$ *) := mCh (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 685
  $$ *).Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 685
- $$ *));				
+ $$ *));                                
   | 156,60=> (* regExpr : Ident .*)
   DEC (yyStackPtr, 1); yyNonterminal := 54;
 (* line 426 "/tmp/lalr4706" *)
@@ -853,28 +853,28 @@ CASE yyState OF
    Definition := GetDef (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 690
  $$ *).Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 690
  $$ *));
-  		  IF Definition # NoDef THEN
-  		     IF GetKind (Definition) = tKind.Ident THEN
-  			GetIdentDef (Definition, Identifier, tree1, Number, bool);
-  			yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 694
+                  IF Definition # NoDef THEN
+                     IF GetKind (Definition) = tKind.Ident THEN
+                        GetIdentDef (Definition, Identifier, tree1, Number, bool);
+                        yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 694
  $$ *) := LOOPHOLE (tree1,ADDRESS);
-  		     ELSE
-  			GetString (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 696
+                     ELSE
+                        GetString (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 696
  $$ *).Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 696
  $$ *), string);
-  			Errors.ErrorMessageI (ImproperUse, Error, yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 697
+                        Errors.ErrorMessageI (ImproperUse, Error, yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 697
  $$ *).Position,
-  			   String, ADR (string));
-  			yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 699
+                           String, ADR (string));
+                        yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 699
  $$ *) := nNode;
-  		     END;
-  		  ELSE
-  		     stringref := GetStringRef (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 702
+                     END;
+                  ELSE
+                     stringref := GetStringRef (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 702
  $$ *).Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 702
  $$ *));
-  		     yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 703
+                     yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 703
  $$ *) := mString (stringref);
-  		  END;							
+                  END;                                                  
   | 157,62=> (* regExpr : String .*)
   DEC (yyStackPtr, 1); yyNonterminal := 54;
 (* line 443 "/tmp/lalr4706" *)
@@ -882,7 +882,7 @@ CASE yyState OF
    yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 709
  $$ *) := mString (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 709
  $$ *).String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 709
- $$ *));			
+ $$ *));                        
   | 158,61=> (* regExpr : Number .*)
   DEC (yyStackPtr, 1); yyNonterminal := 54;
 (* line 446 "/tmp/lalr4706" *)
@@ -890,8 +890,8 @@ CASE yyState OF
    IntToString (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 714
  $$ *).Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 714
  $$ *), string);
-  		  yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 715
- $$ *) := mString (PutString (string));		
+                  yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 715
+ $$ *) := mString (PutString (string));         
   | 159,86=> (* charSet : '-' charSet .*)
   DEC (yyStackPtr, 2); yyNonterminal := 61;
 (* line 452 "/tmp/lalr4706" *)
@@ -899,21 +899,21 @@ CASE yyState OF
    yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 720
  $$ *) := yyAttributeStack^[yyStackPtr+2].Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 720
  $$ *);
-  		  Complement (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 721
- $$ *));					
+                  Complement (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 721
+ $$ *));                                        
   | 160,65=> (* charSet : '{' rangeList '}' .*)
   DEC (yyStackPtr, 3); yyNonterminal := 61;
 (* line 456 "/tmp/lalr4706" *)
   (* line 429 ../src/rex.lalr *)
    yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 726
  $$ *) := yyAttributeStack^[yyStackPtr+2].Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 726
- $$ *);					
+ $$ *);                                 
   | 161=> (* rangeList : .*)
   DEC (yyStackPtr, 0); yyNonterminal := 62;
 (* line 459 "/tmp/lalr4706" *)
   (* line 432 ../src/rex.lalr *)
    MakeSet (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 731
- $$ *), ORD (LastCh));			
+ $$ *), ORD (LastCh));                  
   | 162,85=> (* rangeList : rangeList range .*)
   DEC (yyStackPtr, 2); yyNonterminal := 62;
 (* line 462 "/tmp/lalr4706" *)
@@ -921,35 +921,35 @@ CASE yyState OF
    yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 736
  $$ *) := yyAttributeStack^[yyStackPtr+1].Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 736
  $$ *);
-  		  Union (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 737
+                  Union (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 737
  $$ *), yyAttributeStack^[yyStackPtr+2].Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 737
  $$ *));
-  		  ReleaseSet (yyAttributeStack^[yyStackPtr+2].Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 738
- $$ *));					
+                  ReleaseSet (yyAttributeStack^[yyStackPtr+2].Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 738
+ $$ *));                                        
   | 163=> (* range : Char .*)
   DEC (yyStackPtr, 1); yyNonterminal := 63;
 (* line 469 "/tmp/lalr4706" *)
   (* line 440 ../src/rex.lalr *)
    MakeSet (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 743
  $$ *), ORD (LastCh));
-  		  Include (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 744
+                  Include (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 744
  $$ *), ORD (yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 744
  $$ *).Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 744
- $$ *)));			
+ $$ *)));                       
   | 164,64=> (* range : Char '-' Char .*)
   DEC (yyStackPtr, 3); yyNonterminal := 63;
 (* line 474 "/tmp/lalr4706" *)
   (* line 444 ../src/rex.lalr *)
    MakeSet (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 749
  $$ *), ORD (LastCh));
-  		  FOR ch := yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 750
+                  FOR ch := yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 750
  $$ *).Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 750
  $$ *) TO yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 750
  $$ *).Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 750
  $$ *) DO
-  		     Include (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 751
+                     Include (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 751
  $$ *), ORD (ch));
-  		  END;							
+                  END;                                                  
 END;
               (* SPEC State 
                    := Next (Top (), Nonterminal); nonterminal transition *)
@@ -1293,8 +1293,6 @@ PROCEDURE CloseParser() =
 
 BEGIN
     yyIsInitialized := FALSE;
-    SUBARRAY(ParsTabName , 0, 10) := ARRAY [0..9] OF CHAR{'P','a','r','s','e','r','.','T','a','b'};
-IF NUMBER(ParsTabName) > 10 THEN ParsTabName[FIRST(ParsTabName) + 10] := '\000'; END
-;
+    ParsTabName := "Parser.Tab";
 END Parser.
 
