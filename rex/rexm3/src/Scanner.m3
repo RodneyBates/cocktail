@@ -100,7 +100,7 @@ PROCEDURE ErrorAttribute (Token: Word.T; VAR Attribute: tScanAttribute) =
 CONST
    yyTabSpace		= 8;
    yyDNoState		= 0;
-   yyFileStackSize	= 16;
+   yyFileStackSize	= 32;
    yyInitBufferSize	= (1024 * 8) + 256;
 yyFirstCh	= '\000';
 yyLastCh	= '\377';
@@ -123,9 +123,9 @@ CStr2	= 19;
  
 TYPE
    yyTableElmt		= SHORTCARD;
-   yyStateRange		= (*yyTableElmt*) [0 .. yyDStateCount];
-   yyTableRange		= (*yyTableElmt*) [0 .. yyTableSize];
-   yyCombType		= RECORD Check, Next: yyStateRange; END;
+   yyStateRange		= (*yyTableElmt*) BITS BITSIZE(yyTableElmt) FOR [0 .. yyDStateCount];
+   yyTableRange		= (*yyTableElmt*) BITS BITSIZE(yyTableElmt) FOR [0 .. yyTableSize];
+   yyCombType		= RECORD Check, Next: BITS 16 FOR yyStateRange; END;
    yyCombTypePtr	= UNTRACED BRANDED REF  yyCombType;
    yytChBufferPtr	= UNTRACED BRANDED REF  ARRAY [0 .. 1000000] OF CHAR;
    yyChRange		= [yyFirstCh .. yyLastCh];
@@ -1322,7 +1322,7 @@ PROCEDURE yyGetTable (TableFile: System.tFile; Address: ADDRESS): Word.T =
       N		: INTEGER;
       Length	: yyTableElmt;
    BEGIN
-      N := System.Read (TableFile, ADR (Length), BYTESIZE (yyTableElmt));
+      N := System.Read (TableFile, ADR (Length), BYTESIZE (Length));
       Checks.ErrorCheck (ARRAY [0..16] OF CHAR{'y','y','G','e','t','T','a','b','l','e','.','R','e','a','d','1','\000'}, N);
       N := System.Read (TableFile, Address, VAL(Length,INTEGER));
       Checks.ErrorCheck (ARRAY [0..16] OF CHAR{'y','y','G','e','t','T','a','b','l','e','.','R','e','a','d','2','\000'}, N);
