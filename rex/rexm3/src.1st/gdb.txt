@@ -1,0 +1,970 @@
+#4  0x00000000005300c9 in Load (v=16_000000000191d198, o=0, s=16, base_align=8, 
+    addr_align=8, t=Word64) at ../src/misc/CG.m3:1573
+1573	        LoadIndirectStraddling (t, o, s);
+v = (*16_000000000191d198*) OBJECT tag = 43;  END
+o = 0
+s = 16
+base_align = 8
+addr_align = 8
+t = Word64
+best_type = Void
+best_align = 0
+tsize = 64
+best_size = 0
+talign = 64
+#3  0x0000000000531b5c in LoadIndirectStraddling (t=Word64, o=0, s=16)
+    at ../src/misc/CG.m3:1736
+1736	      cg.if_compare (Target.Integer.cg_type, Cmp.LE, altLab, Maybe);
+#5  0x000000000059f353 in Load (t=16_000000000152fc78) at ../src/values/Variable.m3:434
+434	        CG.Load
+Ambiguous info command "t": target, terminal, threads, tp, tracepoints, types.
+Can't find Modula-3 identifier: info
+$10 = RECORD size = 16; min_size = 16; alignment = 8; addr_align = 8; hash = 72347663; 
+    name = 0; stk_type = Word64; mem_type = Word8; class = Packed; isTraced = FALSE; 
+    isEmpty = FALSE; isSolid = TRUE; lazyAligned = FALSE;  END
+$11 = (*16_000000000152fbe0*) OBJECT origin = 1100176; fp = RECORD byte = {77, 150, 
+    232, 239, 229, 205, 103, 19};  END; info = RECORD size = 16; min_size = 16; 
+    alignment = 8; addr_align = 8; hash = 72347663; name = 0; stk_type = Word64; 
+    mem_type = Word8; class = Named; isTraced = FALSE; isEmpty = FALSE; isSolid = TRUE; 
+    lazyAligned = FALSE;  END; uid = -57713752; scc_id = 0; rep_id = -1; 
+    checkDepth = -1; checked = TRUE; errored = FALSE; next = 16_000000000152fd38; 
+    scope = 16_000000000152fb30; qid = RECORD module = 0; item = 13771;  END; 
+    type = 16_000000000152b9c8; obj = 16_000000000152b978;  END
+$12 = NIL
+$13 = (*16_000000000191d198*) OBJECT tag = 43;  END
+#5  0x000000000059f353 in Load (t=16_000000000152fc78) at ../src/values/Variable.m3:434
+434	        CG.Load
+$14 = FALSE
+$15 = (*16_000000000191d198*) OBJECT tag = 43;  END
+$16 = 0
+$17 = 16
+$18 = 8
+$19 = 8
+$20 = 8
+$21 = Word64
+#4  0x00000000005300c9 in Load (v=16_000000000191d198, o=0, s=16, base_align=8, 
+    addr_align=8, t=Word64) at ../src/misc/CG.m3:1573
+1573	        LoadIndirectStraddling (t, o, s);
+#4  0x00000000005300c9 in Load (v=16_000000000191d198, o=0, s=16, base_align=8, 
+    addr_align=8, t=Word64) at ../src/misc/CG.m3:1573
+1573	        LoadIndirectStraddling (t, o, s);
+#3  0x0000000000531b5c in LoadIndirectStraddling (t=Word64, o=0, s=16)
+    at ../src/misc/CG.m3:1736
+1736	      cg.if_compare (Target.Integer.cg_type, Cmp.LE, altLab, Maybe);
+#4  0x00000000005300c9 in Load (v=16_000000000191d198, o=0, s=16, base_align=8, 
+    addr_align=8, t=Word64) at ../src/misc/CG.m3:1573
+1573	        LoadIndirectStraddling (t, o, s);
+Already logging to gdb.txt.
+#4  0x00000000005300c9 in Load (v=16_000000000191d198, o=0, s=16, base_align=8, 
+    addr_align=8, t=Word64) at ../src/misc/CG.m3:1573
+1573	        LoadIndirectStraddling (t, o, s);
+v = (*16_000000000191d198*) OBJECT tag = 43;  END
+o = 0
+s = 16
+base_align = 8
+addr_align = 8
+t = Word64
+best_type = Void
+best_align = 0
+tsize = 64
+best_size = 0
+talign = 64
+#3  0x0000000000531b5c in LoadIndirectStraddling (t=Word64, o=0, s=16)
+    at ../src/misc/CG.m3:1736
+1736	      cg.if_compare (Target.Integer.cg_type, Cmp.LE, altLab, Maybe);
+t = Word64
+o = 0
+s = 16
+fieldMask = {72, 6, 145, 0, 0, 0, 0, 0, 3}
+field = (*16_000000000191fb20*) OBJECT tag = 110;  END
+bitOffset = (*16_000000000191fb68*) OBJECT tag = 113;  END
+altLab = 22
+word1BitCt = (*16_000000000191fb80*) OBJECT tag = 114;  END
+byteOffsetMask = 7
+mergeLab = 21
+word0Addr = (*16_000000000191fb50*) OBJECT tag = 112;  END
+byteAddr = (*16_000000000191fb38*) OBJECT tag = 111;  END
+wordAddrMask = -8
+#3  0x0000000000531b5c in LoadIndirectStraddling (t=Word64, o=0, s=16)
+    at ../src/misc/CG.m3:1736
+1736	      cg.if_compare (Target.Integer.cg_type, Cmp.LE, altLab, Maybe);
+#2  0x00000000006deb4a in M3CG_Check__if_compare (self=16_000000000179e288, t=Int64, 
+    op=LE, l=22, f=50) at ../src/M3CG_Check.m3:642
+642	    IF (self.clean_jumps) THEN self.s_empty () END;
+$22 = TRUE
+#1  0x00000000006dcd9c in M3CG_Check__Stack_Empty (self=16_000000000179e288)
+    at ../src/M3CG_Check.m3:280
+280	      PutErr (self, "non-empty stack: ", Stack_Dump (self));
+Can't find Modula-3 identifier: Stack_Dump
+$23 = (*16_000000000191fc10*) "[ Int64 ]"
+#2  0x00000000006deb4a in M3CG_Check__if_compare (self=16_000000000179e288, t=Int64, 
+    op=LE, l=22, f=50) at ../src/M3CG_Check.m3:642
+642	    IF (self.clean_jumps) THEN self.s_empty () END;
+#3  0x0000000000531b5c in LoadIndirectStraddling (t=Word64, o=0, s=16)
+    at ../src/misc/CG.m3:1736
+1736	      cg.if_compare (Target.Integer.cg_type, Cmp.LE, altLab, Maybe);
+Working directory /home/rodney/proj/gmd/cocktail/rex/rexm3/src.
+Breakpoint 2 at 0x531b5c: file ../src/misc/CG.m3, line 1736.
+Breakpoint 3 at 0x530979: file ../src/misc/CG.m3, line 1663.
+The program being debugged has been started already.
+Start it from the beginning? (y or n) Starting program: /usr/local/cm3-devel/bin/cm3 
+Breakpoint 2 at 0x531b5c: file ../src/misc/CG.m3, line 1740.
+Error while mapping shared library sections:
+linux-vdso.so.1: Success.
+Error while reading shared library symbols:
+linux-vdso.so.1: No such file or directory.
+Error while reading shared library symbols:
+linux-vdso.so.1: No such file or directory.
+[Thread debugging using libthread_db enabled]
+[New LWP 174755]
+[New Thread 139831933622080 (LWP 174755)]
+[Switching to Thread 139831933622080 (LWP 174755)]
+
+Breakpoint 3, LoadIndirectStraddling (t=Word64, o=0, s=16) at ../src/misc/CG.m3:1663
+1663	    SPop (1, "");                          (*            ; *) 
+Continuing.
+
+Breakpoint 2, LoadIndirectStraddling (t=Word64, o=0, s=16) at ../src/misc/CG.m3:1740
+1740	      cg.load (word0Addr, 0, Type.Addr, Type.Addr);
+$24 = 1
+The program being debugged has been started already.
+Start it from the beginning? (y or n) Starting program: /usr/local/cm3-devel/bin/cm3 
+Error while mapping shared library sections:
+linux-vdso.so.1: Success.
+Error while reading shared library symbols:
+linux-vdso.so.1: No such file or directory.
+Error while reading shared library symbols:
+linux-vdso.so.1: No such file or directory.
+[Thread debugging using libthread_db enabled]
+[New LWP 174761]
+[New Thread 140562334512960 (LWP 174761)]
+[Switching to Thread 140562334512960 (LWP 174761)]
+
+Breakpoint 3, LoadIndirectStraddling (t=Word64, o=0, s=16) at ../src/misc/CG.m3:1663
+1663	    SPop (1, "");                          (*            ; *) 
+$25 = 2
+#1  0x00000000005300c9 in Load (v=16_00000000027dd198, o=0, s=16, base_align=8, 
+    addr_align=8, t=Word64) at ../src/misc/CG.m3:1573
+1573	        LoadIndirectStraddling (t, o, s);
+Breakpoint 4 at 0x53007a: file ../src/misc/CG.m3, line 1571.
+The program being debugged has been started already.
+Start it from the beginning? (y or n) Starting program: /usr/local/cm3-devel/bin/cm3 
+Error while mapping shared library sections:
+linux-vdso.so.1: Success.
+Error while reading shared library symbols:
+linux-vdso.so.1: No such file or directory.
+Error while reading shared library symbols:
+linux-vdso.so.1: No such file or directory.
+[Thread debugging using libthread_db enabled]
+[New LWP 174768]
+[New Thread 139920064214848 (LWP 174768)]
+[Switching to Thread 139920064214848 (LWP 174768)]
+
+Breakpoint 4, Load (v=16_000000000287d198, o=0, s=16, base_align=8, addr_align=8, 
+    t=Word64) at ../src/misc/CG.m3:1571
+1571	      ELSIF base_align MOD Target.Byte = 0 THEN
+$26 = 1
+best_type = Void
+best_align = 0
+tsize = 64
+best_size = 0
+talign = 64
+$27 = (*16_000000000287d198*) OBJECT tag = 43;  END
+#1  0x000000000059f353 in Load (t=16_000000000249fc78) at ../src/values/Variable.m3:434
+434	        CG.Load
+Breakpoint 5 at 0x59ee7a: file ../src/values/Variable.m3, line 417.
+The program being debugged has been started already.
+Start it from the beginning? (y or n) Starting program: /usr/local/cm3-devel/bin/cm3 
+Error while mapping shared library sections:
+linux-vdso.so.1: Success.
+Error while reading shared library symbols:
+linux-vdso.so.1: No such file or directory.
+Error while reading shared library symbols:
+linux-vdso.so.1: No such file or directory.
+[Thread debugging using libthread_db enabled]
+[New LWP 174807]
+[New Thread 140514297837376 (LWP 174807)]
+[Switching to Thread 140514297837376 (LWP 174807)]
+
+Breakpoint 5, Load (t=16_0000000002142310) at ../src/values/Variable.m3:417
+417	      IF (t.bss_var # NIL) THEN
+$28 = RECORD size = 64; min_size = 64; alignment = 64; addr_align = 8; hash = 5; 
+    name = 130; stk_type = Int64; mem_type = Int64; class = Integer; isTraced = FALSE; 
+    isEmpty = FALSE; isSolid = TRUE; lazyAligned = FALSE;  END
+Can't find Modula-3 identifier: tos
+1: type_info = RECORD size = 64; min_size = 64; alignment = 64; addr_align = 8; 
+    hash = 5; name = 130; stk_type = Int64; mem_type = Int64; class = Integer; 
+    isTraced = FALSE; isEmpty = FALSE; isSolid = TRUE; lazyAligned = FALSE;  END
+Continuing.
+
+Breakpoint 5, Load (t=16_0000000001ec4ff8) at ../src/values/Variable.m3:417
+417	      IF (t.bss_var # NIL) THEN
+1: type_info = RECORD size = 16; min_size = 16; alignment = 16; addr_align = 8; 
+    hash = 1251380; name = 0; stk_type = Word64; mem_type = Word16; class = Subrange; 
+    isTraced = FALSE; isEmpty = FALSE; isSolid = TRUE; lazyAligned = FALSE;  END
+Continuing.
+
+Breakpoint 5, Load (t=16_0000000001ed9230) at ../src/values/Variable.m3:417
+417	      IF (t.bss_var # NIL) THEN
+1: type_info = RECORD size = 64; min_size = 64; alignment = 64; addr_align = 8; 
+    hash = 5; name = 130; stk_type = Int64; mem_type = Int64; class = Integer; 
+    isTraced = FALSE; isEmpty = FALSE; isSolid = TRUE; lazyAligned = FALSE;  END
+Continuing.
+
+Breakpoint 5, Load (t=16_0000000001ed9850) at ../src/values/Variable.m3:417
+417	      IF (t.bss_var # NIL) THEN
+1: type_info = RECORD size = 8; min_size = 1; alignment = 8; addr_align = 8; 
+    hash = 415284350; name = 117; stk_type = Word64; mem_type = Word8; class = Enum; 
+    isTraced = FALSE; isEmpty = FALSE; isSolid = TRUE; lazyAligned = FALSE;  END
+$29 = (*16_0000000001ed9850*) OBJECT origin = 1100080; next = 16_0000000001ed9910; 
+    name = 13747; extName = 0; scope = 16_0000000001ed7208; 
+    vnext = 16_0000000001ed9790; checkDepth = 0; class = Var; checked = TRUE; 
+    readonly = FALSE; traced = FALSE; external = FALSE; unused = FALSE; 
+    obsolete = FALSE; up_level = TRUE; error = FALSE; used = TRUE; declared = TRUE; 
+    inited = TRUE; compiled = FALSE; imported = FALSE; exported = FALSE; 
+    exportable = FALSE; inTypeOf = FALSE; inToExpr = FALSE; inToType = FALSE; 
+    lazyAligned = FALSE; type = 16_0000000001e25600; repType = 16_0000000001e25600; 
+    initExpr = NIL; qualName = 16_0000000002141518; sibling = NIL; formal = NIL; 
+    alias = NIL; trace = NIL; bounds = NIL; cg_var = NIL; bss_var = NIL; 
+    nextTWACGVar = NIL; initValOffset = 0; offset = 3248; size = 8; align = 8; 
+    cg_align = 8; mem_type = Word8; stk_type = Word64; indirect = FALSE; 
+    open_ok = FALSE; need_addr = FALSE; no_type = FALSE; global = TRUE; 
+    initDone = TRUE; initZero = FALSE; initPending = FALSE; initStatic = FALSE; 
+    allocated = TRUE; initAllocated = FALSE;  END
+$30 = (*16_0000000001c9dd80*) "../src/Scanner.m3"
+$31 = (*16_00000000022bf6d0*) "InsideTarget"
+Can't find Modula-3 identifier: name
+$32 = (*16_00000000022bf6d0*) "InsideTarget"
+2: ToText (t.name) = (*16_00000000022bf6d0*) "InsideTarget"
+Continuing.
+
+Breakpoint 5, Load (t=16_0000000001ed8ec0) at ../src/values/Variable.m3:417
+417	      IF (t.bss_var # NIL) THEN
+2: ToText (t.name) = (*16_00000000022bf6f8*) "BraceNestingLevel"
+1: type_info = RECORD size = 64; min_size = 64; alignment = 64; addr_align = 8; 
+    hash = 5; name = 130; stk_type = Int64; mem_type = Int64; class = Integer; 
+    isTraced = FALSE; isEmpty = FALSE; isSolid = TRUE; lazyAligned = FALSE;  END
+Continuing.
+
+Breakpoint 5, Load (t=16_0000000001ede190) at ../src/values/Variable.m3:417
+417	      IF (t.bss_var # NIL) THEN
+2: ToText (t.name) = (*16_00000000022bf8c0*) "yyStartState"
+1: type_info = RECORD size = 16; min_size = 16; alignment = 8; addr_align = 8; 
+    hash = 72347663; name = 0; stk_type = Word64; mem_type = Word8; class = Packed; 
+    isTraced = FALSE; isEmpty = FALSE; isSolid = TRUE; lazyAligned = FALSE;  END
+3: t.origin = 1100144
+Continuing.
+
+Breakpoint 5, Load (t=16_0000000001edfc78) at ../src/values/Variable.m3:417
+417	      IF (t.bss_var # NIL) THEN
+3: t.origin = 1100176
+2: ToText (t.name) = (*16_00000000022bd1b0*) "yyState"
+1: type_info = RECORD size = 16; min_size = 16; alignment = 8; addr_align = 8; 
+    hash = 72347663; name = 0; stk_type = Word64; mem_type = Word8; class = Packed; 
+    isTraced = FALSE; isEmpty = FALSE; isSolid = TRUE; lazyAligned = FALSE;  END
+Continuing.
+
+Breakpoint 4, Load (v=16_00000000022bd198, o=0, s=16, base_align=8, addr_align=8, 
+    t=Word64) at ../src/misc/CG.m3:1571
+1571	      ELSIF base_align MOD Target.Byte = 0 THEN
+3: t.origin = warning: This could be the wrong instance of procedure Load, if a proc param with a nested procedure value was called.
+1100176
+2: ToText (t.name) = warning: This could be the wrong instance of procedure Load, if a proc param with a nested procedure value was called.
+(*16_00000000022bd1b0*) "yyState"
+1: type_info = warning: This could be the wrong instance of procedure Load, if a proc param with a nested procedure value was called.
+RECORD size = 16; min_size = 16; alignment = 8; addr_align = 8; 
+    hash = 72347663; name = 0; stk_type = Word64; mem_type = Word8; class = Packed; 
+    isTraced = FALSE; isEmpty = FALSE; isSolid = TRUE; lazyAligned = FALSE;  END
+$33 = 1
+Continuing.
+
+Breakpoint 5, Load (t=16_0000000001ede718) at ../src/values/Variable.m3:417
+417	      IF (t.bss_var # NIL) THEN
+3: t.origin = 1100150
+2: ToText (t.name) = (*16_00000000022bfa78*) "yyChBufferPtr"
+1: type_info = RECORD size = 64; min_size = 64; alignment = 64; addr_align = 8; 
+    hash = 2111442680973; name = 0; stk_type = Addr; mem_type = Addr; class = Ref; 
+    isTraced = FALSE; isEmpty = FALSE; isSolid = TRUE; lazyAligned = FALSE;  END
+Continuing.
+
+Breakpoint 5, Load (t=16_0000000001ede9f0) at ../src/values/Variable.m3:417
+417	      IF (t.bss_var # NIL) THEN
+3: t.origin = 1100153
+2: ToText (t.name) = (*16_00000000022bfbe0*) "yyChBufferIndex"
+1: type_info = RECORD size = 64; min_size = 64; alignment = 64; addr_align = 8; 
+    hash = 5; name = 130; stk_type = Int64; mem_type = Int64; class = Integer; 
+    isTraced = FALSE; isEmpty = FALSE; isSolid = TRUE; lazyAligned = FALSE;  END
+Continuing.
+
+Breakpoint 5, Load (t=16_0000000001edfdd0) at ../src/values/Variable.m3:417
+417	      IF (t.bss_var # NIL) THEN
+3: t.origin = 1100177
+2: ToText (t.name) = (*16_00000000022bd1f0*) "yyTablePtr"
+1: type_info = RECORD size = 64; min_size = 64; alignment = 64; addr_align = 16; 
+    hash = 2111442680894; name = 0; stk_type = Addr; mem_type = Addr; class = Ref; 
+    isTraced = FALSE; isEmpty = FALSE; isSolid = TRUE; lazyAligned = FALSE;  END
+Continuing.
+
+Breakpoint 5, Load (t=16_0000000001edfc78) at ../src/values/Variable.m3:417
+417	      IF (t.bss_var # NIL) THEN
+3: t.origin = 1100176
+2: ToText (t.name) = (*16_00000000022bd1b0*) "yyState"
+1: type_info = RECORD size = 16; min_size = 16; alignment = 8; addr_align = 8; 
+    hash = 72347663; name = 0; stk_type = Word64; mem_type = Word8; class = Packed; 
+    isTraced = FALSE; isEmpty = FALSE; isSolid = TRUE; lazyAligned = FALSE;  END
+#1  0x000000000057aa00 in Load (t=16_0000000001edfc78) at ../src/values/Value.m3:72
+72	    t.load ();
+#2  0x00000000005f009c in Compile (p=16_0000000002259418, StaticOnly=FALSE)
+    at ../src/exprs/NamedExpr.m3:204
+204	        Value.Load (p.value);
+$34 = (*16_0000000002259418*) OBJECT origin = 1100208; type = 16_0000000001edfbe0; 
+    repType = 16_0000000001edbb98; align = 65; checked = TRUE; 
+    directAssignableType = FALSE; doDirectAssign = FALSE; isNamedConst = FALSE; 
+    scope = 16_0000000001edfb30; value = 16_0000000001edfc78; name = 13810; 
+    inFold = FALSE; inIsZeroes = FALSE; inGetBounds = FALSE; inTypeOf = FALSE; 
+    tmp = NIL;  END
+Continuing.
+
+Breakpoint 5, Load (t=16_0000000001edfc78) at ../src/values/Variable.m3:417
+417	      IF (t.bss_var # NIL) THEN
+3: t.origin = 1100176
+2: ToText (t.name) = (*16_00000000022bd1b0*) "yyState"
+1: type_info = RECORD size = 16; min_size = 16; alignment = 8; addr_align = 8; 
+    hash = 72347663; name = 0; stk_type = Word64; mem_type = Word8; class = Packed; 
+    isTraced = FALSE; isEmpty = FALSE; isSolid = TRUE; lazyAligned = FALSE;  END
+#1  0x000000000057aa00 in Load (t=16_0000000001edfc78) at ../src/values/Value.m3:72
+72	    t.load ();
+#2  0x00000000005f009c in Compile (p=16_00000000022596d0, StaticOnly=FALSE)
+    at ../src/exprs/NamedExpr.m3:204
+204	        Value.Load (p.value);
+$35 = (*16_00000000022596d0*) OBJECT origin = 1100209; type = 16_0000000001edfbe0; 
+    repType = 16_0000000001edbb98; align = 65; checked = TRUE; 
+    directAssignableType = FALSE; doDirectAssign = FALSE; isNamedConst = FALSE; 
+    scope = 16_0000000001edfb30; value = 16_0000000001edfc78; name = 13810; 
+    inFold = FALSE; inIsZeroes = FALSE; inGetBounds = FALSE; inTypeOf = FALSE; 
+    tmp = NIL;  END
+Continuing.
+
+Breakpoint 5, Load (t=16_0000000001edfc78) at ../src/values/Variable.m3:417
+417	      IF (t.bss_var # NIL) THEN
+3: t.origin = 1100176
+2: ToText (t.name) = (*16_00000000022bd1b0*) "yyState"
+1: type_info = RECORD size = 16; min_size = 16; alignment = 8; addr_align = 8; 
+    hash = 72347663; name = 0; stk_type = Word64; mem_type = Word8; class = Packed; 
+    isTraced = FALSE; isEmpty = FALSE; isSolid = TRUE; lazyAligned = FALSE;  END
+#1  0x000000000057aa00 in Load (t=16_0000000001edfc78) at ../src/values/Value.m3:72
+72	    t.load ();
+#2  0x00000000005f009c in Compile (p=16_00000000022597d0, StaticOnly=FALSE)
+    at ../src/exprs/NamedExpr.m3:204
+204	        Value.Load (p.value);
+$36 = (*16_00000000022597d0*) OBJECT origin = 1100210; type = 16_0000000001edfbe0; 
+    repType = 16_0000000001edbb98; align = 65; checked = TRUE; 
+    directAssignableType = FALSE; doDirectAssign = FALSE; isNamedConst = FALSE; 
+    scope = 16_0000000001edfb30; value = 16_0000000001edfc78; name = 13810; 
+    inFold = FALSE; inIsZeroes = FALSE; inGetBounds = FALSE; inTypeOf = FALSE; 
+    tmp = NIL;  END
+Num Type           Disp Enb Address            What
+1   breakpoint     keep n   0x00000000006dc3ec in M3CG_Check__PutErr
+                                               at ../src/M3CG_Check.m3:197
+2   breakpoint     keep n   0x0000000000531b5c in LoadIndirectStraddling
+                                               at ../src/misc/CG.m3:1740
+3   breakpoint     keep n   0x0000000000530979 in LoadIndirectStraddling
+                                               at ../src/misc/CG.m3:1663
+4   breakpoint     keep n   0x000000000053007a in Load at ../src/misc/CG.m3:1571
+	breakpoint already hit 1 time
+5   breakpoint     keep y   0x000000000059ee7a in Load at ../src/values/Variable.m3:417
+	breakpoint already hit 13 times
+Can't find Modula-3 identifier: disable
+Function "disable" not defined.
+Make breakpoint pending on future shared library load? (y or [n]) 
+Please answer y or [n].
+Make breakpoint pending on future shared library load? (y or [n]) Continuing.
+[New Thread 140514297833216 (LWP 174996)]
+[New Thread 140514289440512 (LWP 174997)]
+[New Thread 140514281047808 (LWP 174998)]
+[Thread 140514297833216 (LWP 174996) exited]
+[Thread 140514289440512 (LWP 174997) exited]
+[Thread 140514281047808 (LWP 174998) exited]
+[New Thread 140514272655104 (LWP 174999)]
+[Thread 140514272655104 (LWP 174999) exited]
+[New Thread 140514297833216 (LWP 175000)]
+[Thread 140514297833216 (LWP 175000) exited]
+[New Thread 140514281047808 (LWP 175001)]
+[Thread 140514281047808 (LWP 175001) exited]
+[New Thread 140514297833216 (LWP 175002)]
+[Thread 140514297833216 (LWP 175002) exited]
+[New Thread 140514281047808 (LWP 175003)]
+[New Thread 140514297833216 (LWP 175004)]
+[Thread 140514281047808 (LWP 175003) exited]
+[Thread 140514297833216 (LWP 175004) exited]
+[New Thread 140514281047808 (LWP 175005)]
+[Thread 140514281047808 (LWP 175005) exited]
+[New Thread 140514297833216 (LWP 175006)]
+[Thread 140514297833216 (LWP 175006) exited]
+[New Thread 140514272655104 (LWP 175007)]
+[Thread 140514272655104 (LWP 175007) exited]
+[New Thread 140514281047808 (LWP 175008)]
+[Thread 140514281047808 (LWP 175008) exited]
+[New Thread 140514272655104 (LWP 175009)]
+[Thread 140514272655104 (LWP 175009) exited]
+[New Thread 140514281047808 (LWP 175010)]
+[Thread 140514281047808 (LWP 175010) exited]
+[New Thread 140514272655104 (LWP 175011)]
+[Thread 140514272655104 (LWP 175011) exited]
+[New Thread 140514297833216 (LWP 175012)]
+[Thread 140514297833216 (LWP 175012) exited]
+[New Thread 140514281047808 (LWP 175013)]
+[Thread 140514281047808 (LWP 175013) exited]
+[New Thread 140514297833216 (LWP 175014)]
+[Thread 140514297833216 (LWP 175014) exited]
+[New Thread 140514281047808 (LWP 175015)]
+[New Thread 140514297833216 (LWP 175016)]
+[Thread 140514297833216 (LWP 175016) exited]
+[Thread 140514281047808 (LWP 175015) exited]
+[New Thread 140514272655104 (LWP 175017)]
+[Thread 140514272655104 (LWP 175017) exited]
+[New Thread 140514297833216 (LWP 175018)]
+[Thread 140514297833216 (LWP 175018) exited]
+[New Thread 140514272655104 (LWP 175019)]
+[Thread 140514272655104 (LWP 175019) exited]
+[New Thread 140514297833216 (LWP 175020)]
+[Thread 140514297833216 (LWP 175020) exited]
+[New Thread 140514272655104 (LWP 175021)]
+[Thread 140514272655104 (LWP 175021) exited]
+[New Thread 140514297833216 (LWP 175022)]
+[Thread 140514297833216 (LWP 175022) exited]
+[New Thread 140514272655104 (LWP 175023)]
+[Thread 140514272655104 (LWP 175023) exited]
+[New Thread 140514297833216 (LWP 175024)]
+[Thread 140514297833216 (LWP 175024) exited]
+
+Program exited with code 01.
+Breakpoint 6 at 0x6dcd70: file ../src/M3CG_Check.m3, line 280.
+Starting program: /usr/local/cm3-devel/bin/cm3 
+Error while mapping shared library sections:
+linux-vdso.so.1: Success.
+Error while reading shared library symbols:
+linux-vdso.so.1: No such file or directory.
+Error while reading shared library symbols:
+linux-vdso.so.1: No such file or directory.
+[Thread debugging using libthread_db enabled]
+[New LWP 175030]
+[New Thread 139892516403008 (LWP 175030)]
+[Switching to Thread 139892516403008 (LWP 175030)]
+
+Breakpoint 6, M3CG_Check__Stack_Empty (self=16_0000000001f4e288)
+    at ../src/M3CG_Check.m3:280
+280	      PutErr (self, "non-empty stack: ", Stack_Dump (self));
+3: t.origin = warning: This could be the wrong instance of procedure Load, if a proc param with a nested procedure value was called.
+1100176
+2: ToText (t.name) = warning: This could be the wrong instance of procedure Load, if a proc param with a nested procedure value was called.
+(*16_00000000020bd1b0*) "yyState"
+1: type_info = warning: This could be the wrong instance of procedure Load, if a proc param with a nested procedure value was called.
+RECORD size = 16; min_size = 16; alignment = 8; addr_align = 8; 
+    hash = 72347663; name = 0; stk_type = Word64; mem_type = Word8; class = Packed; 
+    isTraced = FALSE; isEmpty = FALSE; isSolid = TRUE; lazyAligned = FALSE;  END
+#0  M3CG_Check__Stack_Empty (self=16_0000000001f4e288) at ../src/M3CG_Check.m3:280
+#1  0x00000000006deb4a in M3CG_Check__if_compare (self=16_0000000001f4e288, t=Int64, 
+    op=LE, l=22, f=50) at ../src/M3CG_Check.m3:642
+#2  0x0000000000531b5c in LoadIndirectStraddling (t=Word64, o=0, s=16)
+    at ../src/misc/CG.m3:1736
+#3  0x00000000005300c9 in Load (v=16_00000000020bd198, o=0, s=16, base_align=8, 
+    addr_align=8, t=Word64) at ../src/misc/CG.m3:1573
+#4  0x000000000059f353 in Load (t=16_0000000001cdfc78) at ../src/values/Variable.m3:434
+#5  0x000000000057aa00 in Load (t=16_0000000001cdfc78) at ../src/values/Value.m3:72
+#6  0x00000000005f009c in Compile (p=16_0000000002059418, StaticOnly=FALSE)
+    at ../src/exprs/NamedExpr.m3:204
+#7  0x00000000005cc67a in Compile (t=16_0000000002059418, StaticOnly=FALSE)
+    at ../src/exprs/Expr.m3:370
+#8  0x00000000006a8241 in PrepBR (p=16_0000000002059310, true=-1, false=20, freq=20)
+    at ../src/exprs/EqualExpr.m3:256
+#9  0x00000000005cc994 in PrepBranch (t=16_0000000002059310, true=-1, false=20, freq=20)
+    at ../src/exprs/Expr.m3:408
+#10 0x000000000061cf44 in Compile (p=16_0000000002058910) at ../src/stmts/IfStmt.m3:103
+#11 0x0000000000611813 in Compile (t=16_0000000002058910) at ../src/stmts/Stmt.m3:115
+#12 0x000000000061e06a in Compile (p=16_0000000002058890) at ../src/stmts/LoopStmt.m3:45
+#13 0x0000000000611813 in Compile (t=16_0000000002058890) at ../src/stmts/Stmt.m3:115
+#14 0x000000000061e06a in Compile (p=16_0000000002058810) at ../src/stmts/LoopStmt.m3:45
+#15 0x0000000000611813 in Compile (t=16_0000000002058810) at ../src/stmts/Stmt.m3:115
+#16 0x000000000061e06a in Compile (p=16_0000000001ff45b8) at ../src/stmts/LoopStmt.m3:45
+#17 0x0000000000611813 in Compile (t=16_0000000001ff45b8) at ../src/stmts/Stmt.m3:115
+#18 0x00000000006133b9 in Compile (p=16_0000000001cdfba0)
+    at ../src/stmts/BlockStmt.m3:103
+#19 0x0000000000611813 in Compile (t=16_0000000001cdfba0) at ../src/stmts/Stmt.m3:115
+#20 0x0000000000595a0b in GenBody (p=16_0000000001cdf918)
+    at ../src/values/Procedure.m3:671
+#21 0x0000000000595529 in EmitBody (x=16_0000000001cdfae8)
+    at ../src/values/Procedure.m3:634
+#22 0x00000000005259f7 in EmitBody (t=16_0000000001cdfae8)
+    at ../src/misc/ProcBody.m3:170
+#23 0x0000000000524b73 in EmitAll (proc_info=-1) at ../src/misc/ProcBody.m3:69
+#24 0x000000000058edb2 in CompileModule (t=16_0000000001c52348)
+    at ../src/values/Module.m3:1007
+#25 0x000000000058e657 in Compile (t=16_0000000001c52348) at ../src/values/Module.m3:938
+#26 0x0000000000506513 in DoCompile () at ../src/misc/M3Front.m3:218
+#27 0x000000000050565f in Compile (input=
+    RECORD name = 16_0000000001a9dd80; contents = 16_0000000001a9ddc8;  END, 
+    env=16_0000000001c0f8f0, options={16_0000000001c0fcf0}) at ../src/misc/M3Front.m3:66
+#28 0x0000000000412067 in RunM3Front (s=16_0000000001c0e610, u=16_0000000001c0af98, 
+    object=16_0000000001a9db78) at ../src/Builder.m3:1999
+#29 0x00000000004101ea in PushOneM3 (s=16_0000000000000001, u=16_0000000001c0af98)
+    at ../src/Builder.m3:1641
+#30 0x000000000040f39d in CompileM3 (s=16_0000000001c0e610, u=16_0000000001c0af98)
+    at ../src/Builder.m3:1429
+#31 0x000000000040caf4 in CompileOne (s=16_0000000001c0e610, u=16_0000000001c0af98)
+    at ../src/Builder.m3:1124
+#32 0x000000000040c4a2 in CompileEverything (s=16_0000000000000001, 
+    schedule=16_0000000001a905d0) at ../src/Builder.m3:1064
+#33 0x0000000000406f88 in CompileUnits (main=16_0000000001ac6938, units=
+    RECORD map = 16_0000000001ac6fc0; head = 16_0000000001a30078; tail = 16_0000000001c0b8e0;  END, sys_libs=16_0000000001c0e368, info_kind=PGMX, mach=16_0000000001a76c80)
+    at ../src/Builder.m3:375
+#34 0x0000000000404e5c in BuildPgm (prog=16_0000000001ac6938, units=
+    RECORD map = 16_0000000001ac6fc0; head = 16_0000000001a30078; tail = 16_0000000001c0b8e0;  END, sys_libs=16_0000000001c0e368, shared=TRUE, m=16_0000000001a76c80)
+    at ../src/Builder.m3:28
+#35 0x0000000000427cff in BuildProgram (t=16_0000000001a76c80, nm=861)
+    at ../src/M3Build.m3:1524
+#36 0x0000000000427b8d in DoProgramCommon (m=16_0000000001a76c80, bindExport=FALSE)
+    at ../src/M3Build.m3:1497
+#37 0x0000000000427bfa in DoProgram (m=16_0000000001a76c80, n_args=1)
+    at ../src/M3Build.m3:1507
+#38 0x00000000004e77d5 in DoCall (t=16_0000000001a76c80, n_args=1, isFunc=FALSE, 
+    outer=FALSE) at ../src/QMachine.m3:549
+#39 0x00000000004e6492 in Eval (t=16_0000000001a76c80) at ../src/QMachine.m3:425
+#40 0x00000000004f0e19 in IncludeFile (t=16_0000000001a76c80, path=16_0000000001aca218, 
+    from_code=FALSE) at ../src/QMachine.m3:1789
+#41 0x00000000004f0b98 in Include (t=16_0000000001a76c80, path=16_0000000001aca218)
+    at ../src/QMachine.m3:1760
+#42 0x00000000004232aa in Include (t=16_0000000001a76c80, file=16_0000000001aca218)
+ at ..Quit
+#10 0x000000000061cf44 in Compile (p=16_0000000002058910) at ../src/stmts/IfStmt.m3:103
+103	      Expr.PrepBranch (c.cond, CG.No_label, l_next, CG.Always - CG.Likely);
+#9  0x00000000005cc994 in PrepBranch (t=16_0000000002059310, true=-1, false=20, freq=20)
+    at ../src/exprs/Expr.m3:408
+408	    t.prepBR (true, false, freq);
+#8  0x00000000006a8241 in PrepBR (p=16_0000000002059310, true=-1, false=20, freq=20)
+    at ../src/exprs/EqualExpr.m3:256
+256	      Expr.Compile (p.b);
+$37 = (*16_0000000002059310*) OBJECT origin = 1100208; type = 16_0000000001c25600; 
+    repType = 16_0000000001c25600; align = 65; checked = TRUE; 
+    directAssignableType = FALSE; doDirectAssign = FALSE; isNamedConst = FALSE; 
+    a = 16_00000000020593a0; b = 16_0000000002059418; class = 0; op = NE; 
+    kind = SimpleScalar; tmp = NIL;  END
+#7  0x00000000005cc67a in Compile (t=16_0000000002059418, StaticOnly=FALSE)
+    at ../src/exprs/Expr.m3:370
+370	    t.compile (StaticOnly);
+#6  0x00000000005f009c in Compile (p=16_0000000002059418, StaticOnly=FALSE)
+    at ../src/exprs/NamedExpr.m3:204
+204	        Value.Load (p.value);
+$38 = (*16_0000000002059418*) OBJECT origin = 1100208; type = 16_0000000001cdfbe0; 
+    repType = 16_0000000001cdbb98; align = 65; checked = TRUE; 
+    directAssignableType = FALSE; doDirectAssign = FALSE; isNamedConst = FALSE; 
+    scope = 16_0000000001cdfb30; value = 16_0000000001cdfc78; name = 13810; 
+    inFold = FALSE; inIsZeroes = FALSE; inGetBounds = FALSE; inTypeOf = FALSE; 
+    tmp = NIL;  END
+#5  0x000000000057aa00 in Load (t=16_0000000001cdfc78) at ../src/values/Value.m3:72
+72	    t.load ();
+#6  0x00000000005f009c in Compile (p=16_0000000002059418, StaticOnly=FALSE)
+    at ../src/exprs/NamedExpr.m3:204
+204	        Value.Load (p.value);
+#7  0x00000000005cc67a in Compile (t=16_0000000002059418, StaticOnly=FALSE)
+    at ../src/exprs/Expr.m3:370
+370	    t.compile (StaticOnly);
+#8  0x00000000006a8241 in PrepBR (p=16_0000000002059310, true=-1, false=20, freq=20)
+    at ../src/exprs/EqualExpr.m3:256
+256	      Expr.Compile (p.b);
+Breakpoint 7 at 0x6a81e6: file ../src/exprs/EqualExpr.m3, line 256.
+info = RECORD size = 64; min_size = 64; alignment = 64; addr_align = 8; hash = 5; 
+    name = 130; stk_type = Int64; mem_type = Int64; class = Integer; isTraced = FALSE; 
+    isEmpty = FALSE; isSolid = TRUE; lazyAligned = FALSE;  END
+xb = NIL
+tb = (*16_0000000001c25210*) OBJECT origin = 1; fp = RECORD byte = {145, 41, 128, 114, 
+    229, 3, 220, 107};  END; info = RECORD size = 64; min_size = 64; alignment = 64; 
+    addr_align = 8; hash = 5; name = 130; stk_type = Int64; mem_type = Int64; 
+    class = Integer; isTraced = FALSE; isEmpty = FALSE; isSolid = TRUE; 
+    lazyAligned = FALSE;  END; uid = 425470580; scc_id = 9; rep_id = 10; 
+    checkDepth = -1; checked = TRUE; errored = FALSE; next = 16_0000000001c25148;  END
+xa = NIL
+skip = 5574278
+ta = (*16_0000000001c25210*) OBJECT origin = 1; fp = RECORD byte = {145, 41, 128, 114, 
+    229, 3, 220, 107};  END; info = RECORD size = 64; min_size = 64; alignment = 64; 
+    addr_align = 8; hash = 5; name = 130; stk_type = Int64; mem_type = Int64; 
+    class = Integer; isTraced = FALSE; isEmpty = FALSE; isSolid = TRUE; 
+    lazyAligned = FALSE;  END; uid = 425470580; scc_id = 9; rep_id = 10; 
+    checkDepth = -1; checked = TRUE; errored = FALSE; next = 16_0000000001c25148;  END
+Num Type           Disp Enb Address            What
+1   breakpoint     keep n   0x00000000006dc3ec in M3CG_Check__PutErr
+                                               at ../src/M3CG_Check.m3:197
+2   breakpoint     keep n   0x0000000000531b5c in LoadIndirectStraddling
+                                               at ../src/misc/CG.m3:1740
+3   breakpoint     keep n   0x0000000000530979 in LoadIndirectStraddling
+                                               at ../src/misc/CG.m3:1663
+4   breakpoint     keep n   0x000000000053007a in Load at ../src/misc/CG.m3:1571
+5   breakpoint     keep n   0x000000000059ee7a in Load at ../src/values/Variable.m3:417
+6   breakpoint     keep y   0x00000000006dcd70 in M3CG_Check__Stack_Empty
+                                               at ../src/M3CG_Check.m3:280
+	breakpoint already hit 1 time
+7   breakpoint     keep y   0x00000000006a81e6 in PrepBR
+                                               at ../src/exprs/EqualExpr.m3:256
+$39 = (*16_0000000002059310*) OBJECT origin = 1100208; type = 16_0000000001c25600; 
+    repType = 16_0000000001c25600; align = 65; checked = TRUE; 
+    directAssignableType = FALSE; doDirectAssign = FALSE; isNamedConst = FALSE; 
+    a = 16_00000000020593a0; b = 16_0000000002059418; class = 0; op = NE; 
+    kind = SimpleScalar; tmp = NIL;  END
+The program being debugged has been started already.
+Start it from the beginning? (y or n) Starting program: /usr/local/cm3-devel/bin/cm3 
+Error while mapping shared library sections:
+linux-vdso.so.1: Success.
+Error while reading shared library symbols:
+linux-vdso.so.1: No such file or directory.
+Error while reading shared library symbols:
+linux-vdso.so.1: No such file or directory.
+[Thread debugging using libthread_db enabled]
+[New LWP 175169]
+[New Thread 140537753442112 (LWP 175169)]
+[Switching to Thread 140537753442112 (LWP 175169)]
+
+Breakpoint 7, PrepBR (p=16_0000000002e89310, true=-1, false=20, freq=20)
+    at ../src/exprs/EqualExpr.m3:256
+256	      Expr.Compile (p.b);
+3: t.origin = Disabling display 3 to avoid infinite recursion.
+Static links do not lead to a valid frame for procedure "Load".
+4: p = (*16_0000000002e89310*) OBJECT origin = 1100208; type = 16_0000000002a55600; 
+    repType = 16_0000000002a55600; align = 65; checked = TRUE; 
+    directAssignableType = FALSE; doDirectAssign = FALSE; isNamedConst = FALSE; 
+    a = 16_0000000002e893a0; b = 16_0000000002e89418; class = 0; op = NE; 
+    kind = SimpleScalar; tmp = NIL;  END
+$40 = 1
+No line 1528 in file "../src/exprs/EqualExpr.m3".
+Breakpoint 8 at 0x52f93d: file ../src/misc/CG.m3, line 1528.
+The program being debugged has been started already.
+Start it from the beginning? (y or n) Starting program: /usr/local/cm3-devel/bin/cm3 
+Error while mapping shared library sections:
+linux-vdso.so.1: Success.
+Error while reading shared library symbols:
+linux-vdso.so.1: No such file or directory.
+Error while reading shared library symbols:
+linux-vdso.so.1: No such file or directory.
+[Thread debugging using libthread_db enabled]
+[New LWP 175190]
+[New Thread 140636055873344 (LWP 175190)]
+[Switching to Thread 140636055873344 (LWP 175190)]
+
+Breakpoint 8, Load (v=16_00000000031ace78, o=0, s=64, base_align=64, addr_align=8, 
+    t=Int64) at ../src/misc/CG.m3:1528
+1528	    IF (tsize = s) AND ((base_align+o) MOD talign) = 0 THEN
+4: p = Disabling display 4 to avoid infinite recursion.
+Static links do not lead to a valid frame for procedure "PrepBR".
+$41 = (*16_00000000031ace78*) OBJECT tag = 40;  END
+#1  0x000000000059f353 in Load (t=16_0000000003032310) at ../src/values/Variable.m3:434
+434	        CG.Load
+$42 = (*16_0000000003032310*) OBJECT origin = 1100082; next = 16_00000000030323d0; 
+    name = 13653; extName = 0; scope = 16_0000000002dc9d68; 
+    vnext = 16_000000000302f430; checkDepth = 0; class = Var; checked = TRUE; 
+    readonly = FALSE; traced = FALSE; external = FALSE; unused = FALSE; 
+    obsolete = FALSE; up_level = FALSE; error = FALSE; used = TRUE; declared = TRUE; 
+    inited = TRUE; compiled = TRUE; imported = FALSE; exported = FALSE; 
+    exportable = FALSE; inTypeOf = FALSE; inToExpr = FALSE; inToType = FALSE; 
+    lazyAligned = FALSE; type = 16_0000000002dc9ae0; repType = 16_0000000002d15210; 
+    initExpr = NIL; qualName = 16_00000000030324a8; sibling = NIL; 
+    formal = 16_0000000002dc9b78; alias = NIL; trace = NIL; bounds = NIL; 
+    cg_var = 16_00000000031ace78; bss_var = NIL; nextTWACGVar = NIL; initValOffset = 0; 
+    offset = 0; size = 64; align = 64; cg_align = 64; mem_type = Int64; 
+    stk_type = Int64; indirect = FALSE; open_ok = FALSE; need_addr = FALSE; 
+    no_type = FALSE; global = FALSE; initDone = TRUE; initZero = FALSE; 
+    initPending = FALSE; initStatic = FALSE; allocated = FALSE; initAllocated = FALSE; 
+     END
+
+Program received signal SIGABRT, Aborted.
+0x00007fe8622bb18b in raise () from /lib/x86_64-linux-gnu/libc.so.6
+#0  Load (v=16_0000000001b6d198, o=0, s=16, base_align=8, addr_align=8, t=Word64)
+    at ../src/misc/CG.m3:1573
+#1  0x000000000059f353 in Load (t=16_000000000178fc78) at ../src/values/Variable.m3:434
+#2  0x000000000057aa00 in Load (t=16_000000000178fc78) at ../src/values/Value.m3:72
+#3  0x00000000005f009c in Compile (p=16_0000000001b08c28, StaticOnly=FALSE)
+    at ../src/exprs/NamedExpr.m3:204
+#4  0x00000000005cc67a in Compile (t=16_0000000001b08c28, StaticOnly=FALSE)
+    at ../src/exprs/Expr.m3:370
+#5  0x000000000060adf5 in CompileLV (p=16_0000000001b08ae0, traced=FALSE, 
+    StaticOnly=FALSE) at ../src/exprs/SubscriptExpr.m3:390
+#6  0x000000000060a7f5 in Compile (p=16_0000000001b08ae0, StaticOnly=FALSE)
+    at ../src/exprs/SubscriptExpr.m3:335
+#7  0x00000000005cc67a in Compile (t=16_0000000001b08ae0, StaticOnly=FALSE)
+    at ../src/exprs/Expr.m3:370
+#8  0x000000000069ecaa in Compile (p=16_0000000001aa5e70, StaticOnly=FALSE)
+    at ../src/exprs/AddExpr.m3:152
+#9  0x00000000005cc67a in Compile (t=16_0000000001aa5e70, StaticOnly=FALSE)
+    at ../src/exprs/Expr.m3:370
+#10 0x00000000005e20b5 in Compile (p=16_00000000019f2e30, StaticOnly=FALSE)
+    at ../src/exprs/CastExpr.m3:317
+#11 0x00000000005cc67a in Compile (t=16_00000000019f2e30, StaticOnly=FALSE)
+    at ../src/exprs/Expr.m3:370
+#12 0x00000000005b5a0b in Compile (ce=16_0000000001b08998)
+    at ../src/builtinOps/Loophole.m3:60
+#13 0x00000000005dfbe9 in Compile (p=16_0000000001b08998, StaticOnly=FALSE)
+    at ../src/exprs/CallExpr.m3:379
+#14 0x00000000005cc67a in Compile (t=16_0000000001b08998, StaticOnly=FALSE)
+    at ../src/exprs/Expr.m3:370
+#15 0x000000000054b7cf in AssignReference (tlhs=16_000000000178c4f0, 
+    rhsExpr=16_0000000001b08998, lhsTypeInfo=
+    RECORD size = 64; min_size = 64; alignment = 64; addr_align = 16; hash = 2111442680894; name = 0; stk_type = Addr; mem_type = Addr; class = Ref; isTraced = FALSE; isEmpty = FALSE; isSolid = TRUE; lazyAligned = FALSE;  END) at ../src/stmts/AssignStmt.m3:400
+#16 0x000000000054b58e in DoEmit (lhsRepType=16_000000000178c4f0, 
+    rhsExpr=16_0000000001b08998, lhsAlign=64, initializing=FALSE)
+    at ../src/stmts/AssignStmt.m3:356
+#17 0x000000000054d03a in Compile (p=16_0000000001b088e0)
+    at ../src/stmts/AssignStmt.m3:839
+#18 0x0000000000611813 in Compile (t=16_0000000001b088e0) at ../src/stmts/Stmt.m3:115
+#19 0x000000000061e06a in Compile (p=16_0000000001b08890) at ../src/stmts/LoopStmt.m3:45
+#20 0x0000000000611813 in Compile (t=16_0000000001b08890) at ../src/stmts/Stmt.m3:115
+#21 0x000000000061e06a in Compile (p=16_0000000001b08810) at ../src/stmts/LoopStmt.m3:45
+#22 0x0000000000611813 in Compile (t=16_0000000001b08810) at ../src/stmts/Stmt.m3:115
+#23 0x000000000061e06a in Compile (p=16_0000000001aa45b8) at ../src/stmts/LoopStmt.m3:45
+#24 0x0000000000611813 in Compile (t=16_0000000001aa45b8) at ../src/stmts/Stmt.m3:115
+#25 0x00000000006133b9 in Compile (p=16_000000000178fba0)
+    at ../src/stmts/BlockStmt.m3:103
+#26 0x0000000000611813 in Compile (t=16_000000000178fba0) at ../src/stmts/Stmt.m3:115
+#27 0x0000000000595a0b in GenBody (p=16_000000000178f918)
+    at ../src/values/Procedure.m3:671
+#28 0x0000000000595529 in EmitBody (x=16_000000000178fae8)
+    at ../src/values/Procedure.m3:634
+#29 0x00000000005259f7 in EmitBody (t=16_000000000178fae8)
+    at ../src/misc/ProcBody.m3:170
+#30 0x0000000000524b73 in EmitAll (proc_info=-1) at ../src/misc/ProcBody.m3:69
+#31 0x000000000058edb2 in CompileModule (t=16_0000000001702348)
+    at ../src/values/Module.m3:1007
+#32 0x000000000058e657 in Compile (t=16_0000000001702348) at ../src/values/Module.m3:938
+#33 0x0000000000506513 in DoCompile () at ../src/misc/M3Front.m3:218
+#34 0x000000000050565f in Compile (input=
+    RECORD name = 16_000000000155dd80; contents = 16_000000000155ddc8;  END, 
+    env=16_00000000016bf8f0, options={16_00000000016bfcf0}) at ../src/misc/M3Front.m3:66
+#35 0x0000000000412067 in RunM3Front (s=16_00000000016be610, u=16_00000000016baf98, 
+    object=16_000000000155db78) at ../src/Builder.m3:1999
+#36 0x00000000004101ea in PushOneM3 (s=16_0000000000000002, u=16_00000000016baf98)
+    at ../src/Builder.m3:1641
+#37 0x000000000040f39d in CompileM3 (s=16_00000000016be610, u=16_00000000016baf98)
+    at ../src/Builder.m3:1429
+#38 0x000000000040caf4 in CompileOne (s=16_00000000016be610, u=16_00000000016baf98)
+    at ../src/Builder.m3:1124
+#39 0x000000000040c4a2 in CompileEverything (s=16_0000000000000002, 
+    schedule=16_00000000015505d0) at ../src/Builder.m3:1064
+#40 0x0000000000406f88 in CompileUnits (main=16_0000000001586938, units=
+    RECORD map = 16_0000000001586fc0; head = 16_00000000014f0078; tail = 16_00000000016bbQuit
+) at ../src/Builder.m3:375
+#41 0x0000000000404e5c in BuildPgm (prog=16_0000000001586938, units=
+    RECORD map = 16_0000000001586fc0; head = 16_00000000014f0078; tail = 16_00000000016bb8e0;  END, sys_libs=16_00000000016be368, shared=TRUE, m=16_0000000001536c80)
+    at ../src/Builder.m3:28
+#42 0x0000000000427cff in BuildProgram (t=16_0000000001536c80, nm=861)
+    at ../src/M3Build.m3:1524
+#43 0x0000000000427b8d in DoProgramCommon (m=16_0000000001536c80, bindExport=FALSE)
+    at ../src/M3Build.m3:1497
+#44 0x0000000000427bfa in DoProgram (m=16_0000000001536c80, n_args=1)
+    at ../src/M3Build.m3:1507
+#45 0x00000000004e77d5 in DoCall (t=16_0000000001536c80, n_args=1, isFunc=FALSE, 
+    outer=FALSE) at ../src/QMachine.m3:549
+#46 0x00000000004e6492 in Eval (t=16_0000000001536c80) at ../src/QMachine.m3:425
+#47 0x00000000004f0e19 in IncludeFile (t=16_0000000001536c80, path=16_000000000158a218, 
+    from_code=FALSE) at ../src/QMachine.m3:1789
+#48 0x00000000004f0b98 in Include (t=16_0000000001536c80, path=16_000000000158a218)
+    at ../src/QMachine.m3:1760
+#49 0x00000000004232aa in Include (t=16_0000000001536c80, file=16_000000000158a218)
+    at ../src/M3Build.m3:680
+#50 0x00000000004252cb in DoIncludeDir (m=16_0000000001536c80, n_args=1)
+    at ../src/M3Build.m3:1061
+#51 0x00000000004e77d5 in DoCall (t=16_0000000001536c80, n_args=1, isFunc=FALSE, 
+    outer=FALSE) at ../src/QMachine.m3:549
+#52 0x00000000004e6492 in Eval (t=16_0000000001536c80) at ../src/QMachine.m3:425
+#53 0x00000000004e465a in Evaluate (t=16_0000000001536c80, s=16_00000000015898e0)
+    at ../src/QMachine.m3:166
+#54 0x00000000004db02c in Run (m=16_0000000001536c80, source_file=16_00000000015886e0)
+    at ../src/Quake.m3:19
+#55 0x000000000042101d in Run (t=16_0000000001536c80, makefile=16_00000000015886e0)
+    at ../src/M3Build.m3:242
+#56 0x000000000043add0 in DoIt () at ../src/Main.m3:112
+#57 0x000000000043b19a in Main (mode=1) at ../src/Main.m3:226
+#58 0x0000000000760d84 in RunMainBody (m=16_00000000008c5520)
+    at ../src/runtime/common/RTLinker.m3:408
+#59 0x000000000075ff8f in AddUnitI (m=16_00000000008c5520)
+    at ../src/runtime/common/RTLinker.m3:115
+#60 0x000000000076003b in AddUnit (b={"Main_M3", Declared at: ../src/Main.m3:225})
+    at ../src/runtime/common/RTLinker.m3:124
+#61 0x00000000004035ac in main (argc=1, argv=0x7fffb8e3d1c8, envp=0x7fffb8e3d1d8)
+    at _m3main.mc:4
+#62 0x00007f3f320fc0b3 in __libc_start_main () from /lib/x86_64-linux-gnu/libc.so.6
+#63 0x00000000004034ae in _start ()
+Continuing.
+
+Breakpoint 3, LoadIndirectStraddling (t=Word64, o=0, s=16) at ../src/misc/CG.m3:1652
+1652	    ForceStacked ();                       (* Ba.A       ; Ba.A *)
+1: CG.cg.top_of_stack = 0
+1653	    IF o # 0 THEN
+1: CG.cg.top_of_stack = 1
+Continuing.
+
+Breakpoint 1, Load (v=16_0000000001b6d198, o=0, s=16, base_align=8, addr_align=8, 
+    t=Word64) at ../src/misc/CG.m3:1573
+1573	        LoadIndirectStraddling (t, o, s);
+1: CG.cg.top_of_stack = 1
+#0  Load (v=16_0000000001b6d198, o=0, s=16, base_align=8, addr_align=8, t=Word64)
+    at ../src/misc/CG.m3:1573
+#1  0x000000000059f353 in Load (t=16_000000000178fc78) at ../src/values/Variable.m3:434
+#2  0x000000000057aa00 in Load (t=16_000000000178fc78) at ../src/values/Value.m3:72
+#3  0x00000000005f009c in Compile (p=16_0000000001b09418, StaticOnly=FALSE)
+    at ../src/exprs/NamedExpr.m3:204
+#4  0x00000000005cc67a in Compile (t=16_0000000001b09418, StaticOnly=FALSE)
+    at ../src/exprs/Expr.m3:370
+#5  0x00000000006a8241 in PrepBR (p=16_0000000001b09310, true=-1, false=20, freq=20)
+    at ../src/exprs/EqualExpr.m3:256
+#6  0x00000000005cc994 in PrepBranch (t=16_0000000001b09310, true=-1, false=20, freq=20)
+    at ../src/exprs/Expr.m3:408
+#7  0x000000000061cf44 in Compile (p=16_0000000001b08910) at ../src/stmts/IfStmt.m3:103
+#8  0x0000000000611813 in Compile (t=16_0000000001b08910) at ../src/stmts/Stmt.m3:115
+#9  0x000000000061e06a in Compile (p=16_0000000001b08890) at ../src/stmts/LoopStmt.m3:45
+#10 0x0000000000611813 in Compile (t=16_0000000001b08890) at ../src/stmts/Stmt.m3:115
+#11 0x000000000061e06a in Compile (p=16_0000000001b08810) at ../src/stmts/LoopStmt.m3:45
+#12 0x0000000000611813 in Compile (t=16_0000000001b08810) at ../src/stmts/Stmt.m3:115
+#13 0x000000000061e06a in Compile (p=16_0000000001aa45b8) at ../src/stmts/LoopStmt.m3:45
+#14 0x0000000000611813 in Compile (t=16_0000000001aa45b8) at ../src/stmts/Stmt.m3:115
+#15 0x00000000006133b9 in Compile (p=16_000000000178fba0)
+    at ../src/stmts/BlockStmt.m3:103
+#16 0x0000000000611813 in Compile (t=16_000000000178fba0) at ../src/stmts/Stmt.m3:115
+#17 0x0000000000595a0b in GenBody (p=16_000000000178f918)
+    at ../src/values/Procedure.m3:671
+#18 0x0000000000595529 in EmitBody (x=16_000000000178fae8)
+    at ../src/values/Procedure.m3:634
+#19 0x00000000005259f7 in EmitBody (t=16_000000000178fae8)
+    at ../src/misc/ProcBody.m3:170
+#20 0x0000000000524b73 in EmitAll (proc_info=-1) at ../src/misc/ProcBody.m3:69
+#21 0x000000000058edb2 in CompileModule (t=16_0000000001702348)
+    at ../src/values/Module.m3:1007
+#22 0x000000000058e657 in Compile (t=16_0000000001702348) at ../src/values/Module.m3:938
+#23 0x0000000000506513 in DoCompile () at ../src/misc/M3Front.m3:218
+#24 0x000000000050565f in Compile (input=
+    RECORD name = 16_000000000155dd80; contents = 16_000000000155ddc8;  END, 
+    env=16_00000000016bf8f0, options={16_00000000016bfcf0}) at ../src/misc/M3Front.m3:66
+#25 0x0000000000412067 in RunM3Front (s=16_00000000016be610, u=16_00000000016baf98, 
+    object=16_000000000155db78) at ../src/Builder.m3:1999
+#26 0x00000000004101ea in PushOneM3 (s=16_0000000000000002, u=16_00000000016baf98)
+    at ../src/Builder.m3:1641
+#27 0x000000000040f39d in CompileM3 (s=16_00000000016be610, u=16_00000000016baf98)
+    at ../src/Builder.m3:1429
+#28 0x000000000040caf4 in CompileOne (s=16_00000000016be610, u=16_00000000016baf98)
+    at ../src/Builder.m3:1124
+#29 0x000000000040c4a2 in CompileEverything (s=16_0000000000000002, 
+    schedule=16_00000000015505d0) at ../src/Builder.m3:1064
+#30 0x0000000000406f88 in CompileUnits (main=16_0000000001586938, units=
+    RECORD map = 16_0000000001586fc0; head = 16_00000000014f0078; tail = 16_00000000016bb8e0;  END, sys_libs=16_00000000016be368, info_kind=PGMX, mach=16_0000000001536c80)
+    at ../src/Builder.m3:375
+#31 0x0000000000404e5c in BuildPgm (prog=16_0000000001586938, units=
+    RECORD map = 16_0000000001586fc0; head = 16_00000000014f0078; tail = 16_00000000016bb8e0;  END, sys_libs=16_00000000016be368, shared=TRUE, m=16_0000000001536c80)
+    at ../src/Builder.m3:28
+#32 0x0000000000427cff in BuildProgram (t=16_0000000001536c80, nm=861)
+    at ../src/M3Build.m3:1524
+#33 0x0000000000427b8d in DoProgramCommon (m=16_0000000001536c80, bindExport=FALSE)
+    at ../src/M3Build.m3:1497
+#34 0x0000000000427bfa in DoProgram (m=16_0000000001536c80, n_args=1)
+    at ../src/M3Build.m3:1507
+#35 0x00000000004e77d5 in DoCall (t=16_0000000001536c80, n_args=1, isFunc=FALSE, 
+    outer=FALSE) at ../src/QMachine.m3:549
+#36 0x00000000004e6492 in Eval (t=16_0000000001536c80) at ../src/QMachine.m3:425
+#37 0x00000000004f0e19 in IncludeFile (t=16_0000000001536c80, path=16_000000000158a218, 
+    from_code=FALSE) at ../src/QMachine.m3:1789
+#38 0x00000000004f0b98 in Include (t=16_0000000001536c80, path=16_000000000158a218)
+    at ../src/QMachine.m3:1760
+#39 0x00000000004232aa in Include (t=16_0000000001536c80, file=16_000000000158a218)
+    at ../src/M3Build.m3:680
+#40 0x00000000004252cb in DoIncludeDir (m=16_0000000001536c80, n_args=1)
+    at ../src/M3Build.m3:1061
+#41 0x00000000004e77d5 in DoCall (t=16_0000000001536c80, n_args=1, isFunc=FALSE, 
+    outer=FALSE) at ../src/QMachine.m3:549
+Quit
+#8  0x0000000000611813 in Compile (t=16_0000000001b08910) at ../src/stmts/Stmt.m3:115
+115	      xc := t.compile ();
+#7  0x000000000061cf44 in Compile (p=16_0000000001b08910) at ../src/stmts/IfStmt.m3:103
+103	      Expr.PrepBranch (c.cond, CG.No_label, l_next, CG.Always - CG.Likely);
+#6  0x00000000005cc994 in PrepBranch (t=16_0000000001b09310, true=-1, false=20, freq=20)
+    at ../src/exprs/Expr.m3:408
+408	    t.prepBR (true, false, freq);
+#5  0x00000000006a8241 in PrepBR (p=16_0000000001b09310, true=-1, false=20, freq=20)
+    at ../src/exprs/EqualExpr.m3:256
+256	      Expr.Compile (p.b);
+Quit
+Breakpoint 4 at 0x6dcf1c: file ../src/M3CG_Check.m3, line 311.
+The program being debugged has been started already.
+Start it from the beginning? (y or n) Starting program: /usr/local/cm3-devel/bin/cm3 
+Error while mapping shared library sections:
+linux-vdso.so.1: Success.
+Error while reading shared library symbols:
+linux-vdso.so.1: No such file or directory.
+Error while reading shared library symbols:
+linux-vdso.so.1: No such file or directory.
+[Thread debugging using libthread_db enabled]
+[New LWP 175631]
+[New Thread 139809507804992 (LWP 175631)]
+[Switching to Thread 139809507804992 (LWP 175631)]
+
+Breakpoint 4, M3CG_Check__New (child=16_000000000357dfd8, clean_jumps=TRUE, 
+    clean_stores=FALSE, nested_calls=FALSE, nested_procs=TRUE)
+    at ../src/M3CG_Check.m3:311
+311	    child.set_error_handler (CrashAndBurn);
+1: CG.cg.top_of_stack = Disabling display 1 to avoid infinite recursion.
+NIL object cannot have a selection (".top_of_stack") applied.
+#0  M3CG_Check__New (child=16_000000000357dfd8, clean_jumps=TRUE, clean_stores=FALSE, 
+    nested_calls=FALSE, nested_procs=TRUE) at ../src/M3CG_Check.m3:311
+#1  0x0000000000525ecc in Init () at ../src/misc/CG.m3:172
+#2  0x0000000000506192 in DoCompile () at ../src/misc/M3Front.m3:206
+#3  0x000000000050565f in Compile (input=
+    RECORD name = 16_00000000030ddd80; contents = 16_00000000030dddc8;  END, 
+    env=16_000000000323f8f0, options={16_000000000323fcf0}) at ../src/misc/M3Front.m3:66
+#4  0x0000000000412067 in RunM3Front (s=16_000000000323e610, u=16_000000000323af98, 
+    object=16_00000000030ddb78) at ../src/Builder.m3:1999
+#5  0x00000000004101ea in PushOneM3 (s=16_000000000357dfd8, u=16_000000000323af98)
+    at ../src/Builder.m3:1641
+#6  0x000000000040f39d in CompileM3 (s=16_000000000323e610, u=16_000000000323af98)
+    at ../src/Builder.m3:1429
+#7  0x000000000040caf4 in CompileOne (s=16_000000000323e610, u=16_000000000323af98)
+    at ../src/Builder.m3:1124
+#8  0x000000000040c4a2 in CompileEverything (s=16_000000000357dfd8, 
+    schedule=16_00000000030d05d0) at ../src/Builder.m3:1064
+#9  0x0000000000406f88 in CompileUnits (main=16_0000000003106938, units=
+    RECORD map = 16_0000000003106fc0; head = 16_0000000003070078; tail = 16_000000000323b8e0;  END, sys_libs=16_000000000323e368, info_kind=PGMX, mach=16_00000000030b6c80)
+    at ../src/Builder.m3:375
+#10 0x0000000000404e5c in BuildPgm (prog=16_0000000003106938, units=
+    RECORD map = 16_0000000003106fc0; head = 16_0000000003070078; tail = 16_000000000323b8e0;  END, sys_libs=16_000000000323e368, shared=TRUE, m=16_00000000030b6c80)
+    at ../src/Builder.m3:28
+#11 0x0000000000427cff in BuildProgram (t=16_00000000030b6c80, nm=861)
+    at ../src/M3Build.m3:1524
+#12 0x0000000000427b8d in DoProgramCommon (m=16_00000000030b6c80, bindExport=FALSE)
+    at ../src/M3Build.m3:1497
+#13 0x0000000000427bfa in DoProgram (m=16_00000000030b6c80, n_args=1)
+    at ../src/M3Build.m3:1507
+#14 0x00000000004e77d5 in DoCall (t=16_00000000030b6c80, n_args=1, isFunc=FALSE, 
+    outer=FALSE) at ../src/QMachine.m3:549
+#15 0x00000000004e6492 in Eval (t=16_00000000030b6c80) at ../src/QMachine.m3:425
+#16 0x00000000004f0e19 in IncludeFile (t=16_00000000030b6c80, path=16_000000000310a218, 
+    from_code=FALSE) at ../src/QMachine.m3:1789
+#17 0x00000000004f0b98 in Include (t=16_00000000030b6c80, path=16_000000000310a218)
+    at ../src/QMachine.m3:1760
+#18 0x00000000004232aa in Include (t=16_00000000030b6c80, file=16_000000000310a218)
+    at ../src/M3Build.m3:680
+#19 0x00000000004252cb in DoIncludeDir (m=16_00000000030b6c80, n_args=1)
+    at ../src/M3Build.m3:1061
+#20 0x00000000004e77d5 in DoCall (t=16_00000000030b6c80, n_args=1, isFunc=FALSE, 
+    outer=FALSE) at ../src/QMachine.m3:549
+#21 0x00000000004e6492 in Eval (t=16_00000000030b6c80) at ../src/QMachine.m3:425
+#22 0x00000000004e465a in Evaluate (t=16_00000000030b6c80, s=16_00000000031098e0)
+    at ../src/QMachine.m3:166
+#23 0x00000000004db02c in Run (m=16_00000000030b6c80, source_file=16_00000000031086e0)
+    at ../src/Quake.m3:19
+#24 0x000000000042101d in Run (t=16_00000000030b6c80, makefile=16_00000000031086e0)
+    at ../src/M3Build.m3:242
+#25 0x000000000043add0 in DoIt () at ../src/Main.m3:112
+#26 0x000000000043b19a in Main (mode=1) at ../src/Main.m3:226
+#27 0x0000000000760d84 in RunMainBody (m=16_00000000008c5520)
+    at ../src/runtime/common/RTLinker.m3:408
+#28 0x000000000075ff8f in AddUnitI (m=16_00000000008c5520)
+    at ../src/runtime/common/RTLinker.m3:115
+#29 0x000000000076003b in AddUnit (b={"Main_M3", Declared at: ../src/Main.m3:225})
+    at ../src/runtime/common/RTLinker.m3:124
+#30 0x00000000004035ac in main (argc=1, argv=0x7ffe3a57cc68, envp=0x7ffe3a57cc78)
+    at _m3main.mc:4
+#31 0x00007f27f00f20b3 in __libc_start_main () from /lib/x86_64-linux-gnu/libc.so.6
+#32 0x00000000004034ae in _start ()
