@@ -76,37 +76,37 @@ PROCEDURE ErrorMessageI (ErrorCode, ErrorClass: Word.T; Position: tPosition;
 
 PROCEDURE WriteErrorMessage (ErrorCode, ErrorClass: Word.T; Position: tPosition) =
    BEGIN
-      WritePosition (StdError, Position); WriteS (StdError, ARRAY [0..2] OF CHAR{':',' ','\000'});
+      WritePosition (StdError, Position); WriteS (StdError, ": ");
 
       CASE ErrorClass OF
-      | Fatal		=> WriteS (StdError, ARRAY [0..12] OF CHAR{'F','a','t','a','l',' ',' ',' ',' ',' ',' ',' ','\000'});
-      | Restriction	=> WriteS (StdError, ARRAY [0..12] OF CHAR{'R','e','s','t','r','i','c','t','i','o','n',' ','\000'});
-      | Error		=> WriteS (StdError, ARRAY [0..12] OF CHAR{'E','r','r','o','r',' ',' ',' ',' ',' ',' ',' ','\000'});
-      | Warning		=> WriteS (StdError, ARRAY [0..12] OF CHAR{'W','a','r','n','i','n','g',' ',' ',' ',' ',' ','\000'});
-      | Repair		=> WriteS (StdError, ARRAY [0..12] OF CHAR{'R','e','p','a','i','r',' ',' ',' ',' ',' ',' ','\000'});
-      | Note		=> WriteS (StdError, ARRAY [0..12] OF CHAR{'N','o','t','e',' ',' ',' ',' ',' ',' ',' ',' ','\000'});
-      | Information	=> WriteS (StdError, ARRAY [0..12] OF CHAR{'I','n','f','o','r','m','a','t','i','o','n',' ','\000'});
-      ELSE		  WriteS (StdError, ARRAY [0..13] OF CHAR{'E','r','r','o','r',' ','c','l','a','s','s',':',' ','\000'});
+      | Fatal		=> WriteS (StdError, "Fatal       ");
+      | Restriction	=> WriteS (StdError, "Restriction ");
+      | Error		=> WriteS (StdError, "Error       ");
+      | Warning		=> WriteS (StdError, "Warning     ");
+      | Repair		=> WriteS (StdError, "Repair      ");
+      | Note		=> WriteS (StdError, "Note        ");
+      | Information	=> WriteS (StdError, "Information ");
+      ELSE		  WriteS (StdError, "Error class: ");
 			  WriteI (StdError, ErrorClass, 0);
       END;
 
       CASE ErrorCode OF
       | NoText		=>
-      | SyntaxError	=> WriteS (StdError, ARRAY [0..12] OF CHAR{'s','y','n','t','a','x',' ','e','r','r','o','r','\000'}	);
-      | ExpectedTokens	=> WriteS (StdError, ARRAY [0..15] OF CHAR{'e','x','p','e','c','t','e','d',' ','t','o','k','e','n','s','\000'}	);
-      | RestartPoint	=> WriteS (StdError, ARRAY [0..13] OF CHAR{'r','e','s','t','a','r','t',' ','p','o','i','n','t','\000'}	);
-      | TokenInserted	=> WriteS (StdError, ARRAY [0..15] OF CHAR{'t','o','k','e','n',' ','i','n','s','e','r','t','e','d',' ','\000'}	);
-      | WrongParseTable	=> WriteS (StdError, ARRAY [0..20] OF CHAR{'p','a','r','s','e',' ','t','a','b','l','e',' ','m','i','s','m','a','t','c','h','\000'}	);
-      | OpenParseTable	=> WriteS (StdError, ARRAY [0..23] OF CHAR{'c','a','n','n','o','t',' ','o','p','e','n',' ','p','a','r','s','e',' ','t','a','b','l','e','\000'}	);
-      | ReadParseTable	=> WriteS (StdError, ARRAY [0..23] OF CHAR{'c','a','n','n','o','t',' ','r','e','a','d',' ','p','a','r','s','e',' ','t','a','b','l','e','\000'}	);
-      | IdentUndefined	=> WriteS (StdError, ARRAY [0..20] OF CHAR{'i','d','e','n','t','i','f','i','e','r',' ','u','n','d','e','f','i','n','e','d','\000'}	);
-      | ImproperUse	=> WriteS (StdError, ARRAY [0..26] OF CHAR{'i','m','p','r','o','p','e','r',' ','u','s','e',' ','o','f',' ','i','d','e','n','t','i','f','i','e','r','\000'});
-      | IdentDefBefore	=> WriteS (StdError, ARRAY [0..26] OF CHAR{'i','d','e','n','t','i','f','i','e','r',' ','a','l','r','e','a','d','y',' ','d','e','f','i','n','e','d','\000'});
-      | BraceMissing	=> WriteS (StdError, ARRAY [0..19] OF CHAR{'c','l','o','s','i','n','g',' ','\'','}','\'',' ','m','i','s','s','i','n','g','\000'}	);
-      | UnclosedComment	=> WriteS (StdError, ARRAY [0..16] OF CHAR{'u','n','c','l','o','s','e','d',' ','c','o','m','m','e','n','t','\000'}		);
-      | PatternNoMatch	=> WriteS (StdError, ARRAY [0..24] OF CHAR{'p','a','t','t','e','r','n',' ','w','i','l','l',' ','n','e','v','e','r',' ','m','a','t','c','h','\000'}	);
-      | UnclosedString	=> WriteS (StdError, ARRAY [0..15] OF CHAR{'u','n','c','l','o','s','e','d',' ','s','t','r','i','n','g','\000'}		);
-      ELSE		  WriteS (StdError, ARRAY [0..13] OF CHAR{' ','e','r','r','o','r',' ','c','o','d','e',':',' ','\000'});
+      | SyntaxError	=> WriteS (StdError, "syntax error"	);
+      | ExpectedTokens	=> WriteS (StdError, "expected tokens"	);
+      | RestartPoint	=> WriteS (StdError, "restart point"	);
+      | TokenInserted	=> WriteS (StdError, "token inserted "	);
+      | WrongParseTable	=> WriteS (StdError, "parse table mismatch"	);
+      | OpenParseTable	=> WriteS (StdError, "cannot open parse table"	);
+      | ReadParseTable	=> WriteS (StdError, "cannot read parse table"	);
+      | IdentUndefined	=> WriteS (StdError, "identifier undefined"	);
+      | ImproperUse	=> WriteS (StdError, "improper use of identifier");
+      | IdentDefBefore	=> WriteS (StdError, "identifier already defined");
+      | BraceMissing	=> WriteS (StdError, "closing '}' missing"	);
+      | UnclosedComment	=> WriteS (StdError, "unclosed comment"		);
+      | PatternNoMatch	=> WriteS (StdError, "pattern will never match"	);
+      | UnclosedString	=> WriteS (StdError, "unclosed string"		);
+      ELSE		  WriteS (StdError, " error code: ");
 			  WriteI (StdError, ErrorCode, 0);
       END;
    END WriteErrorMessage;
@@ -124,7 +124,7 @@ PROCEDURE WriteInfo (InfoClass: Word.T; Info: ADDRESS) =
       PtrToIdent	: UNTRACED BRANDED REF  tIdent;
    BEGIN
       IF InfoClass = None THEN RETURN END;
-      WriteS (StdError, ARRAY [0..2] OF CHAR{':',' ','\000'});
+      WriteS (StdError, ": ");
       CASE InfoClass OF
       | Integer		=> PtrToInteger	:= Info; WriteI (StdError, PtrToInteger^, 0);
       | Short		=> PtrToShort	:= Info; WriteI (StdError, PtrToShort^, 0);
@@ -135,7 +135,7 @@ PROCEDURE WriteInfo (InfoClass: Word.T; Info: ADDRESS) =
       | String		=> PtrToString	:= Info; Strings.WriteS (StdError, PtrToString^);
       | Array		=> PtrToArray	:= Info; WriteS (StdError, PtrToArray^);
       | Ident		=> PtrToIdent	:= Info; WriteIdent (StdError, PtrToIdent^);
-      ELSE WriteS (StdError, ARRAY [0..12] OF CHAR{'i','n','f','o',' ','c','l','a','s','s',':',' ','\000'}); WriteI (StdError, InfoClass, 0);
+      ELSE WriteS (StdError, "info class: "); WriteI (StdError, InfoClass, 0);
       END;
    END WriteInfo;
 

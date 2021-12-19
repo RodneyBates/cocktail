@@ -182,18 +182,18 @@ PROCEDURE TokenName (Token: SHORTCARD; VAR Name: ARRAY OF CHAR) =
       END Copy;
    BEGIN
       CASE Token OF
-      | 0=> Copy (ARRAY [0..10] OF CHAR{'_','E','n','d','O','f','F','i','l','e','\000'}, Name);
-      | 1=> Copy (ARRAY [0..5] OF CHAR{'I','d','e','n','t','\000'}, Name);
-      | 2=> Copy (ARRAY [0..6] OF CHAR{'N','u','m','b','e','r','\000'}, Name);
-      | 3=> Copy (ARRAY [0..6] OF CHAR{'S','t','r','i','n','g','\000'}, Name);
-      | 4=> Copy (ARRAY [0..4] OF CHAR{'C','h','a','r','\000'}, Name);
-      | 5=> Copy (ARRAY [0..10] OF CHAR{'T','a','r','g','e','t','C','o','d','e','\000'}, Name);
-      | 6=> Copy (ARRAY [0..6] OF CHAR{'G','L','O','B','A','L','\000'}, Name);
-      | 7=> Copy (ARRAY [0..5] OF CHAR{'B','E','G','I','N','\000'}, Name);
-      | 8=> Copy (ARRAY [0..5] OF CHAR{'C','L','O','S','E','\000'}, Name);
-      | 9=> Copy (ARRAY [0..6] OF CHAR{'D','E','F','I','N','E','\000'}, Name);
-      | 10=> Copy (ARRAY [0..5] OF CHAR{'S','T','A','R','T','\000'}, Name);
-      | 11=> Copy (ARRAY [0..5] OF CHAR{'R','U','L','E','S','\000'}, Name);
+      | 0=> Copy ("_EndOfFile", Name);
+      | 1=> Copy ("Ident", Name);
+      | 2=> Copy ("Number", Name);
+      | 3=> Copy ("String", Name);
+      | 4=> Copy ("Char", Name);
+      | 5=> Copy ("TargetCode", Name);
+      | 6=> Copy ("GLOBAL", Name);
+      | 7=> Copy ("BEGIN", Name);
+      | 8=> Copy ("CLOSE", Name);
+      | 9=> Copy ("DEFINE", Name);
+      | 10=> Copy ("START", Name);
+      | 11=> Copy ("RULES", Name);
       | 12=> Copy ('.', Name);
       | 13=> Copy (',', Name);
       | 14=> Copy ('=', Name);
@@ -212,15 +212,15 @@ PROCEDURE TokenName (Token: SHORTCARD; VAR Name: ARRAY OF CHAR) =
       | 27=> Copy ('}', Name);
       | 28=> Copy ('<', Name);
       | 29=> Copy ('>', Name);
-      | 30=> Copy (ARRAY [0..3] OF CHAR{'N','O','T','\000'}, Name);
-      | 31=> Copy (ARRAY [0..5] OF CHAR{'L','O','C','A','L','\000'}, Name);
-      | 32=> Copy (ARRAY [0..6] OF CHAR{'E','X','P','O','R','T','\000'}, Name);
+      | 30=> Copy ("NOT", Name);
+      | 31=> Copy ("LOCAL", Name);
+      | 32=> Copy ("EXPORT", Name);
       | 33=> Copy ('#', Name);
-      | 34=> Copy (ARRAY [0..3] OF CHAR{'E','O','F','\000'}, Name);
-      | 35=> Copy (ARRAY [0..2] OF CHAR{':','-','\000'}, Name);
-      | 36=> Copy (ARRAY [0..7] OF CHAR{'D','E','F','A','U','L','T','\000'}, Name);
-      | 37=> Copy (ARRAY [0..7] OF CHAR{'S','C','A','N','N','E','R','\000'}, Name);
-      | 38=> Copy (ARRAY [0..8] OF CHAR{'S','E','Q','U','E','N','C','E','\000'}, Name);
+      | 34=> Copy ("EOF", Name);
+      | 35=> Copy (":-", Name);
+      | 36=> Copy ("DEFAULT", Name);
+      | 37=> Copy ("SCANNER", Name);
+      | 38=> Copy ("SEQUENCE", Name);
       END;
    END TokenName;
 
@@ -354,13 +354,13 @@ CASE yyState OF
   		  LeftJustUsed	  := FALSE;
   		  EOLTree	  := mCh (EolCh);
   
-  		  ArrayToString (ARRAY [0..3] OF CHAR{'A','N','Y','\000'}, string);
+  		  ArrayToString ("ANY", string);
   		  MakeSet (set, ORD (LastCh));
   		  Complement (set);
   		  Exclude (set, ORD (EolCh));
   		  MakeIdentDef (MakeIdent (string), LOOPHOLE (mSet (set),ADDRESS), 1, FALSE);
   
-  		  ArrayToString (ARRAY [0..3] OF CHAR{'S','T','D','\000'}, string);
+  		  ArrayToString ("STD", string);
   		  MakeStartDef (MakeIdent (string), StartStateCount + 1);
   		  INC (StartStateCount, 2);				
   | 103=> (* name : .*)
@@ -372,7 +372,7 @@ CASE yyState OF
   DEC (yyStackPtr, 1); yyNonterminal := 40;
 (* line 205 "/tmp/lalr4706" *)
   (* line 203 ../src/rex.lalr *)
-   ArrayToString (ARRAY [0..7] OF CHAR{'S','c','a','n','n','e','r','\000'}, string); ScannerName := MakeIdent (string); 
+   ArrayToString ("Scanner", string); ScannerName := MakeIdent (string); 
   | 105,56=> (* name : 'SCANNER' Ident .*)
   DEC (yyStackPtr, 2); yyNonterminal := 40;
 (* line 207 "/tmp/lalr4706" *)
@@ -1296,8 +1296,6 @@ PROCEDURE CloseParser() =
 
 BEGIN
     yyIsInitialized := FALSE;
-    SUBARRAY(ParsTabName , 0, 10) := ARRAY [0..9] OF CHAR{'P','a','r','s','e','r','.','T','a','b'};
-IF NUMBER(ParsTabName) > 10 THEN ParsTabName[FIRST(ParsTabName) + 10] := '\000'; END
-;
+    ParsTabName := "Parser.Tab";
 END Parser.
 

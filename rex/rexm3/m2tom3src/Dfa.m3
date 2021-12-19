@@ -198,11 +198,11 @@ PROCEDURE WriteDfa() =
       Ch	: CHAR;
       Count	: INTEGER;
    BEGIN
-      WriteS (StdOutput, ARRAY [0..5] OF CHAR{'D','F','A',' ',':','\000'});
+      WriteS (StdOutput, "DFA :");
       WriteNl (StdOutput);
       WriteNl (StdOutput);
       FOR State := 1 TO DStateCount DO
-	 WriteS (StdOutput, ARRAY [0..47] OF CHAR{'S','t','a','t','e',',',' ','D','e','f','a','u','l','t',',',' ','E','o','b','T','r','a','n','s',',',' ','S','e','m','a','n','t','i','c','s',',',' ','S','t','a','r','t','S','e','t',' ','=','\000'});
+	 WriteS (StdOutput, "State, Default, EobTrans, Semantics, StartSet =");
 	 WriteI (StdOutput, State, 5);
 	 WriteI (StdOutput, TablePtr^[State].Default, 5);
 	 WriteI (StdOutput, TablePtr^[State].EobTrans, 5);

@@ -801,7 +801,7 @@ PROCEDURE UpdateContext() =
       Max       : DStateRange   ;
    BEGIN
       IF DStateCount > NodeCount THEN
-         WriteS (StdError, ARRAY [0..38] OF CHAR{'i','n','t','e','r','n','a','l',' ','E','r','r','o','r',':',' ','S','t','a','t','e','C','o','u','n','t',' ','>',' ','N','o','d','e','C','o','u','n','t','\000'}); WriteNl (StdError);
+         WriteS (StdError, "internal Error: StateCount > NodeCount"); WriteNl (StdError);
       END;
 
       FOR Pattern := 0 TO PatternCount - 2 DO
@@ -892,13 +892,13 @@ PROCEDURE CheckStartState (StartState: SHORTCARD; Ident: Idents.tIdent; LeftJust
       END;
 
       IF NOT IsEmpty (Undefined) THEN
-         WriteS (StdError, ARRAY [0..24] OF CHAR{'W','a','r','n','i','n','g',':',' ','i','n',' ','s','t','a','r','t',' ','s','t','a','t','e',' ','\000'});
+         WriteS (StdError, "Warning: in start state ");
          Idents.GetString (Ident, String);
          Strings.WriteS (StdError, String);
          IF LeftJust THEN
-            WriteS (StdError, ARRAY [0..57] OF CHAR{' ','t','h','e',' ','d','e','f','a','u','l','t',' ','a','c','t','i','o','n',' ','m','a','y',' ','b','e',' ','t','r','i','g','g','e','r','e','d',' ','b','y',' ','(','l','e','f','t',' ','j','u','s','t','i','f','i','e','d',')',':','\000'});
+            WriteS (StdError, " the default action may be triggered by (left justified):");
          ELSE
-            WriteS (StdError, ARRAY [0..40] OF CHAR{' ','t','h','e',' ','d','e','f','a','u','l','t',' ','a','c','t','i','o','n',' ','m','a','y',' ','b','e',' ','t','r','i','g','g','e','r','e','d',' ','b','y',':','\000'});
+            WriteS (StdError, " the default action may be triggered by:");
          END;
          WriteNl (StdError);
 
@@ -929,21 +929,21 @@ PROCEDURE WritePattern() =
    BEGIN
       FOR Pattern := 0 TO PatternCount - 2 DO
          IF PatternTablePtr^[Pattern].ContextLng # NoContext THEN
-            WriteS (StdOutput, ARRAY [0..19] OF CHAR{'P','a','t','t','e','r','n',',',' ','C','o','n','t','e','x','t','L','n','g','\000'});
+            WriteS (StdOutput, "Pattern, ContextLng");
             WriteI (StdOutput, Pattern, 5);
             WriteI (StdOutput, PatternTablePtr^[Pattern].ContextLng, 5);
             IF PatternTablePtr^[Pattern].ContextLng = VariableContext THEN
                IF IsComputedNContext THEN
-                  WriteS (StdOutput, ARRAY [0..10] OF CHAR{' ','N','C','o','n','t','e','x','t',' ','\000'});
+                  WriteS (StdOutput, " NContext ");
                   WriteSet (StdOutput, PatternTablePtr^[Pattern].NContext);
                END;
                IF IsComputedDContext THEN
-                  WriteS (StdOutput, ARRAY [0..10] OF CHAR{' ','D','C','o','n','t','e','x','t',' ','\000'});
+                  WriteS (StdOutput, " DContext ");
                   WriteSet (StdOutput, PatternTablePtr^[Pattern].DContext);
                END;
             END;
             IF IsComputedFinals THEN
-               WriteS (StdOutput, ARRAY [0..8] OF CHAR{' ','F','i','n','a','l','s',' ','\000'});
+               WriteS (StdOutput, " Finals ");
                WriteSet (StdOutput, PatternTablePtr^[Pattern].Finals);
             END;
             WriteNl (StdOutput);
@@ -954,48 +954,48 @@ PROCEDURE WritePattern() =
 PROCEDURE WriteStatistics() =
    BEGIN
       WriteNl (StdOutput);
-      WriteS (StdOutput, ARRAY [0..14] OF CHAR{'S','t','a','r','t',' ','S','t','a','t','e','s',' ',' ','\000'});
+      WriteS (StdOutput, "Start States  ");
       WriteI (StdOutput, StartStateCount, 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, ARRAY [0..14] OF CHAR{'D','e','f','i','n','i','t','i','o','n','s',' ',' ',' ','\000'});
+      WriteS (StdOutput, "Definitions   ");
       WriteI (StdOutput, DefCount       , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, ARRAY [0..14] OF CHAR{'R','u','l','e','s',' ',' ',' ',' ',' ',' ',' ',' ',' ','\000'});
+      WriteS (StdOutput, "Rules         ");
       WriteI (StdOutput, RuleCount      , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, ARRAY [0..14] OF CHAR{'P','a','t','t','e','r','n','s',' ',' ',' ',' ',' ',' ','\000'});
+      WriteS (StdOutput, "Patterns      ");
       WriteI (StdOutput, PatternCount   , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, ARRAY [0..22] OF CHAR{'C','l','a','s','s','e','s',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ','\000'});
+      WriteS (StdOutput, "Classes               ");
       WriteI (StdOutput, ORD (ClassCount), 6);  WriteNl (StdOutput);
-      WriteS (StdOutput, ARRAY [0..22] OF CHAR{'L','a','s','t','C','h',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ','\000'});
+      WriteS (StdOutput, "LastCh                ");
       WriteI (StdOutput, ORD (LastCh)   , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, ARRAY [0..14] OF CHAR{'T','r','a','n','s','i','t','i','o','n','s',' ',' ',' ','\000'});
+      WriteS (StdOutput, "Transitions   ");
       WriteI (StdOutput, TransitionCount, 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, ARRAY [0..14] OF CHAR{'L','e','a','f','s',' ',' ',' ',' ',' ',' ',' ',' ',' ','\000'});
+      WriteS (StdOutput, "Leafs         ");
       WriteI (StdOutput, LeafCount      , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, ARRAY [0..14] OF CHAR{'N','F','A',' ','S','t','a','t','e','s',' ',' ',' ',' ','\000'});
+      WriteS (StdOutput, "NFA States    ");
       WriteI (StdOutput, NStateCount    , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, ARRAY [0..16] OF CHAR{'M','i','n','i','m','i','z','e',' ','S','a','v','i','n','g','s','\000'});
+      WriteS (StdOutput, "Minimize Savings");
       WriteI (StdOutput, MinimizeSavings, 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, ARRAY [0..16] OF CHAR{'A','m','b','i','g','u','o','u','s',' ','S','t','a','t','e','s','\000'});
+      WriteS (StdOutput, "Ambiguous States");
       WriteI (StdOutput, MaxAmbiguousState, 6); WriteNl (StdOutput);
-      WriteS (StdOutput, ARRAY [0..14] OF CHAR{'N','o','d','e','s',' ',' ',' ',' ',' ',' ',' ',' ',' ','\000'});
+      WriteS (StdOutput, "Nodes         ");
       WriteI (StdOutput, NodeCount      , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, ARRAY [0..14] OF CHAR{'D','F','A',' ','S','t','a','t','e','s',' ',' ',' ',' ','\000'});
+      WriteS (StdOutput, "DFA States    ");
       WriteI (StdOutput, DStateCount    , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, ARRAY [0..16] OF CHAR{'S','e','n','t','i','n','e','l',' ','S','a','v','i','n','g','s','\000'});
+      WriteS (StdOutput, "Sentinel Savings");
       WriteI (StdOutput, SentinelSavings, 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, ARRAY [0..22] OF CHAR{'D','e','f','a','u','l','t',' ','S','a','v','i','n','g','s',' ',' ',' ',' ',' ',' ',' ','\000'});
+      WriteS (StdOutput, "Default Savings       ");
       WriteI (StdOutput, DefaultSavings , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, ARRAY [0..14] OF CHAR{'T','a','b','l','e',' ','E','n','t','r','i','e','s',' ','\000'});
+      WriteS (StdOutput, "Table Entries ");
       WriteI (StdOutput, TableEntries   , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, ARRAY [0..14] OF CHAR{'T','a','b','l','e',' ','S','i','z','e',' ',' ',' ',' ','\000'});
+      WriteS (StdOutput, "Table Size    ");
       WriteI (StdOutput, TableSize      , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, ARRAY [0..14] OF CHAR{'M','e','m','o','r','y',' ','u','s','e','d',' ',' ',' ','\000'});
+      WriteS (StdOutput, "Memory used   ");
       WriteI (StdOutput, MemoryUsed     , 6);   WriteNl (StdOutput);
    END WriteStatistics;
 
 PROCEDURE GenerateTables (DebugLevel: SHORTCARD; ReduceCaseSize, Warnings: BOOLEAN; Optimize: SHORTINT) =
 VAR i: SHORTINT;
 BEGIN
-                        IF DebugLevel >= 2 THEN WriteStepTime (ARRAY [0..16] OF CHAR{'S','t','a','r','t',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ','\000'}); END;
+                        IF DebugLevel >= 2 THEN WriteStepTime ("Start           "); END;
    IsComputedNContext   := FALSE;
    IsComputedDContext   := FALSE;
    IsComputedFinals     := FALSE;
@@ -1009,27 +1009,27 @@ BEGIN
 
    MakeSet              (dSemantics, PatternCount);
    ComputeNfa();          IF DebugLevel >= 15 THEN WriteNfa(); WritePattern(); END;
-                        IF DebugLevel >= 2 THEN WriteStepTime (ARRAY [0..16] OF CHAR{'C','o','m','p','u','t','e','N','f','a',' ',' ',' ',' ',' ',' ','\000'}); END;
+                        IF DebugLevel >= 2 THEN WriteStepTime ("ComputeNfa      "); END;
    ComputeDfa();          IF DebugLevel >= 14 THEN WriteDfa(); WritePattern(); END;
-                        IF DebugLevel >= 2 THEN WriteStepTime (ARRAY [0..16] OF CHAR{'C','o','m','p','u','t','e','D','f','a',' ',' ',' ',' ',' ',' ','\000'}); END;
+                        IF DebugLevel >= 2 THEN WriteStepTime ("ComputeDfa      "); END;
    MinimizeDfa();         IF DebugLevel >= 13 THEN WriteDfa(); WritePattern(); END;
-                        IF DebugLevel >= 2 THEN WriteStepTime (ARRAY [0..16] OF CHAR{'M','i','n','i','m','i','z','e','D','f','a',' ',' ',' ',' ',' ','\000'}); END;
+                        IF DebugLevel >= 2 THEN WriteStepTime ("MinimizeDfa     "); END;
 
    EobDefaultState      := MakeDState ();       (* has to be ambiguous *)
    ComputeSuccGraph();
-                        IF DebugLevel >= 2 THEN WriteStepTime (ARRAY [0..16] OF CHAR{'C','o','m','p','u','t','e','S','u','c','c','G','r','a','p','h','\000'}); END;
+                        IF DebugLevel >= 2 THEN WriteStepTime ("ComputeSuccGraph"); END;
    ComputeAmbiguousStates();
-                        IF DebugLevel >= 2 THEN WriteStepTime (ARRAY [0..16] OF CHAR{'C','o','m','p','u','t','e','A','m','b','i','g','u','o','u','s','\000'}); END;
+                        IF DebugLevel >= 2 THEN WriteStepTime ("ComputeAmbiguous"); END;
    ComputeCyclicStates(); IF DebugLevel >= 12 THEN
                            WriteSet (StdOutput, AmbiguousStates );
                            WriteNl  (StdOutput);
                            WriteSet (StdOutput, CyclicStates    );
                            WriteNl  (StdOutput);
                         END;
-                        IF DebugLevel >= 2 THEN WriteStepTime (ARRAY [0..16] OF CHAR{'C','o','m','p','u','t','e','C','y','c','l','i','c','S','t','a','\000'}); END;
+                        IF DebugLevel >= 2 THEN WriteStepTime ("ComputeCyclicSta"); END;
 
    ComputeStartSets();    IF DebugLevel >= 11 THEN WriteDfa(); WritePattern(); END;
-                        IF DebugLevel >= 2 THEN WriteStepTime (ARRAY [0..16] OF CHAR{'C','o','m','p','u','t','e','S','t','a','r','t','S','e','t','s','\000'}); END;
+                        IF DebugLevel >= 2 THEN WriteStepTime ("ComputeStartSets"); END;
 
    EobState             := MakeDState ();
    AssignElmt           (dSemantics, EobAction);
@@ -1038,36 +1038,36 @@ BEGIN
    PutDSemantics        (MakeDState (), dSemantics);
 
    AddConstantREs();      IF DebugLevel >= 10 THEN WriteDfa(); WritePattern(); END;
-                        IF DebugLevel >= 2 THEN WriteStepTime (ARRAY [0..16] OF CHAR{'A','d','d','C','o','n','s','t','a','n','t','R','E','s',' ',' ','\000'}); END;
+                        IF DebugLevel >= 2 THEN WriteStepTime ("AddConstantREs  "); END;
    UpdateContext();       IF DebugLevel >= 9 THEN WriteDfa(); WritePattern(); END;
-                        IF DebugLevel >= 2 THEN WriteStepTime (ARRAY [0..16] OF CHAR{'U','p','d','a','t','e','C','o','n','t','e','x','t',' ',' ',' ','\000'}); END;
+                        IF DebugLevel >= 2 THEN WriteStepTime ("UpdateContext   "); END;
    SaveEobTransitions();  IF DebugLevel >= 8 THEN WriteDfa(); WritePattern(); END;
-                        IF DebugLevel >= 2 THEN WriteStepTime (ARRAY [0..16] OF CHAR{'S','a','v','e','E','o','b','T','r','a','n','s','i','t','i','o','\000'}); END;
+                        IF DebugLevel >= 2 THEN WriteStepTime ("SaveEobTransitio"); END;
    SaveSentinels();       IF DebugLevel >= 7 THEN WriteDfa(); WritePattern(); END;
-                        IF DebugLevel >= 2 THEN WriteStepTime (ARRAY [0..16] OF CHAR{'S','a','v','e','S','e','n','t','i','n','e','l','s',' ',' ',' ','\000'}); END;
+                        IF DebugLevel >= 2 THEN WriteStepTime ("SaveSentinels   "); END;
 IF Optimize > 0 THEN
    i := 1;
    WHILE i <= MaxAmbiguousState DO
       ComputeDefaults   (i, Min (MaxAmbiguousState, i + Optimize - 1));
-                        IF DebugLevel >= 2 THEN WriteStepTime (ARRAY [0..16] OF CHAR{'C','o','m','p','u','t','e','D','e','f','a','u','l','t','s',' ','\000'}); END;
+                        IF DebugLevel >= 2 THEN WriteStepTime ("ComputeDefaults "); END;
       INC (i, Optimize);
    END;
 END;
                         IF DebugLevel >= 6 THEN WriteDfa(); WritePattern(); END;
    InvertMapping();       IF DebugLevel >= 5 THEN WritePattern(); END;
-                        IF DebugLevel >= 2 THEN WriteStepTime (ARRAY [0..16] OF CHAR{'I','n','v','e','r','t','M','a','p','p','i','n','g',' ',' ',' ','\000'}); END;
+                        IF DebugLevel >= 2 THEN WriteStepTime ("InvertMapping   "); END;
    MakeTables (ReduceCaseSize);
-                        IF DebugLevel >= 2 THEN WriteStepTime (ARRAY [0..16] OF CHAR{'M','a','k','e','T','a','b','l','e','s',' ',' ',' ',' ',' ',' ','\000'}); END;
+                        IF DebugLevel >= 2 THEN WriteStepTime ("MakeTables      "); END;
    CompressTables (Optimize);
                         IF DebugLevel >= 4 THEN WriteTables(); END;
-                        IF DebugLevel >= 2 THEN WriteStepTime (ARRAY [0..16] OF CHAR{'C','o','m','p','r','e','s','s','T','a','b','l','e','s',' ',' ','\000'}); END;
+                        IF DebugLevel >= 2 THEN WriteStepTime ("CompressTables  "); END;
 IF Language = tLanguage.Modula THEN
    PutTables (ReduceCaseSize);
-                        IF DebugLevel >= 2 THEN WriteStepTime (ARRAY [0..16] OF CHAR{'P','u','t','T','a','b','l','e','s',' ',' ',' ',' ',' ',' ',' ','\000'}); END;
+                        IF DebugLevel >= 2 THEN WriteStepTime ("PutTables       "); END;
 END;
                         IF DebugLevel >= 3 THEN QueryTables(); END;
 IF Warnings THEN
-   CheckTables();         IF DebugLevel >= 2 THEN WriteStepTime (ARRAY [0..16] OF CHAR{'C','h','e','c','k','T','a','b','l','e','s',' ',' ',' ',' ',' ','\000'}); END;
+   CheckTables();         IF DebugLevel >= 2 THEN WriteStepTime ("CheckTables     "); END;
 END;
                         IF DebugLevel >= 1 THEN WriteStatistics(); END;
 END GenerateTables;

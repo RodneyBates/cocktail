@@ -158,41 +158,41 @@ BEGIN
 
    IF h THEN
 WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 159
- $$ *) (tFile{'u','s','a','g','e',':',' ','r','e','x',' ','[','-','o','p','t','i','o','n','s',']',' ','[','f','i','l','e',']','\000',..}				); WriteNl(); WriteNl();
+ $$ *) ("usage: rex [-options] [file]"				); WriteNl(); WriteNl();
 WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 160
- $$ *) (tFile{' ','a',' ','g','e','n','e','r','a','t','e',' ','a','l','l',' ','(','=',' ','-','d','s','m',')','\000',..}					); WriteNl();
+ $$ *) (" a generate all (= -dsm)"					); WriteNl();
 WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 161
- $$ *) (tFile{' ','m',' ','g','e','n','e','r','a','t','e',' ','a',' ','l','e','x','i','c','a','l',' ','a','n','a','l','y','z','e','r',' ','i','n',' ','M','o','d','u','l','a',' ','(','d','e','f','a','u','l','t',')','\000',..}		); WriteNl();
+ $$ *) (" m generate a lexical analyzer in Modula (default)"		); WriteNl();
 WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 162
- $$ *) (tFile{' ','c',' ','g','e','n','e','r','a','t','e',' ','a',' ','l','e','x','i','c','a','l',' ','a','n','a','l','y','z','e','r',' ','i','n',' ','C','\000',..}				); WriteNl();
+ $$ *) (" c generate a lexical analyzer in C"				); WriteNl();
 WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 163
- $$ *) (tFile{' ','d',' ','g','e','n','e','r','a','t','e',' ','a',' ','d','e','f','i','n','i','t','i','o','n',' ','m','o','d','u','l','e',' ','f','o','r',' ','t','h','e',' ','l','e','x','i','c','a','l',' ','a','n','a','l','y','z','e','r','\000',..}	); WriteNl();
+ $$ *) (" d generate a definition module for the lexical analyzer"	); WriteNl();
 WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 164
- $$ *) (tFile{' ','s',' ','g','e','n','e','r','a','t','e',' ','s','u','p','p','o','r','t',' ','m','o','d','u','l','e','s',':','\000',..}					); WriteNl();
+ $$ *) (" s generate support modules:"					); WriteNl();
 WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 165
- $$ *) (tFile{' ',' ',' ','.',' ','a',' ','s','o','u','r','c','e',' ','m','o','d','u','l','e',' ','f','o','r',' ','i','n','p','u','t','\000',..}				); WriteNl();
+ $$ *) ("   . a source module for input"				); WriteNl();
 WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 166
- $$ *) (tFile{' ',' ',' ','.',' ','a',' ','m','a','i','n',' ','p','r','o','g','r','a','m',' ','t','o',' ','b','e',' ','u','s','e','d',' ','a','s',' ','t','e','s','t',' ','d','r','i','v','e','r','\000',..}			); WriteNl();
+ $$ *) ("   . a main program to be used as test driver"			); WriteNl();
 WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 167
- $$ *) (tFile{' ','r',' ','r','e','d','u','c','e',' ','n','u','m','b','e','r',' ','o','f',' ','g','e','n','e','r','a','t','e','d',' ','c','a','s','e','/','s','w','i','t','c','h',' ','l','a','b','e','l','s','\000',..}		); WriteNl();
+ $$ *) (" r reduce number of generated case/switch labels"		); WriteNl();
 WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 168
- $$ *) (tFile{' ','i',' ','u','s','e',' ','I','S','O',' ','8',' ','b','i','t',' ','c','o','d','e',' ','(','d','e','f','a','u','l','t',':',' ','A','S','C','I','I',' ','7',' ','b','i','t',' ','c','o','d','e',')','\000',..}		); WriteNl();
+ $$ *) (" i use ISO 8 bit code (default: ASCII 7 bit code)"		); WriteNl();
 WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 169
- $$ *) (tFile{' ','o',' ','o','p','t','i','m','i','z','e',' ','t','a','b','l','e',' ','s','i','z','e','\000',..}					); WriteNl();
+ $$ *) (" o optimize table size"					); WriteNl();
 WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 170
- $$ *) (tFile{' ','n',' ','d','o',' ','n','o','t',' ','o','p','t','i','m','i','z','e',' ','t','a','b','l','e',' ','s','i','z','e','\000',..}					); WriteNl();
+ $$ *) (" n do not optimize table size"					); WriteNl();
 WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 171
- $$ *) (tFile{' ','w',' ','s','u','p','p','r','e','s','s',' ','w','a','r','n','i','n','g','s','\000',..}						); WriteNl();
+ $$ *) (" w suppress warnings"						); WriteNl();
 WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 172
- $$ *) (tFile{' ','g',' ','g','e','n','e','r','a','t','e',' ','#',' ','l','i','n','e',' ','d','i','r','e','c','t','i','v','e','s','\000',..}					); WriteNl();
+ $$ *) (" g generate # line directives"					); WriteNl();
 WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 173
- $$ *) (tFile{' ','b',' ','d','o',' ','n','o','t',' ','p','a','r','t','i','t','i','o','n',' ','c','h','a','r','a','c','t','e','r',' ','s','e','t',' ','i','n','t','o',' ','b','l','o','c','k','s','\000',..}			); WriteNl();
+ $$ *) (" b do not partition character set into blocks"			); WriteNl();
 WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 174
- $$ *) (tFile{' ','1',' ','p','r','i','n','t',' ','s','t','a','t','i','s','t','i','c','s',' ','a','b','o','u','t',' ','t','h','e',' ','g','e','n','e','r','a','t','e','d',' ','l','e','x','i','c','a','l',' ','a','n','a','l','y','z','e','r','\000',..}	); WriteNl();
+ $$ *) (" 1 print statistics about the generated lexical analyzer"	); WriteNl();
 WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 175
- $$ *) (tFile{' ','h',' ','p','r','i','n','t',' ','h','e','l','p',' ','i','n','f','o','r','m','a','t','i','o','n','\000',..}					); WriteNl();
+ $$ *) (" h print help information"					); WriteNl();
 WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 176
- $$ *) (tFile{' ','l','d','i','r',' ','s','p','e','c','i','f','y',' ','t','h','e',' ','d','i','r','e','c','t','o','r','y',' ','d','i','r',' ','w','h','e','r','e',' ','r','e','x',' ','f','i','n','d','s',' ','i','t','s',' ','d','a','t','a',' ','f','i','l','e','s','\000',..}); WriteNl();
+ $$ *) (" ldir specify the directory dir where rex finds its data files"); WriteNl();
    ELSE
       ArrayToString	(ScanTabName, FileNameS); (* name of scanner table *)
       Assign		(Path, RexLib);

@@ -660,7 +660,7 @@ PROCEDURE yyMapToTree (yyLabel: SHORTCARD): tTree0 =
 PROCEDURE yyWriteNl() = BEGIN IO.WriteNl (yyf); END yyWriteNl;
 
 PROCEDURE yyWriteSelector (READONLY yys: ARRAY OF CHAR) =
- BEGIN IO.WriteS (yyf, yys); Layout.WriteSpaces (yyf, 15 - LOOPHOLE (LAST (yys),INTEGER)); IO.WriteS (yyf, ARRAY [0..3] OF CHAR{' ','=',' ','\000'}); END yyWriteSelector;
+ BEGIN IO.WriteS (yyf, yys); Layout.WriteSpaces (yyf, 15 - LOOPHOLE (LAST (yys),INTEGER)); IO.WriteS (yyf, " = "); END yyWriteSelector;
 
 PROCEDURE yyWriteHex (VAR yyx: ARRAY OF SYSTEM.BYTE) =
  VAR yyi       : INTEGER;
@@ -708,230 +708,230 @@ PROCEDURE yyIndentSelectorTree (READONLY yys: ARRAY OF CHAR; yyt: tTree0) =
 
 PROCEDURE yWriteNode (yyt: tTree0) =
  BEGIN
-  IO.WriteS (yyf, ARRAY [0..4] OF CHAR{'N','o','d','e','\000'}); yyWriteNl();
-  yyIndentSelector (ARRAY [0..4] OF CHAR{'T','r','e','e','\000'}); WITH m2tom3_desig_8 =  yyt^.Node(* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 650
+  IO.WriteS (yyf, "Node"); yyWriteNl();
+  yyIndentSelector ("Tree"); WITH m2tom3_desig_8 =  yyt^.Node(* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 650
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_8,ARRAY OF BYTE))
 END;  yyWriteNl();
-  yyIndentSelector (ARRAY [0..12] OF CHAR{'I','s','C','o','n','s','t','a','n','t','R','E','\000'}); IO.WriteB (yyf,  yyt^.Node(* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 651
+  yyIndentSelector ("IsConstantRE"); IO.WriteB (yyf,  yyt^.Node(* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 651
  $$ *).IsConstantRE );  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'L','e','a','f','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Node(* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 652
+  yyIndentSelector ("LeafCount"); IO.WriteI (yyf,  yyt^.Node(* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 652
  $$ *).LeafCount , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'N','o','d','e','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Node(* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 653
+  yyIndentSelector ("NodeCount"); IO.WriteI (yyf,  yyt^.Node(* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 653
  $$ *).NodeCount , 0);  yyWriteNl();
  END yWriteNode;
 
 PROCEDURE yWriteNode1 (yyt: tTree0) =
  BEGIN
-  IO.WriteS (yyf, ARRAY [0..5] OF CHAR{'N','o','d','e','1','\000'}); yyWriteNl();
-  yyIndentSelector (ARRAY [0..4] OF CHAR{'T','r','e','e','\000'}); WITH m2tom3_desig_11 =  yyt^.Node1(* $$ m2tom3 warning: application of variant field, possible cast of 'Node1' in line 659
+  IO.WriteS (yyf, "Node1"); yyWriteNl();
+  yyIndentSelector ("Tree"); WITH m2tom3_desig_11 =  yyt^.Node1(* $$ m2tom3 warning: application of variant field, possible cast of 'Node1' in line 659
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_11,ARRAY OF BYTE))
 END;  yyWriteNl();
-  yyIndentSelector (ARRAY [0..12] OF CHAR{'I','s','C','o','n','s','t','a','n','t','R','E','\000'}); IO.WriteB (yyf,  yyt^.Node1(* $$ m2tom3 warning: application of variant field, possible cast of 'Node1' in line 660
+  yyIndentSelector ("IsConstantRE"); IO.WriteB (yyf,  yyt^.Node1(* $$ m2tom3 warning: application of variant field, possible cast of 'Node1' in line 660
  $$ *).IsConstantRE );  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'L','e','a','f','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Node1(* $$ m2tom3 warning: application of variant field, possible cast of 'Node1' in line 661
+  yyIndentSelector ("LeafCount"); IO.WriteI (yyf,  yyt^.Node1(* $$ m2tom3 warning: application of variant field, possible cast of 'Node1' in line 661
  $$ *).LeafCount , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'N','o','d','e','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Node1(* $$ m2tom3 warning: application of variant field, possible cast of 'Node1' in line 662
+  yyIndentSelector ("NodeCount"); IO.WriteI (yyf,  yyt^.Node1(* $$ m2tom3 warning: application of variant field, possible cast of 'Node1' in line 662
  $$ *).NodeCount , 0);  yyWriteNl();
  END yWriteNode1;
 
 PROCEDURE yWriteOption (yyt: tTree0) =
  BEGIN
-  IO.WriteS (yyf, ARRAY [0..6] OF CHAR{'O','p','t','i','o','n','\000'}); yyWriteNl();
-  yyIndentSelector (ARRAY [0..4] OF CHAR{'T','r','e','e','\000'}); WITH m2tom3_desig_7 =  yyt^.Option(* $$ m2tom3 warning: application of variant field, possible cast of 'Option' in line 668
+  IO.WriteS (yyf, "Option"); yyWriteNl();
+  yyIndentSelector ("Tree"); WITH m2tom3_desig_7 =  yyt^.Option(* $$ m2tom3 warning: application of variant field, possible cast of 'Option' in line 668
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_7,ARRAY OF BYTE))
 END;  yyWriteNl();
-  yyIndentSelector (ARRAY [0..12] OF CHAR{'I','s','C','o','n','s','t','a','n','t','R','E','\000'}); IO.WriteB (yyf,  yyt^.Option(* $$ m2tom3 warning: application of variant field, possible cast of 'Option' in line 669
+  yyIndentSelector ("IsConstantRE"); IO.WriteB (yyf,  yyt^.Option(* $$ m2tom3 warning: application of variant field, possible cast of 'Option' in line 669
  $$ *).IsConstantRE );  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'L','e','a','f','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Option(* $$ m2tom3 warning: application of variant field, possible cast of 'Option' in line 670
+  yyIndentSelector ("LeafCount"); IO.WriteI (yyf,  yyt^.Option(* $$ m2tom3 warning: application of variant field, possible cast of 'Option' in line 670
  $$ *).LeafCount , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'N','o','d','e','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Option(* $$ m2tom3 warning: application of variant field, possible cast of 'Option' in line 671
+  yyIndentSelector ("NodeCount"); IO.WriteI (yyf,  yyt^.Option(* $$ m2tom3 warning: application of variant field, possible cast of 'Option' in line 671
  $$ *).NodeCount , 0);  yyWriteNl();
  END yWriteOption;
 
 PROCEDURE yWriteRepetition (yyt: tTree0) =
  BEGIN
-  IO.WriteS (yyf, ARRAY [0..10] OF CHAR{'R','e','p','e','t','i','t','i','o','n','\000'}); yyWriteNl();
-  yyIndentSelector (ARRAY [0..4] OF CHAR{'T','r','e','e','\000'}); WITH m2tom3_desig_12 =  yyt^.Repetition(* $$ m2tom3 warning: application of variant field, possible cast of 'Repetition' in line 677
+  IO.WriteS (yyf, "Repetition"); yyWriteNl();
+  yyIndentSelector ("Tree"); WITH m2tom3_desig_12 =  yyt^.Repetition(* $$ m2tom3 warning: application of variant field, possible cast of 'Repetition' in line 677
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_12,ARRAY OF BYTE))
 END;  yyWriteNl();
-  yyIndentSelector (ARRAY [0..12] OF CHAR{'I','s','C','o','n','s','t','a','n','t','R','E','\000'}); IO.WriteB (yyf,  yyt^.Repetition(* $$ m2tom3 warning: application of variant field, possible cast of 'Repetition' in line 678
+  yyIndentSelector ("IsConstantRE"); IO.WriteB (yyf,  yyt^.Repetition(* $$ m2tom3 warning: application of variant field, possible cast of 'Repetition' in line 678
  $$ *).IsConstantRE );  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'L','e','a','f','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Repetition(* $$ m2tom3 warning: application of variant field, possible cast of 'Repetition' in line 679
+  yyIndentSelector ("LeafCount"); IO.WriteI (yyf,  yyt^.Repetition(* $$ m2tom3 warning: application of variant field, possible cast of 'Repetition' in line 679
  $$ *).LeafCount , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'N','o','d','e','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Repetition(* $$ m2tom3 warning: application of variant field, possible cast of 'Repetition' in line 680
+  yyIndentSelector ("NodeCount"); IO.WriteI (yyf,  yyt^.Repetition(* $$ m2tom3 warning: application of variant field, possible cast of 'Repetition' in line 680
  $$ *).NodeCount , 0);  yyWriteNl();
  END yWriteRepetition;
 
 PROCEDURE yWriteNode2 (yyt: tTree0) =
  BEGIN
-  IO.WriteS (yyf, ARRAY [0..5] OF CHAR{'N','o','d','e','2','\000'}); yyWriteNl();
-  yyIndentSelector (ARRAY [0..4] OF CHAR{'T','r','e','e','\000'}); WITH m2tom3_desig_0 =  yyt^.Node2(* $$ m2tom3 warning: application of variant field, possible cast of 'Node2' in line 686
+  IO.WriteS (yyf, "Node2"); yyWriteNl();
+  yyIndentSelector ("Tree"); WITH m2tom3_desig_0 =  yyt^.Node2(* $$ m2tom3 warning: application of variant field, possible cast of 'Node2' in line 686
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_0,ARRAY OF BYTE))
 END;  yyWriteNl();
-  yyIndentSelector (ARRAY [0..12] OF CHAR{'I','s','C','o','n','s','t','a','n','t','R','E','\000'}); IO.WriteB (yyf,  yyt^.Node2(* $$ m2tom3 warning: application of variant field, possible cast of 'Node2' in line 687
+  yyIndentSelector ("IsConstantRE"); IO.WriteB (yyf,  yyt^.Node2(* $$ m2tom3 warning: application of variant field, possible cast of 'Node2' in line 687
  $$ *).IsConstantRE );  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'L','e','a','f','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Node2(* $$ m2tom3 warning: application of variant field, possible cast of 'Node2' in line 688
+  yyIndentSelector ("LeafCount"); IO.WriteI (yyf,  yyt^.Node2(* $$ m2tom3 warning: application of variant field, possible cast of 'Node2' in line 688
  $$ *).LeafCount , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'N','o','d','e','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Node2(* $$ m2tom3 warning: application of variant field, possible cast of 'Node2' in line 689
+  yyIndentSelector ("NodeCount"); IO.WriteI (yyf,  yyt^.Node2(* $$ m2tom3 warning: application of variant field, possible cast of 'Node2' in line 689
  $$ *).NodeCount , 0);  yyWriteNl();
-  yyIndentSelectorTree (ARRAY [0..4] OF CHAR{'S','o','n','1','\000'}, yyt^.Node2(* $$ m2tom3 warning: application of variant field, possible cast of 'Node2' in line 690
+  yyIndentSelectorTree ("Son1", yyt^.Node2(* $$ m2tom3 warning: application of variant field, possible cast of 'Node2' in line 690
  $$ *).Son1);
  END yWriteNode2;
 
 PROCEDURE yWriteList (yyt: tTree0) =
  BEGIN
-  IO.WriteS (yyf, ARRAY [0..4] OF CHAR{'L','i','s','t','\000'}); yyWriteNl();
-  yyIndentSelector (ARRAY [0..4] OF CHAR{'T','r','e','e','\000'}); WITH m2tom3_desig_10 =  yyt^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 696
+  IO.WriteS (yyf, "List"); yyWriteNl();
+  yyIndentSelector ("Tree"); WITH m2tom3_desig_10 =  yyt^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 696
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_10,ARRAY OF BYTE))
 END;  yyWriteNl();
-  yyIndentSelector (ARRAY [0..12] OF CHAR{'I','s','C','o','n','s','t','a','n','t','R','E','\000'}); IO.WriteB (yyf,  yyt^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 697
+  yyIndentSelector ("IsConstantRE"); IO.WriteB (yyf,  yyt^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 697
  $$ *).IsConstantRE );  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'L','e','a','f','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 698
+  yyIndentSelector ("LeafCount"); IO.WriteI (yyf,  yyt^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 698
  $$ *).LeafCount , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'N','o','d','e','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 699
+  yyIndentSelector ("NodeCount"); IO.WriteI (yyf,  yyt^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 699
  $$ *).NodeCount , 0);  yyWriteNl();
-  yyIndentSelectorTree (ARRAY [0..4] OF CHAR{'S','o','n','1','\000'}, yyt^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 700
+  yyIndentSelectorTree ("Son1", yyt^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 700
  $$ *).Son1);
  END yWriteList;
 
 PROCEDURE yWriteSequence (yyt: tTree0) =
  BEGIN
-  IO.WriteS (yyf, ARRAY [0..8] OF CHAR{'S','e','q','u','e','n','c','e','\000'}); yyWriteNl();
-  yyIndentSelector (ARRAY [0..4] OF CHAR{'T','r','e','e','\000'}); WITH m2tom3_desig_1 =  yyt^.Sequence(* $$ m2tom3 warning: application of variant field, possible cast of 'Sequence' in line 706
+  IO.WriteS (yyf, "Sequence"); yyWriteNl();
+  yyIndentSelector ("Tree"); WITH m2tom3_desig_1 =  yyt^.Sequence(* $$ m2tom3 warning: application of variant field, possible cast of 'Sequence' in line 706
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_1,ARRAY OF BYTE))
 END;  yyWriteNl();
-  yyIndentSelector (ARRAY [0..12] OF CHAR{'I','s','C','o','n','s','t','a','n','t','R','E','\000'}); IO.WriteB (yyf,  yyt^.Sequence(* $$ m2tom3 warning: application of variant field, possible cast of 'Sequence' in line 707
+  yyIndentSelector ("IsConstantRE"); IO.WriteB (yyf,  yyt^.Sequence(* $$ m2tom3 warning: application of variant field, possible cast of 'Sequence' in line 707
  $$ *).IsConstantRE );  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'L','e','a','f','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Sequence(* $$ m2tom3 warning: application of variant field, possible cast of 'Sequence' in line 708
+  yyIndentSelector ("LeafCount"); IO.WriteI (yyf,  yyt^.Sequence(* $$ m2tom3 warning: application of variant field, possible cast of 'Sequence' in line 708
  $$ *).LeafCount , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'N','o','d','e','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Sequence(* $$ m2tom3 warning: application of variant field, possible cast of 'Sequence' in line 709
+  yyIndentSelector ("NodeCount"); IO.WriteI (yyf,  yyt^.Sequence(* $$ m2tom3 warning: application of variant field, possible cast of 'Sequence' in line 709
  $$ *).NodeCount , 0);  yyWriteNl();
-  yyIndentSelectorTree (ARRAY [0..4] OF CHAR{'S','o','n','1','\000'}, yyt^.Sequence(* $$ m2tom3 warning: application of variant field, possible cast of 'Sequence' in line 710
+  yyIndentSelectorTree ("Son1", yyt^.Sequence(* $$ m2tom3 warning: application of variant field, possible cast of 'Sequence' in line 710
  $$ *).Son1);
  END yWriteSequence;
 
 PROCEDURE yWriteAlternative (yyt: tTree0) =
  BEGIN
-  IO.WriteS (yyf, ARRAY [0..11] OF CHAR{'A','l','t','e','r','n','a','t','i','v','e','\000'}); yyWriteNl();
-  yyIndentSelector (ARRAY [0..4] OF CHAR{'T','r','e','e','\000'}); WITH m2tom3_desig_4 =  yyt^.Alternative(* $$ m2tom3 warning: application of variant field, possible cast of 'Alternative' in line 716
+  IO.WriteS (yyf, "Alternative"); yyWriteNl();
+  yyIndentSelector ("Tree"); WITH m2tom3_desig_4 =  yyt^.Alternative(* $$ m2tom3 warning: application of variant field, possible cast of 'Alternative' in line 716
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_4,ARRAY OF BYTE))
 END;  yyWriteNl();
-  yyIndentSelector (ARRAY [0..12] OF CHAR{'I','s','C','o','n','s','t','a','n','t','R','E','\000'}); IO.WriteB (yyf,  yyt^.Alternative(* $$ m2tom3 warning: application of variant field, possible cast of 'Alternative' in line 717
+  yyIndentSelector ("IsConstantRE"); IO.WriteB (yyf,  yyt^.Alternative(* $$ m2tom3 warning: application of variant field, possible cast of 'Alternative' in line 717
  $$ *).IsConstantRE );  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'L','e','a','f','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Alternative(* $$ m2tom3 warning: application of variant field, possible cast of 'Alternative' in line 718
+  yyIndentSelector ("LeafCount"); IO.WriteI (yyf,  yyt^.Alternative(* $$ m2tom3 warning: application of variant field, possible cast of 'Alternative' in line 718
  $$ *).LeafCount , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'N','o','d','e','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Alternative(* $$ m2tom3 warning: application of variant field, possible cast of 'Alternative' in line 719
+  yyIndentSelector ("NodeCount"); IO.WriteI (yyf,  yyt^.Alternative(* $$ m2tom3 warning: application of variant field, possible cast of 'Alternative' in line 719
  $$ *).NodeCount , 0);  yyWriteNl();
-  yyIndentSelectorTree (ARRAY [0..4] OF CHAR{'S','o','n','1','\000'}, yyt^.Alternative(* $$ m2tom3 warning: application of variant field, possible cast of 'Alternative' in line 720
+  yyIndentSelectorTree ("Son1", yyt^.Alternative(* $$ m2tom3 warning: application of variant field, possible cast of 'Alternative' in line 720
  $$ *).Son1);
  END yWriteAlternative;
 
 PROCEDURE yWriteCh (yyt: tTree0) =
  BEGIN
-  IO.WriteS (yyf, ARRAY [0..2] OF CHAR{'C','h','\000'}); yyWriteNl();
-  yyIndentSelector (ARRAY [0..4] OF CHAR{'T','r','e','e','\000'}); WITH m2tom3_desig_5 =  yyt^.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 726
+  IO.WriteS (yyf, "Ch"); yyWriteNl();
+  yyIndentSelector ("Tree"); WITH m2tom3_desig_5 =  yyt^.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 726
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_5,ARRAY OF BYTE))
 END;  yyWriteNl();
-  yyIndentSelector (ARRAY [0..12] OF CHAR{'I','s','C','o','n','s','t','a','n','t','R','E','\000'}); IO.WriteB (yyf,  yyt^.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 727
+  yyIndentSelector ("IsConstantRE"); IO.WriteB (yyf,  yyt^.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 727
  $$ *).IsConstantRE );  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'L','e','a','f','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 728
+  yyIndentSelector ("LeafCount"); IO.WriteI (yyf,  yyt^.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 728
  $$ *).LeafCount , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'N','o','d','e','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 729
+  yyIndentSelector ("NodeCount"); IO.WriteI (yyf,  yyt^.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 729
  $$ *).NodeCount , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..2] OF CHAR{'C','h','\000'}); IO.WriteC (yyf,  yyt^.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 730
+  yyIndentSelector ("Ch"); IO.WriteC (yyf,  yyt^.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 730
  $$ *).Ch );  yyWriteNl();
  END yWriteCh;
 
 PROCEDURE yWriteSet (yyt: tTree0) =
  BEGIN
-  IO.WriteS (yyf, ARRAY [0..3] OF CHAR{'S','e','t','\000'}); yyWriteNl();
-  yyIndentSelector (ARRAY [0..4] OF CHAR{'T','r','e','e','\000'}); WITH m2tom3_desig_6 =  yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 736
+  IO.WriteS (yyf, "Set"); yyWriteNl();
+  yyIndentSelector ("Tree"); WITH m2tom3_desig_6 =  yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 736
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_6,ARRAY OF BYTE))
 END;  yyWriteNl();
-  yyIndentSelector (ARRAY [0..12] OF CHAR{'I','s','C','o','n','s','t','a','n','t','R','E','\000'}); IO.WriteB (yyf,  yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 737
+  yyIndentSelector ("IsConstantRE"); IO.WriteB (yyf,  yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 737
  $$ *).IsConstantRE );  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'L','e','a','f','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 738
+  yyIndentSelector ("LeafCount"); IO.WriteI (yyf,  yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 738
  $$ *).LeafCount , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'N','o','d','e','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 739
+  yyIndentSelector ("NodeCount"); IO.WriteI (yyf,  yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 739
  $$ *).NodeCount , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..3] OF CHAR{'S','e','t','\000'}); Sets.WriteSet (yyf,  yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 740
+  yyIndentSelector ("Set"); Sets.WriteSet (yyf,  yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 740
  $$ *).Set );  yyWriteNl();
-  yyIndentSelector (ARRAY [0..4] OF CHAR{'c','a','r','d','\000'}); IO.WriteI (yyf,  yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 741
+  yyIndentSelector ("card"); IO.WriteI (yyf,  yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 741
  $$ *).card , 0);  yyWriteNl();
  END yWriteSet;
 
 PROCEDURE yWriteString (yyt: tTree0) =
  BEGIN
-  IO.WriteS (yyf, ARRAY [0..6] OF CHAR{'S','t','r','i','n','g','\000'}); yyWriteNl();
-  yyIndentSelector (ARRAY [0..4] OF CHAR{'T','r','e','e','\000'}); WITH m2tom3_desig_9 =  yyt^.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 747
+  IO.WriteS (yyf, "String"); yyWriteNl();
+  yyIndentSelector ("Tree"); WITH m2tom3_desig_9 =  yyt^.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 747
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_9,ARRAY OF BYTE))
 END;  yyWriteNl();
-  yyIndentSelector (ARRAY [0..12] OF CHAR{'I','s','C','o','n','s','t','a','n','t','R','E','\000'}); IO.WriteB (yyf,  yyt^.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 748
+  yyIndentSelector ("IsConstantRE"); IO.WriteB (yyf,  yyt^.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 748
  $$ *).IsConstantRE );  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'L','e','a','f','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 749
+  yyIndentSelector ("LeafCount"); IO.WriteI (yyf,  yyt^.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 749
  $$ *).LeafCount , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'N','o','d','e','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 750
+  yyIndentSelector ("NodeCount"); IO.WriteI (yyf,  yyt^.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 750
  $$ *).NodeCount , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..6] OF CHAR{'S','t','r','i','n','g','\000'}); StringMem.WriteString (yyf,  yyt^.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 751
+  yyIndentSelector ("String"); StringMem.WriteString (yyf,  yyt^.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 751
  $$ *).String );  yyWriteNl();
  END yWriteString;
 
 PROCEDURE yWriteRule (yyt: tTree0) =
  BEGIN
-  IO.WriteS (yyf, ARRAY [0..4] OF CHAR{'R','u','l','e','\000'}); yyWriteNl();
-  yyIndentSelector (ARRAY [0..4] OF CHAR{'T','r','e','e','\000'}); WITH m2tom3_desig_2 =  yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 757
+  IO.WriteS (yyf, "Rule"); yyWriteNl();
+  yyIndentSelector ("Tree"); WITH m2tom3_desig_2 =  yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 757
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_2,ARRAY OF BYTE))
 END;  yyWriteNl();
-  yyIndentSelector (ARRAY [0..12] OF CHAR{'I','s','C','o','n','s','t','a','n','t','R','E','\000'}); IO.WriteB (yyf,  yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 758
+  yyIndentSelector ("IsConstantRE"); IO.WriteB (yyf,  yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 758
  $$ *).IsConstantRE );  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'L','e','a','f','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 759
+  yyIndentSelector ("LeafCount"); IO.WriteI (yyf,  yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 759
  $$ *).LeafCount , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'N','o','d','e','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 760
+  yyIndentSelector ("NodeCount"); IO.WriteI (yyf,  yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 760
  $$ *).NodeCount , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..10] OF CHAR{'T','a','r','g','e','t','C','o','d','e','\000'}); Texts.WriteText (yyf,  yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 761
+  yyIndentSelector ("TargetCode"); Texts.WriteText (yyf,  yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 761
  $$ *).TargetCode );  yyWriteNl();
-  yyIndentSelector (ARRAY [0..4] OF CHAR{'L','i','n','e','\000'}); IO.WriteI (yyf,  yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 762
+  yyIndentSelector ("Line"); IO.WriteI (yyf,  yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 762
  $$ *).Line , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..8] OF CHAR{'C','o','d','e','M','o','d','e','\000'}); IO.WriteI (yyf,  yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 763
+  yyIndentSelector ("CodeMode"); IO.WriteI (yyf,  yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 763
  $$ *).CodeMode , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..6] OF CHAR{'R','u','l','e','N','r','\000'}); IO.WriteI (yyf,  yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 764
+  yyIndentSelector ("RuleNr"); IO.WriteI (yyf,  yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 764
  $$ *).RuleNr , 0);  yyWriteNl();
  END yWriteRule;
 
 PROCEDURE yWritePattern (yyt: tTree0) =
  BEGIN
-  IO.WriteS (yyf, ARRAY [0..7] OF CHAR{'P','a','t','t','e','r','n','\000'}); yyWriteNl();
-  yyIndentSelector (ARRAY [0..4] OF CHAR{'T','r','e','e','\000'}); WITH m2tom3_desig_3 =  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 770
+  IO.WriteS (yyf, "Pattern"); yyWriteNl();
+  yyIndentSelector ("Tree"); WITH m2tom3_desig_3 =  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 770
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_3,ARRAY OF BYTE))
 END;  yyWriteNl();
-  yyIndentSelector (ARRAY [0..12] OF CHAR{'I','s','C','o','n','s','t','a','n','t','R','E','\000'}); IO.WriteB (yyf,  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 771
+  yyIndentSelector ("IsConstantRE"); IO.WriteB (yyf,  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 771
  $$ *).IsConstantRE );  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'L','e','a','f','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 772
+  yyIndentSelector ("LeafCount"); IO.WriteI (yyf,  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 772
  $$ *).LeafCount , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'N','o','d','e','C','o','u','n','t','\000'}); IO.WriteI (yyf,  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 773
+  yyIndentSelector ("NodeCount"); IO.WriteI (yyf,  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 773
  $$ *).NodeCount , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..11] OF CHAR{'S','t','a','r','t','S','t','a','t','e','s','\000'}); Sets.WriteSet (yyf,  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 774
+  yyIndentSelector ("StartStates"); Sets.WriteSet (yyf,  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 774
  $$ *).StartStates );  yyWriteNl();
-  yyIndentSelectorTree (ARRAY [0..7] OF CHAR{'R','e','g','E','x','p','r','\000'}, yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 775
+  yyIndentSelectorTree ("RegExpr", yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 775
  $$ *).RegExpr);
-  yyIndentSelector (ARRAY [0..9] OF CHAR{'P','a','t','t','e','r','n','N','r','\000'}); IO.WriteI (yyf,  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 776
+  yyIndentSelector ("PatternNr"); IO.WriteI (yyf,  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 776
  $$ *).PatternNr , 0);  yyWriteNl();
-  yyIndentSelector (ARRAY [0..8] OF CHAR{'P','o','s','i','t','i','o','n','\000'}); Positions.WritePosition (yyf,  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 777
+  yyIndentSelector ("Position"); Positions.WritePosition (yyf,  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 777
  $$ *).Position );  yyWriteNl();
-  yyIndentSelector (ARRAY [0..4] OF CHAR{'c','a','r','d','\000'}); IO.WriteI (yyf,  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 778
+  yyIndentSelector ("card"); IO.WriteI (yyf,  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 778
  $$ *).card , 0);  yyWriteNl();
  END yWritePattern;
 
@@ -941,7 +941,7 @@ PROCEDURE yyWriteTree0 (yyt: tTree0) =
   yyLevel := yyIndentLevel;
   LOOP
    IF yyt = NoTree0 THEN
-    IO.WriteS (yyf, ARRAY [0..8] OF CHAR{' ','N','o','T','r','e','e','0','\000'}); yyWriteNl(); EXIT;
+    IO.WriteS (yyf, " NoTree0"); yyWriteNl(); EXIT;
    ELSIF yyt^.yyHead(* $$ m2tom3 warning: application of variant field, possible cast of 'yyHead' in line 788
  $$ *).yyMark = 0 THEN
     IO.WriteC (yyf, '^'); IO.WriteI (yyf, yyMapToLabel (yyt), 0); yyWriteNl(); EXIT;
@@ -959,26 +959,26 @@ PROCEDURE yyWriteTree0 (yyt: tTree0) =
    CASE yyt^.Kind(* $$ m2tom3 warning: application of variant field, possible cast of 'Kind' in line 799
  $$ *) OF
 | Node=> yWriteNode (yyt); EXIT;
-| Node1=> yWriteNode1 (yyt); yyIndentSelector (ARRAY [0..4] OF CHAR{'S','o','n','1','\000'}); yyt := yyt^.Node1(* $$ m2tom3 warning: application of variant field, possible cast of 'Node1' in line 801
+| Node1=> yWriteNode1 (yyt); yyIndentSelector ("Son1"); yyt := yyt^.Node1(* $$ m2tom3 warning: application of variant field, possible cast of 'Node1' in line 801
  $$ *).Son1;
-| Option=> yWriteOption (yyt); yyIndentSelector (ARRAY [0..4] OF CHAR{'S','o','n','1','\000'}); yyt := yyt^.Option(* $$ m2tom3 warning: application of variant field, possible cast of 'Option' in line 802
+| Option=> yWriteOption (yyt); yyIndentSelector ("Son1"); yyt := yyt^.Option(* $$ m2tom3 warning: application of variant field, possible cast of 'Option' in line 802
  $$ *).Son1;
-| Repetition=> yWriteRepetition (yyt); yyIndentSelector (ARRAY [0..4] OF CHAR{'S','o','n','1','\000'}); yyt := yyt^.Repetition(* $$ m2tom3 warning: application of variant field, possible cast of 'Repetition' in line 803
+| Repetition=> yWriteRepetition (yyt); yyIndentSelector ("Son1"); yyt := yyt^.Repetition(* $$ m2tom3 warning: application of variant field, possible cast of 'Repetition' in line 803
  $$ *).Son1;
-| Node2=> yWriteNode2 (yyt); yyIndentSelector (ARRAY [0..4] OF CHAR{'S','o','n','2','\000'}); yyt := yyt^.Node2(* $$ m2tom3 warning: application of variant field, possible cast of 'Node2' in line 804
+| Node2=> yWriteNode2 (yyt); yyIndentSelector ("Son2"); yyt := yyt^.Node2(* $$ m2tom3 warning: application of variant field, possible cast of 'Node2' in line 804
  $$ *).Son2;
-| List=> yWriteList (yyt); yyIndentSelector (ARRAY [0..4] OF CHAR{'S','o','n','2','\000'}); yyt := yyt^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 805
+| List=> yWriteList (yyt); yyIndentSelector ("Son2"); yyt := yyt^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 805
  $$ *).Son2;
-| Sequence=> yWriteSequence (yyt); yyIndentSelector (ARRAY [0..4] OF CHAR{'S','o','n','2','\000'}); yyt := yyt^.Sequence(* $$ m2tom3 warning: application of variant field, possible cast of 'Sequence' in line 806
+| Sequence=> yWriteSequence (yyt); yyIndentSelector ("Son2"); yyt := yyt^.Sequence(* $$ m2tom3 warning: application of variant field, possible cast of 'Sequence' in line 806
  $$ *).Son2;
-| Alternative=> yWriteAlternative (yyt); yyIndentSelector (ARRAY [0..4] OF CHAR{'S','o','n','2','\000'}); yyt := yyt^.Alternative(* $$ m2tom3 warning: application of variant field, possible cast of 'Alternative' in line 807
+| Alternative=> yWriteAlternative (yyt); yyIndentSelector ("Son2"); yyt := yyt^.Alternative(* $$ m2tom3 warning: application of variant field, possible cast of 'Alternative' in line 807
  $$ *).Son2;
 | Ch=> yWriteCh (yyt); EXIT;
 | Set=> yWriteSet (yyt); EXIT;
 | String=> yWriteString (yyt); EXIT;
-| Rule=> yWriteRule (yyt); yyIndentSelector (ARRAY [0..8] OF CHAR{'P','a','t','t','e','r','n','s','\000'}); yyt := yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 811
+| Rule=> yWriteRule (yyt); yyIndentSelector ("Patterns"); yyt := yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 811
  $$ *).Patterns;
-| Pattern=> yWritePattern (yyt); yyIndentSelector (ARRAY [0..12] OF CHAR{'R','i','g','h','t','C','o','n','t','e','x','t','\000'}); yyt := yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 812
+| Pattern=> yWritePattern (yyt); yyIndentSelector ("RightContext"); yyt := yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 812
  $$ *).RightContext;
    ELSE EXIT;
    END;

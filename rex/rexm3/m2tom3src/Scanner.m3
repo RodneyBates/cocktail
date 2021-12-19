@@ -11,12 +11,12 @@
 
  UNSAFE MODULE Scanner;
  
-FROM SYSTEM IMPORT SHORTCARD;
 IMPORT Word, SYSTEM, Checks, System, General, Positions, IO, DynArray, Strings, Source;
 (* line 84 "../src/rex.rex" *)
 
 
 
+FROM SYSTEM	IMPORT SHORTCARD, M2LONGINT, M2LONGCARD;
 FROM Strings	IMPORT tString, Concatenate, Char, SubString,
 			StringToInt, AssignEmpty, Length;
 FROM Texts	IMPORT MakeText, Append;
@@ -82,15 +82,15 @@ VAR
 PROCEDURE ErrorAttribute (Token: Word.T; VAR Attribute: tScanAttribute) =
    BEGIN
       CASE Token OF
-      |  SymIdent	=> Attribute.Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 84
+      |  SymIdent	=> Attribute.Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 85
  $$ *)  := NoIdent;
-      |  SymNumber	=> Attribute.Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 85
+      |  SymNumber	=> Attribute.Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 86
  $$ *) := 0;
-      |  SymString	=> Attribute.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 86
+      |  SymString	=> Attribute.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 87
  $$ *) := NoString;
-      |  SymChar	=> Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 87
+      |  SymChar	=> Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 88
  $$ *)	   := '?';
-      |  SymTargetcode	=> MakeText (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 88
+      |  SymTargetcode	=> MakeText (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 89
  $$ *));
       ELSE
       END;
@@ -133,14 +133,14 @@ TYPE
    yyFileStackSubscript = yyFileStackPtrTyp [1 .. yyFileStackSize];
 
 VAR
-   yyBasePtr		: ARRAY yyStateRange	OF LONGCARD	;
+   yyBasePtr		: ARRAY yyStateRange	OF M2LONGCARD	;
    yyDefault		: ARRAY yyStateRange	OF yyStateRange	;
    yyComb		: ARRAY yyTableRange	OF yyCombType	;
    yyEobTrans		: ARRAY yyStateRange	OF yyStateRange	;
    yyToLower, yyToUpper	: ARRAY yyChRange	OF CHAR		;
 
    yyStateStack		: UNTRACED BRANDED REF  ARRAY [0 .. 1000000] OF yyStateRange;
-   yyStateStackSize	: LONGINT;
+   yyStateStackSize	: M2LONGINT;
    yyStartState		: yyStateRange;
    yyPreviousStart	: yyStateRange;
    yyCh			: CHAR;
@@ -149,7 +149,7 @@ VAR
    yyEof		: BOOLEAN;
    yyChBufferPtr	: yytChBufferPtr;
    yyChBufferStart	: INTEGER;
-   yyChBufferSize	: LONGINT;
+   yyChBufferSize	: M2LONGINT;
    yyChBufferIndex	: INTEGER;
    yyBytesRead		: INTEGER;
    yyLineCount		: SHORTCARD; (* Number of the current line,
@@ -164,7 +164,7 @@ VAR
 			     Eof		: BOOLEAN;
    			     ChBufferPtr	: yytChBufferPtr;
 			     ChBufferStart	: INTEGER;
-			     ChBufferSize	: LONGINT;
+			     ChBufferSize	: M2LONGINT;
    			     ChBufferIndex	: INTEGER;
    			     BytesRead		: INTEGER;
    			     LineCount		: SHORTCARD;
@@ -177,7 +177,7 @@ PROCEDURE GetToken (): INTEGER =
       yyTablePtr	: yyCombTypePtr;
       yyRestartFlag	: BOOLEAN;
       yyi, yySource, yyTarget : INTEGER;
-      yyChBufferFree	: LONGINT;
+      yyChBufferFree	: M2LONGINT;
 
 (* line 163 "../src/rex.rex" *)
  VAR TargetCode, String, Word: tString; 
@@ -203,8 +203,8 @@ BEGIN
 	 LOOP		(* execute as many state transitions as possible *)
 	    					(* determine next state *)
 	    yyTablePtr := LOOPHOLE (yyBasePtr [yyState] +
-	       (VAL(ORD (yyChBufferPtr^ [yyChBufferIndex]),LONGCARD )
-               * VAL( SYSTEM.BYTESIZE (yyCombType),LONGCARD)) ,yyCombTypePtr);
+	       (VAL(ORD (yyChBufferPtr^ [yyChBufferIndex]),M2LONGCARD )
+               * VAL( SYSTEM.BYTESIZE (yyCombType),M2LONGCARD)) ,yyCombTypePtr);
 	    IF yyTablePtr^.Check # yyState THEN
 	       yyState := yyDefault [yyState];
 	       IF yyState = yyDNoState THEN EXIT; END;
@@ -225,7 +225,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 (* line 223 "../src/rex.rex" *)
 
 			   IF BraceNestingLevel = 0 THEN
-			      MakeText (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 222
+			      MakeText (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 223
  $$ *));
 			      AssignEmpty (TargetCode);
 			      TargetPos := Attribute.Position;
@@ -245,7 +245,7 @@ yyRestartFlag := FALSE; EXIT;
 			   IF BraceNestingLevel = 0 THEN
 			      yyStart (PrevState);
                               InsideTarget := FALSE; 
-			      Append (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 241
+			      Append (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 242
  $$ *), TargetCode);
 			      Attribute.Position := TargetPos;
 			      RETURN SymTargetcode;
@@ -286,7 +286,7 @@ yyRestartFlag := FALSE; EXIT;
 (* line 265 "../src/rex.rex" *)
 
 			   IF BraceNestingLevel > 0 THEN
-			      Append (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 281
+			      Append (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 282
  $$ *), TargetCode);
 			      AssignEmpty (TargetCode);
 			   END;
@@ -489,7 +489,7 @@ yyRestartFlag := FALSE; EXIT;
 
 			   IF InsideTarget AND ( BraceNestingLevel > 0 ) 
                            THEN
-			      Append (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 483
+			      Append (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 484
  $$ *), TargetCode);
 			      AssignEmpty (TargetCode);
 			   END;
@@ -633,7 +633,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 (* line 390 "../src/rex.rex" *)
 
 			   GetWord (Word);
-			   Attribute.Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 626
+			   Attribute.Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 627
  $$ *)  := MakeIdent (Word);
 			   RETURN SymIdent;
 			
@@ -645,7 +645,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 (* line 396 "../src/rex.rex" *)
 
 			   GetWord (Word);
-			   Attribute.Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 637
+			   Attribute.Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 638
  $$ *) := StringToInt (Word);
 			   RETURN SymNumber;
 			
@@ -658,7 +658,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 
 			   GetWord (Word);
 			   SubString (Word, 2, Length (Word) - 1, TargetCode);
-			   Attribute.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 649
+			   Attribute.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 650
  $$ *) := PutString (TargetCode);
 			   RETURN SymString;
 			
@@ -808,7 +808,7 @@ yyRestartFlag := FALSE; EXIT;
 Attribute.Position.Line   := yyLineCount;
 Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHORTCARD);
 (* line 430 "../src/rex.rex" *)
-Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 798
+Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 799
  $$ *) := '\012'; RETURN SymChar;
 yyRestartFlag := FALSE; EXIT;
 |84
@@ -816,7 +816,7 @@ yyRestartFlag := FALSE; EXIT;
 Attribute.Position.Line   := yyLineCount;
 Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHORTCARD);
 (* line 431 "../src/rex.rex" *)
-Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 805
+Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 806
  $$ *) := '\011'; RETURN SymChar;
 yyRestartFlag := FALSE; EXIT;
 |83
@@ -824,7 +824,7 @@ yyRestartFlag := FALSE; EXIT;
 Attribute.Position.Line   := yyLineCount;
 Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHORTCARD);
 (* line 432 "../src/rex.rex" *)
-Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 812
+Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 813
  $$ *) := '\013'; RETURN SymChar;
 yyRestartFlag := FALSE; EXIT;
 |82
@@ -832,7 +832,7 @@ yyRestartFlag := FALSE; EXIT;
 Attribute.Position.Line   := yyLineCount;
 Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHORTCARD);
 (* line 433 "../src/rex.rex" *)
-Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 819
+Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 820
  $$ *) := '\010'; RETURN SymChar;
 yyRestartFlag := FALSE; EXIT;
 |81
@@ -840,7 +840,7 @@ yyRestartFlag := FALSE; EXIT;
 Attribute.Position.Line   := yyLineCount;
 Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHORTCARD);
 (* line 434 "../src/rex.rex" *)
-Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 826
+Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 827
  $$ *) := '\015'; RETURN SymChar;
 yyRestartFlag := FALSE; EXIT;
 |80
@@ -848,7 +848,7 @@ yyRestartFlag := FALSE; EXIT;
 Attribute.Position.Line   := yyLineCount;
 Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHORTCARD);
 (* line 435 "../src/rex.rex" *)
-Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 833
+Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 834
  $$ *) := '\014'; RETURN SymChar;
 yyRestartFlag := FALSE; EXIT;
 |31
@@ -859,7 +859,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 
 			   GetWord (Word);
 			   SubString (Word, 2, Length (Word), TargetCode);
-			   Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 843
+			   Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 844
  $$ *) := VAL (LOOPHOLE (StringToInt (TargetCode),Word.T),CHAR);
 	  		   RETURN SymChar;
 			
@@ -871,7 +871,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 (* line 444 "../src/rex.rex" *)
 
 			   GetWord (Word);
-			   Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 854
+			   Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 855
  $$ *) := Char (Word, 2);
 	  		   RETURN SymChar;
 			
@@ -886,7 +886,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 (* line 450 "../src/rex.rex" *)
 
 			   GetWord (Word);
-			   Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 868
+			   Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 869
  $$ *) := Char (Word, 1);
 	  		   RETURN SymChar;
 			
@@ -999,8 +999,8 @@ IO.WriteC (IO.StdOutput, yyChBufferPtr^ [yyChBufferIndex-1]);
                           := VAL(  
                                  General.Exp2 
                                   (General.Log2 
-                                     (yyChBufferSize - 4 - VAL(General.MaxAlign,LONGINT) -VAL( TokenLength,LONGINT))
-                                  ),LONGINT
+                                     (yyChBufferSize - 4 - VAL(General.MaxAlign,M2LONGINT) -VAL( TokenLength,M2LONGINT))
+                                  ),M2LONGINT
                                 );
 			IF yyChBufferFree < (yyChBufferSize DIV 8) THEN
 			   DynArray.ExtendArray (yyChBufferPtr, yyChBufferSize, SYSTEM.BYTESIZE (CHAR));
@@ -1009,8 +1009,8 @@ IO.WriteC (IO.StdOutput, yyChBufferPtr^ [yyChBufferIndex-1]);
                              := VAL ( 
                                      General.Exp2 
                                         (General.Log2 
-                                           (yyChBufferSize - 4 - VAL(General.MaxAlign,LONGINT) - VAL(TokenLength,LONGINT))
-                                        ),LONGINT
+                                           (yyChBufferSize - 4 - VAL(General.MaxAlign,M2LONGINT) - VAL(TokenLength,M2LONGINT))
+                                        ),M2LONGINT
                                     );
 			   IF yyStateStackSize < yyChBufferSize THEN
 			      DynArray.ExtendArray (yyStateStack, yyStateStackSize, SYSTEM.BYTESIZE (yyStateRange));
@@ -1020,7 +1020,7 @@ IO.WriteC (IO.StdOutput, yyChBufferPtr^ [yyChBufferIndex-1]);
 			yyChBufferIndex := yyChBufferStart;
 			yyBytesRead := Source.GetLine 
                                  (yySourceFile
-                                  , SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1001
+                                  , SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1002
  $$ *) (yyChBufferPtr^ [yyChBufferIndex])
                                   , VAL ( Word.T  yyChBufferFree, )
                                   );
@@ -1291,7 +1291,7 @@ PROCEDURE yyGetTables() =
    BEGIN
       BlockSize	:= 64000 DIV SYSTEM.BYTESIZE (yyCombType);
       TableFile := System.OpenInput (ScanTabName);
-      Checks.ErrorCheck (ARRAY [0..21] OF CHAR{'y','y','G','e','t','T','a','b','l','e','s','.','O','p','e','n','I','n','p','u','t','\000'}, TableFile);
+      Checks.ErrorCheck ("yyGetTables.OpenInput", TableFile);
       IF ((yyGetTable (TableFile, SYSTEM.ADR (Base[FIRST(Base)]      )) DIV SYSTEM.BYTESIZE (yyTableElmt) - 1) 
          # yyDStateCount) OR
          ((yyGetTable (TableFile, SYSTEM.ADR (yyDefault[FIRST(yyDefault)] )) DIV SYSTEM.BYTESIZE (yyTableElmt) - 1) 
@@ -1304,7 +1304,7 @@ PROCEDURE yyGetTables() =
       n := 0;
       j := 0;
       WHILE j <= yyTableSize DO
-         INC (n, yyGetTable (TableFile, SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1284
+         INC (n, yyGetTable (TableFile, SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1285
  $$ *) (yyComb [VAL(j,SHORTCARD)])) DIV SYSTEM.BYTESIZE (yyCombType));
          INC (j, BlockSize);
       END;
@@ -1312,8 +1312,8 @@ PROCEDURE yyGetTables() =
       System.Close (TableFile);
 
       FOR i := 0 TO yyDStateCount DO
-	 yyBasePtr [i] := LOOPHOLE (SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1291
- $$ *) (yyComb [Base [i]]),LONGCARD);
+	 yyBasePtr [i] := M2LONGCARD (SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1292
+ $$ *) (yyComb [Base [i]]));
       END;
    END yyGetTables;
  
@@ -1323,9 +1323,9 @@ PROCEDURE yyGetTable (TableFile: System.tFile; Address: SYSTEM.ADDRESS): Word.T 
       Length	: yyTableElmt;
    BEGIN
       N := System.Read (TableFile, SYSTEM.ADR (Length), SYSTEM.BYTESIZE (yyTableElmt));
-      Checks.ErrorCheck (ARRAY [0..16] OF CHAR{'y','y','G','e','t','T','a','b','l','e','.','R','e','a','d','1','\000'}, N);
+      Checks.ErrorCheck ("yyGetTable.Read1", N);
       N := System.Read (TableFile, Address, VAL(Length,INTEGER));
-      Checks.ErrorCheck (ARRAY [0..16] OF CHAR{'y','y','G','e','t','T','a','b','l','e','.','R','e','a','d','2','\000'}, N);
+      Checks.ErrorCheck ("yyGetTable.Read2", N);
       RETURN VAL(Word.TLength,);
    END yyGetTable;
  
@@ -1333,12 +1333,12 @@ PROCEDURE yyErrorMessage (ErrorCode: SHORTCARD) =
    BEGIN
       Positions.WritePosition (IO.StdError, Attribute.Position);
       CASE ErrorCode OF
-   | 0=> IO.WriteS (IO.StdError, ARRAY [0..25] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','i','n','t','e','r','n','a','l',' ','e','r','r','o','r','\000'});
-   | 1=> IO.WriteS (IO.StdError, ARRAY [0..24] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','o','u','t',' ','o','f',' ','m','e','m','o','r','y','\000'});
-   | 2=> IO.WriteS (IO.StdError, ARRAY [0..25] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','t','a','b','l','e',' ','m','i','s','m','a','t','c','h','\000'});
-   | 3=> IO.WriteS (IO.StdError, ARRAY [0..40] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','t','o','o',' ','m','a','n','y',' ','n','e','s','t','e','d',' ','i','n','c','l','u','d','e',' ','f','i','l','e','s','\000'});
-   | 4=> IO.WriteS (IO.StdError, ARRAY [0..61] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','f','i','l','e',' ','s','t','a','c','k',' ','u','n','d','e','r','f','l','o','w',' ','(','t','o','o',' ','m','a','n','y',' ','c','a','l','l','s',' ','o','f',' ','C','l','o','s','e','F','i','l','e',')','\000'});
-   | 5=> IO.WriteS (IO.StdError, ARRAY [0..33] OF CHAR{':',' ','S','c','a','n','n','e','r',':',' ','c','a','n','n','o','t',' ','o','p','e','n',' ','i','n','p','u','t',' ','f','i','l','e','\000'});
+   | 0=> IO.WriteS (IO.StdError, ": Scanner: internal error");
+   | 1=> IO.WriteS (IO.StdError, ": Scanner: out of memory");
+   | 2=> IO.WriteS (IO.StdError, ": Scanner: table mismatch");
+   | 3=> IO.WriteS (IO.StdError, ": Scanner: too many nested include files");
+   | 4=> IO.WriteS (IO.StdError, ": Scanner: file stack underflow (too many calls of CloseFile)");
+   | 5=> IO.WriteS (IO.StdError, ": Scanner: cannot open input file");
       END;
       IO.WriteNl (IO.StdError); Exit();
    END yyErrorMessage;
@@ -1349,18 +1349,16 @@ PROCEDURE yyExit() =
    END yyExit;
 
 BEGIN
-   SUBARRAY(ScanTabName		, 0, 11) := ARRAY [0..10] OF CHAR{'S','c','a','n','n','e','r','.','T','a','b'};
-IF NUMBER(ScanTabName) > 11 THEN ScanTabName[FIRST(ScanTabName) + 11] := '\000'; END
-;
+   ScanTabName		:= "Scanner.Tab";
    Exit			:= yyExit;
    yyFileStackPtr	:= 0;
    yyStartState		:= 1;			(* set up for auto init *)
    yyPreviousStart	:= 1;
-   yyBasePtr [yyStartState] := LOOPHOLE (SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1332
- $$ *) (yyComb [0]),LONGCARD);
+   yyBasePtr [yyStartState] := M2LONGCARD (SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1333
+ $$ *) (yyComb [0]));
    yyDefault [yyStartState] := yyDNoState;
    yyComb [0].Check	:= yyDNoState;
-   yyChBufferPtr	:= SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1335
+   yyChBufferPtr	:= SYSTEM.ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1336
  $$ *) (yyComb [0]);	(* dirty trick *)
    yyChBufferIndex	:= 1;				(* dirty trick *)
    yyStateStackSize	:= yyInitBufferSize;

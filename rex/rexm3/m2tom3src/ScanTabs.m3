@@ -112,16 +112,16 @@ PROCEDURE PutTables	(ReduceCaseSize: BOOLEAN) =
       BlockSize	:= 64000 DIV BYTESIZE (ControlType);
       StateCount := DStateCount;
       IF ScannerName = NoIdent THEN
-	 ArrayToString (ARRAY [0..7] OF CHAR{'S','c','a','n','n','e','r','\000'}, PathS);
+	 ArrayToString ("Scanner", PathS);
       ELSE
 	 GetString (ScannerName, PathS);
       END;
-      ArrayToString	(ARRAY [0..4] OF CHAR{'.','T','a','b','\000'}, FileNameS);
+      ArrayToString	(".Tab", FileNameS);
       Concatenate	(PathS, FileNameS);
       Append		(PathS, '\000');
       StringToArray	(PathS, PathA);
       Tables := OpenOutput (PathA);
-      ErrorCheck (ARRAY [0..20] OF CHAR{'P','u','t','T','a','b','l','e','s','.','O','p','e','n','O','u','t','p','u','t','\000'}, Tables);
+      ErrorCheck ("PutTables.OpenOutput", Tables);
       PutTable ((StateCount + 1) * ElmtSize, BasePtr	);
       PutTable ((StateCount + 1) * ElmtSize, DefaultPtr	);
       PutTable ((StateCount + 1) * ElmtSize, EobTransPtr);
@@ -140,9 +140,9 @@ PROCEDURE PutTable (Length: TableElmt; Address: ADDRESS) =
    VAR N	: INTEGER;
    BEGIN
       N := Write (Tables, ADR (Length), ElmtSize);
-      ErrorCheck (ARRAY [0..15] OF CHAR{'P','u','t','T','a','b','l','e','.','W','r','i','t','e','1','\000'}, N);
+      ErrorCheck ("PutTable.Write1", N);
       N := Write (Tables, Address, Length);
-      ErrorCheck (ARRAY [0..15] OF CHAR{'P','u','t','T','a','b','l','e','.','W','r','i','t','e','2','\000'}, N);
+      ErrorCheck ("PutTable.Write2", N);
    END PutTable;
 
 PROCEDURE PutComb	(File: tFile) =
@@ -150,8 +150,8 @@ PROCEDURE PutComb	(File: tFile) =
    BEGIN
       FOR i := 1 TO TableSize DO
 	 WriteC (File, '{');
-	 WriteI (File, ControlPtr^[i].Check, 0); WriteS (File, ARRAY [0..2] OF CHAR{',',' ','\000'});
-	 WriteI (File, ControlPtr^[i].Next , 0); WriteS (File, ARRAY [0..2] OF CHAR{'}',',','\000'}); WriteNl (File);
+	 WriteI (File, ControlPtr^[i].Check, 0); WriteS (File, ", ");
+	 WriteI (File, ControlPtr^[i].Next , 0); WriteS (File, "},"); WriteNl (File);
       END;
    END PutComb;
 
@@ -159,8 +159,8 @@ PROCEDURE PutBase	(File: tFile) =
    VAR i	: INTEGER;
    BEGIN
       FOR i := 1 TO DStateCount DO
-	 WriteS (File, ARRAY [0..10] OF CHAR{'&',' ','y','y','C','o','m','b',' ','[','\000'});
-	 WriteI (File, BasePtr^[i], 0); WriteS (File, ARRAY [0..2] OF CHAR{']',',','\000'}); WriteNl (File);
+	 WriteS (File, "& yyComb [");
+	 WriteI (File, BasePtr^[i], 0); WriteS (File, "],"); WriteNl (File);
       END;
    END PutBase;
 
@@ -441,7 +441,7 @@ PROCEDURE CompressTables (Optimize: SHORTINT) =
 PROCEDURE WriteTables() =
    VAR State	: DStateRange;
    BEGIN
-      WriteS (StdOutput, ARRAY [0..8] OF CHAR{'T','a','b','l','e','s',' ',':','\000'});
+      WriteS (StdOutput, "Tables :");
       WriteNl (StdOutput);
       WriteNl (StdOutput);
       FOR State := 1 TO DStateCount DO
@@ -454,7 +454,7 @@ PROCEDURE QueryTables() =
    VAR State	: DStateRange;
    BEGIN
       LOOP
-	 WriteS (StdOutput, ARRAY [0..8] OF CHAR{'S','t','a','t','e',' ','?',' ','\000'});
+	 WriteS (StdOutput, "State ? ");
 	 IF EndOfLine (StdInput) THEN ReadNl (StdInput); END;
 	 State := ReadI (StdInput);
          IF State = 0 THEN EXIT; END;
@@ -470,7 +470,7 @@ PROCEDURE WriteState (State: DStateRange) =
       Count		: INTEGER;
    BEGIN
       Count := 0;
-      WriteS (StdOutput, ARRAY [0..16] OF CHAR{'S','t','a','t','e',',',' ','D','e','f','a','u','l','t',' ','=','\000'});
+      WriteS (StdOutput, "State, Default =");
       WriteI (StdOutput, State, 5);
       WriteI (StdOutput, DefaultPtr^[State], 5);
       WriteNl (StdOutput);
