@@ -46,7 +46,7 @@ FROM Sets       IMPORT
    IsSubset     , Union         , ReleaseSet    ,
    Maximum      , AssignElmt    , Select        ;
 
-FROM ReuseIO            IMPORT StdOutput, WriteS, WriteNl, WriteC, WriteI;
+FROM ReuseIO            IMPORT StdOutput, WriteT, WriteNl, WriteC, WriteI;
 FROM Layout     IMPORT WriteChar, WriteSpace;
 FROM GenTabs    IMPORT PatternCount, StartStateCount, PatternTablePtr, VariableContext;
 FROM Classes    IMPORT ToClass;
@@ -195,11 +195,11 @@ PROCEDURE WriteDfa() =
    VAR
       Count     : INTEGER;
    BEGIN
-      WriteS (StdOutput, "DFA :");
+      WriteT (StdOutput, "DFA :");
       WriteNl (StdOutput);
       WriteNl (StdOutput);
       FOR State := 1 TO DStateCount DO
-	 WriteS (StdOutput, "State, Default, EobTrans, Semantics, StartSet =");
+	 WriteT (StdOutput, "State, Default, EobTrans, Semantics, StartSet =");
 	 WriteI (StdOutput, State, 5);
 	 WriteI (StdOutput, TablePtr^[State].Default, 5);
 	 WriteI (StdOutput, TablePtr^[State].EobTrans, 5);

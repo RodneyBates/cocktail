@@ -49,31 +49,43 @@ UNSAFE MODULE System
     END NewFileNo
 
 (*EXPORTED*)
-; PROCEDURE OpenInput ( READONLY FileName : ARRAY OF CHAR ) : tFile
+; PROCEDURE OpenInputT (FileNameText: TEXT) : tFile
     RAISES { OSError . E , FileNoError (*No available tFile value.*) } 
-  = VAR FileNameText : TEXT
-  ; VAR RdT : Rd . T
+  = VAR RdT : Rd . T
   ; VAR LResult : tFile
   ; BEGIN
       LResult := NewFileNo ( ) 
-    ; FileNameText := Text . FromChars ( FileName )
     ; RdT := FileRd . Open ( FileNameText )
     ; InMap [ LResult ] := RdT 
     ; RETURN LResult  
+    END OpenInputT
+  
+(*EXPORTED*)
+; PROCEDURE OpenInput ( READONLY FileName : ARRAY OF CHAR ) : tFile
+    RAISES { OSError . E , FileNoError (*No available tFile value.*) } 
+  = VAR LResult : tFile
+  ; BEGIN
+      RETURN OpenInputT (Text . FromChars ( FileName ));
     END OpenInput
   
 (*EXPORTED*)
-; PROCEDURE OpenOutput ( READONLY FileName : ARRAY OF CHAR ) : tFile
+; PROCEDURE OpenOutputT (FileNameText: TEXT) : tFile
     RAISES { OSError . E , FileNoError (*No available tFile value.*)} 
-  = VAR FileNameText : TEXT
-  ; VAR WrT : Wr . T
+  = VAR WrT : Wr . T
   ; VAR LResult : tFile
   ; BEGIN
       LResult := NewFileNo ( ) 
-    ; FileNameText := Text . FromChars ( FileName )
     ; WrT := FileWr . Open ( FileNameText )
     ; OutMap [ LResult ] := WrT 
     ; RETURN LResult  
+    END OpenOutputT
+
+(*EXPORTED*)
+; PROCEDURE OpenOutput ( READONLY FileName : ARRAY OF CHAR ) : tFile
+    RAISES { OSError . E , FileNoError (*No available tFile value.*)} 
+  = VAR LResult : tFile
+  ; BEGIN
+      RETURN OpenOutputT (Text . FromChars ( FileName ));
     END OpenOutput
 
 ; PROCEDURE Test ( VAR Form : ARRAY OF CHAR )

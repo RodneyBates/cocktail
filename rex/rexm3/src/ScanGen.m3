@@ -85,13 +85,12 @@
 
 
 FROM SYSTEM IMPORT SHORTCARD;
-FROM Checks     IMPORT
-   ErrorCheck;
+FROM Checks IMPORT ErrorCheckS;
 
 FROM ReuseIO         IMPORT
    ReadOpen     , WriteOpen     , WriteClose    , ReadClose     ,
-   EndOfFile    , WriteN        , WriteS        , WriteNl       ,
-   WriteC       , WriteI        , tFile         ;
+   EndOfFile    , WriteN        , WriteT        , WriteNl       ,
+   WriteC       , WriteI        , WriteS        , tFile         ;
 
 FROM Texts      IMPORT
    tText        , MakeText      , WriteText     ;
@@ -102,7 +101,7 @@ FROM Sets       IMPORT
 
 FROM Strings    IMPORT
    tString      , Char          , ReadL         , WriteL        ,
-   Length       , ArrayToString , StringToArray , Assign        ,
+   Length       , TextToString  , StringToArray , Assign        ,
    Append       , Concatenate   ;
 
 FROM Idents     IMPORT
@@ -177,7 +176,7 @@ PROCEDURE ExpandLine (Out: tFile; READONLY Line: tString) =
          Ch := Char (Line, i);
          CASE Ch OF
          | '@' => IF ScannerName = NoIdent
-                 THEN WriteS (Out, Scanner); 
+                 THEN WriteT (Out, Scanner); 
                  ELSE WriteIdent (Out, ScannerName); END;
          | '$' => IF ScannerName = NoIdent
                  THEN IF Char (Line, i + 1) = '_' THEN INC (i); END;
@@ -191,8 +190,7 @@ PROCEDURE GenerateSupport() =
    VAR SourceName, DriverName, Suffix   : tString;
 
    PROCEDURE CopyFile
-     (READONLY InputA: ARRAY OF CHAR; READONLY OutputS: tString;
-      READONLY  SuffixA: ARRAY OF CHAR) =
+     (InputA: TEXT; READONLY OutputS: tString; SuffixA: TEXT) =
       VAR
          In, Out        : tFile;
          FileNameS      ,
@@ -201,21 +199,21 @@ PROCEDURE GenerateSupport() =
          LOutputS       : tString;
          PathA          : ARRAY [0..127] OF CHAR;
       BEGIN
-         ArrayToString  (InputA, FileNameS);
+         TextToString  (InputA, FileNameS);
          Assign         (PathS, RexLib);
          Concatenate    (PathS, FileNameS);
          Append         (PathS, '\000');
          StringToArray  (PathS, PathA);
          In := ReadOpen (PathA);
-         ErrorCheck     (PathA, In);
+         ErrorCheckS     (PathA, In);
 
          Assign         (LOutputS, OutputS);
-         ArrayToString  (SuffixA, FileNameS);
+         TextToString  (SuffixA, FileNameS);
          Concatenate    (LOutputS, FileNameS);
          Append         (LOutputS, '\000');
          StringToArray  (LOutputS, PathA);
          Out := WriteOpen (PathA);
-         ErrorCheck     (PathA, Out);
+         ErrorCheckS     (PathA, Out);
 
          WHILE NOT EndOfFile (In) DO
             ReadL       (In, Line);
@@ -231,14 +229,14 @@ PROCEDURE GenerateSupport() =
 
    BEGIN
       Idents.GetString (ScannerName, SourceName);
-      ArrayToString (Source, Suffix);
+      TextToString (Source, Suffix);
       Concatenate (SourceName, Suffix);
       IF ScannerName = NoIdent THEN
-         ArrayToString (Scanner, DriverName);
+         TextToString (Scanner, DriverName);
       ELSE
          Idents.GetString (ScannerName, DriverName);
       END;
-      ArrayToString (Drv, Suffix);
+      TextToString (Drv, Suffix);
       Concatenate (DriverName, Suffix);
       CASE Language OF
       | tLanguage.Modula  => CopyFile (SourceMd    , SourceName, ExtMd);
@@ -260,8 +258,8 @@ PROCEDURE GenerateInterface() =
       PathA     : ARRAY [0..127] OF CHAR;
    BEGIN
       CASE Language OF
-      | tLanguage.Modula  => ArrayToString (ScannerMd, FileNameS);
-      | tLanguage.C       => ArrayToString (ScannerH , FileNameS);
+      | tLanguage.Modula  => TextToString (ScannerMd, FileNameS);
+      | tLanguage.C       => TextToString (ScannerH , FileNameS);
       END;
 
       Assign            (PathS, RexLib);
@@ -269,22 +267,22 @@ PROCEDURE GenerateInterface() =
       Append            (PathS, '\000');
       StringToArray     (PathS, PathA);
       In := ReadOpen    (PathA);
-      ErrorCheck        (PathA, In);
+      ErrorCheckS        (PathA, In);
 
       IF ScannerName = NoIdent THEN
-         ArrayToString (Scanner, PathS);
+         TextToString (Scanner, PathS);
       ELSE
          Idents.GetString (ScannerName, PathS);
       END;
       CASE Language OF
-      | tLanguage.Modula  => ArrayToString (ExtMd, FileNameS);
-      | tLanguage.C       => ArrayToString (ExtH , FileNameS);
+      | tLanguage.Modula  => TextToString (ExtMd, FileNameS);
+      | tLanguage.C       => TextToString (ExtH , FileNameS);
       END;
       Concatenate       (PathS, FileNameS);
       Append            (PathS, '\000');
       StringToArray     (PathS, PathA);
       Out := WriteOpen  (PathA);
-      ErrorCheck        (PathA, Out);
+      ErrorCheckS        (PathA, Out);
 
       WHILE NOT EndOfFile (In) DO
          ReadL (In, Line);
@@ -312,8 +310,8 @@ PROCEDURE GenerateScanner       (ReduceCaseSize, Warnings, GenLine: BOOLEAN) =
    BEGIN
       gGenLine := GenLine;
       CASE Language OF
-      | tLanguage.Modula  => ArrayToString (ScannerMi, FileNameS);
-      | tLanguage.C       => ArrayToString (ScannerC , FileNameS);
+      | tLanguage.Modula  => TextToString (ScannerMi, FileNameS);
+      | tLanguage.C       => TextToString (ScannerC , FileNameS);
       END;
 
       Assign            (PathS, RexLib);
@@ -321,22 +319,22 @@ PROCEDURE GenerateScanner       (ReduceCaseSize, Warnings, GenLine: BOOLEAN) =
       Append            (PathS, '\000');
       StringToArray     (PathS, PathA);
       In := ReadOpen    (PathA);
-      ErrorCheck        (PathA, In);
+      ErrorCheckS        (PathA, In);
 
       IF ScannerName = NoIdent THEN
-         ArrayToString (Scanner, PathS);
+         TextToString (Scanner, PathS);
       ELSE
          Idents.GetString (ScannerName, PathS);
       END;
       CASE Language OF
-      | tLanguage.Modula  => ArrayToString (ExtMi, FileNameS);
-      | tLanguage.C       => ArrayToString (ExtC , FileNameS);
+      | tLanguage.Modula  => TextToString (ExtMi, FileNameS);
+      | tLanguage.C       => TextToString (ExtC , FileNameS);
       END;
       Concatenate       (PathS, FileNameS);
       Append            (PathS, '\000');
       StringToArray     (PathS, PathA);
       Out := WriteOpen  (PathA);
-      ErrorCheck        (PathA, Out);
+      ErrorCheckS        (PathA, Out);
 
       WHILE NOT EndOfFile (In) DO
          ReadL (In, Line);
@@ -403,21 +401,21 @@ PROCEDURE GenerateConstants (Out: tFile) =
       Ident     : tIdent        ;
       Number    : SHORTCARD     ;
    BEGIN
-      ArrayToString             ("yyFirstCh"    , String);
+      TextToString             ("yyFirstCh"    , String);
       GenerateCharConstDef      (Out, String, FirstCh   );
-      ArrayToString             ("yyLastCh"     , String);
+      TextToString             ("yyLastCh"     , String);
       GenerateCharConstDef      (Out, String, OldLastCh );
-      ArrayToString             ("yyEolCh"      , String);
+      TextToString             ("yyEolCh"      , String);
       GenerateCharConstDef      (Out, String, EolCh     );
-      ArrayToString             ("yyEobCh"      , String);
+      TextToString             ("yyEobCh"      , String);
       GenerateCharConstDef      (Out, String, EobCh     );
-      ArrayToString             ("yyDStateCount", String);
+      TextToString             ("yyDStateCount", String);
       GenerateDecConstDef       (Out, String, DStateCount);
-      ArrayToString             ("yyTableSize"  , String);
+      TextToString             ("yyTableSize"  , String);
       GenerateDecConstDef       (Out, String, TableSize );
-      ArrayToString             ("yyEobState"   , String);
+      TextToString             ("yyEobState"   , String);
       GenerateDecConstDef       (Out, String, Select (PatternTablePtr^[EobAction].Finals));
-      ArrayToString             ("yyDefaultState", String);
+      TextToString             ("yyDefaultState", String);
       GenerateDecConstDef       (Out, String, Select (PatternTablePtr^[DefaultAction].Finals));
 
       FOR Definition := 1 TO DefCount DO
@@ -466,25 +464,25 @@ PROCEDURE GenerateActions (Out: tFile; ReduceCaseSize, Warnings: BOOLEAN) =
                   END;
                END;
             ELSIF PatternTablePtr^[Pattern].ContextLng > 0 THEN
-               ArrayToString ("yyChBufferIndex", String);
+               TextToString ("yyChBufferIndex", String);
                GenerateDecrement (Out, String, PatternTablePtr^[Pattern].ContextLng);
                IF Language = tLanguage.C THEN
                   IF ScannerName = NoIdent THEN
-                     ArrayToString ("TokenLength", String);
+                     TextToString ("TokenLength", String);
                   ELSE
                      Idents.GetString (ScannerName, String);
                      Append (String, '_');
-                     ArrayToString ("TokenLength", String2);
+                     TextToString ("TokenLength", String2);
                      Concatenate (String, String2);
                   END;
                ELSE
-                  ArrayToString ("TokenLength", String);
+                  TextToString ("TokenLength", String);
                END;
                GenerateDecrement (Out, String, PatternTablePtr^[Pattern].ContextLng);
             ELSIF PatternTablePtr^[Pattern].ContextLng < 0 THEN
-               WriteS (Out, "yyLess (");
+               WriteT (Out, "yyLess (");
                WriteI (Out, - PatternTablePtr^[Pattern].ContextLng, 0);
-               WriteS (Out, ");");
+               WriteT (Out, ");");
                WriteNl (Out);
             END;
             Rule := PatternTablePtr^[Pattern].Rule;
@@ -496,9 +494,9 @@ PROCEDURE GenerateActions (Out: tFile; ReduceCaseSize, Warnings: BOOLEAN) =
             WriteText (Out, RuleToCodePtr^[Rule].Text);
             IF Language = tLanguage.C THEN
                INC (DummyCount);
-               WriteS (Out, "} yy");
+               WriteT (Out, "} yy");
                WriteI (Out, DummyCount, 0);
-               WriteS (Out, ": ");
+               WriteT (Out, ": ");
             END;
             WriteText (Out, Trailer);
          ELSIF (PatternTablePtr^[Pattern].Position.Line # 0) AND Warnings THEN
@@ -512,12 +510,12 @@ PROCEDURE GenerateDecConstDef (Out: tFile; READONLY Name: tString; Value: INTEGE
       CASE Language OF
       | tLanguage.Modula=>
          Strings.WriteS (Out, Name);
-         WriteS (Out, " = ");
+         WriteT (Out, " = ");
          WriteI (Out, Value, 0);
          WriteC (Out, ';');
          WriteNl (Out);
       | tLanguage.C=>
-         WriteS (Out, "# define ");
+         WriteT (Out, "# define ");
          Strings.WriteS (Out, Name);
          WriteC (Out, ' ');
          WriteI (Out, Value, 0);
@@ -530,20 +528,14 @@ PROCEDURE GenerateCharConstDef (Out: tFile; READONLY Name: tString; Value: CHAR)
       CASE Language OF
       | tLanguage.Modula=>
          Strings.WriteS (Out, Name);
-         WriteS (Out, " = ");
+         WriteT (Out, " = ");
          WriteN (Out, ORD (Value), 1, 8);
-         WriteS (Out, "C;");
+         WriteT (Out, "C;");
          WriteNl (Out);
       | tLanguage.C=>
-         WriteS (Out, "# define ");
+         WriteT (Out, "# define ");
          Strings.WriteS (Out, Name);
-<<<<<<< src.1st/ScanGen.m3
-         WriteS (Out, ARRAY [0..19] OF CHAR{' ','(','u','n','s','i','g','n','e','d',' ','c','h','a','r',')',' ','\'','\'','\000'});
-||||||| m2tom3src.1st/ScanGen.m3
-         WriteS (Out, ARRAY [0..19] OF CHAR{' ','(','u','n','s','i','g','n','e','d',' ','c','h','a','r',')',' ','\'','\','\000'});
-=======
-         WriteS (Out, " (unsigned char) '\");
->>>>>>> m2tom3src/ScanGen.m3
+         WriteT (Out, " (unsigned char) ");
          WriteN (Out, ORD (Value), 1, 8);
          WriteC (Out, '\'');
          WriteNl (Out);
@@ -554,15 +546,15 @@ PROCEDURE GenerateDecrement (Out: tFile; READONLY Name: tString; Value: INTEGER)
    BEGIN
       CASE Language OF
       | tLanguage.Modula=>
-         WriteS (Out, "DEC (");
+         WriteT (Out, "DEC (");
          Strings.WriteS (Out, Name);
-         WriteS (Out, ", ");
+         WriteT (Out, ", ");
          WriteI (Out, Value, 0);
-         WriteS (Out, ");");
+         WriteT (Out, ");");
          WriteNl (Out);
       | tLanguage.C=>
          Strings.WriteS (Out, Name);
-         WriteS (Out, " -= ");
+         WriteT (Out, " -= ");
          WriteI (Out, Value, 0);
          WriteC (Out, ';');
          WriteNl (Out);
@@ -573,12 +565,12 @@ PROCEDURE GenerateCaseLabel (Out: tFile; Label: INTEGER) =
    BEGIN
       CASE Language OF
       | tLanguage.Modula=>
-         WriteS (Out, "| ");
+         WriteT (Out, "| ");
          WriteI (Out, Label, 0);
          WriteC (Out, ':');
          WriteNl (Out);
       | tLanguage.C=>
-         WriteS (Out, "case ");
+         WriteT (Out, "case ");
          WriteI (Out, Label, 0);
          WriteC (Out, ':');
          WriteNl (Out);
@@ -605,9 +597,9 @@ PROCEDURE GenerateCaseLabels (Out: tFile; Set: tSet) =
          WriteNl (Out);
       | tLanguage.C=>
          WHILE NOT IsEmpty (Set) DO
-            WriteS (Out, "case ");
+            WriteT (Out, "case ");
             WriteI (Out, Extract (Set), 0);
-            WriteS (Out, ":;");   (* ; helps to avoid yacc stack overflow in SUN's cc *)
+            WriteT (Out, ":;");   (* ; helps to avoid yacc stack overflow in SUN's cc *)
             WriteNl (Out);
          END;
       END;
@@ -621,7 +613,7 @@ PROCEDURE MakeLabel (): Word.T =
 
 PROCEDURE GenerateGoto (Out: tFile; Label: Word.T) =
    BEGIN
-      WriteS (Out, "goto L");
+      WriteT (Out, "goto L");
       WriteI (Out, Label, 0);
       WriteC (Out, ';');
       WriteNl (Out);
@@ -631,7 +623,7 @@ PROCEDURE GenerateLabel (Out: tFile; Label: Word.T) =
    BEGIN
       WriteC (Out, 'L');
       WriteI (Out, Label, 0);
-      WriteS (Out, ": ;");
+      WriteT (Out, ": ;");
       WriteNl (Out);
    END GenerateLabel;
 
@@ -640,69 +632,69 @@ PROCEDURE WriteLine (Out: tFile; Line: SHORTCARD) =
       IF Line # 0 THEN
          CASE Language OF
          | tLanguage.Modula=>
-            WriteS (Out, "(* line ");
+            WriteT (Out, "(* line ");
             WriteI (Out, Line, 0);
-            WriteS (Out, " "");
+            WriteT (Out, " \"");
             WriteS (Out, SourceFile);
-            WriteS (Out, "" *)");
+            WriteT (Out, "\" *)");
             WriteNl (Out);
          | tLanguage.C=>
             IF gGenLine THEN
-               WriteS (Out, "# line ");
+               WriteT (Out, "# line ");
                WriteI (Out, Line, 0);
-               WriteS (Out, " "");
+               WriteT (Out, " \"");
                WriteS (Out, SourceFile);
-               WriteS (Out, ARRAY [0..1] OF CHAR{'"','\000'});
+               WriteT (Out, "\"\000");
             ELSE
-               WriteS (Out, "/* line ");
+               WriteT (Out, "/* line ");
                WriteI (Out, Line, 0);
-               WriteS (Out, " "");
+               WriteT (Out, " \"");
                WriteS (Out, SourceFile);
-               WriteS (Out, "" */");
+               WriteT (Out, "\" */");
             END;
             WriteNl (Out);
          END;
       END;
    END WriteLine;
 
-PROCEDURE ConvertAppend (READONLY a: ARRAY OF CHAR; VAR Text: tText) =
+PROCEDURE ConvertAppend (a: TEXT; VAR Text: tText) =
    VAR String   : tString;
    BEGIN
-      ArrayToString (a, String);
+      TextToString (a, String);
       Texts.Append  (Text, String);
    END ConvertAppend;
 
-PROCEDURE ConvertAppend2 (READONLY a1, a2: ARRAY OF CHAR; VAR Text: tText) =
+PROCEDURE ConvertAppend2 (a1, a2: TEXT; VAR Text: tText) =
    VAR String1, String2 : tString;
    BEGIN
-      ArrayToString (a1, String1);
+      TextToString (a1, String1);
       IF ScannerName # NoIdent THEN
          Idents.GetString (ScannerName, String2);
          Concatenate (String1, String2);
          Append (String1, '_');
       END;
-      ArrayToString (a2, String2);
+      TextToString (a2, String2);
       Concatenate (String1, String2);
       Texts.Append  (Text, String1);
    END ConvertAppend2;
 
-PROCEDURE ConvertAppend3 (READONLY a1, a2, a3: ARRAY OF CHAR; VAR Text: tText) =
+PROCEDURE ConvertAppend3 (a1, a2, a3: TEXT; VAR Text: tText) =
    VAR String1, String2 : tString;
    BEGIN
-      ArrayToString (a1, String1);
+      TextToString (a1, String1);
       IF ScannerName # NoIdent THEN
          Idents.GetString (ScannerName, String2);
          Concatenate (String1, String2);
          Append (String1, '_');
       END;
-      ArrayToString (a2, String2);
+      TextToString (a2, String2);
       Concatenate (String1, String2);
       IF ScannerName # NoIdent THEN
          Idents.GetString (ScannerName, String2);
          Concatenate (String1, String2);
          Append (String1, '_');
       END;
-      ArrayToString (a3, String2);
+      TextToString (a3, String2);
       Concatenate (String1, String2);
       Texts.Append  (Text, String1);
    END ConvertAppend3;
@@ -787,54 +779,24 @@ END;
 
    ConvertAppend ("while (* yyStatePtr != "                     , Context1);
 
-<<<<<<< src.1st/ScanGen.m3
-   ConvertAppend (ARRAY [0..3] OF CHAR{')',' ','{','\000'}                                         , Context2);
-   ConvertAppend (ARRAY [0..22] OF CHAR{' ',' ',' ','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x',' ','-','-',';','\000'}                      , Context2);
-   ConvertAppend2(ARRAY [0..3] OF CHAR{' ',' ',' ','\000'}, ARRAY [0..15] OF CHAR{'T','o','k','e','n','L','e','n','g','t','h',' ','-','-',';','\000'}                      , Context2);
-   ConvertAppend (ARRAY [0..17] OF CHAR{' ',' ',' ','y','y','S','t','a','t','e','P','t','r',' ','-','-',';','\000'}                           , Context2);
-   ConvertAppend (ARRAY [0..1] OF CHAR{'}','\000'}                                           , Context2);
-||||||| m2tom3src.1st/ScanGen.m3
-   ConvertAppend (ARRAY [0..3] OF CHAR{')',' ','{','\000'}                                         , Context2);
-   ConvertAppend (ARRAY [0..22] OF CHAR{' ',' ',' ','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x',' ','-','-',';','\000'}                      , Context2);
-   ConvertAppend2(ARRAY [0..3] OF CHAR{' ',' ',' ','\000'}, ARRAY [0..15] OF CHAR{'T','o','k','e','n','L','e','n','g','t','h',' ','-','-',';','\000'}                      , Context2);
-   ConvertAppend (ARRAY [0..17] OF CHAR{' ',' ',' ','y','y','S','t','a','t','e','P','t','r',' ','-','-',';','\000'}                           , Context2);
-   ConvertAppend ('}'                                           , Context2);
-=======
    ConvertAppend (") {"                                         , Context2);
    ConvertAppend ("   yyChBufferIndex --;"                      , Context2);
    ConvertAppend2("   ", "TokenLength --;"                      , Context2);
    ConvertAppend ("   yyStatePtr --;"                           , Context2);
-   ConvertAppend ('}'                                           , Context2);
->>>>>>> m2tom3src/ScanGen.m3
+   ConvertAppend ("}"                                           , Context2);
 
    ConvertAppend ("for (;;) {"                                  , Context3);
    ConvertAppend ("   switch (* yyStatePtr) {"                  , Context3);
 
-<<<<<<< src.1st/ScanGen.m3
-   ConvertAppend (ARRAY [0..11] OF CHAR{' ',' ',' ','d','e','f','a','u','l','t',':','\000'}                                 , Context4);
-   ConvertAppend (ARRAY [0..25] OF CHAR{' ',' ',' ',' ',' ',' ','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x',' ','-','-',';','\000'}                   , Context4);
-   ConvertAppend2(ARRAY [0..6] OF CHAR{' ',' ',' ',' ',' ',' ','\000'}, ARRAY [0..15] OF CHAR{'T','o','k','e','n','L','e','n','g','t','h',' ','-','-',';','\000'}                   , Context4);
-   ConvertAppend (ARRAY [0..20] OF CHAR{' ',' ',' ',' ',' ',' ','y','y','S','t','a','t','e','P','t','r',' ','-','-',';','\000'}                        , Context4);
-   ConvertAppend (ARRAY [0..4] OF CHAR{' ',' ',' ','}','\000'}                                        , Context4);
-   ConvertAppend (ARRAY [0..1] OF CHAR{'}','\000'}                                           , Context4);
-||||||| m2tom3src.1st/ScanGen.m3
-   ConvertAppend (ARRAY [0..11] OF CHAR{' ',' ',' ','d','e','f','a','u','l','t',':','\000'}                                 , Context4);
-   ConvertAppend (ARRAY [0..25] OF CHAR{' ',' ',' ',' ',' ',' ','y','y','C','h','B','u','f','f','e','r','I','n','d','e','x',' ','-','-',';','\000'}                   , Context4);
-   ConvertAppend2(ARRAY [0..6] OF CHAR{' ',' ',' ',' ',' ',' ','\000'}, ARRAY [0..15] OF CHAR{'T','o','k','e','n','L','e','n','g','t','h',' ','-','-',';','\000'}                   , Context4);
-   ConvertAppend (ARRAY [0..20] OF CHAR{' ',' ',' ',' ',' ',' ','y','y','S','t','a','t','e','P','t','r',' ','-','-',';','\000'}                        , Context4);
-   ConvertAppend (ARRAY [0..4] OF CHAR{' ',' ',' ','}','\000'}                                        , Context4);
-   ConvertAppend ('}'                                           , Context4);
-=======
    ConvertAppend ("   default:"                                 , Context4);
    ConvertAppend ("      yyChBufferIndex --;"                   , Context4);
    ConvertAppend2("      ", "TokenLength --;"                   , Context4);
    ConvertAppend ("      yyStatePtr --;"                        , Context4);
    ConvertAppend ("   }"                                        , Context4);
-   ConvertAppend ('}'                                           , Context4);
->>>>>>> m2tom3src/ScanGen.m3
+   ConvertAppend ("}"                                           , Context4);
 
 IF Texts.IsEmpty (Export) THEN
-   ConvertAppend ("# include "Positions.h""                     , Export);
+   ConvertAppend ("# include \"Positions.h\""                   , Export);
    ConvertAppend2("typedef struct { tPosition Position; } ", "tScanAttribute;", Export);
    ConvertAppend3("extern void ", "ErrorAttribute ARGS((int Token, ", "tScanAttribute * Attribute));", Export);
 END;

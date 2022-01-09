@@ -16,20 +16,32 @@
 
  UNSAFE MODULE Checks;
 
-FROM ReuseIO		IMPORT StdError, WriteS, WriteI, WriteNl;
+FROM ReuseIO		IMPORT StdError, WriteS, WriteT, WriteI, WriteNl;
 FROM System	IMPORT ErrNum;
 
-PROCEDURE ErrorCheck (READONLY s: ARRAY OF CHAR; n: INTEGER) =
+PROCEDURE ErrorCheckS (READONLY s:ARRAY OF CHAR ; n: INTEGER) =
    BEGIN
       IF n < 0 THEN
 	 WriteS (StdError, s);
-	 WriteS (StdError, ARRAY [0..3] OF CHAR{' ',':',' ','\000'});
+	 WriteT (StdError, " : \000");
 	 WriteI (StdError, n, 2);
-	 WriteS (StdError, ARRAY [0..14] OF CHAR{',',' ','e','r','r','n','o',' ',' ',' ',' ',' ','=',' ','\000'});
+	 WriteT (StdError, ", errno     = \000");
 	 WriteI (StdError, ErrNum (), 2);
 	 WriteNl (StdError);
       END;
-   END ErrorCheck;
+   END ErrorCheckS;
+
+PROCEDURE ErrorCheckT (s:TEXT ; n: INTEGER) =
+   BEGIN
+      IF n < 0 THEN
+	 WriteT (StdError, s);
+	 WriteT (StdError, " : \000");
+	 WriteI (StdError, n, 2);
+	 WriteT (StdError, ", errno     = \000");
+	 WriteI (StdError, ErrNum (), 2);
+	 WriteNl (StdError);
+      END;
+   END ErrorCheckT;
 
 BEGIN
 END Checks.

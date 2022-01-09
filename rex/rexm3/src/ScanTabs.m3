@@ -49,151 +49,143 @@
 
  UNSAFE MODULE ScanTabs;
 
+IMPORT Word;
 
 FROM SYSTEM IMPORT M2LONGINT;
 FROM SYSTEM IMPORT SHORTINT, SHORTCARD;
-IMPORT Word;
-FROM Checks	IMPORT ErrorCheck;
-FROM General	IMPORT Min, Max;
-FROM Memory	IMPORT Alloc;
-FROM DynArray	IMPORT MakeArray, ExtendArray, ReleaseArray;
-FROM Strings	IMPORT tString, ArrayToString, Append, Concatenate, StringToArray;
-FROM Idents	IMPORT tIdent, NoIdent, GetString;
-FROM Sets	IMPORT tSet, MakeSet, IsElement, Minimum, Maximum, IsEmpty,
-			AssignEmpty, Union, Include;
-FROM System	IMPORT tFile, OpenOutput, OpenInput, Read, Write;
-FROM ReuseIO		IMPORT StdInput, StdOutput, WriteS, WriteNl, WriteC, WriteI,
-			ReadI, ReadNl, EndOfLine;
-FROM Layout	IMPORT WriteSpace, WriteChar;
-FROM Dfa	IMPORT DStateCount, DStateRange, GetFirst, GetLast, FirstCh,
-			OldLastCh, DNoState, GetDefault, GetTableNoDef, GetEobTrans;
-FROM GenTabs	IMPORT PatternTablePtr, PatternCount, LeafCount;
-FROM Classes	IMPORT ClassCount, ClassMemPtr, ToClass, ToChar;
-FROM ScanGen	IMPORT ScannerName;
+IMPORT Strings;
+FROM Checks     IMPORT ErrorCheckT;
+FROM General    IMPORT Min, Max;
+FROM Memory     IMPORT Alloc;
+FROM DynArray   IMPORT MakeArray, ExtendArray, ReleaseArray;
+FROM Strings    IMPORT tString, ArrayToString, Append, Concatenate, StringToArray;
+FROM Idents     IMPORT tIdent, NoIdent, GetString;
+FROM Sets       IMPORT tSet, MakeSet, IsElement, Minimum, Maximum, IsEmpty,
+                        AssignEmpty, Union, Include;
+FROM System     IMPORT tFile, OpenOutput, OpenInput, Read, Write;
+FROM ReuseIO            IMPORT StdInput, StdOutput, WriteT, WriteNl, WriteC, WriteI,
+                        ReadI, ReadNl, EndOfLine;
+FROM Layout     IMPORT WriteSpace, WriteChar;
+FROM Dfa        IMPORT DStateCount, DStateRange, GetFirst, GetLast, FirstCh,
+                        OldLastCh, DNoState, GetDefault, GetTableNoDef, GetEobTrans;
+FROM GenTabs    IMPORT PatternTablePtr, PatternCount, LeafCount;
+FROM Classes    IMPORT ClassCount, ClassMemPtr, ToClass, ToChar;
+FROM ScanGen    IMPORT ScannerName;
 
-VAR Tables	: tFile;
-VAR ElmtSize	: TableElmt;
+VAR Tables      : tFile;
+VAR ElmtSize    : TableElmt;
 
 (*
 PROCEDURE GetTables;
    BEGIN
-      Tables    	:= OpenInput ("Scan.Tab");
-      ErrorCheck	("GetTables.OpenInput", Tables);
-      DStateCount	:= GetTable (BasePtr	) DIV ElmtSize - 1;
-      DStateCount	:= GetTable (DefaultPtr	) DIV ElmtSize - 1;
-      DStateCount	:= GetTable (EobTransPtr) DIV ElmtSize - 1;
+      Tables            := OpenInput ("Scan.Tab");
+      ErrorCheckT        ("GetTables.OpenInput", Tables);
+      DStateCount       := GetTable (BasePtr    ) DIV ElmtSize - 1;
+      DStateCount       := GetTable (DefaultPtr ) DIV ElmtSize - 1;
+      DStateCount       := GetTable (EobTransPtr) DIV ElmtSize - 1;
       IF ReduceCaseSize THEN
-	 DStateCount	:= GetTable (ActionPtr	) DIV ElmtSize - 1;
+         DStateCount    := GetTable (ActionPtr  ) DIV ElmtSize - 1;
       END;
-      TableSize		:= GetTable (ControlPtr	) DIV TSIZE (ControlType) - 1;
+      TableSize         := GetTable (ControlPtr ) DIV TSIZE (ControlType) - 1;
    END GetTables;
 
 PROCEDURE GetTable (Address: ADDRESS): CARDINAL;
    VAR
-      N		: INTEGER;
-      Length	: TableElmt;
+      N         : INTEGER;
+      Length    : TableElmt;
    BEGIN
       N := Read (Tables, ADR (Length), ElmtSize);
-      ErrorCheck ("GetTable.Read1", N);
+      ErrorCheckT ("GetTable.Read1", N);
       N := Read (Tables, Address, Length);
-      ErrorCheck ("GetTable.Read2", N);
+      ErrorCheckT ("GetTable.Read2", N);
       RETURN Length;
    END GetTable;
 *)
 
-PROCEDURE PutTables	(ReduceCaseSize: BOOLEAN) =
+PROCEDURE PutTables     (ReduceCaseSize: BOOLEAN) =
    VAR
-      BlockSize	,
-      i		: Word.T;
+      BlockSize ,
+      i         : Word.T;
       StateCount: StateRange;
-      FileNameS	,
-      PathS	: tString;
-      PathA	: ARRAY [0..127] OF CHAR;
+      FileNameS ,
+      PathS     : tString;
+      PathA     : ARRAY [0..127] OF CHAR;
    BEGIN
-      BlockSize	:= 64000 DIV BYTESIZE (ControlType);
+      BlockSize := 64000 DIV BYTESIZE (ControlType);
       StateCount := DStateCount;
       IF ScannerName = NoIdent THEN
-	 ArrayToString ("Scanner", PathS);
+         Strings.TextToString ("Scanner", PathS);
       ELSE
-	 GetString (ScannerName, PathS);
+         GetString (ScannerName, PathS);
       END;
-      ArrayToString	(".Tab", FileNameS);
-      Concatenate	(PathS, FileNameS);
-      Append		(PathS, '\000');
-      StringToArray	(PathS, PathA);
+      Strings.TextToString     (".Tab", FileNameS);
+      Concatenate       (PathS, FileNameS);
+      Append            (PathS, '\000');
+      StringToArray     (PathS, PathA);
       Tables := OpenOutput (PathA);
-      ErrorCheck ("PutTables.OpenOutput", Tables);
-      PutTable ((StateCount + 1) * ElmtSize, BasePtr	);
-      PutTable ((StateCount + 1) * ElmtSize, DefaultPtr	);
+      ErrorCheckT ("PutTables.OpenOutput", Tables);
+      PutTable ((StateCount + 1) * ElmtSize, BasePtr    );
+      PutTable ((StateCount + 1) * ElmtSize, DefaultPtr );
       PutTable ((StateCount + 1) * ElmtSize, EobTransPtr);
       IF ReduceCaseSize THEN
-	 PutTable ((StateCount + 1) * ElmtSize, ActionPtr);
+         PutTable ((StateCount + 1) * ElmtSize, ActionPtr);
       END;
       i := 0;
       WHILE i <= TableSize DO
-	 PutTable (Min (BlockSize, TableSize + 1 - i) * BYTESIZE (ControlType), ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 131
+         PutTable (Min (BlockSize, TableSize + 1 - i) * BYTESIZE (ControlType), ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 131
  $$ *) (ControlPtr^[i]));
          INC (i, BlockSize);
       END;
    END PutTables;
 
 PROCEDURE PutTable (Length: TableElmt; Address: ADDRESS) =
-   VAR N	: INTEGER;
+   VAR N        : INTEGER;
    BEGIN
       N := Write (Tables, ADR (Length), ElmtSize);
-      ErrorCheck ("PutTable.Write1", N);
+      ErrorCheckT ("PutTable.Write1", N);
       N := Write (Tables, Address, Length);
-      ErrorCheck ("PutTable.Write2", N);
+      ErrorCheckT ("PutTable.Write2", N);
    END PutTable;
 
-PROCEDURE PutComb	(File: tFile) =
-   VAR i	: TableRange;
+PROCEDURE PutComb       (File: tFile) =
    BEGIN
       FOR i := 1 TO TableSize DO
-	 WriteC (File, '{');
-	 WriteI (File, ControlPtr^[i].Check, 0); WriteS (File, ", ");
-	 WriteI (File, ControlPtr^[i].Next , 0); WriteS (File, "},"); WriteNl (File);
+         WriteC (File, '{');
+         WriteI (File, ControlPtr^[i].Check, 0); WriteT (File, ", ");
+         WriteI (File, ControlPtr^[i].Next , 0); WriteT (File, "},"); WriteNl (File);
       END;
    END PutComb;
 
-PROCEDURE PutBase	(File: tFile) =
-   VAR i	: INTEGER;
+PROCEDURE PutBase       (File: tFile) =
    BEGIN
       FOR i := 1 TO DStateCount DO
-	 WriteS (File, "& yyComb [");
-	 WriteI (File, BasePtr^[i], 0); WriteS (File, "],"); WriteNl (File);
+         WriteT (File, "& yyComb [");
+         WriteI (File, BasePtr^[i], 0); WriteT (File, "],"); WriteNl (File);
       END;
    END PutBase;
 
-PROCEDURE PutDefault	(File: tFile) =
-   VAR i	: INTEGER;
+PROCEDURE PutDefault    (File: tFile) =
    BEGIN
       FOR i := 1 TO DStateCount DO
-	 WriteI (File, DefaultPtr^[i], 0); WriteC (File, ','); WriteNl (File);
+         WriteI (File, DefaultPtr^[i], 0); WriteC (File, ','); WriteNl (File);
       END;
    END PutDefault;
 
-PROCEDURE PutEobTrans	(File: tFile) =
-   VAR i	: INTEGER;
+PROCEDURE PutEobTrans   (File: tFile) =
    BEGIN
       FOR i := 1 TO DStateCount DO
-	 WriteI (File, EobTransPtr^[i], 0); WriteC (File, ','); WriteNl (File);
+         WriteI (File, EobTransPtr^[i], 0); WriteC (File, ','); WriteNl (File);
       END;
    END PutEobTrans;
 
-PROCEDURE PutAction	(File: tFile) =
-   VAR i	: INTEGER;
+PROCEDURE PutAction     (File: tFile) =
    BEGIN
       FOR i := 1 TO DStateCount DO
-	 WriteI (File, ActionPtr^[i], 0); WriteC (File, ','); WriteNl (File);
+         WriteI (File, ActionPtr^[i], 0); WriteC (File, ','); WriteNl (File);
       END;
    END PutAction;
 
-PROCEDURE MakeTables	(ReduceCaseSize: BOOLEAN) =
-   VAR
-      State	: DStateRange;
-      cState	: Word.T;
-      Pattern	: SHORTCARD;
+PROCEDURE MakeTables    (ReduceCaseSize: BOOLEAN) =
    BEGIN
       DefaultSize := DStateCount + 1;
       MakeArray (LOOPHOLE(DefaultPtr,ADDRESS) , DefaultSize, BYTESIZE (StateRange));
@@ -201,78 +193,76 @@ PROCEDURE MakeTables	(ReduceCaseSize: BOOLEAN) =
       DefaultPtr ^[DNoState] := DNoState;
       EobTransPtr^[DNoState] := DNoState;
       FOR State := 1 TO DStateCount DO
-	 DefaultPtr ^[State] := GetDefault  (State);
-	 EobTransPtr^[State] := GetEobTrans (State);
+         DefaultPtr ^[State] := GetDefault  (State);
+         EobTransPtr^[State] := GetEobTrans (State);
       END;
       IF ReduceCaseSize THEN
-	 MakeArray (LOOPHOLE(ActionPtr,ADDRESS), DefaultSize, BYTESIZE (TableElmt));
-	 ActionPtr^[DNoState] := DNoState;
-	 FOR State := 1 TO DStateCount DO
-	    ActionPtr^[State] := PatternCount + 1;
-	 END;
-	 FOR Pattern := 1 TO PatternCount DO
-	    FOR cState := Minimum (PatternTablePtr^[Pattern].Finals) TO
-			  Maximum (PatternTablePtr^[Pattern].Finals) DO
-	       IF IsElement (cState, PatternTablePtr^[Pattern].Finals) THEN
-		  ActionPtr^[cState] := Pattern;
-	       END;
-	    END;
-	 END;
+         MakeArray (LOOPHOLE(ActionPtr,ADDRESS), DefaultSize, BYTESIZE (TableElmt));
+         ActionPtr^[DNoState] := DNoState;
+         FOR State := 1 TO DStateCount DO
+            ActionPtr^[State] := PatternCount + 1;
+         END;
+         FOR Pattern := 1 TO PatternCount DO
+            FOR cState := Minimum (PatternTablePtr^[Pattern].Finals) TO
+                          Maximum (PatternTablePtr^[Pattern].Finals) DO
+               IF IsElement (cState, PatternTablePtr^[Pattern].Finals) THEN
+                  ActionPtr^[cState] := Pattern;
+               END;
+            END;
+         END;
       END;
    END MakeTables;
 
 PROCEDURE CompressTables (Optimize: SHORTINT) =
    TYPE
-      DiffsInfoPtr	= UNTRACED BRANDED REF  DiffsInfo;
-      DiffsInfo		= RECORD
-			     DiffsPtr	: UNTRACED BRANDED REF  ARRAY [1 .. 256] OF CHAR;
-			     Next	: DiffsInfoPtr	;
-			     Base	: TableRange	;
-			     Count	: SHORTCARD	;
-			  END;
+      DiffsInfoPtr      = UNTRACED BRANDED REF  DiffsInfo;
+      DiffsInfo         = RECORD
+                             DiffsPtr   : UNTRACED BRANDED REF  ARRAY [1 .. 256] OF CHAR;
+                             Next       : DiffsInfoPtr  ;
+                             Base       : TableRange    ;
+                             Count      : SHORTCARD     ;
+                          END;
    VAR
-      base		: TableRange;
-      lbase		: M2LONGINT;
-      State		: DStateRange;
-      Success		: BOOLEAN;
-      Ch, LastElmt	: CHAR;
-      OldControlSize	: M2LONGINT;
-      i			: INTEGER;
-      j			: Word.T;
-      Hash		: SHORTINT;
-      Group		: ARRAY [0 .. 128] OF RECORD First, Last: CHAR; END;
-      GroupCount	: Word.T;
-      Diffs		: ARRAY [0 .. 256] OF CHAR;
-      StartCh, StopCh	: CHAR;
-      HashTablePtr	: UNTRACED BRANDED REF  ARRAY [0 .. 100000] OF DiffsInfoPtr;
-      HashTableSize	: M2LONGINT;
-      Current		: DiffsInfoPtr;
-      Domain		: tSet;
+      base              : TableRange;
+      lbase             : M2LONGINT;
+      Success           : BOOLEAN;
+      Ch, LastElmt      : CHAR;
+      OldControlSize    : M2LONGINT;
+      j                 : Word.T;
+      Hash              : SHORTINT;
+      Group             : ARRAY [0 .. 128] OF RECORD First, Last: CHAR; END;
+      GroupCount        : Word.T;
+      Diffs             : ARRAY [0 .. 256] OF CHAR;
+      StartCh, StopCh   : CHAR;
+      HashTablePtr      : UNTRACED BRANDED REF  ARRAY [0 .. 100000] OF DiffsInfoPtr;
+      HashTableSize     : M2LONGINT;
+      Current           : DiffsInfoPtr;
+      Domain            : tSet;
    BEGIN
       BaseSize := DStateCount + 1;
       MakeArray (LOOPHOLE(BasePtr,ADDRESS), BaseSize, BYTESIZE (TableRange));
       FOR State := 0 TO DStateCount DO
-	 BasePtr^[State] := 0;
+         BasePtr^[State] := 0;
       END;
 
       IF Optimize = 0 THEN
-	 ControlSize := LeafCount * 60;
+         ControlSize := LeafCount * 60;
       ELSIF Optimize >= 10000 THEN
-	 ControlSize := DStateCount * 5;
+         ControlSize := DStateCount * 5;
       ELSE
-	 ControlSize := LeafCount * 12;
+         ControlSize := LeafCount * 12;
       END;
       ControlSize := Max (ControlSize, LOOPHOLE (ORD (OldLastCh),M2LONGINT) + 1);
       MakeArray (LOOPHOLE(ControlPtr,ADDRESS), ControlSize, BYTESIZE (ControlType));
       FOR i := 0 TO ControlSize - 1 DO
-	 ControlPtr^[i].Check := DNoState;
-	 ControlPtr^[i].Next  := DNoState;
+         ControlPtr^[i].Check := DNoState;
+         ControlPtr^[i].Next  := DNoState;
       END;
 
       HashTableSize := DStateCount;
       MakeArray (LOOPHOLE(HashTablePtr,ADDRESS), HashTableSize, BYTESIZE (DiffsInfoPtr));
       FOR i := 0 TO HashTableSize - 1 DO
-	 HashTablePtr^[i] := NIL;
+         HashTablePtr^[i] := NIL;
       END;
 
       MakeSet (Domain, ORD (OldLastCh));
@@ -282,225 +272,223 @@ PROCEDURE CompressTables (Optimize: SHORTINT) =
 
       FOR State := 1 TO DStateCount DO
 
-	 (* SPEC Success := EXISTS base : FORALL Ch IN CHAR :
-			      (Table [State, Ch]       # DNoState) AND
-			      (Check [base + ORD (Ch)] # DNoState)     *)
+         (* SPEC Success := EXISTS base : FORALL Ch IN CHAR :
+                              (Table [State, Ch]       # DNoState) AND
+                              (Check [base + ORD (Ch)] # DNoState)     *)
 
-	 (* turn the row Table [State, ...] into a list of ranges (groups) *)
+         (* turn the row Table [State, ...] into a list of ranges (groups) *)
 
-	 AssignEmpty (Domain);
-	 Ch	    := GetFirst (State);
-	 LastElmt   := GetLast  (State);
+         AssignEmpty (Domain);
+         Ch         := GetFirst (State);
+         LastElmt   := GetLast  (State);
 
-	 IF Ch <= LastElmt THEN			(* map classes to characters *)
-	    LOOP
-	       IF GetTableNoDef (State, Ch) # DNoState THEN
-		  IF Ch <= ClassCount THEN
-		     Union (Domain, ClassMemPtr^[Ch]);
-		  ELSE
-		     Include (Domain, ORD (ToChar [Ch]));
-		  END;
-	       END;
-	       IF Ch = LastElmt THEN EXIT; END;
-	       INC (Ch);
-	    END;
-	 END;
+         IF Ch <= LastElmt THEN                 (* map classes to characters *)
+            LOOP
+               IF GetTableNoDef (State, Ch) # DNoState THEN
+                  IF Ch <= ClassCount THEN
+                     Union (Domain, ClassMemPtr^[Ch]);
+                  ELSE
+                     Include (Domain, ORD (ToChar [Ch]));
+                  END;
+               END;
+               IF Ch = LastElmt THEN EXIT; END;
+               INC (Ch);
+            END;
+         END;
 
-	 GroupCount := 0;
-	 IF NOT IsEmpty (Domain) THEN
-	    Ch	     := VAL (Minimum (Domain),CHAR);
-	    LastElmt := VAL (Maximum (Domain),CHAR);
+         GroupCount := 0;
+         IF NOT IsEmpty (Domain) THEN
+            Ch       := VAL (Minimum (Domain),CHAR);
+            LastElmt := VAL (Maximum (Domain),CHAR);
 
-	    IF Ch <= LastElmt THEN		(* arrange into groups *)
-	       LOOP
-		  LOOP
-		     IF Ch = LastElmt THEN EXIT; END;
-		     IF NOT IsElement (ORD (Ch), Domain) THEN INC (Ch); ELSE EXIT; END;
-		  END;
+            IF Ch <= LastElmt THEN              (* arrange into groups *)
+               LOOP
+                  LOOP
+                     IF Ch = LastElmt THEN EXIT; END;
+                     IF NOT IsElement (ORD (Ch), Domain) THEN INC (Ch); ELSE EXIT; END;
+                  END;
 
-		  IF IsElement (ORD (Ch), Domain) THEN
-		     INC (GroupCount);
-		     Group [GroupCount].First := Ch;
-		     LOOP
-			IF Ch = LastElmt THEN EXIT; END;
-			IF IsElement (ORD (Ch), Domain) THEN INC (Ch); ELSE EXIT; END;
-		     END;
-		     IF IsElement (ORD (Ch), Domain) THEN
-			Group [GroupCount].Last := Ch;
-		     ELSE
-			Group [GroupCount].Last := VAL (ORD (Ch) - 1,CHAR);
-		     END;
-		  END;
-		  IF Ch = LastElmt THEN EXIT; END;
-	       END;
-	    END;
-	 END;
+                  IF IsElement (ORD (Ch), Domain) THEN
+                     INC (GroupCount);
+                     Group [GroupCount].First := Ch;
+                     LOOP
+                        IF Ch = LastElmt THEN EXIT; END;
+                        IF IsElement (ORD (Ch), Domain) THEN INC (Ch); ELSE EXIT; END;
+                     END;
+                     IF IsElement (ORD (Ch), Domain) THEN
+                        Group [GroupCount].Last := Ch;
+                     ELSE
+                        Group [GroupCount].Last := VAL (ORD (Ch) - 1,CHAR);
+                     END;
+                  END;
+                  IF Ch = LastElmt THEN EXIT; END;
+               END;
+            END;
+         END;
 
-	 base := 0;
-	 IF GroupCount > 0 THEN			(* search for a usable base *)
+         base := 0;
+         IF GroupCount > 0 THEN                 (* search for a usable base *)
 
-	    Hash := 0;
-	    FOR j := 1 TO GroupCount DO		(* compute distances of ranges *)
-	       Diffs [j + j - 1] := VAL (ORD (Group [j].First) - ORD (Group [j-1].Last),CHAR);
-	       Diffs [j + j    ] := VAL (ORD (Group [j].Last) - ORD (Group [j].First),CHAR);
-	       INC (Hash, (ORD (Diffs [j + j - 1]) + ORD (Diffs [j + j])) * j);
-	    END;
-	    Hash := Hash MOD DStateCount;	(* hash distances *)
+            Hash := 0;
+            FOR j := 1 TO GroupCount DO         (* compute distances of ranges *)
+               Diffs [j + j - 1] := VAL (ORD (Group [j].First) - ORD (Group [j-1].Last),CHAR);
+               Diffs [j + j    ] := VAL (ORD (Group [j].Last) - ORD (Group [j].First),CHAR);
+               INC (Hash, (ORD (Diffs [j + j - 1]) + ORD (Diffs [j + j])) * j);
+            END;
+            Hash := Hash MOD DStateCount;       (* hash distances *)
 
-	    Success := FALSE;			(* lookup format of row *)
-	    Current := HashTablePtr^[Hash];
-	    LOOP
-	       IF Current = NIL THEN EXIT; END;
-	       IF Current^.Count = (GroupCount * 2) THEN
-		  Success := TRUE;
-		  j := 0;
-		  LOOP
-		     INC (j);
-		     IF Current^.DiffsPtr^[j] # Diffs [j] THEN
-		        Success := FALSE;
-		        EXIT;
-		     END;
-		     IF j = Current^.Count THEN EXIT; END;
-		  END;
-		  IF Success THEN EXIT; END;
-	       END;
-	       Current := Current^.Next;
-	    END;
+            Success := FALSE;                   (* lookup format of row *)
+            Current := HashTablePtr^[Hash];
+            LOOP
+               IF Current = NIL THEN EXIT; END;
+               IF Current^.Count = (GroupCount * 2) THEN
+                  Success := TRUE;
+                  j := 0;
+                  LOOP
+                     INC (j);
+                     IF Current^.DiffsPtr^[j] # Diffs [j] THEN
+                        Success := FALSE;
+                        EXIT;
+                     END;
+                     IF j = Current^.Count THEN EXIT; END;
+                  END;
+                  IF Success THEN EXIT; END;
+               END;
+               Current := Current^.Next;
+            END;
 
-	    IF Success THEN			(* if found: start searching from previous base *)
-	       base := Current^.Base + ORD (Current^.DiffsPtr^[2]) + 1;
-	    ELSE				(* if not: enter and start from zero *)
-	       Current := Alloc (BYTESIZE (DiffsInfo));
-	       WITH m2tom3_with_13=Current^ DO
-		  m2tom3_with_13.Base := 0;
-		  m2tom3_with_13.Next := HashTablePtr^[Hash];
-		  m2tom3_with_13.Count := GroupCount * 2;
-		  m2tom3_with_13.DiffsPtr := Alloc (m2tom3_with_13.Count);
-		  FOR j := 1 TO m2tom3_with_13.Count DO m2tom3_with_13.DiffsPtr^[j] := Diffs [j]; END;
-	       END;
-	       HashTablePtr^[Hash] := Current;
-	    END;
+            IF Success THEN                     (* if found: start searching from previous base *)
+               base := Current^.Base + ORD (Current^.DiffsPtr^[2]) + 1;
+            ELSE                                (* if not: enter and start from zero *)
+               Current := Alloc (BYTESIZE (DiffsInfo));
+               WITH m2tom3_with_13=Current^ DO
+                  m2tom3_with_13.Base := 0;
+                  m2tom3_with_13.Next := HashTablePtr^[Hash];
+                  m2tom3_with_13.Count := GroupCount * 2;
+                  m2tom3_with_13.DiffsPtr := Alloc (m2tom3_with_13.Count);
+                  FOR j := 1 TO m2tom3_with_13.Count DO m2tom3_with_13.DiffsPtr^[j] := Diffs [j]; END;
+               END;
+               HashTablePtr^[Hash] := Current;
+            END;
 
-	    LOOP				(* search for a usable base *)
-	       lbase := base;
-	       IF lbase >= (ControlSize - LOOPHOLE (ORD (OldLastCh),M2LONGINT)) THEN
-		  OldControlSize := ControlSize;
-		  ExtendArray (LOOPHOLE(ControlPtr,ADDRESS), ControlSize, BYTESIZE (ControlType));
-		  FOR i := OldControlSize TO ControlSize - 1 DO
-		     ControlPtr^[i].Check := DNoState;
-		     ControlPtr^[i].Next  := DNoState;
-		  END;
-	       END;
+            LOOP                                (* search for a usable base *)
+               lbase := base;
+               IF lbase >= (ControlSize - LOOPHOLE (ORD (OldLastCh),M2LONGINT)) THEN
+                  OldControlSize := ControlSize;
+                  ExtendArray (LOOPHOLE(ControlPtr,ADDRESS), ControlSize, BYTESIZE (ControlType));
+                  FOR i := OldControlSize TO ControlSize - 1 DO
+                     ControlPtr^[i].Check := DNoState;
+                     ControlPtr^[i].Next  := DNoState;
+                  END;
+               END;
 
-	       Success := TRUE;
-	       j := 0;
-	       LOOP
-		  INC (j);
-		  StartCh := Group [j].First;
-		  StopCh := Group [j].Last;
-		  Ch := StartCh;
-		  LOOP
-		     IF (ControlPtr^[base + ORD (Ch)].Check # DNoState) THEN
-			Success := FALSE;
-			(* INC (base, ORD (Ch) - ORD (StartCh)); *)
-			EXIT;
-		     END;
-		     IF Ch = StopCh THEN EXIT; END;
-		     INC (Ch);
-		  END;
-		  IF (NOT Success) OR (j = GroupCount) THEN EXIT; END;
-	       END;
-	       IF Success THEN EXIT; END;
-	       INC (base);
-	    END;
+               Success := TRUE;
+               j := 0;
+               LOOP
+                  INC (j);
+                  StartCh := Group [j].First;
+                  StopCh := Group [j].Last;
+                  Ch := StartCh;
+                  LOOP
+                     IF (ControlPtr^[base + ORD (Ch)].Check # DNoState) THEN
+                        Success := FALSE;
+                        (* INC (base, ORD (Ch) - ORD (StartCh)); *)
+                        EXIT;
+                     END;
+                     IF Ch = StopCh THEN EXIT; END;
+                     INC (Ch);
+                  END;
+                  IF (NOT Success) OR (j = GroupCount) THEN EXIT; END;
+               END;
+               IF Success THEN EXIT; END;
+               INC (base);
+            END;
 
-	    j := 0;				(* enter row into comb *)
-	    LOOP
-	       INC (j);
-	       Ch := Group [j].First;
-	       StopCh := Group [j].Last;
-	       LOOP
-		  WITH m2tom3_with_14=ControlPtr^[base + ORD (Ch)] DO
-		     m2tom3_with_14.Check := State;
-		     m2tom3_with_14.Next  := GetTableNoDef (State, ToClass [Ch]);
-		  END;
-		  INC (TableEntries);
-		  IF Ch = StopCh THEN EXIT; END;
-		  INC (Ch);
-	       END;
-	       IF j = GroupCount THEN EXIT; END;
-	    END;
-	    Current^.Base := base;		(* record base of this row *)
-	 END;
-	 BasePtr^[State] := base;
-	 TableSize := Max (TableSize, base);
+            j := 0;                             (* enter row into comb *)
+            LOOP
+               INC (j);
+               Ch := Group [j].First;
+               StopCh := Group [j].Last;
+               LOOP
+                  WITH m2tom3_with_14=ControlPtr^[base + ORD (Ch)] DO
+                     m2tom3_with_14.Check := State;
+                     m2tom3_with_14.Next  := GetTableNoDef (State, ToClass [Ch]);
+                  END;
+                  INC (TableEntries);
+                  IF Ch = StopCh THEN EXIT; END;
+                  INC (Ch);
+               END;
+               IF j = GroupCount THEN EXIT; END;
+            END;
+            Current^.Base := base;              (* record base of this row *)
+         END;
+         BasePtr^[State] := base;
+         TableSize := Max (TableSize, base);
       END;
       INC (TableSize, ORD (OldLastCh));
       ReleaseArray (HashTablePtr, HashTableSize, BYTESIZE (DiffsInfoPtr));
    END CompressTables;
 
 PROCEDURE WriteTables() =
-   VAR State	: DStateRange;
    BEGIN
-      WriteS (StdOutput, "Tables :");
+      WriteT (StdOutput, "Tables :");
       WriteNl (StdOutput);
       WriteNl (StdOutput);
       FOR State := 1 TO DStateCount DO
-	 WriteState (State);
-	 WriteNl (StdOutput);
+         WriteState (State);
+         WriteNl (StdOutput);
       END;
    END WriteTables;
 
 PROCEDURE QueryTables() =
-   VAR State	: DStateRange;
+   VAR State    : DStateRange;
    BEGIN
       LOOP
-	 WriteS (StdOutput, "State ? ");
-	 IF EndOfLine (StdInput) THEN ReadNl (StdInput); END;
-	 State := ReadI (StdInput);
+         WriteT (StdOutput, "State ? ");
+         IF EndOfLine (StdInput) THEN ReadNl (StdInput); END;
+         State := ReadI (StdInput);
          IF State = 0 THEN EXIT; END;
-	 WriteState (State);
+         WriteState (State);
       END;
    END QueryTables;
 
 PROCEDURE WriteState (State: DStateRange) =
    VAR
-      NextState		: TableElmt;
-      Ch		: CHAR;
-      ControlRecord	: ControlType;
-      Count		: INTEGER;
+      NextState         : TableElmt;
+      ControlRecord     : ControlType;
+      Count             : INTEGER;
    BEGIN
       Count := 0;
-      WriteS (StdOutput, "State, Default =");
+      WriteT (StdOutput, "State, Default =");
       WriteI (StdOutput, State, 5);
       WriteI (StdOutput, DefaultPtr^[State], 5);
       WriteNl (StdOutput);
       FOR Ch := FirstCh TO OldLastCh DO
 
-	 NextState := State;
-	 LOOP
-	    ControlRecord := ControlPtr^[BasePtr^[NextState] + ORD (Ch)];
-	    IF ControlRecord.Check = NextState THEN
-	       NextState := ControlRecord.Next;
-	       EXIT;
-	    END;
-	    NextState := DefaultPtr^[NextState];
-	    NextState := DNoState;
-	    IF NextState = DNoState THEN EXIT; END;
-	 END;
+         NextState := State;
+         LOOP
+            ControlRecord := ControlPtr^[BasePtr^[NextState] + ORD (Ch)];
+            IF ControlRecord.Check = NextState THEN
+               NextState := ControlRecord.Next;
+               EXIT;
+            END;
+            NextState := DefaultPtr^[NextState];
+            NextState := DNoState;
+            IF NextState = DNoState THEN EXIT; END;
+         END;
 
-	 IF NextState # DNoState THEN
-	    IF Count = 10 THEN
-	       WriteNl (StdOutput);
-	       Count := 0;
-	    END;
-	    INC (Count);
-	    WriteChar (StdOutput, Ch);
-	    WriteSpace (StdOutput);
-	    WriteI (StdOutput, NextState, 1);
-	    WriteC (StdOutput, ',');
-	    WriteSpace (StdOutput);
-	 END;
+         IF NextState # DNoState THEN
+            IF Count = 10 THEN
+               WriteNl (StdOutput);
+               Count := 0;
+            END;
+            INC (Count);
+            WriteChar (StdOutput, Ch);
+            WriteSpace (StdOutput);
+            WriteI (StdOutput, NextState, 1);
+            WriteC (StdOutput, ',');
+            WriteSpace (StdOutput);
+         END;
       END;
       WriteNl (StdOutput);
    END WriteState;

@@ -3,6 +3,8 @@
 
  UNSAFE MODULE Strings;
 
+IMPORT Text;
+
 FROM General    IMPORT Exp10;
 FROM ReuseIO            IMPORT tFile, StdError, ReadC, WriteC, WriteNl;
 
@@ -156,6 +158,21 @@ PROCEDURE ArrayToString (READONLY a: ARRAY OF CHAR; VAR s: tString) =
       END;
       s.Length := i;
    END ArrayToString;
+
+PROCEDURE TextToString	(t:TEXT; VAR s: tString) =
+   VAR length: INTEGER;
+   BEGIN
+     IF t = NIL THEN t := "" END;
+     length := Text.Length (t);
+     Text.SetChars (SUBARRAY (s.Chars, 1, length), t);
+     s.Length := length;
+   END TextToString;
+
+PROCEDURE StringToText (READONLY s: tString): TEXT =
+  BEGIN
+    IF s.Length <= 0 THEN RETURN "" END;
+    RETURN Text.FromChars (SUBARRAY(s.Chars, 1, s.Length));
+  END StringToText;
 
 PROCEDURE StringToArray (READONLY s: tString; VAR a: ARRAY OF CHAR) =
    BEGIN

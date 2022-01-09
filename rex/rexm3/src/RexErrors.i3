@@ -31,8 +31,9 @@
 
 UNSAFE INTERFACE  RexErrors;
 
-
+IMPORT Text;
 IMPORT Word;
+
 FROM Positions	IMPORT tPosition;
 
 CONST
@@ -70,6 +71,8 @@ VAR ErrorCount	: INTEGER;
 PROCEDURE ErrorMessage	(ErrorCode, ErrorClass: Word.T; Position: tPosition);
 PROCEDURE ErrorMessageI (ErrorCode, ErrorClass: Word.T; Position: tPosition;
 			 InfoClass: Word.T; Info: ADDRESS);
+
+PROCEDURE ErrLine (msg:TEXT);
 
 END RexErrors.
 

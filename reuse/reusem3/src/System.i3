@@ -53,10 +53,16 @@ TYPE tFile      = [-1 .. cMaxFile];
                         (* binary IO            *)
 
 PROCEDURE OpenInput (READONLY FileName: ARRAY OF CHAR): tFile
-  RAISES {OSError.E, FileNoError (*No available tFile value.*)}; 
+  RAISES {OSError.E, FileNoError (*No available tFile value.*)};
+
+PROCEDURE OpenInputT (FileNameText: TEXT) : tFile
+  RAISES { OSError . E , FileNoError (*No available tFile value.*) }; 
 
 PROCEDURE OpenOutput    (READONLY FileName: ARRAY OF CHAR): tFile
   RAISES {OSError.E, FileNoError (*No available tFile value.*)};
+
+PROCEDURE OpenOutputT (FileNameText: TEXT) : tFile
+  RAISES { OSError . E , FileNoError (*No available tFile value.*)}; 
 
 PROCEDURE Read (File: tFile; Buffer: ADDRESS; Size: INTEGER): INTEGER
     RAISES 

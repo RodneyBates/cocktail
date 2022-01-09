@@ -81,7 +81,7 @@ FROM Sets       IMPORT
    Assign       , AssignElmt    , AssignEmpty   , ForallDo      ,
    Maximum      , IsSubset      , WriteSet      ;
 
-FROM ReuseIO         IMPORT WriteS, WriteNl, WriteI, WriteC, StdOutput, StdError;
+FROM ReuseIO         IMPORT WriteT, WriteNl, WriteI, WriteC, StdOutput, StdError;
 FROM DefTable   IMPORT GetKind, DefCount, GetStartDef, tKind;
 
 FROM Tree       IMPORT
@@ -792,7 +792,7 @@ PROCEDURE UpdateContext() =
       Max       : DStateRange   ;
    BEGIN
       IF DStateCount > NodeCount THEN
-         WriteS (StdError, "internal Error: StateCount > NodeCount"); WriteNl (StdError);
+         WriteT (StdError, "internal Error: StateCount > NodeCount"); WriteNl (StdError);
       END;
 
       FOR Pattern := 0 TO PatternCount - 2 DO
@@ -881,13 +881,13 @@ PROCEDURE CheckStartState (StartState: SHORTCARD; Ident: Idents.tIdent; LeftJust
       END;
 
       IF NOT IsEmpty (Undefined) THEN
-         WriteS (StdError, "Warning: in start state ");
+         WriteT (StdError, "Warning: in start state ");
          Idents.GetString (Ident, String);
          Strings.WriteS (StdError, String);
          IF LeftJust THEN
-            WriteS (StdError, " the default action may be triggered by (left justified):");
+            WriteT (StdError, " the default action may be triggered by (left justified):");
          ELSE
-            WriteS (StdError, " the default action may be triggered by:");
+            WriteT (StdError, " the default action may be triggered by:");
          END;
          WriteNl (StdError);
 
@@ -917,21 +917,21 @@ PROCEDURE WritePattern() =
    BEGIN
       FOR Pattern := 0 TO PatternCount - 2 DO
          IF PatternTablePtr^[Pattern].ContextLng # NoContext THEN
-            WriteS (StdOutput, "Pattern, ContextLng");
+            WriteT (StdOutput, "Pattern, ContextLng");
             WriteI (StdOutput, Pattern, 5);
             WriteI (StdOutput, PatternTablePtr^[Pattern].ContextLng, 5);
             IF PatternTablePtr^[Pattern].ContextLng = VariableContext THEN
                IF IsComputedNContext THEN
-                  WriteS (StdOutput, " NContext ");
+                  WriteT (StdOutput, " NContext ");
                   WriteSet (StdOutput, PatternTablePtr^[Pattern].NContext);
                END;
                IF IsComputedDContext THEN
-                  WriteS (StdOutput, " DContext ");
+                  WriteT (StdOutput, " DContext ");
                   WriteSet (StdOutput, PatternTablePtr^[Pattern].DContext);
                END;
             END;
             IF IsComputedFinals THEN
-               WriteS (StdOutput, " Finals ");
+               WriteT (StdOutput, " Finals ");
                WriteSet (StdOutput, PatternTablePtr^[Pattern].Finals);
             END;
             WriteNl (StdOutput);
@@ -942,41 +942,41 @@ PROCEDURE WritePattern() =
 PROCEDURE WriteStatistics() =
    BEGIN
       WriteNl (StdOutput);
-      WriteS (StdOutput, "Start States  ");
+      WriteT (StdOutput, "Start States  ");
       WriteI (StdOutput, StartStateCount, 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, "Definitions   ");
+      WriteT (StdOutput, "Definitions   ");
       WriteI (StdOutput, DefCount       , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, "Rules         ");
+      WriteT (StdOutput, "Rules         ");
       WriteI (StdOutput, RuleCount      , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, "Patterns      ");
+      WriteT (StdOutput, "Patterns      ");
       WriteI (StdOutput, PatternCount   , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, "Classes               ");
+      WriteT (StdOutput, "Classes               ");
       WriteI (StdOutput, ORD (ClassCount), 6);  WriteNl (StdOutput);
-      WriteS (StdOutput, "LastCh                ");
+      WriteT (StdOutput, "LastCh                ");
       WriteI (StdOutput, ORD (LastCh)   , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, "Transitions   ");
+      WriteT (StdOutput, "Transitions   ");
       WriteI (StdOutput, TransitionCount, 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, "Leafs         ");
+      WriteT (StdOutput, "Leafs         ");
       WriteI (StdOutput, LeafCount      , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, "NFA States    ");
+      WriteT (StdOutput, "NFA States    ");
       WriteI (StdOutput, NStateCount    , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, "Minimize Savings");
+      WriteT (StdOutput, "Minimize Savings");
       WriteI (StdOutput, MinimizeSavings, 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, "Ambiguous States");
+      WriteT (StdOutput, "Ambiguous States");
       WriteI (StdOutput, MaxAmbiguousState, 6); WriteNl (StdOutput);
-      WriteS (StdOutput, "Nodes         ");
+      WriteT (StdOutput, "Nodes         ");
       WriteI (StdOutput, NodeCount      , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, "DFA States    ");
+      WriteT (StdOutput, "DFA States    ");
       WriteI (StdOutput, DStateCount    , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, "Sentinel Savings");
+      WriteT (StdOutput, "Sentinel Savings");
       WriteI (StdOutput, SentinelSavings, 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, "Default Savings       ");
+      WriteT (StdOutput, "Default Savings       ");
       WriteI (StdOutput, DefaultSavings , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, "Table Entries ");
+      WriteT (StdOutput, "Table Entries ");
       WriteI (StdOutput, TableEntries   , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, "Table Size    ");
+      WriteT (StdOutput, "Table Size    ");
       WriteI (StdOutput, TableSize      , 6);   WriteNl (StdOutput);
-      WriteS (StdOutput, "Memory used   ");
+      WriteT (StdOutput, "Memory used   ");
       WriteI (StdOutput, MemoryUsed     , 6);   WriteNl (StdOutput);
    END WriteStatistics;
 

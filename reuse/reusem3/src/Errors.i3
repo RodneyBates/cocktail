@@ -91,5 +91,7 @@ PROCEDURE WriteMessages (File: tFile);
                         (* The stored messages are sorted by their      *)
                         (* source position and printed on 'File'.       *)
 
+PROCEDURE ErrLine (msg:TEXT);
+
 END Errors.
 

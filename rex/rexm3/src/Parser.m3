@@ -4,13 +4,17 @@
 
  UNSAFE MODULE Parser;
 
+IMPORT Fmt;
+IMPORT OSError;
+IMPORT Text;
+
+
 FROM SYSTEM IMPORT M2LONGINT, M2LONGCARD, SHORTCARD;
+
 IMPORT Word, SYSTEM, Scanner, Positions, Strings, DynArray, Sets, System;
 
 (* line 24 "/tmp/lalr4706" *)
 (* line 26 ../src/rex.lalr *)
-
-
 
 IMPORT RexErrors AS Errors;
 
@@ -89,6 +93,7 @@ VAR
    Identifier   : tIdent        ;
    nNode        ,
    EOLTree      : tTree0        ;
+   ch           : CHAR          ;
 
 PROCEDURE AppendRule (Tree: tTree0; Ch: CHAR; Text: tList): tTree0 =
    VAR
@@ -132,20 +137,26 @@ CONST
    yyLastState          = yyLastReduceState;
 
 TYPE
+   (* The following ranges all need to occupy 16 bits when in an array, in order to
+      match the to-be-read-in table files.  Using BITS FOR doesn't work because of
+      cm3 CG errors compiling BITS FOR BITS FOR. *)
    yyTableElmt          = SHORTCARD;
-   yyTCombRange         = (*yyTableElmt*) [0 .. yyTableMax];
-   yyNCombRange         = (*yyTableElmt*) [yyLastTerminal + 1 .. yyNTableMax];
-   yyStateRange         = (*yyTableElmt*) [0 .. yyLastState];
-   yyReadRange          = (*yyTableElmt*) [yyFirstReadState .. yyLastReadState];
-   yyReadReduceRange    = (*yyTableElmt*) 
-                            [yyFirstReadTermState ..yyLastReadNontermState];
-   yyReduceRange        = (*yyTableElmt*) [yyFirstReduceState .. yyLastReduceState];
-   yySymbolRange        = (*yyTableElmt*) [yyFirstSymbol .. yyLastSymbol];
+   yyTCombRange         = yyTableElmt (*[0 .. yyTableMax]*);
+   yyNCombRange         = yyTableElmt (*[yyLastTerminal + 1 .. yyNTableMax]*);
+   yyStateRange         = yyTableElmt (*[0 .. yyLastState]*);
+   yyReadRange          = yyTableElmt (*[yyFirstReadState .. yyLastReadState]*);
+   yyReadReduceRange    = yyTableElmt
+                            (* [yyFirstReadTermState ..yyLastReadNontermState]*);
+   yyReduceRange        = yyTableElmt (*[yyFirstReduceState .. yyLastReduceState]*);
+   yySymbolRange        = yyTableElmt (*[yyFirstSymbol .. yyLastSymbol]*);
+
+
+
    yyTCombType          = RECORD Check, Next: yyStateRange; END;
    yyNCombType          = yyStateRange;
    yyTCombTypePtr       = UNTRACED BRANDED REF  yyTCombType;
    yyNCombTypePtr       = UNTRACED BRANDED REF  yyNCombType;
-   yyStackPtrType       = (*yyTableElmt*) [ FIRST(yyTableElmt) .. LAST (yyTableElmt) ];
+   yyStackPtrType       = yyTableElmt;
    yyStackType          = UNTRACED BRANDED REF  ARRAY yyStackPtrType OF yyStateRange;
    yyAttributeStackType = UNTRACED BRANDED REF  ARRAY yyStackPtrType OF tParsAttribute;
 
@@ -167,6 +178,21 @@ VAR
    yyTableFile          : System.tFile;
 
 PROCEDURE TokenName (Token: SHORTCARD; VAR Name: ARRAY OF CHAR) =
+
+   PROCEDURE CopyT (Source: TEXT; VAR Target: ARRAY OF CHAR) =
+      VAR lastSource: INTEGER;
+      VAR j: INTEGER;
+      BEGIN
+        IF Source # NIL
+        THEN
+         lastSource := Text.Length (Source)-1;
+         IF lastSource  < LAST (Target)
+         THEN j := lastSource; ELSE j := LAST (Target); END;
+         FOR i := 0 TO j DO Target [i] := Text.GetChar (Source,i); END;
+         IF LAST (Target) > j THEN Target [j + 1] := VAL (0,CHAR); END;
+        END;
+      END CopyT;
+      
    PROCEDURE CopyA (READONLY Source: ARRAY OF CHAR; VAR Target: ARRAY OF CHAR) =
       VAR j: Word.T;
       BEGIN
@@ -175,25 +201,27 @@ PROCEDURE TokenName (Token: SHORTCARD; VAR Name: ARRAY OF CHAR) =
          FOR i := 0 TO j DO Target [i] := Source [i]; END;
          IF LAST (Target) > j THEN Target [j + 1] := VAL (0,CHAR); END;
       END CopyA;
+      
    PROCEDURE Copy (Ch: CHAR; VAR Target: ARRAY OF CHAR) =
       BEGIN
          Target [0] := Ch;
          IF LAST (Target) > 0 THEN Target [1] := VAL (0,CHAR); END;
       END Copy;
+      
    BEGIN
       CASE Token OF
-      | 0=> CopyA ("_EndOfFile", Name);
-      | 1=> CopyA ("Ident", Name);
-      | 2=> CopyA ("Number", Name);
-      | 3=> CopyA ("String", Name);
-      | 4=> CopyA ("Char", Name);
-      | 5=> CopyA ("TargetCode", Name);
-      | 6=> CopyA ("GLOBAL", Name);
-      | 7=> CopyA ("BEGIN", Name);
-      | 8=> CopyA ("CLOSE", Name);
-      | 9=> CopyA ("DEFINE", Name);
-      | 10=> CopyA ("START", Name);
-      | 11=> CopyA ("RULES", Name);
+      | 0=> CopyT ("_EndOfFile", Name);
+      | 1=> CopyT ("Ident", Name);
+      | 2=> CopyT ("Number", Name);
+      | 3=> CopyT ("String", Name);
+      | 4=> CopyT ("Char", Name);
+      | 5=> CopyT ("TargetCode", Name);
+      | 6=> CopyT ("GLOBAL", Name);
+      | 7=> CopyT ("BEGIN", Name);
+      | 8=> CopyT ("CLOSE", Name);
+      | 9=> CopyT ("DEFINE", Name);
+      | 10=> CopyT ("START", Name);
+      | 11=> CopyT ("RULES", Name);
       | 12=> Copy ('.', Name);
       | 13=> Copy (',', Name);
       | 14=> Copy ('=', Name);
@@ -212,15 +240,15 @@ PROCEDURE TokenName (Token: SHORTCARD; VAR Name: ARRAY OF CHAR) =
       | 27=> Copy ('}', Name);
       | 28=> Copy ('<', Name);
       | 29=> Copy ('>', Name);
-      | 30=> CopyA ("NOT", Name);
-      | 31=> CopyA ("LOCAL", Name);
-      | 32=> CopyA ("EXPORT", Name);
+      | 30=> CopyT ("NOT", Name);
+      | 31=> CopyT ("LOCAL", Name);
+      | 32=> CopyT ("EXPORT", Name);
       | 33=> Copy ('#', Name);
-      | 34=> CopyA ("EOF", Name);
-      | 35=> CopyA (":-", Name);
-      | 36=> CopyA ("DEFAULT", Name);
-      | 37=> CopyA ("SCANNER", Name);
-      | 38=> CopyA ("SEQUENCE", Name);
+      | 34=> CopyT ("EOF", Name);
+      | 35=> CopyT (":-", Name);
+      | 36=> CopyT ("DEFAULT", Name);
+      | 37=> CopyT ("SCANNER", Name);
+      | 38=> CopyT ("SEQUENCE", Name);
       END;
    END TokenName;
 
@@ -354,13 +382,13 @@ CASE yyState OF
                   LeftJustUsed    := FALSE;
                   EOLTree         := mCh (EolCh);
   
-                  ArrayToString ("ANY", string);
+                  Strings.TextToString ("ANY", string);
                   MakeSet (set, ORD (LastCh));
                   Complement (set);
                   Exclude (set, ORD (EolCh));
                   MakeIdentDef (MakeIdent (string), LOOPHOLE (mSet (set),ADDRESS), 1, FALSE);
   
-                  ArrayToString ("STD", string);
+                  Strings.TextToString ("STD", string);
                   MakeStartDef (MakeIdent (string), StartStateCount + 1);
                   INC (StartStateCount, 2);                             
   | 103=> (* name : .*)
@@ -372,7 +400,7 @@ CASE yyState OF
   DEC (yyStackPtr, 1); yyNonterminal := 40;
 (* line 205 "/tmp/lalr4706" *)
   (* line 203 ../src/rex.lalr *)
-   ArrayToString ("Scanner", string); ScannerName := MakeIdent (string); 
+   Strings.TextToString ("Scanner", string); ScannerName := MakeIdent (string); 
   | 105,56=> (* name : 'SCANNER' Ident .*)
   DEC (yyStackPtr, 2); yyNonterminal := 40;
 (* line 207 "/tmp/lalr4706" *)
@@ -665,9 +693,10 @@ CASE yyState OF
   
                   IF yyAttributeStack^[yyStackPtr+2].IsLeftJust(* $$ m2tom3 warning: application of variant field, possible cast of 'IsLeftJust' in line 565
  $$ *) THEN
-                     FOR Number := 1 TO LOOPHOLE (StartStateCount,SHORTCARD) BY 2 DO
+                     Number := LOOPHOLE (StartStateCount,SHORTCARD);
+                     FOR NumberF := 1 TO Number BY 2 DO
                         Exclude (yyAttributeStack^[yyStackPtr+1].Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 567
- $$ *), Number);
+ $$ *), NumberF);
                      END;
                   END;
   
@@ -791,9 +820,10 @@ CASE yyState OF
   (* line 376 ../src/rex.lalr *)
    yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 655
  $$ *) := nNode;
-                  FOR Number := 1 TO yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 656
+                  Number := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 656
  $$ *).Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 656
- $$ *) DO
+ $$ *) ;
+                  FOR NumberF := 1 TO Number DO
                      yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 657
  $$ *) := mSequence (yyAttributeStack^[yyStackPtr+1].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 657
  $$ *), yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 657
@@ -807,18 +837,23 @@ CASE yyState OF
  $$ *) := nNode;
                   tree := mOption (yyAttributeStack^[yyStackPtr+1].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 664
  $$ *));
-                  FOR Number := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 665
+
+                  Number := yyAttributeStack^[yyStackPtr+5].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 665
  $$ *).Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 665
- $$ *) + 1 TO yyAttributeStack^[yyStackPtr+5].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 665
+ $$ *);
+                  FOR NumberF := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 665
  $$ *).Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 665
- $$ *) DO
+ $$ *) + 1 TO Number DO
                      yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 666
  $$ *) := mSequence (tree, yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 666
  $$ *));
                   END;
-                  FOR Number := 1 TO yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 668
+
+
+                  Number := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 668
  $$ *).Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 668
- $$ *) DO
+ $$ *) ;
+                  FOR NumberF := 1 TO Number DO
                      yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 669
  $$ *) := mSequence (yyAttributeStack^[yyStackPtr+1].Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 669
  $$ *), yySynAttribute.Tree(* $$ m2tom3 warning: application of variant field, possible cast of 'Tree' in line 669
@@ -942,13 +977,15 @@ CASE yyState OF
   (* line 444 ../src/rex.lalr *)
    MakeSet (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 749
  $$ *), ORD (LastCh));
-                  FOR ch := yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 750
+ 
+                  ch := yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 750
  $$ *).Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 750
- $$ *) TO yyAttributeStack^[yyStackPtr+3].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 750
+ $$ *);
+                  FOR chF := yyAttributeStack^[yyStackPtr+1].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 750
  $$ *).Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 750
- $$ *) DO
+ $$ *)            TO ch DO
                      Include (yySynAttribute.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 751
- $$ *), ORD (ch));
+ $$ *), ORD (chF));
                   END;                                                  
 END;
               (* SPEC State 
@@ -1001,9 +1038,9 @@ PROCEDURE ErrorRecovery (
       Sets.MakeSet (ContinueSet, yyLastTerminal);
       ComputeContinuation (StateStack, StackSize, StackPtr, ContinueSet);
       Strings.AssignEmpty (ContinueString);
-      FOR Token := VAL(Sets.Minimum (ContinueSet),yySymbolRange) TO VAL(Sets.Maximum (ContinueSet),yySymbolRange) DO
-         IF Sets.IsElement (VAL(Token,Sets.tElement), ContinueSet) THEN
-            TokenName (Token, TokenArray);
+      FOR TokenF := VAL(Sets.Minimum (ContinueSet),yySymbolRange) TO VAL(Sets.Maximum (ContinueSet),yySymbolRange) DO
+         IF Sets.IsElement (VAL(TokenF,Sets.tElement), ContinueSet) THEN
+            TokenName (TokenF, TokenArray);
             Strings.ArrayToString (TokenArray, TokenString);
             IF ((Strings.Length (ContinueString) + Strings.Length (TokenString) + 1) <= Strings.cMaxStrLength) THEN
                Strings.Concatenate (ContinueString, TokenString);
@@ -1045,9 +1082,9 @@ PROCEDURE ComputeContinuation (
       VAR ContinueSet   : Sets.tSet     ) =
    BEGIN
       Sets.AssignEmpty (ContinueSet);
-      FOR Terminal := yyFirstTerminal TO yyLastTerminal DO
-         IF IsContinuation (Terminal, Stack, StackSize, StackPtr) THEN
-            Sets.Include (ContinueSet, VAL(Terminal,Sets.tElement));
+      FOR TerminalF := yyFirstTerminal TO yyLastTerminal DO
+         IF IsContinuation (TerminalF, Stack, StackSize, StackPtr) THEN
+            Sets.Include (ContinueSet, VAL(TerminalF,Sets.tElement));
          END;
       END;
    END ComputeContinuation;
@@ -1068,8 +1105,8 @@ PROCEDURE IsContinuation (
       Stack             : yyStackType;
    BEGIN
       DynArray.MakeArray (LOOPHOLE(Stack,ADDRESS), StackSize, BYTESIZE (yyStateRange));
-      FOR State := 0 TO StackPtr DO
-         Stack^ [State] := ParseStack^ [State];
+      FOR StateF := 0 TO StackPtr DO
+         Stack^ [StateF] := ParseStack^ [StateF];
       END;
       State := Stack^ [StackPtr];
       LOOP
@@ -1124,8 +1161,8 @@ PROCEDURE ComputeRestartPoints (
       ContinueSet       : Sets.tSet;
    BEGIN
       DynArray.MakeArray (LOOPHOLE(Stack,ADDRESS), StackSize, BYTESIZE (yyStateRange));
-      FOR State := 0 TO StackPtr DO
-         Stack^ [State] := ParseStack^ [State];
+      FOR StateF := 0 TO StackPtr DO
+         Stack^ [StateF] := ParseStack^ [StateF];
       END;
       Sets.MakeSet (ContinueSet, yyLastTerminal);
       Sets.AssignEmpty (RestartSet);
@@ -1182,6 +1219,8 @@ PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange =
                      + (VAL (   Symbol,M2LONGCARD )
                        * BYTESIZE (yyTCombType))
                    ,yyTCombTypePtr);
+(* FIXME: Once got here with State = 0, yyNBasePtr[0]=NIL, tCombPtr
+          =16_30, segfaulting its deref below. *)
             IF TCombPtr^.Check # State THEN
                State := yyDefault [State];
                IF State = yyNoState THEN RETURN yyNoState; END;
@@ -1192,7 +1231,7 @@ PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange =
       ELSE
         NCombPtr 
           := LOOPHOLE 
-               ( LOOPHOLE (yyNBasePtr [State],M2LONGCARD) 
+               ( LOOPHOLE (yyNBasePtr [State],M2LONGCARD)
                  + (VAL (   Symbol,M2LONGCARD )
                    * BYTESIZE (yyNCombType))
                ,yyNCombTypePtr);
@@ -1203,31 +1242,90 @@ PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange =
 PROCEDURE yyGetTables() =
    VAR
       BlockSize, j, n   : Word.T;
+      ReadVal: INTEGER;
+      OK: BOOLEAN;
       TBase     : ARRAY (*yyTableElmt*)[0 .. yyLastReadState] OF yyTCombRange;
       NBase     : ARRAY (*yyTableElmt*)[0 .. yyLastReadState] OF yyNCombRange;
    BEGIN
       BlockSize := 64000 DIV BYTESIZE (yyTCombType);
-      yyTableFile := System.OpenInput (ParsTabName);
-      yyErrorCheck (Errors.OpenParseTable, yyTableFile);
-      IF 
-         ((yyGetTable (ADR (TBase[FIRST(TBase)]         )) DIV BYTESIZE (yyTCombRange ) - 1)
-            # yyLastReadState) OR
-         ((yyGetTable (ADR (NBase[FIRST(NBase)]         )) DIV BYTESIZE (yyNCombRange ) - 1)
-            # yyLastReadState) OR
-         ((yyGetTable (ADR (yyDefault[FIRST(yyDefault)]     )) DIV BYTESIZE (yyReadRange  ) - 1)
-            # yyLastReadState) OR
-         ((yyGetTable (ADR (yyNComb[FIRST(yyNComb)]       )) DIV BYTESIZE (yyNCombType  ))
-            # (yyNTableMax - yyLastTerminal)) OR
-         ((yyGetTable (ADR (yyLength[FIRST(yyLength)]      )) DIV BYTESIZE (yyTableElmt  ) - 1)
-            # (yyLastReduceState - yyFirstReduceState)) OR
-         ((yyGetTable (ADR (yyLeftHandSide[FIRST(yyLeftHandSide)])) DIV BYTESIZE (yySymbolRange) - 1)
-            # (yyLastReduceState - yyFirstReduceState)) OR
-         ((yyGetTable (ADR (yyContinuation[FIRST(yyContinuation)])) DIV BYTESIZE (yySymbolRange) - 1)
-            # yyLastReadState) OR
-         ((yyGetTable (ADR (yyFinalToProd[FIRST(yyFinalToProd)] )) DIV BYTESIZE (yyReduceRange) - 1)
-            # (yyLastReadNontermState - yyFirstReadTermState))
-      THEN
-         Errors.ErrorMessage (Errors.WrongParseTable, Errors.Fatal, Positions.NoPosition);
+      OK := TRUE;
+      TRY
+        yyTableFile := System.OpenInputT (ParsTabName);
+      EXCEPT
+        OSError.E (code)
+        => Errors.ErrLine
+             ("Error: Can't open parse table file " & ParsTabName); 
+        OK := FALSE;
+      END;
+      IF OK THEN
+        ReadVal := yyGetTable (ADR (TBase[FIRST(TBase)])) DIV BYTESIZE (yyTCombRange ) - 1;
+        IF ReadVal # yyLastReadState THEN
+           Errors.ErrLine
+             ("Error reading " & ParsTabName & ", TBase size = " & Fmt.Int (ReadVal) & ", expected "
+              & Fmt.Int (yyLastReadState) );
+           OK := FALSE;
+        ELSE
+          ReadVal := yyGetTable (ADR (NBase[FIRST(NBase)])) DIV BYTESIZE (yyNCombRange ) - 1;
+          IF ReadVal # yyLastReadState THEN
+             Errors.ErrLine
+               ("Error reading " & ParsTabName & ", NBase size = " & Fmt.Int (ReadVal) & ", expected "
+                & Fmt.Int (yyLastReadState) );
+             OK := FALSE;
+          ELSE
+            ReadVal := yyGetTable (ADR (yyDefault[FIRST(yyDefault)])) DIV BYTESIZE (yyReadRange) - 1;
+            IF ReadVal # yyLastReadState THEN
+               Errors.ErrLine
+                 ("Error reading " & ParsTabName & ", yyDefault size = " & Fmt.Int (ReadVal) & ", expected "
+                  & Fmt.Int (yyLastReadState) );
+               OK := FALSE;
+            ELSE
+              ReadVal := yyGetTable (ADR (yyNComb[FIRST(yyNComb)])) DIV BYTESIZE (yyNCombType);
+              IF ReadVal # (yyNTableMax - yyLastTerminal) THEN
+                 Errors.ErrLine
+                   ("Error reading " & ParsTabName & ", yyNComb size = " & Fmt.Int (ReadVal) & ", expected "
+                    & Fmt.Int (yyNTableMax - yyLastTerminal) );
+                 OK := FALSE;
+              ELSE
+                ReadVal := yyGetTable (ADR (yyLength[FIRST(yyLength)])) DIV BYTESIZE (yyTableElmt  ) - 1;
+                IF ReadVal # (yyLastReduceState - yyFirstReduceState) THEN
+                   Errors.ErrLine
+                     ("Error reading " & ParsTabName & ", yylength size = " & Fmt.Int (ReadVal) & ", expected "
+                      & Fmt.Int (yyLastReduceState - yyFirstReduceState) );
+                   OK := FALSE;
+                ELSE
+                  ReadVal := yyGetTable (ADR (yyLeftHandSide[FIRST(yyLeftHandSide)])) DIV BYTESIZE (yySymbolRange) - 1;
+                  IF ReadVal # (yyLastReduceState - yyFirstReduceState) THEN
+                     Errors.ErrLine
+                       ("Error reading " & ParsTabName & ", yy LeftHandSide size= " & Fmt.Int (ReadVal) & ", expected "
+                        & Fmt.Int (yyLastReduceState - yyFirstReduceState) );
+                     OK := FALSE;
+                  ELSE
+                    ReadVal := yyGetTable (ADR (yyContinuation[FIRST(yyContinuation)])) DIV BYTESIZE (yySymbolRange) - 1;
+                    IF ReadVal # yyLastReadState THEN
+                       Errors.ErrLine
+                         ("Error reading " & ParsTabName & ", yyContinuation size= " & Fmt.Int (ReadVal) & ", expected "
+                          & Fmt.Int (yyLastReadState) );
+                       OK := FALSE;
+                    ELSE
+                      ReadVal := yyGetTable (ADR (yyFinalToProd[FIRST(yyFinalToProd)] )) DIV BYTESIZE (yyReduceRange) - 1;
+                      IF ReadVal # (yyLastReadNontermState - yyFirstReadTermState)
+                      THEN
+                         Errors.ErrLine
+                           ("Error reading " & ParsTabName & ", yyFinalToProd size = " & Fmt.Int (ReadVal) & ", expected "
+                            & Fmt.Int (yyLastReadNontermState - yyFirstReadTermState) );
+                         OK := FALSE;
+                      END;
+                    END;
+                  END;
+                END;
+              END;
+            END;
+          END;
+        END;
+      END;
+      IF NOT OK THEN
+        Errors.ErrorMessage 
+        (Errors.WrongParseTable, Errors.Fatal, Positions.NoPosition)
       END;
       n := 0;
       j := 0;
@@ -1241,13 +1339,13 @@ PROCEDURE yyGetTables() =
       END;
       System.Close (yyTableFile);
 
-      FOR State := 1 TO yyLastReadState DO
-         yyTBasePtr [State] := ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1046
- $$ *) (yyTComb [TBase [State]]);
+      FOR StateF := 1 TO yyLastReadState DO
+         yyTBasePtr [StateF] := ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1046
+ $$ *) (yyTComb [TBase [StateF]]);
       END;
-      FOR State := 1 TO yyLastReadState DO
-         yyNBasePtr [State] := ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1049
- $$ *) (yyNComb [NBase [State]]);
+      FOR StateF := 1 TO yyLastReadState DO
+         yyNBasePtr [StateF] := ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1049
+ $$ *) (yyNComb [NBase [StateF]]);
       END;
    END yyGetTables;
 
@@ -1290,6 +1388,18 @@ PROCEDURE CloseParser() =
    BEGIN
 
    END CloseParser;
+
+PROCEDURE TextToRefArray ( textVal: TEXT): REF ARRAY OF CHAR =
+  VAR length: INTEGER;
+  VAR lRef: REF ARRAY OF CHAR;
+  BEGIN
+    IF textVal = NIL THEN textVal := "" END;
+    length := Text.Length (textVal); 
+    lRef := NEW (REF ARRAY OF CHAR, length + 1);
+    Text.SetChars (lRef^, textVal);
+    lRef^[length] := '\000';
+    RETURN lRef;
+  END  TextToRefArray;
 
 BEGIN
     yyIsInitialized := FALSE;

@@ -18,6 +18,9 @@
 
  UNSAFE MODULE Errors;
 
+IMPORT Stdio;
+IMPORT Text;
+IMPORT Wr;
 
 FROM SYSTEM IMPORT M2LONGINT;
 FROM SYSTEM IMPORT SHORTCARD;
@@ -327,6 +330,13 @@ PROCEDURE yyExit() =
    BEGIN
       CloseIO(); System.Exit (1);
    END yyExit;
+
+PROCEDURE ErrLine (msg:TEXT) =
+  BEGIN
+    Wr.PutText (Stdio.stderr, msg);
+    Wr.PutText (Stdio.stderr, Wr.EOL);
+    Wr.Flush (Stdio.stderr);
+  END ErrLine;
 
 BEGIN
    Exit         := yyExit;

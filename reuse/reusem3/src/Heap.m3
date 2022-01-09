@@ -28,6 +28,7 @@
 
  UNSAFE MODULE Heap;
 
+IMPORT Word;
 
 FROM SYSTEM IMPORT M2LONGINT;
 FROM SYSTEM IMPORT BITSET;
@@ -57,8 +58,7 @@ PROCEDURE Alloc	(ByteCount: M2LONGINT): ADDRESS =
 VAR BlockPtr	: tBlockPtr;
 BEGIN
    ByteCount 
-     := LOOPHOLE 
-          (LOOPHOLE (ByteCount + VAL(MaxAlign,M2LONGINT) - 1,BITSET) * AlignMasks [MaxAlign],M2LONGINT);
+     := Word.And(ByteCount + MaxAlign - 1 , AlignMasks [MaxAlign]);
    IF LOOPHOLE (PoolEndPtr - PoolFreePtr,M2LONGINT) < ByteCount THEN
       BlockPtr	  := BlockList;
       BlockList	  := Memory.Alloc (BYTESIZE (tBlock));

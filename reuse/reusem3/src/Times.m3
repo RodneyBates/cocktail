@@ -24,7 +24,7 @@
 
 FROM SYSTEM IMPORT M2LONGINT;
 FROM System	IMPORT Time;
-FROM ReuseIO		IMPORT StdOutput, WriteS, WriteI, WriteNl;
+FROM ReuseIO		IMPORT StdOutput, WriteT, WriteI, WriteNl;
 
 VAR PrevTime	: M2LONGINT;
 
@@ -44,9 +44,9 @@ PROCEDURE StepTime (): M2LONGINT =
       RETURN DeltaTime;
    END StepTime;
 
-PROCEDURE WriteStepTime (READONLY Text: ARRAY OF CHAR) =
+PROCEDURE WriteStepTime (t: TEXT) =
    BEGIN
-      WriteS (StdOutput, Text);
+      WriteT (StdOutput, t);
       WriteI (StdOutput, VAL (   StepTime (),INTEGER ), 5);
       WriteNl (StdOutput);
    END WriteStepTime;

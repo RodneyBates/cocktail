@@ -83,8 +83,10 @@ PROCEDURE WriteR	(f: tFile; n: REAL; Before, After, Exp: Word.T);
 PROCEDURE WriteB	(f: tFile; b: BOOLEAN);	(* boolean		*)
 PROCEDURE WriteN	(f: tFile; n: INTEGER; FieldWidth, Base: Word.T);
 						(* number of base 'Base'*)
-PROCEDURE WriteS	(f: tFile;READONLY  (*VAR*) s: ARRAY OF CHAR); 
+PROCEDURE WriteS	(f: tFile; READONLY s: ARRAY OF CHAR); 
 						(* string		*)
+PROCEDURE WriteT	(f: tFile;t: TEXT);
+                                                (* TEXT                 *)
 PROCEDURE WriteShort	(f: tFile; n: SHORTINT; FieldWidth: Word.T);
 						(* shortint number ?	*)
 PROCEDURE WriteLong	(f: tFile; n: M2LONGINT ; FieldWidth: Word.T);

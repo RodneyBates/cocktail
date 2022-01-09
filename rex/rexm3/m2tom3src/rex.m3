@@ -157,41 +157,41 @@ BEGIN
    END;
 
    IF h THEN
-WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 159
+WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 159
  $$ *) ("usage: rex [-options] [file]"				); WriteNl(); WriteNl();
-WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 160
+WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 160
  $$ *) (" a generate all (= -dsm)"					); WriteNl();
-WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 161
+WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 161
  $$ *) (" m generate a lexical analyzer in Modula (default)"		); WriteNl();
-WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 162
+WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 162
  $$ *) (" c generate a lexical analyzer in C"				); WriteNl();
-WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 163
+WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 163
  $$ *) (" d generate a definition module for the lexical analyzer"	); WriteNl();
-WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 164
+WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 164
  $$ *) (" s generate support modules:"					); WriteNl();
-WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 165
+WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 165
  $$ *) ("   . a source module for input"				); WriteNl();
-WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 166
+WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 166
  $$ *) ("   . a main program to be used as test driver"			); WriteNl();
-WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 167
+WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 167
  $$ *) (" r reduce number of generated case/switch labels"		); WriteNl();
-WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 168
+WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 168
  $$ *) (" i use ISO 8 bit code (default: ASCII 7 bit code)"		); WriteNl();
-WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 169
+WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 169
  $$ *) (" o optimize table size"					); WriteNl();
-WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 170
+WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 170
  $$ *) (" n do not optimize table size"					); WriteNl();
-WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 171
+WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 171
  $$ *) (" w suppress warnings"						); WriteNl();
-WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 172
+WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 172
  $$ *) (" g generate # line directives"					); WriteNl();
-WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 173
+WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 173
  $$ *) (" b do not partition character set into blocks"			); WriteNl();
-WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 174
+WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 174
  $$ *) (" 1 print statistics about the generated lexical analyzer"	); WriteNl();
-WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 175
+WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 175
  $$ *) (" h print help information"					); WriteNl();
-WriteS(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 176
+WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 176
  $$ *) (" ldir specify the directory dir where rex finds its data files"); WriteNl();
    ELSE
       ArrayToString	(ScanTabName, FileNameS); (* name of scanner table *)

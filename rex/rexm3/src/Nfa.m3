@@ -28,7 +28,7 @@
 
 FROM SYSTEM IMPORT M2LONGINT;
 FROM DynArray   IMPORT MakeArray, ExtendArray, ReleaseArray;
-FROM ReuseIO         IMPORT WriteC, WriteI, WriteNl, WriteS, StdOutput;
+FROM ReuseIO         IMPORT WriteC, WriteI, WriteNl, WriteT, StdOutput;
 FROM Layout     IMPORT WriteChar, WriteSpace;
 FROM ScanTabs   IMPORT RuleType, NoRule;
 FROM GenTabs    IMPORT LeafCount;
@@ -159,11 +159,11 @@ PROCEDURE CopyTransitions (t1: TransitionRange): TransitionRange =
 
 PROCEDURE WriteNfa() =
    BEGIN
-      WriteS (StdOutput, "NFA :");
+      WriteT (StdOutput, "NFA :");
       WriteNl (StdOutput);
       WriteNl (StdOutput);
       FOR State := 1 TO NStateCount DO
-	 WriteS (StdOutput, "State, Semantics =");
+	 WriteT (StdOutput, "State, Semantics =");
 	 WriteI (StdOutput, State, 5);
 	 WriteI (StdOutput, GetNSemantics (State), 5);
 	 WriteNl (StdOutput);

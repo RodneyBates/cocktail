@@ -39,8 +39,9 @@
 
 (* Ich, Doktor Josef Grosch, Informatiker, Sept. 1987 *)
 
- UNSAFE MODULE ReuseIO;			(* buffered IO		*)
+UNSAFE MODULE ReuseIO;			(* buffered IO		*)
 
+IMPORT Text;
 
 FROM SYSTEM IMPORT M2LONGINT, M2LONGCARD;
 FROM SYSTEM IMPORT SHORTINT;
@@ -593,7 +594,7 @@ PROCEDURE WriteN	(f: tFile; n: INTEGER; FieldWidth, Base: Word.T) =
       END;
    END WriteN;
 
-PROCEDURE WriteS	(f: tFile;READONLY  (*VAR*)s: ARRAY OF CHAR) = 
+PROCEDURE WriteS	(f: tFile; READONLY s: ARRAY OF CHAR) = 
    VAR c	: CHAR;
    BEGIN
       WITH m2tom3_with_20=BufferPool [f] DO
@@ -608,6 +609,24 @@ PROCEDURE WriteS	(f: tFile;READONLY  (*VAR*)s: ARRAY OF CHAR) =
 	 END;
       END;
    END WriteS;
+
+PROCEDURE WriteT	(f: tFile; t:TEXT) = 
+   VAR c	: CHAR;
+   BEGIN
+     IF t # NIL THEN 
+      WITH m2tom3_with_20=BufferPool [f] DO
+	 FOR i := 0 TO Text.Length (t) - 1 DO
+	    c := Text.GetChar(t,i);
+	    IF c = '\000' THEN RETURN; END;
+	    INC (m2tom3_with_20.BufferIndex);			(* WriteC inline	*)
+	    m2tom3_with_20.Buffer^ [m2tom3_with_20.BufferIndex] := c;
+	    IF (m2tom3_with_20.BufferIndex = BufferSize) OR (m2tom3_with_20.FlushLine AND (c = EolCh)) THEN
+	       WriteFlush (f);
+	    END;
+	 END;
+      END;
+     END;
+   END WriteT;
 
 PROCEDURE WriteShort	(f: tFile; n: SHORTINT; FieldWidth: Word.T) =
    BEGIN					(* shortint number	*)

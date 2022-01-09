@@ -89,6 +89,13 @@ PROCEDURE ArrayToString	(READONLY a: ARRAY OF CHAR; VAR s: tString);
 			(* MODULA string is converted to a string 's'	*)
 			(* of type tString.				*)
 
+PROCEDURE TextToString	(t:TEXT; VAR s: tString);
+
+			(* TEXT 't' is converted to a string 's'	*)
+			(* of type tString.				*)
+
+PROCEDURE StringToText (READONLY s: tString): TEXT;
+
 PROCEDURE StringToArray	(READONLY s: tString; VAR a: ARRAY OF CHAR);
 
 			(* A string 's' of type tString is converted to *)

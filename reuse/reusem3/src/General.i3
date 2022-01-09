@@ -28,7 +28,7 @@ IMPORT Word;
 FROM SYSTEM IMPORT M2LONGINT;
 FROM SYSTEM IMPORT SHORTCARD, BITSET;
 VAR	  MaxAlign	: INTEGER;
-VAR	  AlignMasks	: ARRAY [0..8] OF BITSET;
+VAR	  AlignMasks	: ARRAY [0..8] OF INTEGER;
 
 PROCEDURE Min		(a, b: INTEGER)			: INTEGER;
 			(* Returns the minimum of 'a' and 'b'.		*)

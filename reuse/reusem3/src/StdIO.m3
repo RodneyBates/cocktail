@@ -149,6 +149,11 @@ PROCEDURE WriteS	(READONLY s: ARRAY OF CHAR) =	(* string		*)
       ReuseIO.WriteS (StdOutput, s);
    END WriteS;
 
+PROCEDURE WriteT        (t: TEXT) =             (* M3 TEXT              *)
+   BEGIN
+      ReuseIO.WriteT (StdOutput, t);
+   END WriteT;
+
 PROCEDURE WriteShort	(n: SHORTINT; FieldWidth: Word.T) =
    BEGIN					(* shortint number ?	*)
       ReuseIO.WriteShort (StdOutput, n, FieldWidth);

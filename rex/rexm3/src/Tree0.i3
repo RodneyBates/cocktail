@@ -87,7 +87,7 @@ END;
 VAR Tree0Root        : tTree0;
 VAR HeapUsed   : M2LONGCARD;
 VAR yyPoolFreePtr, yyPoolMaxPtr        : ADDRESS;
-VAR yyNodeSize : ARRAY [0..13] OF SHORTCARD;
+VAR yyNodeSize : ARRAY [0..13] OF INTEGER;
 VAR yyExit     : SYSTEM.PROC;
 
 PROCEDURE yyAlloc      (): tTree0;

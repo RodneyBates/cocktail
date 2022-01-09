@@ -1,9 +1,10 @@
  UNSAFE MODULE Tree0;
 
+IMPORT Text;
 
-
-FROM SYSTEM IMPORT BYTE, BITSET, M2SHORTINT, M2SHORTCARD;
-IMPORT Word, SYSTEM, System, General, Memory, DynArray, IO, Layout, StringMem, Strings, Idents, Texts, Sets, Positions;
+FROM SYSTEM IMPORT BYTE, BITSET, SHORTINT, SHORTCARD, M2LONGINT;
+IMPORT Word, SYSTEM, System, General, Memory, DynArray, ReuseIO;
+IMPORT IO, Layout, StringMem, Strings, Idents, Texts, Sets, Positions;
 (* line 31 "../src/rex.cg" *)
 
 FROM Sets	IMPORT tSet;
@@ -263,14 +264,14 @@ TYPE
                  END;
 
 VAR yyBlockList        : yytBlockPtr;
-VAR yyMaxSize, yyi     : M2SHORTCARD;
-VAR yyTypeRange        : ARRAY [0..13] OF M2SHORTCARD;
+VAR yyMaxSize, yyi     : SHORTCARD;
+VAR yyTypeRange        : ARRAY [0..13] OF SHORTCARD;
 
 PROCEDURE yyAlloc (): tTree0 =
  VAR yyBlockPtr        : yytBlockPtr;
  BEGIN
   yyBlockPtr   := yyBlockList;
-  yyBlockList  := Memory.Alloc (SYSTEM.BYTESIZE (yytBlock));
+  yyBlockList  := Memory.Alloc (BYTESIZE (yytBlock));
   yyBlockList^.yySuccessor := yyBlockPtr;
   yyPoolFreePtr        := ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 274
  $$ *) (yyBlockList^.yyBlock);
@@ -279,7 +280,7 @@ PROCEDURE yyAlloc (): tTree0 =
   RETURN yyPoolFreePtr;
  END yyAlloc;
 
-PROCEDURE MakeTree0 (yyKind: M2SHORTCARD): tTree0 =
+PROCEDURE MakeTree0 (yyKind: SHORTCARD): tTree0 =
  VAR yyByteCount       : LONGINT;
  VAR yyt       : tTree0;
  BEGIN
@@ -291,7 +292,7 @@ PROCEDURE MakeTree0 (yyKind: M2SHORTCARD): tTree0 =
   RETURN yyt;
  END MakeTree0;
 
-PROCEDURE IsType (yyTree: tTree0; yyKind: M2SHORTCARD): BOOLEAN =
+PROCEDURE IsType (yyTree: tTree0; yyKind: SHORTCARD): BOOLEAN =
  BEGIN
   RETURN (yyTree # NoTree0) AND (yyKind <= yyTree^.Kind(* $$ m2tom3 warning: application of variant field, possible cast of 'Kind' in line 292
  $$ *)) AND (yyTree^.Kind(* $$ m2tom3 warning: application of variant field, possible cast of 'Kind' in line 292
@@ -523,7 +524,7 @@ PROCEDURE mString (pString: tStringRef): tTree0 =
   RETURN yyt;
  END mString;
 
-PROCEDURE mRule (pPatterns: tTree0; pTargetCode: tText; pLine: M2SHORTCARD; pCodeMode: M2SHORTCARD; pRuleNr: M2SHORTCARD): tTree0 =
+PROCEDURE mRule (pPatterns: tTree0; pTargetCode: tText; pLine: SHORTCARD; pCodeMode: SHORTCARD; pRuleNr: SHORTCARD): tTree0 =
  VAR yyByteCount    : LONGINT;
  VAR yyt    : tTree0;
  BEGIN
@@ -547,7 +548,7 @@ PROCEDURE mRule (pPatterns: tTree0; pTargetCode: tText; pLine: M2SHORTCARD; pCod
   RETURN yyt;
  END mRule;
 
-PROCEDURE mPattern (pStartStates: tSet; pRegExpr: tTree0; pRightContext: tTree0; pPatternNr: M2SHORTCARD; pPosition: tPosition): tTree0 =
+PROCEDURE mPattern (pStartStates: tSet; pRegExpr: tTree0; pRightContext: tTree0; pPatternNr: SHORTCARD; pPosition: tPosition): tTree0 =
  VAR yyByteCount    : LONGINT;
  VAR yyt    : tTree0;
  BEGIN
@@ -575,8 +576,8 @@ PROCEDURE mPattern (pStartStates: tSet; pRegExpr: tTree0; pRightContext: tTree0;
 TYPE yyPtrtTree        = UNTRACED BRANDED REF  tTree0;
 
 VAR yyf        : ReuseIO.tFile;
-VAR yyLabel    : M2SHORTCARD;
-VAR yyKind     : M2SHORTCARD;
+VAR yyLabel    : SHORTCARD;
+VAR yyKind     : SHORTCARD;
 VAR yyc        : CHAR;
 VAR yys        : Strings.tString;
 
@@ -635,35 +636,37 @@ yyt := yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible 
 
 CONST yyInitTreeStoreSize      = 32;
 
-VAR yyTreeStoreSize    : LONGINT;
+VAR yyTreeStoreSize    : M2LONGINT;
 VAR yyTreeStorePtr     : UNTRACED BRANDED REF  ARRAY [0..50000] OF tTree0;
 VAR yyLabelCount       : INTEGER;
-VAR yyRecursionLevel   : M2SHORTINT;
+VAR yyRecursionLevel   : SHORTINT;
 
-PROCEDURE yyMapToLabel (yyTree: tTree0): M2SHORTCARD =
- VAR yyi       : INTEGER;
+PROCEDURE yyMapToLabel (yyTree: tTree0): SHORTCARD =
  BEGIN
   FOR yyi := 1 TO yyLabelCount DO
    IF yyTreeStorePtr^[yyi] = yyTree THEN RETURN yyi; END;
   END;
   INC (yyLabelCount);
   IF yyLabelCount = yyTreeStoreSize THEN
-   DynArray.ExtendArray (yyTreeStorePtr, yyTreeStoreSize, SYSTEM.BYTESIZE (tTree0));
+   DynArray.ExtendArray
+      (LOOPHOLE(yyTreeStorePtr,ADDRESS), yyTreeStoreSize, BYTESIZE (tTree0));
   END;
   yyTreeStorePtr^[yyLabelCount] := yyTree;
   RETURN yyLabelCount;
  END yyMapToLabel;
 
-PROCEDURE yyMapToTree (yyLabel: M2SHORTCARD): tTree0 =
+PROCEDURE yyMapToTree (yyLabel: SHORTCARD): tTree0 =
  BEGIN RETURN yyTreeStorePtr^[yyLabel]; END yyMapToTree;
 
 PROCEDURE yyWriteNl() = BEGIN ReuseIO.WriteNl (yyf); END yyWriteNl;
 
-PROCEDURE yyWriteSelector (READONLY yys: ARRAY OF CHAR) =
- BEGIN ReuseIO.WriteS (yyf, yys); Layout.WriteSpaces (yyf, 15 - LOOPHOLE (LAST (yys),INTEGER)); ReuseIO.WriteS (yyf, " = "); END yyWriteSelector;
+PROCEDURE yyWriteSelector (yys: TEXT) =
+ BEGIN ReuseIO.WriteT (yyf, yys);
+ Layout.WriteSpaces (yyf, 14 - Text.Length(yys));
+ ReuseIO.WriteT (yyf, " = ");
+ END yyWriteSelector;
 
 PROCEDURE yyWriteHex (VAR yyx: ARRAY OF SYSTEM.BYTE) =
- VAR yyi       : INTEGER;
  BEGIN
   FOR yyi := 0 TO LOOPHOLE (LAST (yyx),INTEGER) DO
    ReuseIO.WriteN (yyf, ORD (LOOPHOLE (yyx [yyi],CHAR)), 2, 16);
@@ -671,17 +674,17 @@ PROCEDURE yyWriteHex (VAR yyx: ARRAY OF SYSTEM.BYTE) =
   END;
  END yyWriteHex;
 
-VAR yyIndentLevel      : M2SHORTINT;
-VAR yyActualIndent , yyIndentQuotient , yyIndentRemainder : M2SHORTINT;
+VAR yyIndentLevel      : SHORTINT;
+VAR yyActualIndent , yyIndentQuotient , yyIndentRemainder : SHORTINT;
 CONST yyIndentFactor = 20; 
 PROCEDURE yySetIndentInfo ( ) = 
   BEGIN 
    yyIndentQuotient := yyIndentLevel DIV yyIndentFactor;    yyIndentRemainder := yyIndentLevel MOD yyIndentFactor; 
-   yyActualIndent      := VAL (   10 * ORD ( yyIndentQuotient > 0 ),M2SHORTINT )         + yyIndentRemainder 
+   yyActualIndent      := VAL (   10 * ORD ( yyIndentQuotient > 0 ),SHORTINT )         + yyIndentRemainder 
   END yySetIndentInfo ; 
 
-PROCEDURE WriteTree0 (yyyf: IO.tFile; yyt: tTree0) =
- VAR yySaveLevel       : M2SHORTINT;
+PROCEDURE WriteTree0 (yyyf: ReuseIO.tFile; yyt: tTree0) =
+ VAR yySaveLevel       : SHORTINT;
  BEGIN
   yyf := yyyf;
   IF yyRecursionLevel = 0 THEN yyLabelCount := 0; END;
@@ -694,21 +697,23 @@ PROCEDURE WriteTree0 (yyyf: IO.tFile; yyt: tTree0) =
   yySetIndentInfo ( ) ;   DEC (yyRecursionLevel);
  END WriteTree0;
 
-PROCEDURE yyIndentSelector (READONLY yys: ARRAY OF CHAR) =
+PROCEDURE yyIndentSelector (yys: TEXT) =
  BEGIN    IF yyIndentQuotient > 0    THEN ReuseIO.WriteC ( yyf , '(' ); ReuseIO.WriteC ( yyf , '*' ); 
      ReuseIO.WriteN ( yyf , yyIndentQuotient * yyIndentFactor , 6 , 10 ); 
      ReuseIO.WriteC ( yyf , '*' ); ReuseIO.WriteC ( yyf , ')' ); 
      Layout.WriteSpaces (yyf, yyIndentRemainder ); 
    ELSE Layout.WriteSpaces (yyf, yyIndentRemainder); 
-   END ;    yyWriteSelector (yys); 
+   END ;
+   yyWriteSelector (yys); 
  END yyIndentSelector;
 
-PROCEDURE yyIndentSelectorTree (READONLY yys: ARRAY OF CHAR; yyt: tTree0) =
- BEGIN yyIndentSelector (yys); yyWriteTree0 ( yyt );  END yyIndentSelectorTree;
+PROCEDURE yyIndentSelectorTree (yys: TEXT; yyt: tTree0) =
+ BEGIN yyIndentSelector (yys); yyWriteTree0 ( yyt );
+ END yyIndentSelectorTree;
 
 PROCEDURE yWriteNode (yyt: tTree0) =
  BEGIN
-  ReuseIO.WriteS (yyf, "Node"); yyWriteNl();
+  ReuseIO.WriteT (yyf, "Node"); yyWriteNl();
   yyIndentSelector ("Tree"); WITH m2tom3_desig_8 =  yyt^.Node(* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 650
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_8,ARRAY OF BYTE))
@@ -723,7 +728,7 @@ END;  yyWriteNl();
 
 PROCEDURE yWriteNode1 (yyt: tTree0) =
  BEGIN
-  ReuseIO.WriteS (yyf, "Node1"); yyWriteNl();
+  ReuseIO.WriteT (yyf, "Node1"); yyWriteNl();
   yyIndentSelector ("Tree"); WITH m2tom3_desig_11 =  yyt^.Node1(* $$ m2tom3 warning: application of variant field, possible cast of 'Node1' in line 659
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_11,ARRAY OF BYTE))
@@ -738,7 +743,7 @@ END;  yyWriteNl();
 
 PROCEDURE yWriteOption (yyt: tTree0) =
  BEGIN
-  ReuseIO.WriteS (yyf, "Option"); yyWriteNl();
+  ReuseIO.WriteT (yyf, "Option"); yyWriteNl();
   yyIndentSelector ("Tree"); WITH m2tom3_desig_7 =  yyt^.Option(* $$ m2tom3 warning: application of variant field, possible cast of 'Option' in line 668
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_7,ARRAY OF BYTE))
@@ -753,7 +758,7 @@ END;  yyWriteNl();
 
 PROCEDURE yWriteRepetition (yyt: tTree0) =
  BEGIN
-  ReuseIO.WriteS (yyf, "Repetition"); yyWriteNl();
+  ReuseIO.WriteT (yyf, "Repetition"); yyWriteNl();
   yyIndentSelector ("Tree"); WITH m2tom3_desig_12 =  yyt^.Repetition(* $$ m2tom3 warning: application of variant field, possible cast of 'Repetition' in line 677
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_12,ARRAY OF BYTE))
@@ -768,7 +773,7 @@ END;  yyWriteNl();
 
 PROCEDURE yWriteNode2 (yyt: tTree0) =
  BEGIN
-  ReuseIO.WriteS (yyf, "Node2"); yyWriteNl();
+  ReuseIO.WriteT (yyf, "Node2"); yyWriteNl();
   yyIndentSelector ("Tree"); WITH m2tom3_desig_0 =  yyt^.Node2(* $$ m2tom3 warning: application of variant field, possible cast of 'Node2' in line 686
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_0,ARRAY OF BYTE))
@@ -785,7 +790,7 @@ END;  yyWriteNl();
 
 PROCEDURE yWriteList (yyt: tTree0) =
  BEGIN
-  ReuseIO.WriteS (yyf, "List"); yyWriteNl();
+  ReuseIO.WriteT (yyf, "List"); yyWriteNl();
   yyIndentSelector ("Tree"); WITH m2tom3_desig_10 =  yyt^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 696
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_10,ARRAY OF BYTE))
@@ -802,7 +807,7 @@ END;  yyWriteNl();
 
 PROCEDURE yWriteSequence (yyt: tTree0) =
  BEGIN
-  ReuseIO.WriteS (yyf, "Sequence"); yyWriteNl();
+  ReuseIO.WriteT (yyf, "Sequence"); yyWriteNl();
   yyIndentSelector ("Tree"); WITH m2tom3_desig_1 =  yyt^.Sequence(* $$ m2tom3 warning: application of variant field, possible cast of 'Sequence' in line 706
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_1,ARRAY OF BYTE))
@@ -819,7 +824,7 @@ END;  yyWriteNl();
 
 PROCEDURE yWriteAlternative (yyt: tTree0) =
  BEGIN
-  ReuseIO.WriteS (yyf, "Alternative"); yyWriteNl();
+  ReuseIO.WriteT (yyf, "Alternative"); yyWriteNl();
   yyIndentSelector ("Tree"); WITH m2tom3_desig_4 =  yyt^.Alternative(* $$ m2tom3 warning: application of variant field, possible cast of 'Alternative' in line 716
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_4,ARRAY OF BYTE))
@@ -836,7 +841,7 @@ END;  yyWriteNl();
 
 PROCEDURE yWriteCh (yyt: tTree0) =
  BEGIN
-  ReuseIO.WriteS (yyf, "Ch"); yyWriteNl();
+  ReuseIO.WriteT (yyf, "Ch"); yyWriteNl();
   yyIndentSelector ("Tree"); WITH m2tom3_desig_5 =  yyt^.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 726
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_5,ARRAY OF BYTE))
@@ -853,7 +858,7 @@ END;  yyWriteNl();
 
 PROCEDURE yWriteSet (yyt: tTree0) =
  BEGIN
-  ReuseIO.WriteS (yyf, "Set"); yyWriteNl();
+  ReuseIO.WriteT (yyf, "Set"); yyWriteNl();
   yyIndentSelector ("Tree"); WITH m2tom3_desig_6 =  yyt^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 736
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_6,ARRAY OF BYTE))
@@ -872,7 +877,7 @@ END;  yyWriteNl();
 
 PROCEDURE yWriteString (yyt: tTree0) =
  BEGIN
-  ReuseIO.WriteS (yyf, "String"); yyWriteNl();
+  ReuseIO.WriteT (yyf, "String"); yyWriteNl();
   yyIndentSelector ("Tree"); WITH m2tom3_desig_9 =  yyt^.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 747
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_9,ARRAY OF BYTE))
@@ -889,7 +894,7 @@ END;  yyWriteNl();
 
 PROCEDURE yWriteRule (yyt: tTree0) =
  BEGIN
-  ReuseIO.WriteS (yyf, "Rule"); yyWriteNl();
+  ReuseIO.WriteT (yyf, "Rule"); yyWriteNl();
   yyIndentSelector ("Tree"); WITH m2tom3_desig_2 =  yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 757
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_2,ARRAY OF BYTE))
@@ -912,7 +917,7 @@ END;  yyWriteNl();
 
 PROCEDURE yWritePattern (yyt: tTree0) =
  BEGIN
-  ReuseIO.WriteS (yyf, "Pattern"); yyWriteNl();
+  ReuseIO.WriteT (yyf, "Pattern"); yyWriteNl();
   yyIndentSelector ("Tree"); WITH m2tom3_desig_3 =  yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 770
  $$ *).Tree  DO
 yyWriteHex (LOOPHOLE(m2tom3_desig_3,ARRAY OF BYTE))
@@ -936,12 +941,12 @@ END;  yyWriteNl();
  END yWritePattern;
 
 PROCEDURE yyWriteTree0 (yyt: tTree0) =
- VAR yyLevel   : M2SHORTCARD;
+ VAR yyLevel   : SHORTCARD;
  BEGIN
   yyLevel := yyIndentLevel;
   LOOP
    IF yyt = NoTree0 THEN
-    ReuseIO.WriteS (yyf, " NoTree0"); yyWriteNl(); EXIT;
+    ReuseIO.WriteT (yyf, " NoTree0"); yyWriteNl(); EXIT;
    ELSIF yyt^.yyHead(* $$ m2tom3 warning: application of variant field, possible cast of 'yyHead' in line 788
  $$ *).yyMark = 0 THEN
     ReuseIO.WriteC (yyf, '^'); ReuseIO.WriteI (yyf, yyMapToLabel (yyt), 0); yyWriteNl(); EXIT;
@@ -997,7 +1002,7 @@ PROCEDURE ReleaseTree0Module() =
   WHILE yyBlockList # NIL DO
    yyBlockPtr  := yyBlockList;
    yyBlockList := yyBlockList^.yySuccessor;
-   Memory.Free (SYSTEM.BYTESIZE (yytBlock), yyBlockPtr);
+   Memory.Free (BYTESIZE (yytBlock), yyBlockPtr);
   END;
   yyPoolFreePtr        := NIL;
   yyPoolMaxPtr := NIL;
@@ -1085,22 +1090,26 @@ BEGIN
  yyPoolMaxPtr  := NIL;
  HeapUsed      := 0;
  yyExit        := xxExit;
- yyNodeSize [Node] := SYSTEM.BYTESIZE (yNode);
- yyNodeSize [Node1] := SYSTEM.BYTESIZE (yNode1);
- yyNodeSize [Option] := SYSTEM.BYTESIZE (yOption);
- yyNodeSize [Repetition] := SYSTEM.BYTESIZE (yRepetition);
- yyNodeSize [Node2] := SYSTEM.BYTESIZE (yNode2);
- yyNodeSize [List] := SYSTEM.BYTESIZE (yList);
- yyNodeSize [Sequence] := SYSTEM.BYTESIZE (ySequence);
- yyNodeSize [Alternative] := SYSTEM.BYTESIZE (yAlternative);
- yyNodeSize [Ch] := SYSTEM.BYTESIZE (yCh);
- yyNodeSize [Set] := SYSTEM.BYTESIZE (ySet);
- yyNodeSize [String] := SYSTEM.BYTESIZE (yString);
- yyNodeSize [Rule] := SYSTEM.BYTESIZE (yRule);
- yyNodeSize [Pattern] := SYSTEM.BYTESIZE (yPattern);
+ yyNodeSize [Node] := BYTESIZE (yNode);
+ yyNodeSize [Node1] := BYTESIZE (yNode1);
+ yyNodeSize [Option] := BYTESIZE (yOption);
+ yyNodeSize [Repetition] := BYTESIZE (yRepetition);
+ yyNodeSize [Node2] := BYTESIZE (yNode2);
+ yyNodeSize [List] := BYTESIZE (yList);
+ yyNodeSize [Sequence] := BYTESIZE (ySequence);
+ yyNodeSize [Alternative] := BYTESIZE (yAlternative);
+ yyNodeSize [Ch] := BYTESIZE (yCh);
+ yyNodeSize [Set] := BYTESIZE (ySet);
+ yyNodeSize [String] := BYTESIZE (yString);
+ yyNodeSize [Rule] := BYTESIZE (yRule);
+ yyNodeSize [Pattern] := BYTESIZE (yPattern);
  yyMaxSize     := 0;
  FOR yyi := 1 TO 13 DO
-  yyNodeSize [yyi] := LOOPHOLE (LOOPHOLE (yyNodeSize [yyi] + LOOPHOLE (General.MaxAlign,Word.T) - 1,BITSET) * General.AlignMasks [General.MaxAlign],LONGINT);
+  yyNodeSize [yyi]
+    := Word.And(yyNodeSize [yyi] + General.MaxAlign - 1
+               ,General.AlignMasks [General.MaxAlign]
+               );
+ (*CHECK: ^ Wow!*)
   yyMaxSize := General.Max (yyNodeSize [yyi], yyMaxSize);
  END;
  yyTypeRange [Node] := Pattern;
@@ -1118,7 +1127,7 @@ BEGIN
  yyTypeRange [Pattern] := Pattern;
  yyRecursionLevel := 0;
  yyTreeStoreSize := yyInitTreeStoreSize;
- DynArray.MakeArray (yyTreeStorePtr, yyTreeStoreSize, SYSTEM.BYTESIZE (tTree0));
+ DynArray.MakeArray (LOOPHOLE(yyTreeStorePtr,ADDRESS), yyTreeStoreSize, BYTESIZE (tTree0));
  BeginTree0();
 END Tree0.
 

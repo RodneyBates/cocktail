@@ -150,14 +150,14 @@ BEGIN
    MaxAlign := LOOPHOLE (ADR (ForAlign.longreal(* $$ m2tom3 warning: unhandled ADR parameter 'longreal' in line 147
  $$ *)),Word.T) - LOOPHOLE (ADR (ForAlign.char),Word.T);
 
-   AlignMasks [1] := LOOPHOLE (16_0FFFFFFFF,BITSET);
-   AlignMasks [2] := LOOPHOLE (16_0FFFFFFFE,BITSET);
-   AlignMasks [3] := LOOPHOLE (16_0FFFFFFFF,BITSET);
-   AlignMasks [4] := LOOPHOLE (16_0FFFFFFFC,BITSET);
-   AlignMasks [5] := LOOPHOLE (16_0FFFFFFFF,BITSET);
-   AlignMasks [6] := LOOPHOLE (16_0FFFFFFFF,BITSET);
-   AlignMasks [7] := LOOPHOLE (16_0FFFFFFFF,BITSET);
-   AlignMasks [8] := LOOPHOLE (16_0FFFFFFF8,BITSET);
+   AlignMasks [1] := -1 (*16_0FFFFFFFF*);
+   AlignMasks [2] := -2 (*16_0FFFFFFFE*);
+   AlignMasks [3] := -1 (*16_0FFFFFFFF*);
+   AlignMasks [4] := -4 (*16_0FFFFFFFC*);
+   AlignMasks [5] := -1 (*16_0FFFFFFFF*);
+   AlignMasks [6] := -1 (*16_0FFFFFFFF*);
+   AlignMasks [7] := -1 (*16_0FFFFFFFF*);
+   AlignMasks [8] := -8 (*16_0FFFFFFF8*);
 
 (*
    GetArgs (argc, argv);

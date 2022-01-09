@@ -59,7 +59,6 @@ PROCEDURE InitTraces()	 =
    END InitTraces;
 
 PROCEDURE ResetTraces	(StringLength: INTEGER) =
-   VAR i	: INTEGER;
    BEGIN
       WHILE PosToTraceSize <= StringLength DO
 	 ExtendArray (LOOPHOLE(PosToTracePtr,ADDRESS), PosToTraceSize, BYTESIZE (TraceStepPtr));

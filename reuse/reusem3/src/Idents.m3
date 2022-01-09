@@ -43,7 +43,7 @@ FROM SYSTEM IMPORT M2LONGINT;
 FROM DynArray	IMPORT MakeArray, ExtendArray;
 FROM Strings	IMPORT tString, tStringIndex, AssignEmpty;
 FROM StringMem	IMPORT tStringRef, PutString, IsEqual;
-FROM ReuseIO		IMPORT tFile, StdOutput, WriteC, WriteI, WriteNl, WriteS;
+FROM ReuseIO		IMPORT tFile, StdOutput, WriteC, WriteI, WriteNl, WriteT;
 
 IMPORT Word, Strings, StringMem;
 
@@ -189,7 +189,7 @@ PROCEDURE WriteHashTable() =
       END;
 
       WriteNl (StdOutput);
-      WriteS (StdOutput, ARRAY OF CHAR {'I','d','e','n','t','s',' ','=','\000'});
+      WriteT (StdOutput, "Idents =");
       WriteI (StdOutput, VAL (   IdentCount,INTEGER ) , 5);
       WriteNl (StdOutput);
    END WriteHashTable;

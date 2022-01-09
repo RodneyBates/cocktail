@@ -40,10 +40,13 @@
 
  UNSAFE MODULE RexErrors;
 
+IMPORT Stdio;
+IMPORT Text;
+IMPORT Wr;
 
 FROM SYSTEM IMPORT SHORTCARD, M2LONGINT, HALT;
 FROM ReuseIO	
-	IMPORT StdError, WriteC, WriteNl, WriteS, WriteI,
+	IMPORT StdError, WriteC, WriteNl, WriteI, WriteS, WriteT,
 		       WriteLong, WriteB, WriteR, CloseIO;
 FROM Strings	IMPORT tString;
 FROM Idents	IMPORT tIdent, WriteIdent;
@@ -77,37 +80,37 @@ PROCEDURE ErrorMessageI (ErrorCode, ErrorClass: Word.T; Position: tPosition;
 
 PROCEDURE WriteErrorMessage (ErrorCode, ErrorClass: Word.T; Position: tPosition) =
    BEGIN
-      WritePosition (StdError, Position); WriteS (StdError, ": ");
+      WritePosition (StdError, Position); WriteT (StdError, ": ");
 
       CASE ErrorClass OF
-      | Fatal		=> WriteS (StdError, "Fatal       ");
-      | Restriction	=> WriteS (StdError, "Restriction ");
-      | Error		=> WriteS (StdError, "Error       ");
-      | Warning		=> WriteS (StdError, "Warning     ");
-      | Repair		=> WriteS (StdError, "Repair      ");
-      | Note		=> WriteS (StdError, "Note        ");
-      | Information	=> WriteS (StdError, "Information ");
-      ELSE		  WriteS (StdError, "Error class: ");
+      | Fatal		=> WriteT (StdError, "Fatal       ");
+      | Restriction	=> WriteT (StdError, "Restriction ");
+      | Error		=> WriteT (StdError, "Error       ");
+      | Warning		=> WriteT (StdError, "Warning     ");
+      | Repair		=> WriteT (StdError, "Repair      ");
+      | Note		=> WriteT (StdError, "Note        ");
+      | Information	=> WriteT (StdError, "Information ");
+      ELSE		  WriteT (StdError, "Error class: ");
 			  WriteI (StdError, ErrorClass, 0);
       END;
 
       CASE ErrorCode OF
       | NoText		=>
-      | SyntaxError	=> WriteS (StdError, "syntax error"	);
-      | ExpectedTokens	=> WriteS (StdError, "expected tokens"	);
-      | RestartPoint	=> WriteS (StdError, "restart point"	);
-      | TokenInserted	=> WriteS (StdError, "token inserted "	);
-      | WrongParseTable	=> WriteS (StdError, "parse table mismatch"	);
-      | OpenParseTable	=> WriteS (StdError, "cannot open parse table"	);
-      | ReadParseTable	=> WriteS (StdError, "cannot read parse table"	);
-      | IdentUndefined	=> WriteS (StdError, "identifier undefined"	);
-      | ImproperUse	=> WriteS (StdError, "improper use of identifier");
-      | IdentDefBefore	=> WriteS (StdError, "identifier already defined");
-      | BraceMissing	=> WriteS (StdError, "closing '}' missing"	);
-      | UnclosedComment	=> WriteS (StdError, "unclosed comment"		);
-      | PatternNoMatch	=> WriteS (StdError, "pattern will never match"	);
-      | UnclosedString	=> WriteS (StdError, "unclosed string"		);
-      ELSE		  WriteS (StdError, " error code: ");
+      | SyntaxError	=> WriteT (StdError, "syntax error"	);
+      | ExpectedTokens	=> WriteT (StdError, "expected tokens"	);
+      | RestartPoint	=> WriteT (StdError, "restart point"	);
+      | TokenInserted	=> WriteT (StdError, "token inserted "	);
+      | WrongParseTable	=> WriteT (StdError, "parse table mismatch"	);
+      | OpenParseTable	=> WriteT (StdError, "cannot open parse table"	);
+      | ReadParseTable	=> WriteT (StdError, "cannot read parse table"	);
+      | IdentUndefined	=> WriteT (StdError, "identifier undefined"	);
+      | ImproperUse	=> WriteT (StdError, "improper use of identifier");
+      | IdentDefBefore	=> WriteT (StdError, "identifier already defined");
+      | BraceMissing	=> WriteT (StdError, "closing '}' missing"	);
+      | UnclosedComment	=> WriteT (StdError, "unclosed comment"		);
+      | PatternNoMatch	=> WriteT (StdError, "pattern will never match"	);
+      | UnclosedString	=> WriteT (StdError, "unclosed string"		);
+      ELSE		  WriteT (StdError, " error code: ");
 			  WriteI (StdError, ErrorCode, 0);
       END;
    END WriteErrorMessage;
@@ -125,7 +128,7 @@ PROCEDURE WriteInfo (InfoClass: Word.T; Info: ADDRESS) =
       PtrToIdent	: UNTRACED BRANDED REF  tIdent;
    BEGIN
       IF InfoClass = None THEN RETURN END;
-      WriteS (StdError, ": ");
+      WriteT (StdError, ": ");
       CASE InfoClass OF
       | Integer		=> PtrToInteger	:= Info; WriteI (StdError, PtrToInteger^, 0);
       | Short		=> PtrToShort	:= Info; WriteI (StdError, PtrToShort^, 0);
@@ -136,9 +139,16 @@ PROCEDURE WriteInfo (InfoClass: Word.T; Info: ADDRESS) =
       | String		=> PtrToString	:= Info; Strings.WriteS (StdError, PtrToString^);
       | Array		=> PtrToArray	:= Info; WriteS (StdError, PtrToArray^);
       | Ident		=> PtrToIdent	:= Info; WriteIdent (StdError, PtrToIdent^);
-      ELSE WriteS (StdError, "info class: "); WriteI (StdError, InfoClass, 0);
+      ELSE WriteT (StdError, "info class: "); WriteI (StdError, InfoClass, 0);
       END;
    END WriteInfo;
+
+PROCEDURE ErrLine (msg:TEXT) =
+  BEGIN
+    Wr.PutText (Stdio.stderr, msg);
+    Wr.PutText (Stdio.stderr, Wr.EOL);
+    Wr.Flush (Stdio.stderr);
+  END ErrLine;
 
 BEGIN
    ErrorCount := 0;
