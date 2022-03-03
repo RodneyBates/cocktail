@@ -6,6 +6,7 @@
 
 IMPORT Fmt;
 IMPORT OSError;
+IMPORT Process;
 IMPORT Text;
 
 
@@ -1325,7 +1326,8 @@ PROCEDURE yyGetTables() =
       END;
       IF NOT OK THEN
         Errors.ErrorMessage 
-        (Errors.WrongParseTable, Errors.Fatal, Positions.NoPosition)
+        (Errors.WrongParseTable, Errors.Fatal, Positions.NoPosition);
+        Process.Exit (Errors.AbnormalTermination);
       END;
       n := 0;
       j := 0;

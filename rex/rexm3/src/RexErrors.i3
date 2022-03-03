@@ -36,6 +36,8 @@ IMPORT Word;
 
 FROM Positions	IMPORT tPosition;
 
+CONST AbnormalTermination = 1 (* Code to Process.Exit. *);
+
 CONST
    NoText		= 0	;
    SyntaxError		= 1	;	(* error codes		*)

@@ -15,9 +15,11 @@ IMPORT Word, SYSTEM, Checks, System, General, Positions, ReuseIO, DynArray, Stri
 (* line 84 "../src/rex.rex" *)
 
 IMPORT OSError;
+IMPORT Process;
 
 FROM SYSTEM     IMPORT SHORTCARD, M2LONGINT, M2LONGCARD;
 IMPORT Errors;
+IMPORT RexErrors;
 FROM Errors IMPORT ErrLine;
 FROM Strings    IMPORT tString, Concatenate, Char, SubString,
                         StringToInt, AssignEmpty, Length;
@@ -1298,6 +1300,7 @@ PROCEDURE yyGetTables() =
       EXCEPT
         OSError.E (code)
         => ErrLine ("Unable to open scanner table file " & ScanTabName );
+           Process.Exit (RexErrors.AbnormalTermination);
       END;
 
       Checks.ErrorCheckT ("yyGetTables.OpenInput", TableFile);
@@ -1334,9 +1337,11 @@ PROCEDURE yyGetTable (TableFile: System.tFile; Address: ADDRESS): Word.T =
    BEGIN
       N := System.Read (TableFile, ADR (Length), BYTESIZE (yyTableElmt));
       Checks.ErrorCheckT ("yyGetTable.Read1", N);
+      IF N < 0 THEN Process.Exit (RexErrors.AbnormalTermination); END;
       LongLength := Length;
       N := System.Read (TableFile, Address, LongLength);
       Checks.ErrorCheckT ("yyGetTable.Read2", N);
+      IF N < 0 THEN Process.Exit (RexErrors.AbnormalTermination); END;
       RETURN LongLength;
    END yyGetTable;
  
