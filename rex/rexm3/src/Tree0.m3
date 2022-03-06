@@ -581,10 +581,23 @@ VAR yyKind     : SHORTCARD;
 VAR yyc        : CHAR;
 VAR yys        : Strings.tString;
 
-PROCEDURE yyMark (yyt: tTree0) =
+VAR topCallCt:INTEGER := 0;
+VAR topCallStop := 0;
+VAR recCallCt:INTEGER := 0;
+VAR recCallStop := 36;
+
+PROCEDURE yyMarkProc (yyt: tTree0; yyt2: tTree0 := NIL) =
+
+VAR v0, v1, v2, v3, v4: tTree0; 
  BEGIN
   LOOP
+   v0 := yyt;
+   v1 := yyt2; 
    IF yyt = NoTree0 THEN RETURN; END;
+   IF yyt2 # NIL AND yyt2 # yyt
+   THEN
+     v2 := yyt; 
+   END;
    INC (yyt^.yyHead(* $$ m2tom3 warning: application of variant field, possible cast of 'yyHead' in line 542
  $$ *).yyMark);
    IF yyt^.yyHead(* $$ m2tom3 warning: application of variant field, possible cast of 'yyHead' in line 543
@@ -602,22 +615,28 @@ yyt := yyt^.Option(* $$ m2tom3 warning: application of variant field, possible c
 yyt := yyt^.Repetition(* $$ m2tom3 warning: application of variant field, possible cast of 'Repetition' in line 551
  $$ *).Son1;
 | Node2=>
-yyMark (yyt^.Node2(* $$ m2tom3 warning: application of variant field, possible cast of 'Node2' in line 553
+yyMarkProc (yyt^.Node2(* $$ m2tom3 warning: application of variant field, possible cast of 'Node2' in line 553
  $$ *).Son1);
 yyt := yyt^.Node2(* $$ m2tom3 warning: application of variant field, possible cast of 'Node2' in line 554
  $$ *).Son2;
 | List=>
-yyMark (yyt^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 556
- $$ *).Son1);
+
+IF recCallCt = recCallStop THEN
+  v4 := v3;
+END;
+INC (recCallCt);
+
+yyMarkProc (yyt^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 556
+ $$ *).Son1,yyt^.List.Son1);
 yyt := yyt^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 557
  $$ *).Son2;
 | Sequence=>
-yyMark (yyt^.Sequence(* $$ m2tom3 warning: application of variant field, possible cast of 'Sequence' in line 559
+yyMarkProc (yyt^.Sequence(* $$ m2tom3 warning: application of variant field, possible cast of 'Sequence' in line 559
  $$ *).Son1);
 yyt := yyt^.Sequence(* $$ m2tom3 warning: application of variant field, possible cast of 'Sequence' in line 560
  $$ *).Son2;
 | Alternative=>
-yyMark (yyt^.Alternative(* $$ m2tom3 warning: application of variant field, possible cast of 'Alternative' in line 562
+yyMarkProc (yyt^.Alternative(* $$ m2tom3 warning: application of variant field, possible cast of 'Alternative' in line 562
  $$ *).Son1);
 yyt := yyt^.Alternative(* $$ m2tom3 warning: application of variant field, possible cast of 'Alternative' in line 563
  $$ *).Son2;
@@ -625,14 +644,14 @@ yyt := yyt^.Alternative(* $$ m2tom3 warning: application of variant field, possi
 yyt := yyt^.Rule(* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 565
  $$ *).Patterns;
 | Pattern=>
-yyMark (yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 567
+yyMarkProc (yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 567
  $$ *).RegExpr);
 yyt := yyt^.Pattern(* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 568
  $$ *).RightContext;
    ELSE RETURN;
    END;
   END;
- END yyMark;
+ END yyMarkProc;
 
 CONST yyInitTreeStoreSize      = 32;
 
@@ -689,7 +708,14 @@ PROCEDURE WriteTree0 (yyyf: ReuseIO.tFile; yyt: tTree0) =
   yyf := yyyf;
   IF yyRecursionLevel = 0 THEN yyLabelCount := 0; END;
   INC (yyRecursionLevel);
-  yyMark (yyt);
+  
+IF topCallCt = topCallStop THEN
+  topCallStop := topCallStop;
+END;
+INC (topCallCt);
+recCallCt := 0;
+
+  yyMarkProc (yyt);
   yySaveLevel := yyIndentLevel;
   yyIndentLevel := 0;
   yySetIndentInfo ( ) ;   yyWriteTree0 (yyt);
@@ -1013,7 +1039,14 @@ VAR yyProc     : tProcTree;
 
 PROCEDURE TraverseTree0TD (yyt: tTree0; yyyProc: tProcTree) =
  BEGIN
-  yyMark (yyt);
+
+IF topCallCt = topCallStop THEN
+  topCallStop := topCallStop;
+END;
+INC (topCallCt);
+recCallCt := 0;
+
+  yyMarkProc (yyt);
   yyProc := yyyProc;
   yyTraverseTree0TD (yyt);
  END TraverseTree0TD;
@@ -1090,7 +1123,9 @@ BEGIN
  yyPoolMaxPtr  := NIL;
  HeapUsed      := 0;
  yyExit        := xxExit;
- yyNodeSize [Node] := BYTESIZE (yNode);
+
+
+(* yyNodeSize [Node] := BYTESIZE (yNode);
  yyNodeSize [Node1] := BYTESIZE (yNode1);
  yyNodeSize [Option] := BYTESIZE (yOption);
  yyNodeSize [Repetition] := BYTESIZE (yRepetition);
@@ -1111,7 +1146,15 @@ BEGIN
                );
  (*CHECK: ^ Wow!*)
   yyMaxSize := General.Max (yyNodeSize [yyi], yyMaxSize);
+*)
+
+(* Account for flattening of variant record in size values: *)
+ yyMaxSize := BYTESIZE(yyNode); 
+ FOR yyi := 1 TO 13 DO
+  yyNodeSize [yyi] := yyMaxSize;
  END;
+
+
  yyTypeRange [Node] := Pattern;
  yyTypeRange [Node1] := Repetition;
  yyTypeRange [Option] := Option;
