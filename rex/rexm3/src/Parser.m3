@@ -137,21 +137,22 @@ CONST
    yyFirstFinalState    = yyFirstReadTermState;
    yyLastState          = yyLastReduceState;
 
+   yyTableElmtBits = BITSIZE (yyTableElmt); 
+
 TYPE
    (* The following ranges all need to occupy 16 bits when in an array, in order to
       match the to-be-read-in table files.  Using BITS FOR doesn't work because of
       cm3 CG errors compiling BITS FOR BITS FOR. *)
-   yyTableElmt          = SHORTCARD;
-   yyTCombRange         = yyTableElmt (*[0 .. yyTableMax]*);
-   yyNCombRange         = yyTableElmt (*[yyLastTerminal + 1 .. yyNTableMax]*);
-   yyStateRange         = yyTableElmt (*[0 .. yyLastState]*);
-   yyReadRange          = yyTableElmt (*[yyFirstReadState .. yyLastReadState]*);
-   yyReadReduceRange    = yyTableElmt
-                            (* [yyFirstReadTermState ..yyLastReadNontermState]*);
-   yyReduceRange        = yyTableElmt (*[yyFirstReduceState .. yyLastReduceState]*);
-   yySymbolRange        = yyTableElmt (*[yyFirstSymbol .. yyLastSymbol]*);
-
-
+   yyTableElmt       = SHORTCARD;
+   yyTCombRange      = BITS yyTableElmtBits FOR [0 .. yyTableMax];
+   yyNCombRange      = BITS yyTableElmtBits FOR [yyLastTerminal + 1 .. yyNTableMax];
+   yyStateType       = [0 .. yyLastState];
+   yyStateRange      = BITS yyTableElmtBits FOR yyStateType;
+   yyReadRange       = BITS yyTableElmtBits FOR [yyFirstReadState .. yyLastReadState];
+   yyReadReduceRange = BITS yyTableElmtBits FOR [yyFirstReadTermState ..yyLastReadNontermState];
+   yyReduceRange     = BITS yyTableElmtBits FOR [yyFirstReduceState .. yyLastReduceState];
+   yySymbolType      = [yyFirstSymbol .. yyLastSymbol];
+   yySymbolRange     = BITS yyTableElmtBits FOR yySymbolType;
 
    yyTCombType          = RECORD Check, Next: yyStateRange; END;
    yyNCombType          = yyStateRange;
@@ -162,6 +163,10 @@ TYPE
    yyAttributeStackType = UNTRACED BRANDED REF  ARRAY yyStackPtrType OF tParsAttribute;
 
 VAR
+
+yyByteSizeType := BYTESIZE (yySymbolType);
+yyByteSizeRange := BYTESIZE (yySymbolRange);
+
    yyTBasePtr           : ARRAY (*yyTableElmt*) [0 .. yyLastReadState] 
                           OF yyTCombTypePtr;
    yyNBasePtr           : ARRAY (*yyTableElmt*) [0 .. yyLastReadState]      
@@ -256,9 +261,9 @@ PROCEDURE TokenName (Token: SHORTCARD; VAR Name: ARRAY OF CHAR) =
 PROCEDURE Parser (): Word.T =
 
    VAR
-      yyState           : yyStateRange;
-      yyTerminal        : yySymbolRange;
-      yyNonterminal     : yySymbolRange;        (* left-hand side symbol *)
+      yyState           : yyStateType;
+      yyTerminal        : yySymbolType;
+      yyNonterminal     : yySymbolType;        (* left-hand side symbol *)
       yyStackPtr        : yyStackPtrType;
       yyStateStackSize  : M2LONGINT;
       yyAttrStackSize   : M2LONGINT;
@@ -267,7 +272,7 @@ PROCEDURE Parser (): Word.T =
       yyAttributeStack  : yyAttributeStackType;
       yySynAttribute    : tParsAttribute;       (* synthesized attribute *)
    yyRepairAttribute : Scanner.tScanAttribute;
-      yyRepairToken     : yySymbolRange;
+      yyRepairToken     : yySymbolType;
       yyTCombPtr        : yyTCombTypePtr;
       yyNCombPtr        : yyNCombTypePtr;
       yyIsRepairing     : BOOLEAN;
@@ -276,7 +281,7 @@ PROCEDURE Parser (): Word.T =
    BEGIN
    BeginParser();
       yyState           := yyStartState;
-   yyTerminal        := VAL ( Scanner.GetToken (),yySymbolRange);
+   yyTerminal        := VAL ( Scanner.GetToken (),yySymbolType);
       yyStateStackSize  := yyInitStackSize;
       yyAttrStackSize   := yyInitStackSize;
       DynArray.MakeArray 
@@ -359,7 +364,7 @@ PROCEDURE Parser (): Word.T =
                INC (yyStackPtr);
             yyAttributeStack^ [yyStackPtr].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 330
  $$ *) := Scanner.Attribute;
-            yyTerminal := VAL(   Scanner.GetToken (),yySymbolRange );
+            yyTerminal := VAL(   Scanner.GetToken (),yySymbolType );
                yyIsRepairing := FALSE;
             END (* IF *) ;
 
@@ -1010,14 +1015,14 @@ END;
             INC (yyStackPtr);
          yyAttributeStack^ [yyStackPtr].Scan(* $$ m2tom3 warning: application of variant field, possible cast of 'Scan' in line 773
  $$ *) := Scanner.Attribute;
-         yyTerminal := VAL(Scanner.GetToken (),yySymbolRange);
+         yyTerminal := VAL(Scanner.GetToken (),yySymbolType);
             yyIsRepairing := FALSE;
          END (* IF *);
       END (* LOOP *) ;
    END Parser;
 
 PROCEDURE ErrorRecovery (
-      VAR Terminal      : yySymbolRange ;
+      VAR Terminal      : yySymbolType ;
           StateStack    : yyStackType   ;
           StackSize     : M2LONGINT       ;
           StackPtr      : yyStackPtrType) =
@@ -1039,7 +1044,7 @@ PROCEDURE ErrorRecovery (
       Sets.MakeSet (ContinueSet, yyLastTerminal);
       ComputeContinuation (StateStack, StackSize, StackPtr, ContinueSet);
       Strings.AssignEmpty (ContinueString);
-      FOR TokenF := VAL(Sets.Minimum (ContinueSet),yySymbolRange) TO VAL(Sets.Maximum (ContinueSet),yySymbolRange) DO
+      FOR TokenF := VAL(Sets.Minimum (ContinueSet),yySymbolType) TO VAL(Sets.Maximum (ContinueSet),yySymbolType) DO
          IF Sets.IsElement (VAL(TokenF,Sets.tElement), ContinueSet) THEN
             TokenName (TokenF, TokenArray);
             Strings.ArrayToString (TokenArray, TokenString);
@@ -1060,7 +1065,7 @@ PROCEDURE ErrorRecovery (
    (* 4. skip terminal symbols until a restart point is reached *)
       TokensSkipped := FALSE;
       WHILE NOT Sets.IsElement (VAL(Terminal,Sets.tElement), RestartSet) DO
-      Terminal := VAL(Scanner.GetToken (),yySymbolRange);
+      Terminal := VAL(Scanner.GetToken (),yySymbolType);
          TokensSkipped := TRUE;
       END;
       Sets.ReleaseSet (RestartSet);
@@ -1096,13 +1101,13 @@ PROCEDURE ComputeContinuation (
 *)
 
 PROCEDURE IsContinuation (
-      Terminal          : yySymbolRange ;
+      Terminal          : yySymbolType ;
       ParseStack        : yyStackType   ;
       StackSize         : M2LONGINT       ;
       StackPtr          : yyStackPtrType): BOOLEAN =
    VAR
       State             : yyStackPtrType;
-      Nonterminal       : yySymbolRange;
+      Nonterminal       : yySymbolType;
       Stack             : yyStackType;
    BEGIN
       DynArray.MakeArray (LOOPHOLE(Stack,ADDRESS), StackSize, BYTESIZE (yyStateRange));
@@ -1110,6 +1115,11 @@ PROCEDURE IsContinuation (
          Stack^ [StateF] := ParseStack^ [StateF];
       END;
       State := Stack^ [StackPtr];
+
+IF Terminal = 12 AND State = 26 THEN
+  State := 26
+END;
+
       LOOP
          Stack^ [StackPtr] := State;
          State := Next (State, Terminal);
@@ -1158,7 +1168,7 @@ PROCEDURE ComputeRestartPoints (
    VAR
       Stack             : yyStackType;
       State             : yyStackPtrType;
-      Nonterminal       : yySymbolRange;
+      Nonterminal       : yySymbolType;
       ContinueSet       : Sets.tSet;
    BEGIN
       DynArray.MakeArray (LOOPHOLE(Stack,ADDRESS), StackSize, BYTESIZE (yyStateRange));
@@ -1207,7 +1217,7 @@ PROCEDURE ComputeRestartPoints (
 
 (* access the parse table:   Next : State x Symbol -> State *)
 
-PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange =
+PROCEDURE Next (State: yyStateType; Symbol: yySymbolType): yyStateRange =
    VAR
       TCombPtr          : yyTCombTypePtr;
       NCombPtr          : yyNCombTypePtr;
