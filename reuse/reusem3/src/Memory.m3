@@ -2,11 +2,25 @@
 UNSAFE MODULE Memory;
 
 TYPE ByteTyp = [0..16_FF];
-TYPE ByteArrTyp = ARRAY OF ByteTyp;
+TYPE ByteArrTyp = ARRAY OF BITS 8 FOR ByteTyp;
 TYPE ByteArrRefTyp = UNTRACED REF ByteArrTyp;
+
+TYPE IntRefTyp = UNTRACED REF INTEGER;
+TYPE AddrRefTyp = UNTRACED REF ADDRESS;
 
 CONST DopeSize = BYTESIZE ( ADDRESS ) + BYTESIZE (INTEGER );
       (* ^ Beware! this is inside information. *)
+
+PROCEDURE SanityCheck
+  (HeapObjRef: ByteArrRefTyp; EltsAddr: ADDRESS; ByteCount: INTEGER) =
+
+  VAR LEltsAddrRef: AddrRefTyp;
+  BEGIN
+    LEltsAddrRef := LOOPHOLE (HeapObjRef, AddrRefTyp);
+    <* ASSERT EltsAddr = LEltsAddrRef ^ *>
+    <* ASSERT NUMBER (HeapObjRef^) = ByteCount *>
+    <* ASSERT ADR(HeapObjRef^[0]) = EltsAddr *> 
+  END SanityCheck; 
 
 (*EXPORTED*)
 PROCEDURE Alloc	(ByteCount: INTEGER): ADDRESS =
@@ -20,6 +34,7 @@ PROCEDURE Alloc	(ByteCount: INTEGER): ADDRESS =
     LAllocSize := DopeSize + ByteCount;
     INC (MemoryUsed, LAllocSize);
     LResultAddr := LOOPHOLE(LAlloc, ADDRESS) + DopeSize;
+    SanityCheck (LAlloc, LResultAddr, ByteCount);
     <*ASSERT ADR(LAlloc^[0]) = LResultAddr*> 
     RETURN LResultAddr;
   END Alloc;
@@ -35,7 +50,7 @@ PROCEDURE Free (ByteCount: INTEGER; a: ADDRESS) =
   VAR LAllocSize: INTEGER;
   BEGIN
     LAlloc := LOOPHOLE (a - DopeSize, ByteArrRefTyp);
-    <*ASSERT ADR(LAlloc^[0]) = a*> 
+    SanityCheck (LAlloc, a, ByteCount);
     LAllocSize := DopeSize + ByteCount;
     DEC (MemoryUsed, LAllocSize);
     DISPOSE (LAlloc);
