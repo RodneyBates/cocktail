@@ -1,30 +1,37 @@
-(* $Id: Positions.md,v 1.0 1992/08/07 14:41:59 grosch rel $ *)
 
-(* $Log: Positions.md,v $
-# Revision 1.0  1992/08/07  14:41:59  grosch
-# Initial revision
-#
- *)
+(* $Id: Positions.md,v 1.0 1992/08/07 14:41:59 grosch rel $ *) 
 
-(* Ich, Doktor Josef Grosch, Informatiker, Juli 1992 *)
+(* $Log: Positions.md,v $ 
+# Revision 1.0  1992/08/07  14:41:59  grosch 
+# Initial revision 
+# 
+ *) 
 
-UNSAFE INTERFACE  Positions;
+(* Ich, Doktor Josef Grosch, Informatiker, Juli 1992 *) 
 
-FROM SYSTEM IMPORT SHORTCARD;
-FROM ReuseIO		IMPORT tFile;
+UNSAFE INTERFACE Positions 
 
-TYPE	  tPosition	= RECORD Line, Column: SHORTCARD; END;
+; FROM SYSTEM IMPORT SHORTCARD 
 
-VAR	  NoPosition	: tPosition;
-			(* A default position (0, 0).			*)
+; FROM ReuseIO IMPORT tFile 
 
-PROCEDURE Compare	(Position1, Position2: tPosition): INTEGER;
-			(* Returns -1 if Position1 < Position2.		*)
-			(* Returns  0 if Position1 = Position2.		*)
-			(* Returns  1 if Position1 > Position2.		*)
+; TYPE tPosition = RECORD Line , Column : SHORTCARD END (* RECORD *) 
 
-PROCEDURE WritePosition	(File: tFile; Position: tPosition);
-			(* The 'Position' is printed on the 'File'.	*)
+; VAR NoPosition : tPosition 
 
-END Positions.
+                        (* A default position (0, 0).                   *) 
+
+; PROCEDURE Compare ( Position1 , Position2 : tPosition ) : INTEGER 
+
+                        (* Returns -1 if Position1 < Position2.         *) 
+                        (* Returns  0 if Position1 = Position2.         *) 
+                        (* Returns  1 if Position1 > Position2.         *) 
+
+; PROCEDURE WritePosition ( File : tFile ; Position : tPosition ) 
+
+                        (* The 'Position' is printed on the 'File'.     *) 
+
+; 
+END Positions 
+. 
 

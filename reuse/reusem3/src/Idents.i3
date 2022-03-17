@@ -1,81 +1,96 @@
-(* $Id: Idents.md,v 1.6 1992/08/07 14:45:41 grosch rel $ *)
 
-(* $Log: Idents.md,v $
- * RMB 94/02/04 Added LookupIdent.
+(* $Id: Idents.md,v 1.6 1992/08/07 14:45:41 grosch rel $ *) 
 
- * Revision 1.6  1992/08/07  14:45:41  grosch
- * added comments
- *
- * Revision 1.5  1991/11/21  14:33:17  grosch
- * new version of RCS on SPARC
- *
- * Revision 1.4  89/06/06  10:07:56  grosch
- * changed tIdent to SHORTCARD
+(* $Log: Idents.md,v $ 
+ * RMB 94/02/04 Added LookupIdent. 
+ 
+ * Revision 1.6  1992/08/07  14:45:41  grosch 
+ * added comments 
  * 
- * Revision 1.3  89/06/01  18:20:22  grosch
- * added predefined identifier NoIdent
+ * Revision 1.5  1991/11/21  14:33:17  grosch 
+ * new version of RCS on SPARC 
  * 
- * Revision 1.2  89/01/25  12:05:29  grosch
- * added function MaxIdent
+ * Revision 1.4  89/06/06  10:07:56  grosch 
+ * changed tIdent to SHORTCARD 
  * 
- * Revision 1.1  89/01/21  23:03:08  grosch
- * added file parameter to procedure WriteIdent
+ * Revision 1.3  89/06/01  18:20:22  grosch 
+ * added predefined identifier NoIdent 
  * 
- * Revision 1.0  88/10/04  11:47:00  grosch
- * Initial revision
+ * Revision 1.2  89/01/25  12:05:29  grosch 
+ * added function MaxIdent 
  * 
- *)
+ * Revision 1.1  89/01/21  23:03:08  grosch 
+ * added file parameter to procedure WriteIdent 
+ * 
+ * Revision 1.0  88/10/04  11:47:00  grosch 
+ * Initial revision 
+ * 
+ *) 
 
-(* Ich, Doktor Josef Grosch, Informatiker, Sept. 1987 *)
+(* Ich, Doktor Josef Grosch, Informatiker, Sept. 1987 *) 
 
-UNSAFE INTERFACE  Idents;
+UNSAFE INTERFACE Idents 
 
-FROM SYSTEM IMPORT SHORTCARD;
-FROM ReuseIO		IMPORT tFile		;
-FROM Strings	IMPORT tString		;
-FROM StringMem	IMPORT tStringRef	;
+; FROM SYSTEM IMPORT SHORTCARD 
 
-TYPE	  tIdent	= SHORTCARD;
+; FROM ReuseIO IMPORT tFile 
 
-CONST
-          cNoIdent      = 0;
-                        (* A null value. *)
+; FROM Strings IMPORT tString 
 
-VAR	  NoIdent	: tIdent;
-			(* A default identifer (empty string).		*)
+; FROM StringMem IMPORT tStringRef 
 
-PROCEDURE MakeIdent	(READONLY s: tString)		: tIdent;
-			(* The string 's' is mapped to a unique number	*)
-			(* (an integer) which is returned.		*)
+; TYPE tIdent = SHORTCARD 
 
-PROCEDURE LookupIdent	(READONLY s: tString)		: tIdent;
-                        (* If s has previously been  mapped by a call to*)
-                        (* MakeIdent, return its tIdent value.  Else    *)
-                        (* return cNoIdent.                             *)
+; CONST cNoIdent = 0 
 
-PROCEDURE GetString	(i: tIdent; VAR s: tString);
-			(* Returns the string 's' whose number is 'i'.	*)
+                        (* A null value. *) 
 
-PROCEDURE GetStringRef	(i: tIdent)			: tStringRef;
-			(* Returns a reference to the string whose	*)
-			(* number is 'i'.				*)
+; VAR NoIdent : tIdent 
 
-PROCEDURE MaxIdent	()				: tIdent;
-			(* Returns the current maximal value of the	*)
-			(* type 'tIdent'.				*)
+                        (* A default identifer (empty string).          *) 
 
-PROCEDURE WriteIdent	(f: tFile; i: tIdent);
-			(* The string encoded by the ident 'i' is	*)
-			(* printed on file 'f'.				*)
+; PROCEDURE MakeIdent ( READONLY s : tString ) : tIdent 
 
-PROCEDURE WriteIdents()	;
-			(* The contents of the identifier table is	*)
-			(* printed on the terminal.			*)
+                        (* The string 's' is mapped to a unique number  *) 
+                        (* (an integer) which is returned.              *) 
 
-PROCEDURE InitIdents()	;
-			(* The identifier table	is initialized.		*)
+; PROCEDURE LookupIdent ( READONLY s : tString ) : tIdent 
 
-PROCEDURE WriteHashTable();
+                        (* If s has previously been  mapped by a call to*) 
+                        (* MakeIdent, return its tIdent value.  Else    *) 
+                        (* return cNoIdent.                             *) 
 
-END Idents.
+; PROCEDURE GetString ( i : tIdent ; VAR s : tString ) 
+
+                        (* Returns the string 's' whose number is 'i'.  *) 
+
+; PROCEDURE GetStringRef ( i : tIdent ) : tStringRef 
+
+                        (* Returns a reference to the string whose      *) 
+                        (* number is 'i'.                               *) 
+
+; PROCEDURE MaxIdent ( ) : tIdent 
+
+                        (* Returns the current maximal value of the     *) 
+                        (* type 'tIdent'.                               *) 
+
+; PROCEDURE WriteIdent ( f : tFile ; i : tIdent ) 
+
+                        (* The string encoded by the ident 'i' is       *) 
+                        (* printed on file 'f'.                         *) 
+
+; PROCEDURE WriteIdents ( ) 
+
+                        (* The contents of the identifier table is      *) 
+                        (* printed on the terminal.                     *) 
+
+; PROCEDURE InitIdents ( ) 
+
+                        (* The identifier table is initialized.         *) 
+
+; PROCEDURE WriteHashTable ( ) 
+
+; 
+END Idents 
+. 
 
