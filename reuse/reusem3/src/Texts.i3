@@ -1,41 +1,51 @@
-(* $Id: Texts.md,v 1.2 1992/08/07 14:43:04 grosch rel $ *)
 
-(* $Log: Texts.md,v $
- * Revision 1.2  1992/08/07  14:43:04  grosch
- * added procedure IsEmpty
- *
- * Revision 1.1  1991/11/21  14:33:17  grosch
- * new version of RCS on SPARC
- *
- * Revision 1.0  88/10/04  11:47:36  grosch
- * Initial revision
+(* $Id: Texts.md,v 1.2 1992/08/07 14:43:04 grosch rel $ *) 
+
+(* $Log: Texts.md,v $ 
+ * Revision 1.2  1992/08/07  14:43:04  grosch 
+ * added procedure IsEmpty 
  * 
- *)
+ * Revision 1.1  1991/11/21  14:33:17  grosch 
+ * new version of RCS on SPARC 
+ * 
+ * Revision 1.0  88/10/04  11:47:36  grosch 
+ * Initial revision 
+ * 
+ *) 
 
-(* Ich, Doktor Josef Grosch, Informatiker, 31.8.1988 *)
+(* Ich, Doktor Josef Grosch, Informatiker, 31.8.1988 *) 
 
-UNSAFE INTERFACE  Texts;
+UNSAFE INTERFACE Texts 
 
-FROM ReuseIO		IMPORT tFile	;
-FROM Lists	IMPORT tList	;
-FROM Strings	IMPORT tString	;
+; FROM ReuseIO IMPORT tFile 
 
-TYPE tText	= tList;
+; FROM Lists IMPORT tList 
 
-PROCEDURE MakeText	(VAR Text: tText);
-			(* Create an empty text.			*)
+; FROM Strings IMPORT tString 
 
-PROCEDURE Append	(VAR Text: tText; VAR String: tString);
-			(* Add a line at the beginning of text 'Text'.	*)
+; TYPE tText = tList 
 
-PROCEDURE Insert	(VAR Text: tText; VAR String: tString);
-			(* Add a line at the end of the text 'Text'.	*)
+; PROCEDURE MakeText ( VAR Text : tText ) 
 
-PROCEDURE IsEmpty	(VAR Text: tText): BOOLEAN;
-			(* Test whether a text 'Text' is empty.		*)
+                        (* Create an empty text.                        *) 
 
-PROCEDURE WriteText	(f: tFile; Text: tText);
-			(* Print the text 'Text' on the file 'f'.	*)
+; PROCEDURE Append ( VAR Text : tText ; VAR String : tString ) 
 
-END Texts.
+                        (* Add a line at the beginning of text 'Text'.  *) 
+
+; PROCEDURE Insert ( VAR Text : tText ; VAR String : tString ) 
+
+                        (* Add a line at the end of the text 'Text'.    *) 
+
+; PROCEDURE IsEmpty ( VAR Text : tText ) : BOOLEAN 
+
+                        (* Test whether a text 'Text' is empty.         *) 
+
+; PROCEDURE WriteText ( f : tFile ; Text : tText ) 
+
+                        (* Print the text 'Text' on the file 'f'.       *) 
+
+; 
+END Texts 
+. 
 
