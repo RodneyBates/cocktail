@@ -19,9 +19,9 @@ UNSAFE MODULE Memory
   ; BEGIN (* SanityCheck *) 
       LEltsAddrRef := LOOPHOLE ( HeapObjRef , AddrRefTyp ) 
 
-    <* ASSERT EltsAddr = LEltsAddrRef ^ *> 
-    <* ASSERT NUMBER (HeapObjRef^) = ByteCount *> 
-    <* ASSERT ADR(HeapObjRef^[0]) = EltsAddr *> 
+    ; <* ASSERT EltsAddr = LEltsAddrRef ^ *> 
+      <* ASSERT NUMBER (HeapObjRef^) = ByteCount *> 
+      <* ASSERT ADR(HeapObjRef^[0]) = EltsAddr *> 
 
     END SanityCheck 
 
