@@ -1,43 +1,48 @@
-(* $Id: Source.md,v 1.0 1992/08/07 14:42:02 grosch rel $ *)
 
-(* $Log: Source.md,v $
-# Revision 1.0  1992/08/07  14:42:02  grosch
-# Initial revision
-#
- *)
+(* $Id: Source.md,v 1.0 1992/08/07 14:42:02 grosch rel $ *) 
 
-(* Ich, Doktor Josef Grosch, Informatiker, Juli 1992 *)
+(* $Log: Source.md,v $ 
+# Revision 1.0  1992/08/07  14:42:02  grosch 
+# Initial revision 
+# 
+ *) 
 
-UNSAFE INTERFACE  Source;
+(* Ich, Doktor Josef Grosch, Informatiker, Juli 1992 *) 
+
+UNSAFE INTERFACE Source 
 
 
-IMPORT Word;
-FROM System	IMPORT tFile;
+; IMPORT Word 
 
-PROCEDURE BeginSource (READONLY FileName: ARRAY OF CHAR): tFile;
+; FROM System IMPORT tFile 
 
-   (*
-      BeginSource is called from the scanner to open files.
-      If not called then input is read form standard input.
-   *)
+; PROCEDURE BeginSource ( READONLY FileName : ARRAY OF CHAR ) : tFile 
 
-PROCEDURE GetLine (File: tFile; Buffer: ADDRESS; Size: Word.T): INTEGER;
+   (* 
+      BeginSource is called from the scanner to open files. 
+      If not called then input is read form standard input. 
+   *) 
 
-   (*
-      GetLine is called to fill a buffer starting at address 'Buffer'
-      with a block of maximal 'Size' characters. Lines are terminated
-      by newline characters (ASCII = 0xa). GetLine returns the number
-      of characters transferred. Reasonable block sizes are between 128
-      and 2048 or the length of a line. Smaller block sizes -
-      especially block size 1 - will drastically slow down the scanner.
-   *)
+; PROCEDURE GetLine 
+    ( File : tFile ; Buffer : ADDRESS ; Size : Word . T ) : INTEGER 
 
-PROCEDURE CloseSource (File: tFile);
+   (* 
+      GetLine is called to fill a buffer starting at address 'Buffer' 
+      with a block of maximal 'Size' characters. Lines are terminated 
+      by newline characters (ASCII = 0xa). GetLine returns the number 
+      of characters transferred. Reasonable block sizes are between 128 
+      and 2048 or the length of a line. Smaller block sizes - 
+      especially block size 1 - will drastically slow down the scanner. 
+   *) 
 
-   (*
-      CloseSource is called from the scanner at end of file or
-      at end of input, respectively. It can be used to close files.
-   *)
+; PROCEDURE CloseSource ( File : tFile ) 
 
-END Source.
+   (* 
+      CloseSource is called from the scanner at end of file or 
+      at end of input, respectively. It can be used to close files. 
+   *) 
+
+; 
+END Source 
+. 
 

@@ -1,170 +1,170 @@
-(* $Id: SetsDrv.mi,v 1.5 1992/09/24 13:05:19 grosch rel $ *)
 
-(* $Log: SetsDrv.mi,v $
- * Revision 1.5  1992/09/24  13:05:19  grosch
- * adaption to MS-DOS
- *
- * Revision 1.4  1992/03/24  13:32:56  grosch
- * added test of Intersection
- *
- * Revision 1.3  1991/11/21  14:33:17  grosch
- * new version of RCS on SPARC
- *
- * Revision 1.2  90/05/30  17:10:10  grosch
- * added test of Complement
+(* $Id: SetsDrv.mi,v 1.5 1992/09/24 13:05:19 grosch rel $ *) 
+
+(* $Log: SetsDrv.mi,v $ 
+ * Revision 1.5  1992/09/24  13:05:19  grosch 
+ * adaption to MS-DOS 
  * 
- * Revision 1.1  89/01/09  17:13:47  grosch
- * added functions Size, Minimum, and Maximum
+ * Revision 1.4  1992/03/24  13:32:56  grosch 
+ * added test of Intersection 
  * 
- * Revision 1.0  88/10/04  11:47:15  grosch
- * Initial revision
+ * Revision 1.3  1991/11/21  14:33:17  grosch 
+ * new version of RCS on SPARC 
  * 
- *)
+ * Revision 1.2  90/05/30  17:10:10  grosch 
+ * added test of Complement 
+ * 
+ * Revision 1.1  89/01/09  17:13:47  grosch 
+ * added functions Size, Minimum, and Maximum 
+ * 
+ * Revision 1.0  88/10/04  11:47:15  grosch 
+ * Initial revision 
+ * 
+ *) 
 
-(* Ich, Doktor Josef Grosch, Informatiker, Sept. 1987 *)
+(* Ich, Doktor Josef Grosch, Informatiker, Sept. 1987 *) 
 
-UNSAFE MODULE SetsDrv EXPORTS Main;
+UNSAFE MODULE SetsDrv EXPORTS Main 
 
-IMPORT Word;
-FROM Sets	IMPORT
-   tSet		, MakeSet	, ReleaseSet	, Union		,
-   Difference	, Intersection	, SymDiff	, Include	,
-   Exclude	, Card		, Select	, Extract	,
-   Size		, Minimum	, Maximum	,
-   IsSubset	, IsStrictSubset, IsEqual	, IsNotEqual	,
-   IsElement	, IsEmpty	, Forall	, Exists	,
-   Exists1	, Assign	, AssignElmt	, AssignEmpty	,
-   ForallDo	, ReadSet	, WriteSet	, Complement	;
+; IMPORT Word 
 
-FROM ReuseIO		IMPORT
-   tFile	, StdOutput	, WriteOpen	, WriteClose	,
-   ReadOpen	, ReadClose	, WriteNl	, WriteI	,
-   CloseIO	, WriteS	, WriteFlush	, ReadI		,
-   StdInput	;
+; FROM Sets 
+  IMPORT tSet , MakeSet , ReleaseSet , Union , Difference , Intersection 
+  , SymDiff 
+  , Include , Exclude , Card , Select , Extract , Size , Minimum , Maximum 
+  , IsSubset 
+  , IsStrictSubset , IsEqual , IsNotEqual , IsElement , IsEmpty , Forall 
+  , Exists 
+  , Exists1 , Assign , AssignElmt , AssignEmpty , ForallDo , ReadSet 
+  , WriteSet , Complement 
 
-CONST
-   max		= 1000;
+; FROM ReuseIO 
+  IMPORT tFile , StdOutput , WriteOpen , WriteClose , ReadOpen , ReadClose 
+  , WriteNl 
+  , WriteI , CloseIO , WriteS , WriteFlush , ReadI , StdInput 
 
-VAR
-   s, t, u	: tSet;
-   i		: Word.T;
-   f		: tFile;
+; CONST max = 1000 
 
-BEGIN
-   MakeSet (s, max);
-   MakeSet (t, max);
-   MakeSet (u, max);
+; VAR s , t , u : tSet 
+  ; i : Word . T 
+  ; f : tFile 
 
-   FOR i := 2 TO max DO
-      Include (t, i);
-   END;
+; BEGIN (* SetsDrv *) 
+    MakeSet ( s , max ) 
+  ; MakeSet ( t , max ) 
+  ; MakeSet ( u , max ) 
 
-   AssignEmpty (s);
-   AssignElmt (s, 1);
-   Assign (u, t);
-   Union (s, t);
+  ; FOR i := 2 TO max DO Include ( t , i ) END (* FOR *) 
 
-   AssignEmpty (t);
-   FOR i := 0 TO max BY 2 DO
-      Include (t, i);
-   END;
-   Difference (s, t);
+  ; AssignEmpty ( s ) 
+  ; AssignElmt ( s , 1 ) 
+  ; Assign ( u , t ) 
+  ; Union ( s , t ) 
 
-   FOR i := 0 TO max BY 3 DO
-      Exclude (s, i);
-   END;
-   FOR i := 0 TO max BY 5 DO
-      Exclude (s, i);
-   END;
-   FOR i := 0 TO max BY 7 DO
-      Exclude (s, i);
-   END;
-   FOR i := 0 TO max BY 11 DO
-      Exclude (s, i);
-   END;
-   FOR i := 0 TO max BY 13 DO
-      Exclude (s, i);
-   END;
-   FOR i := 0 TO max BY 17 DO
-      Exclude (s, i);
-   END;
-   FOR i := 0 TO max BY 19 DO
-      Exclude (s, i);
-   END;
-   FOR i := 0 TO max BY 23 DO
-      Exclude (s, i);
-   END;
-   FOR i := 0 TO max BY 29 DO
-      Exclude (s, i);
-   END;
+  ; AssignEmpty ( t ) 
+  ; FOR i := 0 TO max BY 2 DO Include ( t , i ) END (* FOR *) 
+  ; Difference ( s , t ) 
 
-   f := WriteOpen ('t');
-   WriteSet (f, s);
-   WriteNl  (f);
-   WriteClose (f);
+  ; FOR i := 0 TO max BY 3 DO Exclude ( s , i ) END (* FOR *) 
+  ; FOR i := 0 TO max BY 5 DO Exclude ( s , i ) END (* FOR *) 
+  ; FOR i := 0 TO max BY 7 DO Exclude ( s , i ) END (* FOR *) 
+  ; FOR i := 0 TO max BY 11 DO Exclude ( s , i ) END (* FOR *) 
+  ; FOR i := 0 TO max BY 13 DO Exclude ( s , i ) END (* FOR *) 
+  ; FOR i := 0 TO max BY 17 DO Exclude ( s , i ) END (* FOR *) 
+  ; FOR i := 0 TO max BY 19 DO Exclude ( s , i ) END (* FOR *) 
+  ; FOR i := 0 TO max BY 23 DO Exclude ( s , i ) END (* FOR *) 
+  ; FOR i := 0 TO max BY 29 DO Exclude ( s , i ) END (* FOR *) 
 
-   f := ReadOpen ('t');
-   ReadSet (f, t);
-   ReadClose (f);
+  ; f := WriteOpen ( 't' ) 
+  ; WriteSet ( f , s ) 
+  ; WriteNl ( f ) 
+  ; WriteClose ( f ) 
 
-   WriteSet (StdOutput, t);
-   WriteNl  (StdOutput);
-   WriteI   (StdOutput, Size (t), 5);
-   WriteI   (StdOutput, Card (t), 5);
-   WriteI   (StdOutput, Minimum (t), 5);
-   WriteI   (StdOutput, Maximum (t), 5);
-   WriteNl  (StdOutput);
+  ; f := ReadOpen ( 't' ) 
+  ; ReadSet ( f , t ) 
+  ; ReadClose ( f ) 
 
-   AssignEmpty (u);
-   FOR i := 7 TO max BY 10 DO
-      Include (u, i);
-   END;
-   WriteSet (StdOutput, u);
-   WriteNl  (StdOutput);
-   WriteI   (StdOutput, Size (u), 5);
-   WriteI   (StdOutput, Card (u), 5);
-   WriteI   (StdOutput, Minimum (u), 5);
-   WriteI   (StdOutput, Maximum (u), 5);
-   WriteNl  (StdOutput);
+  ; WriteSet ( StdOutput , t ) 
+  ; WriteNl ( StdOutput ) 
+  ; WriteI ( StdOutput , Size ( t ) , 5 ) 
+  ; WriteI ( StdOutput , Card ( t ) , 5 ) 
+  ; WriteI ( StdOutput , Minimum ( t ) , 5 ) 
+  ; WriteI ( StdOutput , Maximum ( t ) , 5 ) 
+  ; WriteNl ( StdOutput ) 
 
-   Intersection (u, t);
-   WriteSet (StdOutput, u);
-   WriteNl  (StdOutput);
-   WriteI   (StdOutput, Size (u), 5);
-   WriteI   (StdOutput, Card (u), 5);
-   WriteI   (StdOutput, Minimum (u), 5);
-   WriteI   (StdOutput, Maximum (u), 5);
-   WriteNl  (StdOutput);
+  ; AssignEmpty ( u ) 
+  ; FOR i := 7 TO max BY 10 DO Include ( u , i ) END (* FOR *) 
+  ; WriteSet ( StdOutput , u ) 
+  ; WriteNl ( StdOutput ) 
+  ; WriteI ( StdOutput , Size ( u ) , 5 ) 
+  ; WriteI ( StdOutput , Card ( u ) , 5 ) 
+  ; WriteI ( StdOutput , Minimum ( u ) , 5 ) 
+  ; WriteI ( StdOutput , Maximum ( u ) , 5 ) 
+  ; WriteNl ( StdOutput ) 
 
-   ReleaseSet (s);
-   ReleaseSet (t);
-   ReleaseSet (u);
+  ; Intersection ( u , t ) 
+  ; WriteSet ( StdOutput , u ) 
+  ; WriteNl ( StdOutput ) 
+  ; WriteI ( StdOutput , Size ( u ) , 5 ) 
+  ; WriteI ( StdOutput , Card ( u ) , 5 ) 
+  ; WriteI ( StdOutput , Minimum ( u ) , 5 ) 
+  ; WriteI ( StdOutput , Maximum ( u ) , 5 ) 
+  ; WriteNl ( StdOutput ) 
 
-   MakeSet	(s, 10);
-   Include	(s, 3);
-   Include	(s, 7);
-   WriteNl	(StdOutput);
-   WriteS 	(StdOutput, ARRAY [0..50] OF CHAR{'e','n','t','e','r',' ','S','i','z','e',' ','a','n','d',' ','S','e','t',' ','l','i','k','e',' ','b','e','l','o','w','!',' ','(','S','i','z','e','=','0',' ','t','e','r','m','i','n','a','t','e','s',')','\000'});
-   WriteNl	(StdOutput);
-   WriteS	(StdOutput, ARRAY [0..3] OF CHAR{'1','0',' ','\000'});
-   WriteSet	(StdOutput, s);
-   WriteNl	(StdOutput);
-   ReleaseSet	(s);
+  ; ReleaseSet ( s ) 
+  ; ReleaseSet ( t ) 
+  ; ReleaseSet ( u ) 
 
-   LOOP
-      WriteNl	(StdOutput);
-      WriteFlush(StdOutput);
-      i := ReadI(StdInput);
-      IF i = 0 THEN EXIT; END;
-      MakeSet	(s, i);
-      ReadSet	(StdInput, s);
-      WriteSet	(StdOutput, s);
-      WriteS	(StdOutput, ARRAY [0..8] OF CHAR{' ','C','a','r','d',' ','=',' ','\000'}); WriteI (StdOutput, Card (s), 0); WriteNl (StdOutput);
-      Complement(s);
-      WriteSet	(StdOutput, s);
-      WriteS	(StdOutput, ARRAY [0..8] OF CHAR{' ','C','a','r','d',' ','=',' ','\000'}); WriteI (StdOutput, Card (s), 0); WriteNl (StdOutput);
-      ReleaseSet(s);
-   END;
-   CloseIO();
-END SetsDrv.
+  ; MakeSet ( s , 10 ) 
+  ; Include ( s , 3 ) 
+  ; Include ( s , 7 ) 
+  ; WriteNl ( StdOutput ) 
+  ; WriteS 
+      ( StdOutput 
+      , ARRAY [ 0 .. 50 ] OF CHAR 
+          { 'e' , 'n' , 't' , 'e' , 'r' , ' ' , 'S' , 'i' , 'z' , 'e' , ' ' 
+          , 'a' 
+          , 'n' , 'd' , ' ' , 'S' , 'e' , 't' , ' ' , 'l' , 'i' , 'k' , 'e' 
+          , ' ' , 'b' , 'e' , 'l' , 'o' , 'w' , '!' , ' ' , '(' , 'S' , 'i' 
+          , 'z' 
+          , 'e' , '=' , '0' , ' ' , 't' , 'e' , 'r' , 'm' , 'i' , 'n' , 'a' 
+          , 't' , 'e' , 's' , ')' , '\000' 
+          } 
+      ) 
+  ; WriteNl ( StdOutput ) 
+  ; WriteS 
+      ( StdOutput , ARRAY [ 0 .. 3 ] OF CHAR { '1' , '0' , ' ' , '\000' } ) 
+  ; WriteSet ( StdOutput , s ) 
+  ; WriteNl ( StdOutput ) 
+  ; ReleaseSet ( s ) 
+
+  ; LOOP 
+      WriteNl ( StdOutput ) 
+    ; WriteFlush ( StdOutput ) 
+    ; i := ReadI ( StdInput ) 
+    ; IF i = 0 THEN EXIT END (* IF *) 
+    ; MakeSet ( s , i ) 
+    ; ReadSet ( StdInput , s ) 
+    ; WriteSet ( StdOutput , s ) 
+    ; WriteS 
+        ( StdOutput 
+        , ARRAY [ 0 .. 8 ] OF CHAR 
+            { ' ' , 'C' , 'a' , 'r' , 'd' , ' ' , '=' , ' ' , '\000' } 
+        ) 
+    ; WriteI ( StdOutput , Card ( s ) , 0 ) 
+    ; WriteNl ( StdOutput ) 
+    ; Complement ( s ) 
+    ; WriteSet ( StdOutput , s ) 
+    ; WriteS 
+        ( StdOutput 
+        , ARRAY [ 0 .. 8 ] OF CHAR 
+            { ' ' , 'C' , 'a' , 'r' , 'd' , ' ' , '=' , ' ' , '\000' } 
+        ) 
+    ; WriteI ( StdOutput , Card ( s ) , 0 ) 
+    ; WriteNl ( StdOutput ) 
+    ; ReleaseSet ( s ) 
+    END (* LOOP *) 
+  ; CloseIO ( ) 
+  END SetsDrv 
+. 
 

@@ -1,43 +1,50 @@
-(* $Id: Sort.mi,v 1.0 1992/08/07 14:42:01 grosch rel $ *)
 
-(* $Log: Sort.mi,v $
-# Revision 1.0  1992/08/07  14:42:01  grosch
-# Initial revision
-#
- *)
+(* $Id: Sort.mi,v 1.0 1992/08/07 14:42:01 grosch rel $ *) 
 
-(* Ich, Doktor Josef Grosch, Informatiker, Juli 1992 *)
+(* $Log: Sort.mi,v $ 
+# Revision 1.0  1992/08/07  14:42:01  grosch 
+# Initial revision 
+# 
+ *) 
 
- UNSAFE MODULE Sort;
+(* Ich, Doktor Josef Grosch, Informatiker, Juli 1992 *) 
 
-PROCEDURE Sort (Lwb, Upb: INTEGER; IsLess: tProcIntIntBool; Swap: tProcIntInt) =
+UNSAFE MODULE Sort 
 
-   PROCEDURE QuickSort (Lwb, Upb: INTEGER) =
-      VAR i, j: INTEGER;
-      BEGIN
-(*
-	 LOOP
-	    IF Lwb >= Upb THEN RETURN; END;
-	    i := Lwb + 1;
-	    j := Upb;
+; PROCEDURE Sort 
+    ( Lwb , Upb : INTEGER ; IsLess : tProcIntIntBool ; Swap : tProcIntInt ) 
 
-	    REPEAT
-	       WHILE (i < Upb) AND IsLess (i, Lwb) DO INC (i); END;
-	       WHILE (Lwb < j) AND IsLess (Lwb, j) DO DEC (j); END;
-	       IF i < j THEN Swap (i, j); END;
-	    UNTIL i >= j;
+  = PROCEDURE QuickSort ( Lwb , Upb : INTEGER ) 
 
-	    Swap (Lwb, j);
-	    QuickSort (Lwb, j - 1);
-	    Lwb := j + 1;		(* QuickSort (j + 1, Upb); *)
-	 END;
+    = VAR i , j : INTEGER 
+
+    ; BEGIN (* QuickSort *) 
+
+(* 
+         LOOP 
+            IF Lwb >= Upb THEN RETURN; END; 
+            i := Lwb + 1; 
+            j := Upb; 
+ 
+            REPEAT 
+               WHILE (i < Upb) AND IsLess (i, Lwb) DO INC (i); END; 
+               WHILE (Lwb < j) AND IsLess (Lwb, j) DO DEC (j); END; 
+               IF i < j THEN Swap (i, j); END; 
+            UNTIL i >= j; 
+ 
+            Swap (Lwb, j); 
+            QuickSort (Lwb, j - 1); 
+            Lwb := j + 1;               (* QuickSort (j + 1, Upb); *) 
+         END; 
 *) 
-      END QuickSort;
 
-   BEGIN
-      QuickSort (Lwb, Upb);
-   END Sort;
+      END QuickSort 
 
-BEGIN
-END Sort.
+  ; BEGIN (* Sort *) 
+      QuickSort ( Lwb , Upb ) 
+    END Sort 
+
+; BEGIN (* Sort *) 
+  END Sort 
+. 
 
