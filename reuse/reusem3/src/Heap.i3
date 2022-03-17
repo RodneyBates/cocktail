@@ -1,36 +1,42 @@
-(* $Id: Heap.md,v 1.2 1992/08/07 14:45:41 grosch rel $ *)
 
-(* $Log: Heap.md,v $
- * Revision 1.2  1992/08/07  14:45:41  grosch
- * added comments
- *
- * Revision 1.1  1991/11/21  14:33:17  grosch
- * new version of RCS on SPARC
- *
- * Revision 1.0  88/10/04  11:46:55  grosch
- * Initial revision
+(* $Id: Heap.md,v 1.2 1992/08/07 14:45:41 grosch rel $ *) 
+
+(* $Log: Heap.md,v $ 
+ * Revision 1.2  1992/08/07  14:45:41  grosch 
+ * added comments 
  * 
- *)
+ * Revision 1.1  1991/11/21  14:33:17  grosch 
+ * new version of RCS on SPARC 
+ * 
+ * Revision 1.0  88/10/04  11:46:55  grosch 
+ * Initial revision 
+ * 
+ *) 
 
-(* Ich, Doktor Josef Grosch, Informatiker, 2.9.1988 *)
+(* Ich, Doktor Josef Grosch, Informatiker, 2.9.1988 *) 
 
-UNSAFE INTERFACE  Heap;
+UNSAFE INTERFACE Heap 
 
-FROM SYSTEM IMPORT M2LONGINT, M2LONGCARD;
+; FROM SYSTEM IMPORT M2LONGINT , M2LONGCARD 
 
-VAR	  HeapUsed	: M2LONGCARD;
-			(* Holds the total amount of memory managed by	*)
-			(* this module.					*)
+; VAR HeapUsed : M2LONGCARD 
 
-PROCEDURE Alloc		(ByteCount: M2LONGINT) : ADDRESS;
-			(* Returns a pointer to dynamically allocated	*)
-			(* space of size 'ByteCount' bytes.		*)
+                        (* Holds the total amount of memory managed by  *) 
+                        (* this module.                                 *) 
 
-PROCEDURE Free()		;
-			(* The complete space allocated for the heap	*)
-			(* is released.					*)
+; PROCEDURE Alloc ( ByteCount : M2LONGINT ) : ADDRESS 
 
-(* PROCEDURE WriteHeap; *)
+                        (* Returns a pointer to dynamically allocated   *) 
+                        (* space of size 'ByteCount' bytes.             *) 
 
-END Heap.
+; PROCEDURE Free ( ) 
+
+                        (* The complete space allocated for the heap    *) 
+                        (* is released.                                 *) 
+
+(* PROCEDURE WriteHeap; *) 
+
+; 
+END Heap 
+. 
 
