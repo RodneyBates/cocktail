@@ -11,7 +11,7 @@ UNSAFE MODULE DynArray
 
 ; FROM Memory IMPORT Alloc , Free 
 
-; FROM ReuseIO IMPORT StdError , WriteS , WriteNl 
+; FROM ReuseIO IMPORT StdError , WriteT , WriteNl 
 
 (* INVARIANT ElmtCount * AlignedSize (ElmtSize) MOD TSIZE (M2LONGINT) = 0 *) 
 
@@ -39,14 +39,9 @@ UNSAFE MODULE DynArray
     ; ArrayPtr := Alloc ( ElmtCount * ElmtSize ) 
     ; IF ArrayPtr = NIL 
       THEN 
-        WriteS 
+        WriteT 
           ( StdError 
-          , ARRAY [ 0 .. 24 ] OF CHAR 
-              { 'M' , 'a' , 'k' , 'e' , 'A' , 'r' , 'r' , 'a' , 'y' , ':' 
-              , ' ' 
-              , 'o' , 'u' , 't' , ' ' , 'o' , 'f' , ' ' , 'm' , 'e' , 'm' 
-              , 'o' , 'r' , 'y' , '\000' 
-              } 
+          ,  "MakeArray: out of memory" 
           ) 
       ; WriteNl ( StdError ) 
       END (* IF *) 
@@ -66,14 +61,9 @@ UNSAFE MODULE DynArray
     ; NewPtr := Alloc ( ElmtCount * ElmtSize * 2 ) 
     ; IF NewPtr = NIL 
       THEN 
-        WriteS 
+        WriteT 
           ( StdError 
-          , ARRAY [ 0 .. 26 ] OF CHAR 
-              { 'E' , 'x' , 't' , 'e' , 'n' , 'd' , 'A' , 'r' , 'r' , 'a' 
-              , 'y' 
-              , ':' , ' ' , 'o' , 'u' , 't' , ' ' , 'o' , 'f' , ' ' , 'm' 
-              , 'e' , 'm' , 'o' , 'r' , 'y' , '\000' 
-              } 
+          ,  "ExtendArray: out of memory" 
           ) 
       ; WriteNl ( StdError ) 
       ELSE 

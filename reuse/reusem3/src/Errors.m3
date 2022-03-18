@@ -20,7 +20,6 @@
 UNSAFE MODULE Errors 
 
 ; IMPORT Stdio 
-; IMPORT Text 
 ; IMPORT Wr 
 
 ; FROM SYSTEM IMPORT M2LONGINT 
@@ -30,9 +29,9 @@ UNSAFE MODULE Errors
 ; FROM Memory IMPORT Alloc 
 
 ; FROM ReuseIO 
-  IMPORT tFile , StdError , WriteC , WriteNl , WriteS , WriteI , WriteB 
-  , WriteR 
-  , CloseIO 
+  IMPORT tFile , StdError , WriteC , WriteNl , WriteS , WriteT , WriteI 
+  , WriteB 
+  , WriteR , CloseIO 
 
 ; FROM Positions IMPORT tPosition , Compare , WritePosition 
 
@@ -168,80 +167,24 @@ UNSAFE MODULE Errors
 
   = BEGIN (* WriteHead *) 
       WritePosition ( Out , Position ) 
-    ; WriteS ( Out , ARRAY [ 0 .. 2 ] OF CHAR { ':' , ' ' , '\000' } ) 
+    ; WriteT ( Out , ": " ) 
     ; CASE ErrorClass 
       OF Fatal 
-      => WriteS 
-           ( Out 
-           , ARRAY [ 0 .. 12 ] OF CHAR 
-               { 'F' , 'a' , 't' , 'a' , 'l' , ' ' , ' ' , ' ' , ' ' , ' ' 
-               , ' ' 
-               , ' ' , '\000' 
-               } 
-           ) 
+      => WriteT ( Out , "Fatal       " ) 
       | Restriction 
-      => WriteS 
-           ( Out 
-           , ARRAY [ 0 .. 12 ] OF CHAR 
-               { 'R' , 'e' , 's' , 't' , 'r' , 'i' , 'c' , 't' , 'i' , 'o' 
-               , 'n' 
-               , ' ' , '\000' 
-               } 
-           ) 
+      => WriteT ( Out , "Restriction " ) 
       | Error 
-      => WriteS 
-           ( Out 
-           , ARRAY [ 0 .. 12 ] OF CHAR 
-               { 'E' , 'r' , 'r' , 'o' , 'r' , ' ' , ' ' , ' ' , ' ' , ' ' 
-               , ' ' 
-               , ' ' , '\000' 
-               } 
-           ) 
+      => WriteT ( Out , "Error       " ) 
       | Warning 
-      => WriteS 
-           ( Out 
-           , ARRAY [ 0 .. 12 ] OF CHAR 
-               { 'W' , 'a' , 'r' , 'n' , 'i' , 'n' , 'g' , ' ' , ' ' , ' ' 
-               , ' ' 
-               , ' ' , '\000' 
-               } 
-           ) 
+      => WriteT ( Out , "Warning     " ) 
       | Repair 
-      => WriteS 
-           ( Out 
-           , ARRAY [ 0 .. 12 ] OF CHAR 
-               { 'R' , 'e' , 'p' , 'a' , 'i' , 'r' , ' ' , ' ' , ' ' , ' ' 
-               , ' ' 
-               , ' ' , '\000' 
-               } 
-           ) 
+      => WriteT ( Out , "Repair      " ) 
       | Note 
-      => WriteS 
-           ( Out 
-           , ARRAY [ 0 .. 12 ] OF CHAR 
-               { 'N' , 'o' , 't' , 'e' , ' ' , ' ' , ' ' , ' ' , ' ' , ' ' 
-               , ' ' 
-               , ' ' , '\000' 
-               } 
-           ) 
+      => WriteT ( Out , "Note        " ) 
       | Information 
-      => WriteS 
-           ( Out 
-           , ARRAY [ 0 .. 12 ] OF CHAR 
-               { 'I' , 'n' , 'f' , 'o' , 'r' , 'm' , 'a' , 't' , 'i' , 'o' 
-               , 'n' 
-               , ' ' , '\000' 
-               } 
-           ) 
+      => WriteT ( Out , "Information " ) 
       ELSE 
-        WriteS 
-          ( Out 
-          , ARRAY [ 0 .. 13 ] OF CHAR 
-              { 'E' , 'r' , 'r' , 'o' , 'r' , ' ' , 'c' , 'l' , 'a' , 's' 
-              , 's' 
-              , ':' , ' ' , '\000' 
-              } 
-          ) 
+        WriteT ( Out , "Error class: " ) 
       ; WriteI ( Out , ErrorClass , 0 ) 
       END (* CASE *) 
     END WriteHead 
@@ -253,88 +196,23 @@ UNSAFE MODULE Errors
       OF NoText 
       => 
       | SyntaxError 
-      => WriteS 
-           ( Out 
-           , ARRAY [ 0 .. 12 ] OF CHAR 
-               { 's' , 'y' , 'n' , 't' , 'a' , 'x' , ' ' , 'e' , 'r' , 'r' 
-               , 'o' 
-               , 'r' , '\000' 
-               } 
-           ) 
+      => WriteT ( Out , "syntax error" ) 
       | ExpectedTokens 
-      => WriteS 
-           ( Out 
-           , ARRAY [ 0 .. 15 ] OF CHAR 
-               { 'e' , 'x' , 'p' , 'e' , 'c' , 't' , 'e' , 'd' , ' ' , 't' 
-               , 'o' 
-               , 'k' , 'e' , 'n' , 's' , '\000' 
-               } 
-           ) 
+      => WriteT ( Out , "expected tokens" ) 
       | RestartPoint 
-      => WriteS 
-           ( Out 
-           , ARRAY [ 0 .. 13 ] OF CHAR 
-               { 'r' , 'e' , 's' , 't' , 'a' , 'r' , 't' , ' ' , 'p' , 'o' 
-               , 'i' 
-               , 'n' , 't' , '\000' 
-               } 
-           ) 
+      => WriteT ( Out , "restart point" ) 
       | TokenInserted 
-      => WriteS 
-           ( Out 
-           , ARRAY [ 0 .. 15 ] OF CHAR 
-               { 't' , 'o' , 'k' , 'e' , 'n' , ' ' , 'i' , 'n' , 's' , 'e' 
-               , 'r' 
-               , 't' , 'e' , 'd' , ' ' , '\000' 
-               } 
-           ) 
+      => WriteT ( Out , "token inserted " ) 
       | WrongParseTable 
-      => WriteS 
-           ( Out 
-           , ARRAY [ 0 .. 20 ] OF CHAR 
-               { 'p' , 'a' , 'r' , 's' , 'e' , ' ' , 't' , 'a' , 'b' , 'l' 
-               , 'e' 
-               , ' ' , 'm' , 'i' , 's' , 'm' , 'a' , 't' , 'c' , 'h' , '\000' 
-               } 
-           ) 
+      => WriteT ( Out , "parse table mismatch" ) 
       | OpenParseTable 
-      => WriteS 
-           ( Out 
-           , ARRAY [ 0 .. 23 ] OF CHAR 
-               { 'c' , 'a' , 'n' , 'n' , 'o' , 't' , ' ' , 'o' , 'p' , 'e' 
-               , 'n' 
-               , ' ' , 'p' , 'a' , 'r' , 's' , 'e' , ' ' , 't' , 'a' , 'b' 
-               , 'l' , 'e' , '\000' 
-               } 
-           ) 
+      => WriteT ( Out , "cannot open parse table" ) 
       | ReadParseTable 
-      => WriteS 
-           ( Out 
-           , ARRAY [ 0 .. 23 ] OF CHAR 
-               { 'c' , 'a' , 'n' , 'n' , 'o' , 't' , ' ' , 'r' , 'e' , 'a' 
-               , 'd' 
-               , ' ' , 'p' , 'a' , 'r' , 's' , 'e' , ' ' , 't' , 'a' , 'b' 
-               , 'l' , 'e' , '\000' 
-               } 
-           ) 
+      => WriteT ( Out , "cannot read parse table" ) 
       | TooManyErrors 
-      => WriteS 
-           ( Out 
-           , ARRAY [ 0 .. 15 ] OF CHAR 
-               { 't' , 'o' , 'o' , ' ' , 'm' , 'a' , 'n' , 'y' , ' ' , 'e' 
-               , 'r' 
-               , 'r' , 'o' , 'r' , 's' , '\000' 
-               } 
-           ) 
+      => WriteT ( Out , "too many errors" ) 
       ELSE 
-        WriteS 
-          ( Out 
-          , ARRAY [ 0 .. 13 ] OF CHAR 
-              { ' ' , 'e' , 'r' , 'r' , 'o' , 'r' , ' ' , 'c' , 'o' , 'd' 
-              , 'e' 
-              , ':' , ' ' , '\000' 
-              } 
-          ) 
+        WriteT ( Out , " error code: " ) 
       ; WriteI ( Out , ErrorCode , 0 ) 
       END (* CASE *) 
     END WriteCode 
@@ -353,7 +231,7 @@ UNSAFE MODULE Errors
 
   ; BEGIN (* WriteInfo *) 
       IF InfoClass = None THEN RETURN END (* IF *) 
-    ; WriteS ( Out , ARRAY [ 0 .. 2 ] OF CHAR { ':' , ' ' , '\000' } ) 
+    ; WriteT ( Out , ": " ) 
     ; CASE InfoClass 
       OF Integer 
       => PtrToInteger := Info 
