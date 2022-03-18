@@ -17,7 +17,7 @@
 
 UNSAFE MODULE Layout 
 
-; FROM ReuseIO IMPORT tFile , WriteC , WriteS , WriteI , ReadC , UnRead 
+; FROM ReuseIO IMPORT tFile , WriteC , WriteT , WriteI , ReadC , UnRead 
 
 ; PROCEDURE WriteChar ( f : tFile ; Ch : CHAR ) 
 
@@ -29,7 +29,7 @@ UNSAFE MODULE Layout
       ; WriteC ( f , '\'' ) 
       ELSIF Ch = '\000' 
       THEN 
-        WriteS ( f , ARRAY [ 0 .. 3 ] OF CHAR { 'e' , 'p' , 's' , '\000' } ) 
+        WriteT ( f , "eps" ) 
       ELSE 
         WriteI ( f , ORD ( Ch ) , 2 ) 
       ; WriteC ( f , 'C' ) 

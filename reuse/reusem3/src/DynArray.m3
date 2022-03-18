@@ -39,10 +39,7 @@ UNSAFE MODULE DynArray
     ; ArrayPtr := Alloc ( ElmtCount * ElmtSize ) 
     ; IF ArrayPtr = NIL 
       THEN 
-        WriteT 
-          ( StdError 
-          ,  "MakeArray: out of memory" 
-          ) 
+        WriteT ( StdError ,  "MakeArray: out of memory" ) 
       ; WriteNl ( StdError ) 
       END (* IF *) 
     END MakeArray 
@@ -61,10 +58,7 @@ UNSAFE MODULE DynArray
     ; NewPtr := Alloc ( ElmtCount * ElmtSize * 2 ) 
     ; IF NewPtr = NIL 
       THEN 
-        WriteT 
-          ( StdError 
-          ,  "ExtendArray: out of memory" 
-          ) 
+        WriteT ( StdError ,  "ExtendArray: out of memory" ) 
       ; WriteNl ( StdError ) 
       ELSE 
         Source := ArrayPtr 

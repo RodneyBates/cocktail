@@ -23,7 +23,7 @@ UNSAFE MODULE Sets
 ; FROM DynArray IMPORT MakeArray , ReleaseArray 
 
 ; FROM ReuseIO 
-  IMPORT tFile , StdError , ReadCard , ReadC , WriteCard , WriteC , WriteS 
+  IMPORT tFile , StdError , ReadCard , ReadC , WriteCard , WriteC , WriteT  
   , WriteNl 
 
 ; CONST BitsPerBitset = BITSIZE ( BITSET ) 
@@ -542,15 +542,15 @@ UNSAFE MODULE Sets
       WITH <*UNUSED*> m2tom3_with_48 = Set 
       DO 
 
-      (* WriteS (f, "MaxElmt = "        ) ; WriteCard (f, MaxElmt        , 0); 
-         WriteS (f, " LastBitset = "    ) ; WriteCard (f, LastBitset, 0); 
-         WriteS (f, " Card = "          ) ; WriteCard (f, Card   , 0); 
-         WriteS (f, " FirstElmt = "     ) ; WriteCard (f, FirstElmt , 0); 
-         WriteS (f, " LastElmt = "      ) ; WriteCard (f, LastElmt       , 0); 
+      (* WriteT (f, "MaxElmt = "        ) ; WriteCard (f, MaxElmt        , 0); 
+         WriteT (f, " LastBitset = "    ) ; WriteCard (f, LastBitset, 0); 
+         WriteT (f, " Card = "          ) ; WriteCard (f, Card   , 0); 
+         WriteT (f, " FirstElmt = "     ) ; WriteCard (f, FirstElmt , 0); 
+         WriteT (f, " LastElmt = "      ) ; WriteCard (f, LastElmt       , 0); 
          WriteNl (f); 
       *) 
 
-         g := f 
+        g := f 
       ; WriteC ( f , '{' ) 
       ; ForallDo ( Set , WriteElmt ) 
       ; WriteC ( f , '}' ) 
@@ -568,14 +568,7 @@ UNSAFE MODULE Sets
     AllBits := BITSET { 0 .. BitsPerBitset - 1 } 
   ; IF BYTESIZE ( BITSET ) # BytesPerBitset 
     THEN 
-      WriteS 
-        ( StdError 
-        , ARRAY [ 0 .. 17 ] OF CHAR 
-            { 'T' , 'S' , 'I' , 'Z' , 'E' , ' ' , '(' , 'B' , 'I' , 'T' , 'S' 
-            , 'E' 
-            , 'T' , ')' , ' ' , '=' , ' ' , '\000' 
-            } 
-        ) 
+      WriteT ( StdError , "TSIZE (BITSET) = " ) 
     ; WriteCard ( StdError , BYTESIZE ( BITSET ) , 0 ) 
     ; WriteNl ( StdError ) 
     END (* IF *) 

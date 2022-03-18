@@ -11,7 +11,7 @@ UNSAFE MODULE StringMem
 
 ; FROM Strings IMPORT tStringIndex , tString 
 
-; FROM ReuseIO IMPORT tFile , StdOutput , WriteC , WriteI , WriteNl , WriteS 
+; FROM ReuseIO IMPORT tFile , StdOutput , WriteC , WriteI , WriteNl , WriteT 
 
 ; CONST InitialMemorySize = 1024 * 16 
 
@@ -106,11 +106,7 @@ UNSAFE MODULE StringMem
       END (* WHILE *) 
     ; WriteNl ( StdOutput ) 
     ; WriteI ( StdOutput , VAL ( StringPtr , INTEGER ) , 5 ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 6 ] OF CHAR 
-            { ' ' , 'B' , 'y' , 't' , 'e' , 's' , '\000' } 
-        ) 
+    ; WriteT ( StdOutput , " Bytes" ) 
     ; WriteNl ( StdOutput ) 
     END WriteStringMemory 
 

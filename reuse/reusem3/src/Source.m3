@@ -3,7 +3,6 @@
 
 UNSAFE MODULE Source 
 
-
 ; IMPORT Word 
 
 ; FROM System IMPORT tFile , OpenInput , Read , Close 
@@ -17,16 +16,10 @@ UNSAFE MODULE Source
 ; PROCEDURE GetLine 
     ( File : tFile ; Buffer : ADDRESS ; Size : Word . T ) : INTEGER 
 
-  = 
-   <*UNUSED*> 
-    CONST IgnoreChar = ' ' 
+  = <*UNUSED*> CONST IgnoreChar = ' ' 
 
-  ; 
-   <*UNUSED*> 
-    VAR n : INTEGER 
-  ; 
-   <*UNUSED*> 
-    VAR BufferPtr : UNTRACED BRANDED REF ARRAY [ 0 .. 30000 ] OF CHAR 
+  ; <*UNUSED*> VAR n : INTEGER 
+  ; <*UNUSED*> VAR BufferPtr : UNTRACED BRANDED REF ARRAY [ 0 .. 30000 ] OF CHAR 
 
   ; BEGIN (* GetLine *) 
 

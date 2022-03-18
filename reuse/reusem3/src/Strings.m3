@@ -19,15 +19,7 @@ UNSAFE MODULE Strings
 ; PROCEDURE Error ( ) 
 
   = BEGIN (* Error *) 
-      ReuseIO . WriteS 
-        ( StdError 
-        , ARRAY [ 0 .. 25 ] OF CHAR 
-            { 's' , 't' , 'r' , 'i' , 'n' , 'g' , ' ' , 't' , 'o' , 'o' , ' ' 
-            , 'l' 
-            , 'o' , 'n' , 'g' , ',' , ' ' , 'm' , 'a' , 'x' , '.' , ' ' , '2' 
-            , '5' , '5' , '\000' 
-            } 
-        ) 
+      ReuseIO . WriteT ( StdError , "string too long, max is 255" ) 
     ; ReuseIO . WriteNl ( StdError ) 
     END Error 
 
