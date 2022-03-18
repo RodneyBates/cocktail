@@ -38,20 +38,9 @@ UNSAFE MODULE MemoryDrv EXPORTS Main
 
   ; BEGIN (* AllocPrint *) 
       a := Alloc ( n ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 12 ] OF CHAR 
-            { 'A' , 'l' , 'l' , 'o' , 'c' , ':' , ' ' , ' ' , 'n' , ' ' , '=' 
-            , ' ' 
-            , '\000' 
-            } 
-        ) 
+    ; WriteT ( StdOutput , "Alloc:  n = " ) 
     ; WriteLong ( StdOutput , n , 10 ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 8 ] OF CHAR 
-            { ',' , ' ' , 'A' , 'D' , 'R' , ' ' , '=' , ' ' , '\000' } 
-        ) 
+    ; WriteT ( StdOutput , ", ADR = " ) 
     ; WriteN ( StdOutput , LOOPHOLE ( a , INTEGER ) , 8 , 16 ) 
     ; WriteNl ( StdOutput ) 
     ; RETURN a 
@@ -68,30 +57,14 @@ UNSAFE MODULE MemoryDrv EXPORTS Main
 
     ; IF p3 # p2 
       THEN 
-        WriteS 
-          ( StdOutput 
-          , ARRAY [ 0 .. 29 ] OF CHAR 
-              { 'A' , 'l' , 'l' , 'o' , 'c' , '/' , 'F' , 'r' , 'e' , 'e' 
-              , ' ' 
-              , 's' , 'm' , 'a' , 'l' , 'l' , ' ' , 'n' , 'o' , 't' , ' ' 
-              , 'i' , 'n' , 'v' , 'e' , 'r' , 's' , 'e' , ' ' , '\000' 
-              } 
-          ) 
+        WriteT ( StdOutput , "Alloc/Free small not inverse " ) 
       ; WriteI ( StdOutput , i , 10 ) 
       ; WriteNl ( StdOutput ) 
       END (* IF *) 
 
     ; IF p4 # p1 
       THEN 
-        WriteS 
-          ( StdOutput 
-          , ARRAY [ 0 .. 29 ] OF CHAR 
-              { 'A' , 'l' , 'l' , 'o' , 'c' , '/' , 'F' , 'r' , 'e' , 'e' 
-              , ' ' 
-              , 's' , 'm' , 'a' , 'l' , 'l' , ' ' , 'n' , 'o' , 't' , ' ' 
-              , 'i' , 'n' , 'v' , 'e' , 'r' , 's' , 'e' , ' ' , '\000' 
-              } 
-          ) 
+        WriteT ( StdOutput , "Alloc/Free small not inverse " ) 
       ; WriteI ( StdOutput , i , 10 ) 
       ; WriteNl ( StdOutput ) 
       END (* IF *) 
@@ -104,14 +77,7 @@ UNSAFE MODULE MemoryDrv EXPORTS Main
 
   ; LOOP 
       FOR i := 7 TO 24 (* 32 *) 
-      DO WriteS 
-           ( StdOutput 
-           , ARRAY [ 0 .. 12 ] OF CHAR 
-               { ' ' , ' ' , ' ' , ' ' , ' ' , ' ' , ' ' , ' ' , 'i' , ' ' 
-               , '=' 
-               , ' ' , '\000' 
-               } 
-           ) 
+      DO WriteT ( StdOutput , "        i = " ) 
       ; WriteI ( StdOutput , i , 10 ) 
       ; WriteNl ( StdOutput ) 
 
@@ -133,15 +99,7 @@ UNSAFE MODULE MemoryDrv EXPORTS Main
       ; p1 := AllocPrint ( best ) 
       ; IF p1 # p2 
         THEN 
-          WriteS 
-            ( StdOutput 
-            , ARRAY [ 0 .. 29 ] OF CHAR 
-                { 'A' , 'l' , 'l' , 'o' , 'c' , '/' , 'F' , 'r' , 'e' , 'e' 
-                , ' ' 
-                , 'l' , 'a' , 'r' , 'g' , 'e' , ' ' , 'n' , 'o' , 't' , ' ' 
-                , 'i' , 'n' , 'v' , 'e' , 'r' , 's' , 'e' , ' ' , '\000' 
-                } 
-            ) 
+          WriteT ( StdOutput , "Alloc/Free large not inverse " ) 
         ; WriteI ( StdOutput , i , 10 ) 
         ; WriteNl ( StdOutput ) 
         END (* IF *) 
@@ -149,15 +107,7 @@ UNSAFE MODULE MemoryDrv EXPORTS Main
       ; p1 := AllocPrint ( best ) 
       ; IF p1 # p3 
         THEN 
-          WriteS 
-            ( StdOutput 
-            , ARRAY [ 0 .. 29 ] OF CHAR 
-                { 'A' , 'l' , 'l' , 'o' , 'c' , '/' , 'F' , 'r' , 'e' , 'e' 
-                , ' ' 
-                , 'l' , 'a' , 'r' , 'g' , 'e' , ' ' , 'n' , 'o' , 't' , ' ' 
-                , 'i' , 'n' , 'v' , 'e' , 'r' , 's' , 'e' , ' ' , '\000' 
-                } 
-            ) 
+          WriteT ( StdOutput , "Alloc/Free large not inverse " ) 
         ; WriteI ( StdOutput , i , 10 ) 
         ; WriteNl ( StdOutput ) 
         END (* IF *) 
@@ -165,15 +115,7 @@ UNSAFE MODULE MemoryDrv EXPORTS Main
       ; p1 := AllocPrint ( best ) 
       ; IF p1 # p4 
         THEN 
-          WriteS 
-            ( StdOutput 
-            , ARRAY [ 0 .. 29 ] OF CHAR 
-                { 'A' , 'l' , 'l' , 'o' , 'c' , '/' , 'F' , 'r' , 'e' , 'e' 
-                , ' ' 
-                , 'l' , 'a' , 'r' , 'g' , 'e' , ' ' , 'n' , 'o' , 't' , ' ' 
-                , 'i' , 'n' , 'v' , 'e' , 'r' , 's' , 'e' , ' ' , '\000' 
-                } 
-            ) 
+          WriteT ( StdOutput , "Alloc/Free large not inverse " ) 
         ; WriteI ( StdOutput , i , 10 ) 
         ; WriteNl ( StdOutput ) 
         END (* IF *) 
@@ -185,14 +127,7 @@ UNSAFE MODULE MemoryDrv EXPORTS Main
       END (* FOR *) 
     END (* LOOP *) 
   ; WriteNl ( StdOutput ) 
-  ; WriteS 
-      ( StdOutput 
-      , ARRAY [ 0 .. 13 ] OF CHAR 
-          { 'M' , 'e' , 'm' , 'o' , 'r' , 'y' , ' ' , 'u' , 's' , 'e' , 'd' 
-          , ':' 
-          , ' ' , '\000' 
-          } 
-      ) 
+  ; WriteT ( StdOutput , "Memory used: " ) 
   ; WriteI ( StdOutput , MemoryUsed , 10 ) 
   ; WriteNl ( StdOutput ) 
   ; CloseIO ( ) 
