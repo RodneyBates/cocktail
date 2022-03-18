@@ -41,7 +41,7 @@ UNSAFE MODULE SetsDrv EXPORTS Main
 ; FROM ReuseIO 
   IMPORT tFile , StdOutput , WriteOpen , WriteClose , ReadOpen , ReadClose 
   , WriteNl 
-  , WriteI , CloseIO , WriteS , WriteFlush , ReadI , StdInput 
+  , WriteI , CloseIO , WriteT , WriteFlush , ReadI , StdInput 
 
 ; CONST max = 1000 
 
@@ -119,21 +119,9 @@ UNSAFE MODULE SetsDrv EXPORTS Main
   ; Include ( s , 3 ) 
   ; Include ( s , 7 ) 
   ; WriteNl ( StdOutput ) 
-  ; WriteS 
-      ( StdOutput 
-      , ARRAY [ 0 .. 50 ] OF CHAR 
-          { 'e' , 'n' , 't' , 'e' , 'r' , ' ' , 'S' , 'i' , 'z' , 'e' , ' ' 
-          , 'a' 
-          , 'n' , 'd' , ' ' , 'S' , 'e' , 't' , ' ' , 'l' , 'i' , 'k' , 'e' 
-          , ' ' , 'b' , 'e' , 'l' , 'o' , 'w' , '!' , ' ' , '(' , 'S' , 'i' 
-          , 'z' 
-          , 'e' , '=' , '0' , ' ' , 't' , 'e' , 'r' , 'm' , 'i' , 'n' , 'a' 
-          , 't' , 'e' , 's' , ')' , '\000' 
-          } 
-      ) 
+  ; WriteT ( StdOutput , "enter Size and Set like below! (Size=0 terminates)" ) 
   ; WriteNl ( StdOutput ) 
-  ; WriteS 
-      ( StdOutput , ARRAY [ 0 .. 3 ] OF CHAR { '1' , '0' , ' ' , '\000' } ) 
+  ; WriteT ( StdOutput , "10 " ) 
   ; WriteSet ( StdOutput , s ) 
   ; WriteNl ( StdOutput ) 
   ; ReleaseSet ( s ) 
@@ -146,20 +134,12 @@ UNSAFE MODULE SetsDrv EXPORTS Main
     ; MakeSet ( s , i ) 
     ; ReadSet ( StdInput , s ) 
     ; WriteSet ( StdOutput , s ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 8 ] OF CHAR 
-            { ' ' , 'C' , 'a' , 'r' , 'd' , ' ' , '=' , ' ' , '\000' } 
-        ) 
+    ; WriteT ( StdOutput , " Card = " ) 
     ; WriteI ( StdOutput , Card ( s ) , 0 ) 
     ; WriteNl ( StdOutput ) 
     ; Complement ( s ) 
     ; WriteSet ( StdOutput , s ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 8 ] OF CHAR 
-            { ' ' , 'C' , 'a' , 'r' , 'd' , ' ' , '=' , ' ' , '\000' } 
-        ) 
+    ; WriteT ( StdOutput , " Card = " ) 
     ; WriteI ( StdOutput , Card ( s ) , 0 ) 
     ; WriteNl ( StdOutput ) 
     ; ReleaseSet ( s ) 

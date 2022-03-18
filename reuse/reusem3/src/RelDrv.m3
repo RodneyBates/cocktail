@@ -21,7 +21,7 @@ Initial revision
 UNSAFE MODULE RelDrv EXPORTS Main 
 
 ; FROM ReuseIO 
-  IMPORT StdInput , StdOutput , ReadI , ReadC , WriteI , WriteS , WriteFlush 
+  IMPORT StdInput , StdOutput , ReadI , ReadC , WriteI , WriteT , WriteFlush 
   , WriteB 
   , WriteNl , CloseIO 
 
@@ -63,21 +63,11 @@ UNSAFE MODULE RelDrv EXPORTS Main
   ; Include ( r1 , 2 , 3 ) 
   ; Include ( r1 , 3 , 4 ) 
   ; WriteNl ( StdOutput ) 
-  ; WriteS 
-      ( StdOutput 
-      , ARRAY [ 0 .. 55 ] OF CHAR 
-          { 'e' , 'n' , 't' , 'e' , 'r' , ' ' , 'S' , 'i' , 'z' , 'e' , ' ' 
-          , 'a' 
-          , 'n' , 'd' , ' ' , 'R' , 'e' , 'l' , 'a' , 't' , 'i' , 'o' , 'n' 
-          , ' ' , 'l' , 'i' , 'k' , 'e' , ' ' , 'b' , 'e' , 'l' , 'o' , 'w' 
-          , '!' 
-          , ' ' , '(' , 'S' , 'i' , 'z' , 'e' , '=' , '0' , ' ' , 't' , 'e' 
-          , 'r' , 'm' , 'i' , 'n' , 'a' , 't' , 'e' , 's' , ')' , '\000' 
-          } 
-      ) 
+  ; WriteT 
+      ( StdOutput , "enter Size and Relation like below! (Size=0 terminates)" ) 
   ; WriteNl ( StdOutput ) 
   ; WriteI ( StdOutput , 4 , 3 ) 
-  ; WriteS ( StdOutput , ' ' ) 
+  ; WriteT ( StdOutput , " " ) 
   ; WriteRelation ( StdOutput , r1 ) 
   ; WriteNl ( StdOutput ) 
   ; ReleaseRelation ( r1 ) 
@@ -92,173 +82,57 @@ UNSAFE MODULE RelDrv EXPORTS Main
     ; ReadRelation ( StdInput , r2 ) 
     ; WriteRelation ( StdOutput , r2 ) 
     ; WriteNl ( StdOutput ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 16 ] OF CHAR 
-            { 'R' , 'e' , 'f' , 'l' , 'e' , 'x' , 'i' , 'v' , 'e' , ' ' , ' ' 
-            , ' ' 
-            , ' ' , ' ' , '=' , ' ' , '\000' 
-            } 
-        ) 
+    ; WriteT ( StdOutput , "Reflexive     = " ) 
     ; WriteB ( StdOutput , IsReflexive ( r2 ) ) 
     ; WriteNl ( StdOutput ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 16 ] OF CHAR 
-            { 'S' , 'y' , 'm' , 'm' , 'e' , 't' , 'r' , 'i' , 'c' , ' ' , ' ' 
-            , ' ' 
-            , ' ' , ' ' , '=' , ' ' , '\000' 
-            } 
-        ) 
+    ; WriteT ( StdOutput , "Symmetric     = " ) 
     ; WriteB ( StdOutput , IsSymmetric ( r2 ) ) 
     ; WriteNl ( StdOutput ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 16 ] OF CHAR 
-            { 'T' , 'r' , 'a' , 'n' , 's' , 'i' , 't' , 'i' , 'v' , 'e' , ' ' 
-            , ' ' 
-            , ' ' , ' ' , '=' , ' ' , '\000' 
-            } 
-        ) 
+    ; WriteT ( StdOutput , "Transitive    = " ) 
     ; WriteB ( StdOutput , IsTransitive ( r2 ) ) 
     ; WriteNl ( StdOutput ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 16 ] OF CHAR 
-            { 'E' , 'q' , 'u' , 'i' , 'v' , 'a' , 'l' , 'e' , 'n' , 'c' , 'e' 
-            , ' ' 
-            , ' ' , ' ' , '=' , ' ' , '\000' 
-            } 
-        ) 
+    ; WriteT ( StdOutput , "Equivalence   = " ) 
     ; WriteB ( StdOutput , IsEquivalence ( r2 ) ) 
     ; WriteNl ( StdOutput ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 16 ] OF CHAR 
-            { 'H' , 'a' , 's' , 'R' , 'e' , 'f' , 'l' , 'e' , 'x' , 'i' , 'v' 
-            , 'e' 
-            , ' ' , ' ' , '=' , ' ' , '\000' 
-            } 
-        ) 
+    ; WriteT ( StdOutput , "HasReflexive  = " ) 
     ; WriteB ( StdOutput , HasReflexive ( r2 ) ) 
     ; WriteNl ( StdOutput ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 22 ] OF CHAR 
-            { 'C' , 'y' , 'c' , 'l' , 'i' , 'c' , ' ' , ' ' , ' ' , ' ' , ' ' 
-            , ' ' 
-            , ' ' , ' ' , ' ' , ' ' , ' ' , ' ' , ' ' , ' ' , '=' , ' ' 
-            , '\000' 
-            } 
-        ) 
+    ; WriteT ( StdOutput , "Cyclic              = " ) 
     ; WriteB ( StdOutput , IsCyclic ( r2 ) ) 
     ; WriteNl ( StdOutput ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 16 ] OF CHAR 
-            { 'C' , 'a' , 'r' , 'd' , ' ' , ' ' , ' ' , ' ' , ' ' , ' ' , ' ' 
-            , ' ' 
-            , ' ' , ' ' , '=' , ' ' , '\000' 
-            } 
-        ) 
+    ; WriteT ( StdOutput , "Card          = " ) 
     ; WriteI ( StdOutput , Card ( r2 ) , 1 ) 
     ; WriteNl ( StdOutput ) 
     ; GetCyclics ( r2 , s2 ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 22 ] OF CHAR 
-            { 'C' , 'y' , 'c' , 'l' , 'i' , 'c' , 's' , ' ' , ' ' , ' ' , ' ' 
-            , ' ' 
-            , ' ' , ' ' , ' ' , ' ' , ' ' , ' ' , ' ' , ' ' , '=' , ' ' 
-            , '\000' 
-            } 
-        ) 
+    ; WriteT ( StdOutput , "Cyclics             = " ) 
     ; WriteSet ( StdOutput , s2 ) 
     ; WriteNl ( StdOutput ) 
     ; Closure ( r2 ) 
     ; WriteRelation ( StdOutput , r2 ) 
     ; WriteNl ( StdOutput ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 16 ] OF CHAR 
-            { 'R' , 'e' , 'f' , 'l' , 'e' , 'x' , 'i' , 'v' , 'e' , ' ' , ' ' 
-            , ' ' 
-            , ' ' , ' ' , '=' , ' ' , '\000' 
-            } 
-        ) 
+    ; WriteT ( StdOutput , "Reflexive     = " ) 
     ; WriteB ( StdOutput , IsReflexive ( r2 ) ) 
     ; WriteNl ( StdOutput ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 16 ] OF CHAR 
-            { 'S' , 'y' , 'm' , 'm' , 'e' , 't' , 'r' , 'i' , 'c' , ' ' , ' ' 
-            , ' ' 
-            , ' ' , ' ' , '=' , ' ' , '\000' 
-            } 
-        ) 
+    ; WriteT ( StdOutput , "Symmetric     = " ) 
     ; WriteB ( StdOutput , IsSymmetric ( r2 ) ) 
     ; WriteNl ( StdOutput ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 16 ] OF CHAR 
-            { 'T' , 'r' , 'a' , 'n' , 's' , 'i' , 't' , 'i' , 'v' , 'e' , ' ' 
-            , ' ' 
-            , ' ' , ' ' , '=' , ' ' , '\000' 
-            } 
-        ) 
+    ; WriteT ( StdOutput , "Transitive    = " ) 
     ; WriteB ( StdOutput , IsTransitive ( r2 ) ) 
     ; WriteNl ( StdOutput ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 16 ] OF CHAR 
-            { 'E' , 'q' , 'u' , 'i' , 'v' , 'a' , 'l' , 'e' , 'n' , 'c' , 'e' 
-            , ' ' 
-            , ' ' , ' ' , '=' , ' ' , '\000' 
-            } 
-        ) 
+    ; WriteT ( StdOutput , "Equivalence   = " ) 
     ; WriteB ( StdOutput , IsEquivalence ( r2 ) ) 
     ; WriteNl ( StdOutput ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 16 ] OF CHAR 
-            { 'H' , 'a' , 's' , 'R' , 'e' , 'f' , 'l' , 'e' , 'x' , 'i' , 'v' 
-            , 'e' 
-            , ' ' , ' ' , '=' , ' ' , '\000' 
-            } 
-        ) 
+    ; WriteT ( StdOutput , "HasReflexive  = " ) 
     ; WriteB ( StdOutput , HasReflexive ( r2 ) ) 
     ; WriteNl ( StdOutput ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 22 ] OF CHAR 
-            { 'C' , 'y' , 'c' , 'l' , 'i' , 'c' , ' ' , ' ' , ' ' , ' ' , ' ' 
-            , ' ' 
-            , ' ' , ' ' , ' ' , ' ' , ' ' , ' ' , ' ' , ' ' , '=' , ' ' 
-            , '\000' 
-            } 
-        ) 
+    ; WriteT ( StdOutput , "Cyclic              = " ) 
     ; WriteB ( StdOutput , IsCyclic ( r2 ) ) 
     ; WriteNl ( StdOutput ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 16 ] OF CHAR 
-            { 'C' , 'a' , 'r' , 'd' , ' ' , ' ' , ' ' , ' ' , ' ' , ' ' , ' ' 
-            , ' ' 
-            , ' ' , ' ' , '=' , ' ' , '\000' 
-            } 
-        ) 
+    ; WriteT ( StdOutput , "Card          = " ) 
     ; WriteI ( StdOutput , Card ( r2 ) , 1 ) 
     ; WriteNl ( StdOutput ) 
     ; GetCyclics ( r2 , s2 ) 
-    ; WriteS 
-        ( StdOutput 
-        , ARRAY [ 0 .. 22 ] OF CHAR 
-            { 'C' , 'y' , 'c' , 'l' , 'i' , 'c' , 's' , ' ' , ' ' , ' ' , ' ' 
-            , ' ' 
-            , ' ' , ' ' , ' ' , ' ' , ' ' , ' ' , ' ' , ' ' , '=' , ' ' 
-            , '\000' 
-            } 
-        ) 
+    ; WriteT ( StdOutput , "Cyclics             = " ) 
     ; WriteSet ( StdOutput , s2 ) 
     ; WriteNl ( StdOutput ) 
     ; ReleaseRelation ( r2 ) 
