@@ -1,0 +1,15 @@
+% m3makefile for Cocktaill reuse, modula-3 version
+import ("libm3")
+
+import("m2libs")
+
+Module("ReuseIO")
+Module("System")
+Module("Sets")
+module("Relations")
+Module("DynArray")
+Module("General")
+Module("Memory")
+
+implementation("RelDrv")
+program ("reldrv")
