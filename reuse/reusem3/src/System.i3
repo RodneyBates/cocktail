@@ -69,6 +69,8 @@ UNSAFE INTERFACE System (* interface for machine dependencies   *)
     ( FileNameText : TEXT ) : tFile 
     RAISES { OSError . E , FileNoError (*No available tFile value.*) } 
 
+; PROCEDURE IsIntermittent ( File : tFile ) : BOOLEAN
+
 ; PROCEDURE Read 
     ( File : tFile ; Buffer : ADDRESS ; Size : INTEGER ) : INTEGER 
     RAISES 
@@ -82,6 +84,9 @@ UNSAFE INTERFACE System (* interface for machine dependencies   *)
       { Thread . Alerted , Wr . Failure 
       , FileNoError (*File not open for writing.*) 
       } 
+
+; PROCEDURE Flush ( File : tFile ) 
+    RAISES { Thread . Alerted , Wr . Failure }
 
 ; PROCEDURE Close 
     ( File : tFile ) 

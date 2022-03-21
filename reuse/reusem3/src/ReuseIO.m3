@@ -68,38 +68,46 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
       ; BytesRead : SHORTINT 
       ; OpenForOutput : BOOLEAN 
       ; EndOfFile : BOOLEAN 
-      ; FlushLine : BOOLEAN 
+      ; FlushLine : BOOLEAN
+      ; IsIntermittent : BOOLEAN := FALSE (* IMPLIES input file. *) 
       END (* RECORD *) 
 
    (* INV BufferIndex points before the character to be read next *) 
 
 ; VAR BufferPool : ARRAY tFile OF BufferDescriptor 
-  ; MyCHR : ARRAY [ 0 .. 15 ] OF CHAR 
+; VAR MyCHR : ARRAY [ 0 .. 15 ] OF CHAR 
 
-; PROCEDURE FillBuffer ( f : tFile ) 
+; PROCEDURE FillBuffer ( f : tFile ; MinSize : INTEGER )
+  (* Do not block if MinSize bytes can be gotten. *)
 
-  = BEGIN (* FillBuffer *) 
-      WITH m2tom3_with_8 = BufferPool [ f ] 
-      DO IF m2tom3_with_8 . FlushLine 
+  = VAR Size : INTEGER
+
+  ; BEGIN (* FillBuffer *)
+      WITH With_8 = BufferPool [ f ] 
+      DO
+        IF With_8 . FlushLine 
          THEN 
            WriteFlush ( StdOutput ) 
          ; WriteFlush ( StdError ) 
-         END (* IF *) 
-      ; m2tom3_with_8 . BufferIndex := 0 
-      ; m2tom3_with_8 . BytesRead 
+         END (* IF *)
+      ; IF With_8 . IsIntermittent
+        THEN Size := MIN ( MinSize , BufferSize )
+        ELSE Size := BufferSize
+        END (* IF *)
+      ; With_8 . BufferIndex := 0 
+      ; With_8 . BytesRead 
           := VAL 
                ( System . Read 
                    ( f 
-                   , ADR (* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 84 
- $$ *)                 ( m2tom3_with_8 . Buffer ^ [ 1 ] ) 
-                   , BufferSize 
+                   , ADR ( With_8 . Buffer ^ [ 1 ] ) 
+                   , Size 
                    ) 
                , SHORTINT 
                ) 
-      ; IF m2tom3_with_8 . BytesRead <= 0 
+      ; IF With_8 . BytesRead <= 0 
         THEN 
-          m2tom3_with_8 . BytesRead := 0 
-        ; m2tom3_with_8 . EndOfFile := TRUE 
+          With_8 . BytesRead := 0 
+        ; With_8 . EndOfFile := TRUE 
         END (* IF *) 
       END (* WITH *) 
     END FillBuffer 
@@ -111,12 +119,13 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
 
   ; BEGIN (* ReadOpen *) 
       f := System . OpenInput ( FileName ) 
-    ; WITH m2tom3_with_9 = BufferPool [ f ] 
-      DO m2tom3_with_9 . Buffer := Alloc ( BufferSize + 1 ) 
-      ; m2tom3_with_9 . BufferIndex := 0 
-      ; m2tom3_with_9 . BytesRead := 0 
-      ; m2tom3_with_9 . OpenForOutput := FALSE 
-      ; m2tom3_with_9 . EndOfFile := FALSE 
+    ; WITH With_9 = BufferPool [ f ] 
+      DO With_9 . Buffer := Alloc ( BufferSize + 1 ) 
+      ; With_9 . BufferIndex := 0 
+      ; With_9 . BytesRead := 0 
+      ; With_9 . OpenForOutput := FALSE
+      ; With_9 . IsIntermittent := System . IsIntermittent ( f ) 
+      ; With_9 . EndOfFile := FALSE 
       END (* WITH *) 
     ; CheckFlushLine ( f ) 
     ; RETURN f 
@@ -126,9 +135,9 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
 
   = BEGIN (* ReadClose *) 
       System . Close ( f ) 
-    ; WITH m2tom3_with_10 = BufferPool [ f ] 
-      DO Free ( BufferSize + 1 , m2tom3_with_10 . Buffer ) 
-      ; m2tom3_with_10 . Buffer := NIL 
+    ; WITH With_10 = BufferPool [ f ] 
+      DO Free ( BufferSize + 1 , With_10 . Buffer ) 
+      ; With_10 . Buffer := NIL 
       END (* WITH *) 
     END ReadClose 
 
@@ -140,22 +149,22 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
 
   ; BEGIN (* Read *) 
       BufferPtr := Buffer 
-    ; WITH m2tom3_with_11 = BufferPool [ f ] 
+    ; WITH With_11 = BufferPool [ f ] 
       DO i := 0 
       ; LOOP 
           IF i = Size THEN RETURN i END (* IF *) 
-        ; IF m2tom3_with_11 . BufferIndex = m2tom3_with_11 . BytesRead 
-          THEN                                                                  (* ReadC inline         *) 
-            FillBuffer ( f ) 
-          ; IF m2tom3_with_11 . EndOfFile 
+        ; IF With_11 . BufferIndex = With_11 . BytesRead 
+          THEN 
+            FillBuffer ( f , MinSize := Size ) 
+          ; IF With_11 . EndOfFile 
             THEN 
-              m2tom3_with_11 . Buffer ^ [ 1 ] := '\000' 
+              With_11 . Buffer ^ [ 1 ] := '\000' 
             END (* IF *) 
           END (* IF *) 
-        ; INC ( m2tom3_with_11 . BufferIndex ) 
+        ; INC ( With_11 . BufferIndex ) 
         ; BufferPtr ^ [ i ] 
-            := m2tom3_with_11 . Buffer ^ [ m2tom3_with_11 . BufferIndex ] 
-        ; IF m2tom3_with_11 . EndOfFile THEN RETURN i END (* IF *) 
+            := With_11 . Buffer ^ [ With_11 . BufferIndex ] 
+        ; IF With_11 . EndOfFile THEN RETURN i END (* IF *) 
         ; INC ( i ) 
         END (* LOOP *) 
       END (* WITH *) 
@@ -164,17 +173,17 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
 ; PROCEDURE ReadC ( f : tFile ) : CHAR          (* character            *) 
 
   = BEGIN (* ReadC *) 
-      WITH m2tom3_with_12 = BufferPool [ f ] 
-      DO IF m2tom3_with_12 . BufferIndex = m2tom3_with_12 . BytesRead 
+      WITH With_12 = BufferPool [ f ] 
+      DO IF With_12 . BufferIndex = With_12 . BytesRead 
          THEN 
-           FillBuffer ( f ) 
-         ; IF m2tom3_with_12 . EndOfFile 
+           FillBuffer ( f , MinSize := 1 ) 
+         ; IF With_12 . EndOfFile 
            THEN 
-             m2tom3_with_12 . Buffer ^ [ 1 ] := '\000' 
+             With_12 . Buffer ^ [ 1 ] := '\000' 
            END (* IF *) 
          END (* IF *) 
-      ; INC ( m2tom3_with_12 . BufferIndex ) 
-      ; RETURN m2tom3_with_12 . Buffer ^ [ m2tom3_with_12 . BufferIndex ] 
+      ; INC ( With_12 . BufferIndex ) 
+      ; RETURN With_12 . Buffer ^ [ With_12 . BufferIndex ] 
       END (* WITH *) 
     END ReadC 
 
@@ -184,8 +193,9 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
     ; ch : CHAR 
     ; negative : BOOLEAN 
 
-  ; BEGIN (* ReadI *) 
-      REPEAT 
+  ; BEGIN (* ReadI *)
+    (* Scan out leading whitespace. *) 
+      REPEAT
         ch := ReadC ( f ) 
       UNTIL ( ch # ' ' ) AND ( ch # TabCh ) AND ( ch # EolCh ) 
     ; CASE ch 
@@ -200,7 +210,7 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
       END (* CASE *) 
     ; n := 0 
     ; WHILE ( '0' <= ch ) AND ( ch <= '9' ) 
-      DO n := ( 10 * n ) + LOOPHOLE ( ORD ( ch ) - ORD ( '0' ) , INTEGER ) 
+      DO n := ( 10 * n ) + ORD ( ch ) - ORD ( '0' )  
       ; ch := ReadC ( f ) 
       END (* WHILE *) 
     ; DEC ( BufferPool [ f ] . BufferIndex ) 
@@ -350,19 +360,19 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
 ; PROCEDURE ReadS ( f : tFile ; VAR s : ARRAY OF CHAR ) 
 
   = BEGIN (* ReadS *) 
-      WITH m2tom3_with_13 = BufferPool [ f ] 
+      WITH With_13 = BufferPool [ f ] 
       DO FOR i := 0 TO LAST ( s ) 
-         DO IF m2tom3_with_13 . BufferIndex = m2tom3_with_13 . BytesRead 
+         DO IF With_13 . BufferIndex = With_13 . BytesRead 
             THEN                                                                (* ReadC inline         *) 
-              FillBuffer ( f ) 
-            ; IF m2tom3_with_13 . EndOfFile 
+              FillBuffer ( f , MinSize := NUMBER ( s ) ) 
+            ; IF With_13 . EndOfFile 
               THEN 
-                m2tom3_with_13 . Buffer ^ [ 1 ] := '\000' 
+                With_13 . Buffer ^ [ 1 ] := '\000' 
               END (* IF *) 
             END (* IF *) 
-         ; INC ( m2tom3_with_13 . BufferIndex ) 
+         ; INC ( With_13 . BufferIndex ) 
          ; s [ i ] 
-             := m2tom3_with_13 . Buffer ^ [ m2tom3_with_13 . BufferIndex ] 
+             := With_13 . Buffer ^ [ With_13 . BufferIndex ] 
          END (* FOR *) 
       END (* WITH *) 
     END ReadS 
@@ -401,17 +411,17 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
 ; PROCEDURE EndOfLine ( f : tFile ) : BOOLEAN   (* end of line ?        *) 
 
   = BEGIN (* EndOfLine *) 
-      WITH m2tom3_with_14 = BufferPool [ f ] 
-      DO IF m2tom3_with_14 . BufferIndex = m2tom3_with_14 . BytesRead 
+      WITH With_14 = BufferPool [ f ] 
+      DO IF With_14 . BufferIndex = With_14 . BytesRead 
          THEN 
-           FillBuffer ( f ) 
-         ; IF m2tom3_with_14 . EndOfFile 
+           FillBuffer ( f , MinSize := 1 ) 
+         ; IF With_14 . EndOfFile 
            THEN 
-             m2tom3_with_14 . Buffer ^ [ 1 ] := '\000' 
+             With_14 . Buffer ^ [ 1 ] := '\000' 
            END (* IF *) 
          END (* IF *) 
       ; RETURN 
-          m2tom3_with_14 . Buffer ^ [ m2tom3_with_14 . BufferIndex + 1 ] 
+          With_14 . Buffer ^ [ With_14 . BufferIndex + 1 ] 
           = EolCh 
       END (* WITH *) 
     END EndOfLine 
@@ -440,10 +450,10 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
 
   ; BEGIN (* WriteOpen *) 
       f := System . OpenOutput ( FileName ) 
-    ; WITH m2tom3_with_15 = BufferPool [ f ] 
-      DO m2tom3_with_15 . Buffer := Alloc ( BufferSize + 1 ) 
-      ; m2tom3_with_15 . BufferIndex := 0 
-      ; m2tom3_with_15 . OpenForOutput := TRUE 
+    ; WITH With_15 = BufferPool [ f ] 
+      DO With_15 . Buffer := Alloc ( BufferSize + 1 ) 
+      ; With_15 . BufferIndex := 0 
+      ; With_15 . OpenForOutput := TRUE 
       END (* WITH *) 
     ; CheckFlushLine ( f ) 
     ; RETURN f 
@@ -454,28 +464,28 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
   = BEGIN (* WriteClose *) 
       WriteFlush ( f ) 
     ; System . Close ( f ) 
-    ; WITH m2tom3_with_16 = BufferPool [ f ] 
-      DO Free ( BufferSize + 1 , m2tom3_with_16 . Buffer ) 
-      ; m2tom3_with_16 . Buffer := NIL 
+    ; WITH With_16 = BufferPool [ f ] 
+      DO Free ( BufferSize + 1 , With_16 . Buffer ) 
+      ; With_16 . Buffer := NIL 
       END (* WITH *) 
     END WriteClose 
 
 ; PROCEDURE WriteFlush ( f : tFile )            (* flush output buffer  *) 
 
   = BEGIN (* WriteFlush *) 
-      WITH m2tom3_with_17 = BufferPool [ f ] 
-      DO m2tom3_with_17 . BytesRead 
+      WITH With_17 = BufferPool [ f ] 
+      DO With_17 . BytesRead 
            := VAL 
                 ( System . Write 
                     ( f 
-                    , ADR (* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 396 
- $$ *)                  ( m2tom3_with_17 . Buffer ^ [ 1 ] ) 
-                    , VAL ( m2tom3_with_17 . BufferIndex , INTEGER ) 
+                    , ADR ( With_17 . Buffer ^ [ 1 ] ) 
+                    , VAL ( With_17 . BufferIndex , INTEGER ) 
                     ) 
                 , SHORTINT 
                 ) 
-      ; m2tom3_with_17 . BufferIndex := 0 
-      END (* WITH *) 
+      ; With_17 . BufferIndex := 0 
+      END (* WITH *)
+    ; System . Flush ( f ) 
     END WriteFlush 
 
 ; PROCEDURE Write ( f : tFile ; Buffer : ADDRESS ; Size : INTEGER ) : INTEGER 
@@ -485,12 +495,12 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
 
   ; BEGIN (* Write *) 
       BufferPtr := Buffer 
-    ; WITH m2tom3_with_18 = BufferPool [ f ] 
+    ; WITH With_18 = BufferPool [ f ] 
       DO FOR i := 0 TO Size - 1 
-         DO INC ( m2tom3_with_18 . BufferIndex )                (* WriteC inline        *) 
-         ; m2tom3_with_18 . Buffer ^ [ m2tom3_with_18 . BufferIndex ] 
+         DO INC ( With_18 . BufferIndex ) 
+         ; With_18 . Buffer ^ [ With_18 . BufferIndex ] 
              := BufferPtr ^ [ i ] 
-         ; IF ( m2tom3_with_18 . BufferIndex = BufferSize ) 
+         ; IF ( With_18 . BufferIndex = BufferSize ) 
            THEN 
              WriteFlush ( f ) 
            END (* IF *) 
@@ -502,11 +512,11 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
 ; PROCEDURE WriteC ( f : tFile ; c : CHAR )     (* character            *) 
 
   = BEGIN (* WriteC *) 
-      WITH m2tom3_with_19 = BufferPool [ f ] 
-      DO INC ( m2tom3_with_19 . BufferIndex ) 
-      ; m2tom3_with_19 . Buffer ^ [ m2tom3_with_19 . BufferIndex ] := c 
-      ; IF ( m2tom3_with_19 . BufferIndex = BufferSize ) 
-           OR ( m2tom3_with_19 . FlushLine AND ( c = EolCh ) ) 
+      WITH With_19 = BufferPool [ f ] 
+      DO INC ( With_19 . BufferIndex ) 
+      ; With_19 . Buffer ^ [ With_19 . BufferIndex ] := c 
+      ; IF ( With_19 . BufferIndex = BufferSize ) 
+           OR ( With_19 . FlushLine AND ( c = EolCh ) ) 
         THEN 
           WriteFlush ( f ) 
         END (* IF *) 
@@ -696,14 +706,14 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
   = VAR c : CHAR 
 
   ; BEGIN (* WriteS *) 
-      WITH m2tom3_with_20 = BufferPool [ f ] 
+      WITH With_20 = BufferPool [ f ] 
       DO FOR i := 0 TO LAST ( s ) 
          DO c := s [ i ] 
          ; IF c = '\000' THEN RETURN END (* IF *) 
-         ; INC ( m2tom3_with_20 . BufferIndex )                 (* WriteC inline        *) 
-         ; m2tom3_with_20 . Buffer ^ [ m2tom3_with_20 . BufferIndex ] := c 
-         ; IF ( m2tom3_with_20 . BufferIndex = BufferSize ) 
-              OR ( m2tom3_with_20 . FlushLine AND ( c = EolCh ) ) 
+         ; INC ( With_20 . BufferIndex )                 (* WriteC inline        *) 
+         ; With_20 . Buffer ^ [ With_20 . BufferIndex ] := c 
+         ; IF ( With_20 . BufferIndex = BufferSize ) 
+              OR ( With_20 . FlushLine AND ( c = EolCh ) ) 
            THEN 
              WriteFlush ( f ) 
            END (* IF *) 
@@ -718,14 +728,14 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
   ; BEGIN (* WriteT *) 
       IF t # NIL 
       THEN 
-        WITH m2tom3_with_20 = BufferPool [ f ] 
+        WITH With_20 = BufferPool [ f ] 
         DO FOR i := 0 TO Text . Length ( t ) - 1 
            DO c := Text . GetChar ( t , i ) 
            ; IF c = '\000' THEN RETURN END (* IF *) 
-           ; INC ( m2tom3_with_20 . BufferIndex )               (* WriteC inline        *) 
-           ; m2tom3_with_20 . Buffer ^ [ m2tom3_with_20 . BufferIndex ] := c 
-           ; IF ( m2tom3_with_20 . BufferIndex = BufferSize ) 
-                OR ( m2tom3_with_20 . FlushLine AND ( c = EolCh ) ) 
+           ; INC ( With_20 . BufferIndex )               (* WriteC inline        *) 
+           ; With_20 . Buffer ^ [ With_20 . BufferIndex ] := c 
+           ; IF ( With_20 . BufferIndex = BufferSize ) 
+                OR ( With_20 . FlushLine AND ( c = EolCh ) ) 
              THEN 
                WriteFlush ( f ) 
              END (* IF *) 
@@ -778,10 +788,10 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
 
   = BEGIN (* CloseIO *) 
       FOR i := 0 TO System . cMaxFile 
-      DO WITH m2tom3_with_21 = BufferPool [ i ] 
-         DO IF m2tom3_with_21 . Buffer # NIL 
+      DO WITH With_21 = BufferPool [ i ] 
+         DO IF With_21 . Buffer # NIL 
             THEN 
-              IF m2tom3_with_21 . OpenForOutput 
+              IF With_21 . OpenForOutput 
               THEN 
                 WriteClose ( i ) 
               ELSE 
@@ -811,13 +821,14 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
   ; MyCHR [ 15 ] := 'F' 
 
   ; FOR i := 0 TO System . cMaxFile 
-    DO WITH m2tom3_with_22 = BufferPool [ i ] 
-       DO m2tom3_with_22 . Buffer := NIL 
-       ; m2tom3_with_22 . BufferIndex := 0 
-       ; m2tom3_with_22 . BytesRead := 0 
-       ; m2tom3_with_22 . OpenForOutput := FALSE 
-       ; m2tom3_with_22 . EndOfFile := FALSE 
-       ; m2tom3_with_22 . FlushLine := FALSE 
+    DO WITH With_22 = BufferPool [ i ] 
+       DO With_22 . Buffer := NIL 
+       ; With_22 . BufferIndex := 0 
+       ; With_22 . BytesRead := 0 
+       ; With_22 . OpenForOutput := FALSE 
+       ; With_22 . EndOfFile := FALSE 
+       ; With_22 . FlushLine := FALSE 
+       ; With_22 . IsIntermittent := FALSE 
        END (* WITH *) 
     END (* FOR *) 
 
@@ -826,6 +837,8 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
   ; BufferPool [ StdError ] . Buffer := Alloc ( BufferSize + 1 ) 
 
   ; BufferPool [ StdInput ] . OpenForOutput := FALSE 
+  ; BufferPool [ StdInput ] . IsIntermittent
+      := System . IsIntermittent ( StdInput ) 
   ; BufferPool [ StdOutput ] . OpenForOutput := TRUE 
   ; BufferPool [ StdError ] . OpenForOutput := TRUE 
 

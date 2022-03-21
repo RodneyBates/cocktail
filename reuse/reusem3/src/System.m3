@@ -3,7 +3,7 @@
 
 UNSAFE MODULE System 
 
-(* In Modula2, this was an interface for machine dependencies,implemented 
+(* In Modula2, this was an interface for machine dependencies, implemented 
    by C code.  This version uses Modula3 libraries, while preserving 
    function. *) 
 
@@ -54,7 +54,6 @@ UNSAFE MODULE System
     END NewFileNo 
 
 (*EXPORTED*) 
-
 ; PROCEDURE OpenInputT 
     ( FileNameText : TEXT ) : tFile 
     RAISES { OSError . E , FileNoError (*No available tFile value.*) } 
@@ -70,7 +69,6 @@ UNSAFE MODULE System
     END OpenInputT 
 
 (*EXPORTED*) 
-
 ; PROCEDURE OpenInput 
     ( READONLY FileName : ARRAY OF CHAR ) : tFile 
     RAISES { OSError . E , FileNoError (*No available tFile value.*) } 
@@ -82,7 +80,6 @@ UNSAFE MODULE System
     END OpenInput 
 
 (*EXPORTED*) 
-
 ; PROCEDURE OpenOutputT 
     ( FileNameText : TEXT ) : tFile 
     RAISES { OSError . E , FileNoError (*No available tFile value.*) } 
@@ -98,7 +95,6 @@ UNSAFE MODULE System
     END OpenOutputT 
 
 (*EXPORTED*) 
-
 ; PROCEDURE OpenOutput 
     ( READONLY FileName : ARRAY OF CHAR ) : tFile 
     RAISES { OSError . E , FileNoError (*No available tFile value.*) } 
@@ -107,7 +103,18 @@ UNSAFE MODULE System
 
   ; BEGIN (* OpenOutput *) 
       RETURN OpenOutputT ( Text . FromChars ( FileName ) ) 
-    END OpenOutput 
+    END OpenOutput
+
+(*EXPORTED*) 
+; PROCEDURE IsIntermittent ( File : tFile ) : BOOLEAN
+
+  = VAR LRdT : Rd . T
+  
+  ; BEGIN
+      LRdT := InMap [ File ] 
+    ; IF LRdT = NIL THEN RAISE FileNoError END (* IF *) 
+    ; RETURN Rd . Intermittent ( LRdT ) 
+    END IsIntermittent
 
 ; PROCEDURE Test ( VAR Form : ARRAY OF CHAR ) 
 
@@ -121,7 +128,6 @@ UNSAFE MODULE System
     END Test 
 
 (*EXPORTED*) 
-
 ; PROCEDURE Read 
     ( File : tFile ; Buffer : ADDRESS ; Size : INTEGER ) : INTEGER 
     RAISES 
@@ -135,8 +141,7 @@ UNSAFE MODULE System
   ; VAR LCharsRef2 : UNTRACED REF ARRAY [ 0 .. 18000 ] OF CHAR 
 
   ; BEGIN (* Read *) 
-      IF InMap [ File ] = NIL THEN RAISE FileNoError END (* IF *) 
-    ; LRdT := InMap [ File ] 
+      LRdT := InMap [ File ] 
     ; IF LRdT = NIL THEN RAISE FileNoError END (* IF *) 
     ; LCharsRef := LOOPHOLE ( Buffer , CharsRefTyp ) 
     ; LCharsRef2 
@@ -150,7 +155,6 @@ UNSAFE MODULE System
     END Read 
 
 (*EXPORTED*) 
-
 ; PROCEDURE Write 
     ( File : tFile ; Buffer : ADDRESS ; Size : INTEGER ) 
     : INTEGER (* What's this ????? *) 
@@ -169,12 +173,22 @@ UNSAFE MODULE System
     ; LCharsRef := LOOPHOLE ( Buffer , CharsRefTyp ) 
     ; Wr . PutString ( LWrT , SUBARRAY ( LCharsRef ^ , 0 , Size ) ) 
     ; RETURN Size (* Huh? *) 
-    END Write 
+    END Write
 
 (*EXPORTED*) 
+; PROCEDURE Flush ( File : tFile ) 
+    RAISES { Thread . Alerted , Wr . Failure }
 
-; PROCEDURE Close 
-    ( File : tFile ) 
+  = VAR LWrT : Wr . T 
+
+  ; BEGIN
+      IF OutMap [ File ] = NIL THEN RETURN END (* IF *) 
+    ; LWrT := OutMap [ File ] 
+    ; IF LWrT # NIL THEN Wr . Flush ( LWrT ) END  
+    END Flush 
+
+(*EXPORTED*) 
+; PROCEDURE Close ( File : tFile ) 
     RAISES 
       { Thread . Alerted , Rd . Failure , Wr . Failure 
       , FileNoError (* File is char special or not open.*) 
@@ -196,7 +210,6 @@ UNSAFE MODULE System
     END Close 
 
 (*EXPORTED*) 
-
 ; PROCEDURE IsCharacterSpecial ( File : tFile ) : BOOLEAN 
 
   = BEGIN (* IsCharacterSpecial *) 
@@ -206,13 +219,10 @@ UNSAFE MODULE System
 (*EXPORTED*) 
 
 ; PROCEDURE SysAlloc ( ByteCount : M2LONGINT ) : ADDRESS 
-
   (* Not used or implemented. *) 
 
   = BEGIN (* SysAlloc *) 
-
       <*ASSERT FALSE *> 
-
     END SysAlloc 
 
 (*EXPORTED*) 
@@ -230,7 +240,6 @@ UNSAFE MODULE System
     END Time 
 
 (*EXPORTED*) 
-
 ; PROCEDURE GetArgCount ( ) : CARDINAL 
 
   = BEGIN (* GetArgCount *) 
@@ -261,7 +270,6 @@ UNSAFE MODULE System
     END TextToChars 
 
 (*EXPORTED*) 
-
 ; PROCEDURE GetArgument ( ArgNum : CARDINAL ; VAR Argument : ARRAY OF CHAR ) 
 
   = VAR LText : TEXT 
@@ -273,14 +281,12 @@ UNSAFE MODULE System
     END GetArgument 
 
 (*EXPORTED*) 
-
 ; PROCEDURE PutArgs ( Argc : INTEGER ; Argv : ADDRESS ) 
 
   = BEGIN (* PutArgs *) 
     END PutArgs 
 
 (*EXPORTED*) 
-
 ; PROCEDURE ErrNum ( ) : INTEGER 
 
   = BEGIN (* ErrNum *) 
@@ -288,17 +294,13 @@ UNSAFE MODULE System
     END ErrNum 
 
 (*EXPORTED*) 
-
 ; PROCEDURE System ( VAR String : ARRAY OF CHAR ) : INTEGER 
 
   = BEGIN (* System *) 
-
       <*ASSERT FALSE*> 
-
     END System 
 
 (*EXPORTED*) 
-
 ; PROCEDURE Exit ( Status : INTEGER ) 
 
   = BEGIN (* Exit *) 
