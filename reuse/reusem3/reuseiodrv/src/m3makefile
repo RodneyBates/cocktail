@@ -1,31 +1,12 @@
-% m3makefile for Cocktaill reuse, modula-3 version
+% m3makefile for Cocktail ReuseIODrv, modula-3 version
 import ("libm3")
 
 import("m2libs")
 
-% interface("Arguments")
-%Module("Checks")
-%Module("DynArray")
-%Module("Errors")
 Module("General")
-%Module("Heap")
-%Module("Idents")
 Module("ReuseIO")
-%Module("Layout")
-%Module("Lists")
 Module("Memory")
-%Module("Positions")
-%Module("Relations")
-%Module("SetsC")
-%Module("Sets")
-%Module("Sort")
-%Module("Source")
-%Module("StdIO")
-%Module("StringMem")
-%Module("Strings")
 Module("System")
-%Module("Texts")
-%Module("Times")
 
 implementation("ReuseIODrv")
 program ("reuseiodrv")
