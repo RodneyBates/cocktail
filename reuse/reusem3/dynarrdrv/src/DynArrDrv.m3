@@ -20,7 +20,7 @@ UNSAFE MODULE DynArrDrv EXPORTS Main
 ; FROM DynArray IMPORT MakeArray , ExtendArray 
 
 ; FROM ReuseIO 
-  IMPORT StdOutput , WriteC , WriteI , WriteNl , WriteS , WriteLong , CloseIO 
+  IMPORT StdOutput , WriteC , WriteI , WriteNl , WriteT , WriteLong , CloseIO 
 
 
 ; VAR i : M2LONGINT 
@@ -30,21 +30,22 @@ UNSAFE MODULE DynArrDrv EXPORTS Main
 
 (* necessary to force index arithmetic to be done with long integers *) 
 
-; VAR p : UNTRACED BRANDED REF t 
-  ; s : M2LONGINT 
+; VAR p : UNTRACED BRANDED REF t
+; VAR padr : ADDRESS 
+; VAR s : M2LONGINT 
 
 ; BEGIN (* DynArrDrv *) 
     s := 10 
 
-  ; MakeArray ( p , s , BYTESIZE ( M2LONGINT ) ) 
+  ; MakeArray ( LOOPHOLE ( p , ADDRESS ) , s , BYTESIZE ( M2LONGINT ) ) 
   ; FOR i := 1 TO s DO p ^ [ i ] := i END (* FOR *) 
 
   ; FOR j := 1 TO 13 
-    DO ExtendArray ( p , s , BYTESIZE ( M2LONGINT ) ) 
+    DO ExtendArray ( LOOPHOLE ( p , ADDRESS ) , s , BYTESIZE ( M2LONGINT ) ) 
 
     ; IF p = NIL 
       THEN 
-        WriteS ( StdOutput , "Extend Error" ) 
+        WriteT ( StdOutput , "Extend Error" ) 
       ; WriteNl ( StdOutput ) 
       END (* IF *) 
 
@@ -53,7 +54,7 @@ UNSAFE MODULE DynArrDrv EXPORTS Main
     ; FOR i := 1 TO s 
       DO IF p ^ [ i ] # i 
          THEN 
-           WriteS ( StdOutput , "Error j, i, p^[i] =" ) 
+           WriteT ( StdOutput , "Error j, i, p^[i] =" ) 
          ; WriteI ( StdOutput , j , 5 ) 
          ; WriteLong ( StdOutput , i , 5 ) 
          ; WriteLong ( StdOutput , p ^ [ i ] , 10 ) 
@@ -61,10 +62,10 @@ UNSAFE MODULE DynArrDrv EXPORTS Main
          END (* IF *) 
       END (* FOR *) 
 
-    ; WriteS ( StdOutput , "j, size = " ) 
+    ; WriteT ( StdOutput , "j, size = " ) 
     ; WriteI ( StdOutput , j , 5 ) 
     ; WriteLong ( StdOutput , s , 10 ) 
-    ; WriteS ( StdOutput , " ok" ) 
+    ; WriteT ( StdOutput , " ok" ) 
     ; WriteNl ( StdOutput ) 
     END (* FOR *) 
   ; CloseIO ( ) 
