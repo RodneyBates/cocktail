@@ -14,15 +14,16 @@ UNSAFE MODULE Memory
 ; PROCEDURE SanityCheck 
     ( HeapObjRef : ByteArrRefTyp ; EltsAddr : ADDRESS ; ByteCount : INTEGER ) 
 
-  = VAR LEltsAddrRef : AddrRefTyp 
+  = VAR LEltsAddrRef : AddrRefTyp
 
   ; BEGIN (* SanityCheck *) 
       LEltsAddrRef := LOOPHOLE ( HeapObjRef , AddrRefTyp ) 
 
     ; <* ASSERT EltsAddr = LEltsAddrRef ^ *> 
-      <* ASSERT NUMBER (HeapObjRef^) = ByteCount *> 
-      <* ASSERT ADR(HeapObjRef^[0]) = EltsAddr *> 
-
+      <* ASSERT NUMBER (HeapObjRef^) = ByteCount *>
+      IF ByteCount > 0
+      THEN <* ASSERT ADR(HeapObjRef^[0]) = EltsAddr *> 
+      END (* IF *)
     END SanityCheck 
 
 (*EXPORTED*) 
@@ -43,10 +44,10 @@ UNSAFE MODULE Memory
     ; LResultAddr := LOOPHOLE ( LAlloc , ADDRESS ) + DopeSize 
     ; SanityCheck ( LAlloc , LResultAddr , ByteCount ) 
 
-    ; 
-    <*ASSERT ADR(LAlloc^[0]) = LResultAddr*> 
-
-      RETURN 
+    ; IF ByteCount > 0
+      THEN <*ASSERT ADR(LAlloc^[0]) = LResultAddr*>
+      END (* IF *)
+    ; RETURN 
         LResultAddr 
     END Alloc 
 
