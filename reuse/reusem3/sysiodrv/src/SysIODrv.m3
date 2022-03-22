@@ -39,7 +39,7 @@ UNSAFE MODULE SysIODrv EXPORTS Main
   ; Close ( f ) 
 
   ; TRY 
-      f := OpenOutputT ( "SysIODrv.m3.copy" ) 
+      f := OpenOutputT ( "output.copy" ) 
     EXCEPT 
     ELSE 
     END (* EXCEPT *) 
