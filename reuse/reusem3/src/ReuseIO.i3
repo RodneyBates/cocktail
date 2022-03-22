@@ -47,7 +47,7 @@ UNSAFE INTERFACE ReuseIO                                (* buffered IO          
 ; TYPE tFile = System . tFile 
 
 ; PROCEDURE ReadOpen ( READONLY (*VAR*) FileName : ARRAY OF CHAR ) : tFile 
-
+; PROCEDURE ReadOpenT ( READONLY (*VAR*) FileName : TEXT ) : tFile 
                                                 (* open  input file     *) 
 
 ; PROCEDURE ReadClose ( f : tFile )             (* close input file     *) 
@@ -89,6 +89,7 @@ UNSAFE INTERFACE ReuseIO                                (* buffered IO          
 ; PROCEDURE EndOfFile ( f : tFile ) : BOOLEAN   (* end of file ?        *) 
 
 ; PROCEDURE WriteOpen ( READONLY FileName : ARRAY OF CHAR ) : tFile 
+; PROCEDURE WriteOpenT ( READONLY FileName : TEXT ) : tFile 
 
                                                 (* open  output file    *) 
 

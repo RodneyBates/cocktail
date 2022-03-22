@@ -131,6 +131,25 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
     ; RETURN f 
     END ReadOpen 
 
+; PROCEDURE ReadOpenT ( READONLY FileName : TEXT ) : tFile 
+
+  = VAR                                         (* open  input file     *) 
+      f : tFile 
+
+  ; BEGIN (* ReadOpenT *) 
+      f := System . OpenInputT ( FileName ) 
+    ; WITH With_9 = BufferPool [ f ] 
+      DO With_9 . Buffer := Alloc ( BufferSize + 1 ) 
+      ; With_9 . BufferIndex := 0 
+      ; With_9 . BytesRead := 0 
+      ; With_9 . OpenForOutput := FALSE
+      ; With_9 . IsIntermittent := System . IsIntermittent ( f ) 
+      ; With_9 . EndOfFile := FALSE 
+      END (* WITH *) 
+    ; CheckFlushLine ( f ) 
+    ; RETURN f 
+    END ReadOpenT 
+
 ; PROCEDURE ReadClose ( f : tFile )             (* close input file     *) 
 
   = BEGIN (* ReadClose *) 
@@ -458,6 +477,22 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
     ; CheckFlushLine ( f ) 
     ; RETURN f 
     END WriteOpen 
+
+; PROCEDURE WriteOpenT ( READONLY FileName : TEXT ) : tFile 
+
+  = VAR                                         (* open  output file    *) 
+      f : tFile 
+
+  ; BEGIN (* WriteOpenT *) 
+      f := System . OpenOutputT ( FileName ) 
+    ; WITH With_15 = BufferPool [ f ] 
+      DO With_15 . Buffer := Alloc ( BufferSize + 1 ) 
+      ; With_15 . BufferIndex := 0 
+      ; With_15 . OpenForOutput := TRUE 
+      END (* WITH *) 
+    ; CheckFlushLine ( f ) 
+    ; RETURN f 
+    END WriteOpenT 
 
 ; PROCEDURE WriteClose ( f : tFile )            (* close output file    *) 
 
