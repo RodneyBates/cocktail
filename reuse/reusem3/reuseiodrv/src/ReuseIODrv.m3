@@ -17,8 +17,6 @@
 
 UNSAFE MODULE ReuseIODrv EXPORTS Main                   (* buffered IO       *) 
 
-
-
 ; FROM ReuseIO 
   IMPORT tFile , StdInput , StdOutput , StdError , ReadOpenT , ReadClose 
   , Read 
@@ -69,6 +67,7 @@ UNSAFE MODULE ReuseIODrv EXPORTS Main                   (* buffered IO       *)
     ; WriteC ( StdOutput , c ) 
     ; WriteNl ( StdOutput ) 
     UNTIL i = 99 
+  ; WriteFlush ( StdOutput ) 
 
   ; WriteT ( StdOutput , "Enter reals,  99 will stop" ) 
   ; WriteNl ( StdOutput ) 
@@ -89,6 +88,7 @@ UNSAFE MODULE ReuseIODrv EXPORTS Main                   (* buffered IO       *)
     ; WriteC ( StdOutput , ',' ) 
     ; WriteNl ( StdOutput ) 
     UNTIL ( 98.9 <= r ) AND ( r <= 99.1 ) 
+  ; WriteFlush ( StdOutput ) 
 
   ; WriteClose ( StdOutput ) 
   END ReuseIODrv 
