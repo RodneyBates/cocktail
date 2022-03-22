@@ -563,7 +563,7 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
   = VAR                                         (* integer  number      *) 
       length : Word . T 
     ; negative : Word . T 
-    ; digits : ARRAY [ 0 .. 10 ] OF CHAR 
+    ; digits : ARRAY [ 0 .. 20 ] OF CHAR 
 
   ; BEGIN (* WriteI *) 
       IF n < 0 THEN negative := 1 ; n := - n ELSE negative := 0 END (* IF *) 
