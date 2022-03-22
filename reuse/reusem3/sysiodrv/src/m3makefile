@@ -1,0 +1,14 @@
+% m3makefile for Cocktail sysiodrv, modula-3 version
+import ("libm3")
+
+import("m2libs")
+
+Module("Checks")
+Module("General")
+Module("ReuseIO")
+Module("Memory")
+Module("System")
+
+implementation("SysIODrv")
+program ("sysiodrv")
+
