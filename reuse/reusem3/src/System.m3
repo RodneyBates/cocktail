@@ -59,12 +59,15 @@ UNSAFE MODULE System
     RAISES { OSError . E , FileNoError (*No available tFile value.*) } 
 
   = VAR RdT : Rd . T 
-  ; VAR LResult : tFile 
+  ; VAR LResult : tFile := - 1
 
   ; BEGIN (* OpenInputT *) 
-      LResult := NewFileNo ( ) 
-    ; RdT := FileRd . Open ( FileNameText ) 
-    ; InMap [ LResult ] := RdT 
+      LResult := NewFileNo ( )
+    ; TRY 
+        RdT := FileRd . Open ( FileNameText ) 
+      ; InMap [ LResult ] := RdT 
+      EXCEPT ELSE RETURN - 1 
+      END (* EXCEPT *)
     ; RETURN LResult 
     END OpenInputT 
 
@@ -73,7 +76,7 @@ UNSAFE MODULE System
     ( READONLY FileName : ARRAY OF CHAR ) : tFile 
     RAISES { OSError . E , FileNoError (*No available tFile value.*) } 
 
-  = VAR LResult : tFile 
+  = VAR LResult : tFile := - 1
 
   ; BEGIN (* OpenInput *) 
       RETURN OpenInputT ( Text . FromChars ( FileName ) ) 
@@ -85,12 +88,15 @@ UNSAFE MODULE System
     RAISES { OSError . E , FileNoError (*No available tFile value.*) } 
 
   = VAR WrT : Wr . T 
-  ; VAR LResult : tFile 
+  ; VAR LResult : tFile := - 1
 
   ; BEGIN (* OpenOutputT *) 
       LResult := NewFileNo ( ) 
-    ; WrT := FileWr . Open ( FileNameText ) 
-    ; OutMap [ LResult ] := WrT 
+    ; TRY 
+        WrT := FileWr . Open ( FileNameText ) 
+      ; OutMap [ LResult ] := WrT 
+      EXCEPT ELSE RETURN - 1 
+      END (* EXCEPT *)
     ; RETURN LResult 
     END OpenOutputT 
 
@@ -99,7 +105,7 @@ UNSAFE MODULE System
     ( READONLY FileName : ARRAY OF CHAR ) : tFile 
     RAISES { OSError . E , FileNoError (*No available tFile value.*) } 
 
-  = VAR LResult : tFile 
+  = VAR LResult : tFile := - 1
 
   ; BEGIN (* OpenOutput *) 
       RETURN OpenOutputT ( Text . FromChars ( FileName ) ) 

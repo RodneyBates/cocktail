@@ -19,7 +19,9 @@ UNSAFE MODULE Checks
 
 ; FROM ReuseIO IMPORT StdError , WriteS , WriteT , WriteI , WriteNl 
 
-; FROM System IMPORT ErrNum 
+; FROM System IMPORT ErrNum , Exit , Flush
+
+; VAR ExitStatus := 9999 
 
 ; PROCEDURE ErrorCheckS ( READONLY s : ARRAY OF CHAR ; n : INTEGER ) 
 
@@ -31,7 +33,9 @@ UNSAFE MODULE Checks
       ; WriteI ( StdError , n , 2 ) 
       ; WriteT ( StdError , ", errno     = \000" ) 
       ; WriteI ( StdError , ErrNum ( ) , 2 ) 
-      ; WriteNl ( StdError ) 
+      ; WriteNl ( StdError )
+      ; Flush ( StdError )
+      ; Exit ( ExitStatus ) 
       END (* IF *) 
     END ErrorCheckS 
 
@@ -46,6 +50,8 @@ UNSAFE MODULE Checks
       ; WriteT ( StdError , ", errno     = \000" ) 
       ; WriteI ( StdError , ErrNum ( ) , 2 ) 
       ; WriteNl ( StdError ) 
+      ; Flush ( StdError )
+      ; Exit ( ExitStatus ) 
       END (* IF *) 
     END ErrorCheckT 
 
