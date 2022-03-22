@@ -1,0 +1,13 @@
+% m3makefile for Cocktail memorydrv, modula-3 version
+import ("libm3")
+
+import("m2libs")
+
+Module("General")
+Module("Memory")
+Module("System")
+Module("ReuseIO")
+
+implementation("MemoryDrv")
+program ("memorydrv")
+
