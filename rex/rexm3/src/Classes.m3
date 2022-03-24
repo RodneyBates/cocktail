@@ -44,26 +44,20 @@ PROCEDURE IsInSetMem (Set: tSet): INTEGER =
 PROCEDURE CollectSets (t: tTree0) =
    VAR string   : tString;
    BEGIN
-      CASE t^.Kind(* $$ m2tom3 warning: application of variant field, possible cast of 'Kind' in line 49
- $$ *) OF
-      | Ch      => Include (CharSet, ORD (t^.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 50
- $$ *).Ch));
+      CASE t^.Kind OF
+      | Ch      => Include (CharSet, ORD (t^.Ch.Ch));
 
-      | Set     => IF IsInSetMem (t^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 52
- $$ *).Set) = 0 THEN
+      | Set     => IF IsInSetMem (t^.Set.Set) = 0 THEN
                      INC (SetCount);
                      IF SetCount = SetMemSize THEN
                         ExtendArray (LOOPHOLE(SetMemPtr,ADDRESS), SetMemSize, BYTESIZE (ClassInfo));
                      END;
                      MakeSet (SetMemPtr^[SetCount].Set, ORD (LastCh));
-                     Assign (SetMemPtr^[SetCount].Set, t^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 58
- $$ *).Set);
-                     Union (Unused, t^.Set(* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 59
- $$ *).Set);
+                     Assign (SetMemPtr^[SetCount].Set, t^.Set.Set);
+                     Union (Unused, t^.Set.Set);
                   END;
 
-      | String  => GetString (t^.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 62
- $$ *).String, string);
+      | String  => GetString (t^.String.String, string);
                   FOR i := Length (string) TO 1 BY -1 DO
                      Include (CharSet, ORD (Char (string, i)));
                   END;

@@ -48,8 +48,7 @@ PROCEDURE MakeTree1 (pRule: SHORTCARD; pSon1: tTree): tTree =
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (Node));
-      WITH m2tom3_with_29=Tree^.vNode1(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode1' in line 50
- $$ *) DO
+      WITH m2tom3_with_29=Tree^.vNode1 DO
 	 m2tom3_with_29.Rule := pRule;
 	 m2tom3_with_29.Son1 := pSon1;
       END;
@@ -60,8 +59,7 @@ PROCEDURE MakeTree2 (pRule: SHORTCARD; pSon1, pSon2: tTree): tTree =
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (Node));
-      WITH m2tom3_with_30=Tree^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 61
- $$ *) DO
+      WITH m2tom3_with_30=Tree^.vNode2 DO
 	 m2tom3_with_30.Rule := pRule;
 	 m2tom3_with_30.Son1 := pSon1;
 	 m2tom3_with_30.Son2 := pSon2;
@@ -73,8 +71,7 @@ PROCEDURE MakeTreeCh (pRule: SHORTCARD; pCh: CHAR): tTree =
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (Node));
-      WITH m2tom3_with_31=Tree^.vNodeCh(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeCh' in line 73
- $$ *) DO
+      WITH m2tom3_with_31=Tree^.vNodeCh DO
 	 m2tom3_with_31.Rule := pRule;
 	 m2tom3_with_31.Ch   := pCh;
       END;
@@ -85,8 +82,7 @@ PROCEDURE MakeTreeSet (pRule: SHORTCARD; pSet: tSet): tTree =
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (Node));
-      WITH m2tom3_with_32=Tree^.vNodeSet(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeSet' in line 84
- $$ *) DO
+      WITH m2tom3_with_32=Tree^.vNodeSet DO
 	 m2tom3_with_32.Rule := pRule;
 	 m2tom3_with_32.Set  := pSet;
       END;
@@ -97,8 +93,7 @@ PROCEDURE MakeTreeString(pRule: SHORTCARD; pString: tStringRef): tTree =
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (Node));
-      WITH m2tom3_with_33=Tree^.vNodeString(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeString' in line 95
- $$ *) DO
+      WITH m2tom3_with_33=Tree^.vNodeString DO
 	 m2tom3_with_33.Rule	:= pRule;
 	 m2tom3_with_33.String	:= pString;
       END;
@@ -110,8 +105,7 @@ PROCEDURE MakeTreeRule	(pRule: SHORTCARD; pPatterns: tTree; pTargetCode:
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (Node));
-      WITH m2tom3_with_34=Tree^.vNodeRule(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 107
- $$ *) DO
+      WITH m2tom3_with_34=Tree^.vNodeRule DO
 	 m2tom3_with_34.Rule		:= pRule;
 	 m2tom3_with_34.Patterns	:= pPatterns;
 	 m2tom3_with_34.TargetCode	:= pTargetCode;
@@ -128,8 +122,7 @@ PROCEDURE MakeTreePattern(pRule: SHORTCARD; pStartStates: tSet; pRegExpr,
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (Node));
-      WITH m2tom3_with_35=Tree^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 124
- $$ *) DO
+      WITH m2tom3_with_35=Tree^.vNodePattern DO
 	 m2tom3_with_35.Rule		:= pRule;
 	 m2tom3_with_35.StartStates	:= pStartStates;
 	 m2tom3_with_35.RegExpr	:= pRegExpr;
@@ -154,72 +147,49 @@ PROCEDURE WriteTree (t: tTree) =
 	 RETURN;
       END;
 
-      CASE t^.vNode0(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode0' in line 150
- $$ *).Rule OF
+      CASE t^.vNode0.Rule OF
       |  nRule		=> WriteT (StdOutput, "Rule ");
-			  WriteI (StdOutput, t^.vNodeRule(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 152
- $$ *).RuleNr, 1);
+			  WriteI (StdOutput, t^.vNodeRule.RuleNr, 1);
 								WriteNl (StdOutput);
-			  WriteText (StdOutput, t^.vNodeRule(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 154
- $$ *).TargetCode);
+			  WriteText (StdOutput, t^.vNodeRule.TargetCode);
       |  nList		=> WriteT (StdOutput, "List");		WriteNl (StdOutput);
       |  nPattern	=> WriteT (StdOutput, "Pattern ");
-			  WriteSet (StdOutput, t^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 157
- $$ *).StartStates);
+			  WriteSet (StdOutput, t^.vNodePattern.StartStates);
 	 		  WriteSpace (StdOutput);
-			  WriteB (StdOutput, t^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 159
- $$ *).IsConstantRE);
-			  WriteI (StdOutput, t^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 160
- $$ *).PatternNr, 5);
+			  WriteB (StdOutput, t^.vNodePattern.IsConstantRE);
+			  WriteI (StdOutput, t^.vNodePattern.PatternNr, 5);
 								WriteNl (StdOutput);
       |  nAlternative	=> WriteT (StdOutput, "Alternative");	WriteNl (StdOutput);
       |  nSequence	=> WriteT (StdOutput, "Sequence");	WriteNl (StdOutput);
       |  nRepetition	=> WriteT (StdOutput, "Repetition");	WriteNl (StdOutput);
       |  nOption	=> WriteT (StdOutput, "Option");		WriteNl (StdOutput);
       |  nChar		=> WriteT (StdOutput, "Char ");
-			  WriteChar (StdOutput, t^.vNodeCh(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeCh' in line 167
- $$ *).Ch);	WriteNl (StdOutput);
+			  WriteChar (StdOutput, t^.vNodeCh.Ch);	WriteNl (StdOutput);
       |  nSet		=> WriteT (StdOutput, "Set ");
-			  WriteSet (StdOutput, t^.vNodeSet(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeSet' in line 169
- $$ *).Set);WriteNl (StdOutput);
+			  WriteSet (StdOutput, t^.vNodeSet.Set);WriteNl (StdOutput);
       |  nString	=> WriteT (StdOutput, "String ");
-			  GetString (t^.vNodeString(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeString' in line 171
- $$ *).String, string);
+			  GetString (t^.vNodeString.String, string);
 			  Strings.WriteS (StdOutput, string);	WriteNl (StdOutput);
       END;
 
-      IF t^.vNode0(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode0' in line 175
- $$ *).Rule # nList THEN
+      IF t^.vNode0.Rule # nList THEN
 	 INC (indent, 2);
       END;
-      CASE t^.vNode0(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode0' in line 178
- $$ *).Rule OF
-      |  nRule		=> WriteTree (t^.vNodeRule(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 179
- $$ *).Patterns);
-      |  nList		=> WriteTree (t^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 180
- $$ *).Son1);
-      			  WriteTree (t^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 181
- $$ *).Son2);
-      |  nPattern	=> WriteTree (t^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 182
- $$ *).RegExpr);
-      			  WriteTree (t^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 183
- $$ *).RightContext);
-      |  nAlternative	=> WriteTree (t^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 184
- $$ *).Son1);
-      			  WriteTree (t^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 185
- $$ *).Son2);
-      |  nSequence	=> WriteTree (t^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 186
- $$ *).Son1);
-      			  WriteTree (t^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 187
- $$ *).Son2);
-      |  nRepetition	=> WriteTree (t^.vNode1(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode1' in line 188
- $$ *).Son1);
-      |  nOption	=> WriteTree (t^.vNode1(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode1' in line 189
- $$ *).Son1);
+      CASE t^.vNode0.Rule OF
+      |  nRule		=> WriteTree (t^.vNodeRule.Patterns);
+      |  nList		=> WriteTree (t^.vNode2.Son1);
+      			  WriteTree (t^.vNode2.Son2);
+      |  nPattern	=> WriteTree (t^.vNodePattern.RegExpr);
+      			  WriteTree (t^.vNodePattern.RightContext);
+      |  nAlternative	=> WriteTree (t^.vNode2.Son1);
+      			  WriteTree (t^.vNode2.Son2);
+      |  nSequence	=> WriteTree (t^.vNode2.Son1);
+      			  WriteTree (t^.vNode2.Son2);
+      |  nRepetition	=> WriteTree (t^.vNode1.Son1);
+      |  nOption	=> WriteTree (t^.vNode1.Son1);
       ELSE
       END;
-      IF t^.vNode0(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode0' in line 192
- $$ *).Rule # nList THEN
+      IF t^.vNode0.Rule # nList THEN
 	 DEC (indent, 2);
       END;
    END WriteTree;

@@ -226,12 +226,9 @@ WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'Wr
          ComputeClasses (b);
          Eval (Tree0Root);
          IF n >= 16 THEN WriteTree0 (StdOutput, Tree0Root); END;
-         LeafCount := StartStateCount + Tree0Root^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 198
- $$ *).LeafCount;
-         NodeCount := Tree0Root^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 199
- $$ *).NodeCount;
-         Root := Tree0Root^.List(* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 200
- $$ *).Tree;
+         LeafCount := StartStateCount + Tree0Root^.List.LeafCount;
+         NodeCount := Tree0Root^.List.NodeCount;
+         Root := Tree0Root^.List.Tree;
          ReleaseSetMem();
          ReleaseTree0Module();
          IF n >= 15 THEN WriteTree (Root); END;

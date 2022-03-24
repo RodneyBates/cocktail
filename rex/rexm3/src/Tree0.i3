@@ -55,32 +55,19 @@ yyNode = RECORD
  
   Kind: SHORTCARD;
   yyHead: yytNodeHead;
- (* $$ m2tom3 warning: application of variant field, possible cast of 'Node' in line 56
- $$ *) Node: yNode;
- (* $$ m2tom3 warning: application of variant field, possible cast of 'Node1' in line 57
- $$ *) Node1: yNode1;
- (* $$ m2tom3 warning: application of variant field, possible cast of 'Option' in line 58
- $$ *) Option: yOption;
- (* $$ m2tom3 warning: application of variant field, possible cast of 'Repetition' in line 59
- $$ *) Repetition: yRepetition;
- (* $$ m2tom3 warning: application of variant field, possible cast of 'Node2' in line 60
- $$ *) Node2: yNode2;
- (* $$ m2tom3 warning: application of variant field, possible cast of 'List' in line 61
- $$ *) List: yList;
- (* $$ m2tom3 warning: application of variant field, possible cast of 'Sequence' in line 62
- $$ *) Sequence: ySequence;
- (* $$ m2tom3 warning: application of variant field, possible cast of 'Alternative' in line 63
- $$ *) Alternative: yAlternative;
- (* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 64
- $$ *) Ch: yCh;
- (* $$ m2tom3 warning: application of variant field, possible cast of 'Set' in line 65
- $$ *) Set: ySet;
- (* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 66
- $$ *) String: yString;
- (* $$ m2tom3 warning: application of variant field, possible cast of 'Rule' in line 67
- $$ *) Rule: yRule;
- (* $$ m2tom3 warning: application of variant field, possible cast of 'Pattern' in line 68
- $$ *) Pattern: yPattern;
+  Node: yNode;
+  Node1: yNode1;
+  Option: yOption;
+  Repetition: yRepetition;
+  Node2: yNode2;
+  List: yList;
+  Sequence: ySequence;
+  Alternative: yAlternative;
+  Ch: yCh;
+  Set: ySet;
+  String: yString;
+  Rule: yRule;
+  Pattern: yPattern;
 
 END;
 

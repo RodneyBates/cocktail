@@ -86,16 +86,11 @@ VAR
 PROCEDURE ErrorAttribute (Token: Word.T; VAR Attribute: tScanAttribute) =
    BEGIN
       CASE Token OF
-      |  SymIdent       => Attribute.Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 85
- $$ *)  := NoIdent;
-      |  SymNumber      => Attribute.Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 86
- $$ *) := 0;
-      |  SymString      => Attribute.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 87
- $$ *) := NoString;
-      |  SymChar        => Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 88
- $$ *)     := '?';
-      |  SymTargetcode  => MakeText (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 89
- $$ *));
+      |  SymIdent       => Attribute.Ident  := NoIdent;
+      |  SymNumber      => Attribute.Number := 0;
+      |  SymString      => Attribute.String := NoString;
+      |  SymChar        => Attribute.Ch     := '?';
+      |  SymTargetcode  => MakeText (Attribute.Text);
       ELSE
       END;
    END ErrorAttribute;
@@ -230,8 +225,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 (* line 223 "../src/rex.rex" *)
 
                            IF BraceNestingLevel = 0 THEN
-                              MakeText (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 223
- $$ *));
+                              MakeText (Attribute.Text);
                               AssignEmpty (TargetCode);
                               TargetPos := Attribute.Position;
                               InsideTarget := TRUE; 
@@ -250,8 +244,7 @@ yyRestartFlag := FALSE; EXIT;
                            IF BraceNestingLevel = 0 THEN
                               yyStart (PrevState);
                               InsideTarget := FALSE; 
-                              Append (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 242
- $$ *), TargetCode);
+                              Append (Attribute.Text, TargetCode);
                               Attribute.Position := TargetPos;
                               RETURN SymTargetcode;
                            ELSE
@@ -291,8 +284,7 @@ yyRestartFlag := FALSE; EXIT;
 (* line 265 "../src/rex.rex" *)
 
                            IF BraceNestingLevel > 0 THEN
-                              Append (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 282
- $$ *), TargetCode);
+                              Append (Attribute.Text, TargetCode);
                               AssignEmpty (TargetCode);
                            END;
                            yyEol (0);
@@ -494,8 +486,7 @@ yyRestartFlag := FALSE; EXIT;
 
                            IF InsideTarget AND ( BraceNestingLevel > 0 ) 
                            THEN
-                              Append (Attribute.Text(* $$ m2tom3 warning: application of variant field, possible cast of 'Text' in line 484
- $$ *), TargetCode);
+                              Append (Attribute.Text, TargetCode);
                               AssignEmpty (TargetCode);
                            END;
                            yyEol (0);
@@ -638,8 +629,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 (* line 390 "../src/rex.rex" *)
 
                            GetWord (Word);
-                           Attribute.Ident(* $$ m2tom3 warning: application of variant field, possible cast of 'Ident' in line 627
- $$ *)  := MakeIdent (Word);
+                           Attribute.Ident  := MakeIdent (Word);
                            RETURN SymIdent;
                         
 yyRestartFlag := FALSE; EXIT;
@@ -650,8 +640,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 (* line 396 "../src/rex.rex" *)
 
                            GetWord (Word);
-                           Attribute.Number(* $$ m2tom3 warning: application of variant field, possible cast of 'Number' in line 638
- $$ *) := StringToInt (Word);
+                           Attribute.Number := StringToInt (Word);
                            RETURN SymNumber;
                         
 yyRestartFlag := FALSE; EXIT;
@@ -663,8 +652,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 
                            GetWord (Word);
                            SubString (Word, 2, Length (Word) - 1, TargetCode);
-                           Attribute.String(* $$ m2tom3 warning: application of variant field, possible cast of 'String' in line 650
- $$ *) := PutString (TargetCode);
+                           Attribute.String := PutString (TargetCode);
                            RETURN SymString;
                         
 yyRestartFlag := FALSE; EXIT;
@@ -813,48 +801,42 @@ yyRestartFlag := FALSE; EXIT;
 Attribute.Position.Line   := yyLineCount;
 Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHORTCARD);
 (* line 430 "../src/rex.rex" *)
-Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 799
- $$ *) := '\012'; RETURN SymChar;
+Attribute.Ch := '\012'; RETURN SymChar;
 yyRestartFlag := FALSE; EXIT;
 |84
 =>
 Attribute.Position.Line   := yyLineCount;
 Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHORTCARD);
 (* line 431 "../src/rex.rex" *)
-Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 806
- $$ *) := '\011'; RETURN SymChar;
+Attribute.Ch := '\011'; RETURN SymChar;
 yyRestartFlag := FALSE; EXIT;
 |83
 =>
 Attribute.Position.Line   := yyLineCount;
 Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHORTCARD);
 (* line 432 "../src/rex.rex" *)
-Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 813
- $$ *) := '\013'; RETURN SymChar;
+Attribute.Ch := '\013'; RETURN SymChar;
 yyRestartFlag := FALSE; EXIT;
 |82
 =>
 Attribute.Position.Line   := yyLineCount;
 Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHORTCARD);
 (* line 433 "../src/rex.rex" *)
-Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 820
- $$ *) := '\010'; RETURN SymChar;
+Attribute.Ch := '\010'; RETURN SymChar;
 yyRestartFlag := FALSE; EXIT;
 |81
 =>
 Attribute.Position.Line   := yyLineCount;
 Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHORTCARD);
 (* line 434 "../src/rex.rex" *)
-Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 827
- $$ *) := '\015'; RETURN SymChar;
+Attribute.Ch := '\015'; RETURN SymChar;
 yyRestartFlag := FALSE; EXIT;
 |80
 =>
 Attribute.Position.Line   := yyLineCount;
 Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHORTCARD);
 (* line 435 "../src/rex.rex" *)
-Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 834
- $$ *) := '\014'; RETURN SymChar;
+Attribute.Ch := '\014'; RETURN SymChar;
 yyRestartFlag := FALSE; EXIT;
 |31
 =>
@@ -864,8 +846,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 
                            GetWord (Word);
                            SubString (Word, 2, Length (Word), TargetCode);
-                           Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 843
- $$ *) := VAL (StringToInt (TargetCode),CHAR);
+                           Attribute.Ch := VAL (StringToInt (TargetCode),CHAR);
                            RETURN SymChar;
                         
 yyRestartFlag := FALSE; EXIT;
@@ -876,8 +857,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 (* line 444 "../src/rex.rex" *)
 
                            GetWord (Word);
-                           Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 855
- $$ *) := Char (Word, 2);
+                           Attribute.Ch := Char (Word, 2);
                            RETURN SymChar;
                         
 yyRestartFlag := FALSE; EXIT;
@@ -891,8 +871,7 @@ Attribute.Position.Column := VAL(yyChBufferIndex - yyLineStart - TokenLength,SHO
 (* line 450 "../src/rex.rex" *)
 
                            GetWord (Word);
-                           Attribute.Ch(* $$ m2tom3 warning: application of variant field, possible cast of 'Ch' in line 869
- $$ *) := Char (Word, 1);
+                           Attribute.Ch := Char (Word, 1);
                            RETURN SymChar;
                         
 yyRestartFlag := FALSE; EXIT;

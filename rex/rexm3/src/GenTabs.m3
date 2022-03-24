@@ -172,39 +172,26 @@ PROCEDURE ComputeNfa() =
       ruleList := Root;
 
       WHILE ruleList # NoTree DO
-         rule := ruleList^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 175
- $$ *).Son2;
-         RuleNr := rule^.vNodeRule(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 176
- $$ *).RuleNr;
-         RuleToCodePtr^[RuleNr].Text     := rule^.vNodeRule(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 177
- $$ *).TargetCode;
-         RuleToCodePtr^[RuleNr].TextLine := rule^.vNodeRule(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 178
- $$ *).Line;
-         RuleToCodePtr^[RuleNr].CodeMode := rule^.vNodeRule(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 179
- $$ *).CodeMode;
-         patternList := rule^.vNodeRule(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 180
- $$ *).Patterns;
+         rule := ruleList^.vNode2.Son2;
+         RuleNr := rule^.vNodeRule.RuleNr;
+         RuleToCodePtr^[RuleNr].Text     := rule^.vNodeRule.TargetCode;
+         RuleToCodePtr^[RuleNr].TextLine := rule^.vNodeRule.Line;
+         RuleToCodePtr^[RuleNr].CodeMode := rule^.vNodeRule.CodeMode;
+         patternList := rule^.vNodeRule.Patterns;
 
          WHILE patternList # NoTree DO
-            pattern := patternList^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 183
- $$ *).Son2;
-            PatternNr := pattern^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 184
- $$ *).PatternNr;
+            pattern := patternList^.vNode2.Son2;
+            PatternNr := pattern^.vNodePattern.PatternNr;
             WITH m2tom3_with_7=PatternTablePtr^[PatternNr] DO
                m2tom3_with_7.Rule             := RuleNr;
                m2tom3_with_7.ContextLng       := NoContext;
-               m2tom3_with_7.Position         := pattern^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 188
- $$ *).Position;
+               m2tom3_with_7.Position         := pattern^.vNodePattern.Position;
             END;
-            IF NOT pattern^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 190
- $$ *).IsConstantRE THEN
-               AttributeEvaluator (pattern^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 191
- $$ *).RegExpr, t1, f1, o1);
-               AttributeEvaluator (pattern^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 192
- $$ *).RightContext, t2, f2, o2);
+            IF NOT pattern^.vNodePattern.IsConstantRE THEN
+               AttributeEvaluator (pattern^.vNodePattern.RegExpr, t1, f1, o1);
+               AttributeEvaluator (pattern^.vNodePattern.RightContext, t2, f2, o2);
                tt := t1;
-               ForallDo (pattern^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 194
- $$ *).StartStates, ExtendTransitions);
+               ForallDo (pattern^.vNodePattern.StartStates, ExtendTransitions);
                IF o2 THEN
                   ForallDo (f1, EnterNSemantics);
                END;
@@ -212,13 +199,11 @@ PROCEDURE ComputeNfa() =
                ForallDo (f1, ExtendTransitions);
                ForallDo (f2, EnterNSemantics);
                                              (* context *)
-               length := ComputeLength (pattern^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 202
- $$ *).RightContext);
+               length := ComputeLength (pattern^.vNodePattern.RightContext);
                IF length # VariableContext THEN
                   PatternTablePtr^[PatternNr].ContextLng := length;
                ELSE
-                  length := ComputeLength (pattern^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 206
- $$ *).RegExpr);
+                  length := ComputeLength (pattern^.vNodePattern.RegExpr);
                   IF length # VariableContext THEN
                      PatternTablePtr^[PatternNr].ContextLng := - length;
                   ELSE
@@ -228,11 +213,9 @@ PROCEDURE ComputeNfa() =
                   END;
                END;
             END;
-            patternList := patternList^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 216
- $$ *).Son1;
+            patternList := patternList^.vNode2.Son1;
          END;
-         ruleList := ruleList^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 218
- $$ *).Son1;
+         ruleList := ruleList^.vNode2.Son1;
       END;
 
       IsComputedNContext := TRUE;
@@ -247,22 +230,17 @@ PROCEDURE ComputeLength (t: tTree): SHORTINT =
    BEGIN
       IF t = NoTree THEN RETURN NoContext; END;
 
-      CASE t^.vNode0(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode0' in line 233
- $$ *).Rule OF
-      |  nAlternative   => l1 := ComputeLength (t^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 234
- $$ *).Son1);
-                          l2 := ComputeLength (t^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 235
- $$ *).Son2);
+      CASE t^.vNode0.Rule OF
+      |  nAlternative   => l1 := ComputeLength (t^.vNode2.Son1);
+                          l2 := ComputeLength (t^.vNode2.Son2);
                           IF l1 = l2 THEN
                              RETURN l1;
                           ELSE
                              RETURN VariableContext;
                           END;
 
-      |  nSequence      => l1 := ComputeLength (t^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 242
- $$ *).Son1);
-                          l2 := ComputeLength (t^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 243
- $$ *).Son2);
+      |  nSequence      => l1 := ComputeLength (t^.vNode2.Son1);
+                          l2 := ComputeLength (t^.vNode2.Son2);
                           IF (l1 # VariableContext) AND (l2 # VariableContext) THEN
                              RETURN l1 + l2;
                           ELSE
@@ -275,8 +253,7 @@ PROCEDURE ComputeLength (t: tTree): SHORTINT =
       |  nChar          ,
          nSet           => RETURN 1;
 
-      |  nString        => GetString (t^.vNodeString(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeString' in line 256
- $$ *).String, string);
+      |  nString        => GetString (t^.vNodeString.String, string);
                           RETURN Length (string);
       END;
    END ComputeLength;
@@ -300,16 +277,13 @@ PROCEDURE AttributeEvaluator (
          RETURN;
       END;
 
-      CASE t^.vNode0(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode0' in line 281
- $$ *).Rule OF
+      CASE t^.vNode0.Rule OF
 
       |  nAlternative   => (* regExpr = Alternative (regExpr regExpr) *)
             MakeSet (f1, LeafCount);
             MakeSet (f2, LeafCount);
-            AttributeEvaluator (t^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 286
- $$ *).Son1, t1, f1, o1);
-            AttributeEvaluator (t^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 287
- $$ *).Son2, t2, f2, o2);
+            AttributeEvaluator (t^.vNode2.Son1, t1, f1, o1);
+            AttributeEvaluator (t^.vNode2.Son2, t2, f2, o2);
             Transitions := UniteTransitions (t1, t2);
             Assign (FinalStates, f1);
             Union (FinalStates, f2);
@@ -320,10 +294,8 @@ PROCEDURE AttributeEvaluator (
       |  nSequence      => (* regExpr = Sequence (regExpr regExpr) *)
             MakeSet (f1, LeafCount);
             MakeSet (f2, LeafCount);
-            AttributeEvaluator (t^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 298
- $$ *).Son1, t1, f1, o1);
-            AttributeEvaluator (t^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 299
- $$ *).Son2, t2, f2, o2);
+            AttributeEvaluator (t^.vNode2.Son1, t1, f1, o1);
+            AttributeEvaluator (t^.vNode2.Son2, t2, f2, o2);
             tt := t2;
             ForallDo (f1, ExtendTransitions);
             IF o1 THEN
@@ -343,8 +315,7 @@ PROCEDURE AttributeEvaluator (
 
       |  nRepetition    => (* regExpr = Repetition (regExpr) *)
             MakeSet (f1, LeafCount);
-            AttributeEvaluator (t^.vNode1(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode1' in line 319
- $$ *).Son1, t1, f1, o1);
+            AttributeEvaluator (t^.vNode1.Son1, t1, f1, o1);
             tt := t1;
             ForallDo (f1, ExtendTransitions);
             Transitions := t1;
@@ -354,8 +325,7 @@ PROCEDURE AttributeEvaluator (
 
       |  nOption        => (* regExpr = Option (regExpr) *)
             MakeSet (f1, LeafCount);
-            AttributeEvaluator (t^.vNode1(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode1' in line 329
- $$ *).Son1, t1, f1, o1);
+            AttributeEvaluator (t^.vNode1.Son1, t1, f1, o1);
             Transitions := t1;
             Assign (FinalStates, f1);
             IsOptional := TRUE;
@@ -363,15 +333,13 @@ PROCEDURE AttributeEvaluator (
 
       |  nChar  => (* regExpr = Char *)
             NState := MakeNState (NoTransition);
-            Transitions := MakeTransition (t^.vNodeCh(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeCh' in line 337
- $$ *).Ch, NState);
+            Transitions := MakeTransition (t^.vNodeCh.Ch, NState);
             AssignElmt (FinalStates, NState);
             IsOptional := FALSE;
 
       |  nSet   => (* regExpr = Set *)
             MakeSet (f1, ORD (LastCh));
-            Assign (f1, t^.vNodeSet(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeSet' in line 343
- $$ *).Set);
+            Assign (f1, t^.vNodeSet.Set);
             NState := MakeNState (NoTransition);
             Transitions := NoTransition;
             WHILE NOT IsEmpty (f1) DO
@@ -383,8 +351,7 @@ PROCEDURE AttributeEvaluator (
             ReleaseSet (f1);
 
       |  nString        => (* regExpr = String *)
-            GetString (t^.vNodeString(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeString' in line 355
- $$ *).String, string);
+            GetString (t^.vNodeString.String, string);
             NState := MakeNState (NoTransition);
             Transitions := MakeTransition (Char (string, Length (string)), NState);
             AssignElmt (FinalStates, NState);
@@ -616,41 +583,29 @@ PROCEDURE AddConstantREs() =
       MakeSet (StartSet, StartStateCount);
       ruleList := Root;
       WHILE ruleList # NoTree DO
-         rule := ruleList^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 591
- $$ *).Son2;
-         patternList := rule^.vNodeRule(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeRule' in line 592
- $$ *).Patterns;
+         rule := ruleList^.vNode2.Son2;
+         patternList := rule^.vNodeRule.Patterns;
 
          WHILE patternList # NoTree DO
-            pattern := patternList^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 595
- $$ *).Son2;
-            IF pattern^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 596
- $$ *).IsConstantRE THEN
-               PatternNr := pattern^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 597
- $$ *).PatternNr;
+            pattern := patternList^.vNode2.Son2;
+            IF pattern^.vNodePattern.IsConstantRE THEN
+               PatternNr := pattern^.vNodePattern.PatternNr;
                PatternTablePtr^[PatternNr].ContextLng :=
-                  ComputeLength (pattern^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 599
- $$ *).RightContext);
-               ComputeConstantRE (pattern^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 600
- $$ *).RegExpr, string1); 
-               ComputeConstantRE (pattern^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 601
- $$ *).RightContext, string2);
+                  ComputeLength (pattern^.vNodePattern.RightContext);
+               ComputeConstantRE (pattern^.vNodePattern.RegExpr, string1); 
+               ComputeConstantRE (pattern^.vNodePattern.RightContext, string2);
                Concatenate (string1, string2);
                ResetTraces (Length (string1));
                FOR StartState := 1 TO StartStateCount DO
-                  IF IsElement (StartState, pattern^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 605
- $$ *).StartStates) THEN
+                  IF IsElement (StartState, pattern^.vNodePattern.StartStates) THEN
                      AddConstantRE (StartState, string1, PatternNr,
-                        pattern^.vNodePattern(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodePattern' in line 607
- $$ *).StartStates);
+                        pattern^.vNodePattern.StartStates);
                   END;
                END;
             END;
-            patternList := patternList^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 611
- $$ *).Son1;
+            patternList := patternList^.vNode2.Son1;
          END;
-         ruleList := ruleList^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 613
- $$ *).Son1;
+         ruleList := ruleList^.vNode2.Son1;
       END;
       ReleaseSet (StartSet);
       FinalizeTraces();
@@ -662,18 +617,13 @@ PROCEDURE ComputeConstantRE (t: tTree; VAR String: tString) =
       IF t = NoTree THEN
          Strings.AssignEmpty (String);
       ELSE
-         CASE t^.vNode0(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode0' in line 625
- $$ *).Rule OF
-         |  nSequence   => ComputeConstantRE (t^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 626
- $$ *).Son1, String);
-                          ComputeConstantRE (t^.vNode2(* $$ m2tom3 warning: application of variant field, possible cast of 'vNode2' in line 627
- $$ *).Son2, string2);
+         CASE t^.vNode0.Rule OF
+         |  nSequence   => ComputeConstantRE (t^.vNode2.Son1, String);
+                          ComputeConstantRE (t^.vNode2.Son2, string2);
                           Concatenate (String, string2);
          |  nChar       => Strings.AssignEmpty (String);
-                          Append (String, t^.vNodeCh(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeCh' in line 630
- $$ *).Ch);
-         |  nString     => GetString (t^.vNodeString(* $$ m2tom3 warning: application of variant field, possible cast of 'vNodeString' in line 631
- $$ *).String, String);
+                          Append (String, t^.vNodeCh.Ch);
+         |  nString     => GetString (t^.vNodeString.String, String);
          END;
       END;
    END ComputeConstantRE;
