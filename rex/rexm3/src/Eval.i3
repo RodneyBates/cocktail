@@ -1,10 +1,14 @@
-UNSAFE INTERFACE  Eval;
+UNSAFE INTERFACE Eval 
 
-IMPORT Tree0;
+; IMPORT Tree0 
 
-PROCEDURE Eval (yyt: Tree0.tTree0);
-PROCEDURE BeginEval();
-PROCEDURE CloseEval();
+; PROCEDURE Eval ( yyt : Tree0 . tTree0 ) 
 
-END Eval.
+; PROCEDURE BeginEval ( ) 
+
+; PROCEDURE CloseEval ( ) 
+
+; 
+END Eval 
+. 
 

@@ -1,64 +1,62 @@
-(* $Id: DefTable.md,v 3.1 1991/11/21 14:41:19 grosch rel $ *)
+(* $Id: DefTable.md,v 3.1 1991/11/21 14:41:19 grosch rel $ *) 
 
-(* $Log: DefTable.md,v $
- * Revision 3.1  1991/11/21  14:41:19  grosch
- * fixed bug: interference of right context between constant and non-constant RE
- * new version of RCS on SPARC
- *
- * Revision 3.0  91/04/04  18:06:40  grosch
- * introduced partitioning of character set
+(* $Log: DefTable.md,v $ 
+ * Revision 3.1  1991/11/21  14:41:19  grosch 
+ * fixed bug: interference of right context between constant and non-constant RE 
+ * new version of RCS on SPARC 
  * 
- * Revision 1.0  88/10/04  11:59:29  grosch
- * Initial revision
+ * Revision 3.0  91/04/04  18:06:40  grosch 
+ * introduced partitioning of character set 
  * 
- *)
+ * Revision 1.0  88/10/04  11:59:29  grosch 
+ * Initial revision 
+ * 
+ *) 
 
-(* Ich, Doktor Josef Grosch, Informatiker, Nov. 1987 *)
+(* Ich, Doktor Josef Grosch, Informatiker, Nov. 1987 *) 
 
-UNSAFE INTERFACE  DefTable;
+UNSAFE INTERFACE DefTable 
 
-FROM SYSTEM IMPORT M2LONGINT;
-FROM SYSTEM IMPORT SHORTCARD;
-FROM Idents	IMPORT tIdent	;
-FROM Tree	IMPORT tTree	;
+; FROM SYSTEM IMPORT M2LONGINT 
 
-CONST
-   NoDef	= 0	;
+; FROM SYSTEM IMPORT SHORTCARD 
 
-TYPE
-   DefRange	= M2LONGINT;
-   tKind	= {NoKind, Ident, Start};
+; FROM Idents IMPORT tIdent 
 
-VAR
-   DefCount	: DefRange;
+; FROM Tree IMPORT tTree 
 
-PROCEDURE MakeIdentDef	(
-          pIdent	: tIdent	;
-          pTree	 	: tTree		;
-          pLeafCount	: SHORTCARD	;
-          pIsConstantRE : BOOLEAN	);
+; CONST NoDef = 0 
 
-PROCEDURE MakeStartDef	(
-          pIdent	: tIdent	;
-          pNumber	: SHORTCARD	);
+; TYPE DefRange = M2LONGINT 
+  ; tKind = { NoKind , Ident , Start } 
 
-PROCEDURE GetDef	(
-          pIdent	: tIdent	): DefRange;
+; VAR DefCount : DefRange 
 
-PROCEDURE GetKind	(
-          pDef		: DefRange	): tKind;
+; PROCEDURE MakeIdentDef 
+    ( pIdent : tIdent 
+    ; pTree : tTree 
+    ; pLeafCount : SHORTCARD 
+    ; pIsConstantRE : BOOLEAN 
+    ) 
 
-PROCEDURE GetIdentDef	(
-          pDef	 	: DefRange	;
-      VAR pIdent	: tIdent	;
-      VAR pTree	 	: tTree		;
-      VAR pLeafCount	: SHORTCARD	;
-      VAR pIsConstantRE : BOOLEAN	);
+; PROCEDURE MakeStartDef ( pIdent : tIdent ; pNumber : SHORTCARD ) 
 
-PROCEDURE GetStartDef	(
-          pDef	 	: DefRange	;
-      VAR pIdent	: tIdent	;
-      VAR pNumber	: SHORTCARD	);
+; PROCEDURE GetDef ( pIdent : tIdent ) : DefRange 
 
-END DefTable.
+; PROCEDURE GetKind ( pDef : DefRange ) : tKind 
+
+; PROCEDURE GetIdentDef 
+    ( pDef : DefRange 
+    ; VAR pIdent : tIdent 
+    ; VAR pTree : tTree 
+    ; VAR pLeafCount : SHORTCARD 
+    ; VAR pIsConstantRE : BOOLEAN 
+    ) 
+
+; PROCEDURE GetStartDef 
+    ( pDef : DefRange ; VAR pIdent : tIdent ; VAR pNumber : SHORTCARD ) 
+
+; 
+END DefTable 
+. 
 
