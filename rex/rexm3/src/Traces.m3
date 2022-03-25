@@ -103,8 +103,7 @@ UNSAFE MODULE Traces
       ; With_15 . Next := PosToTracePtr ^ [ Position ] 
       END (* WITH *) 
     ; PosToTracePtr ^ [ Position ] 
-        := ADR (* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 82 
- $$ *)       ( TracePtr ^ [ TraceCount ] ) 
+        := ADR        ( TracePtr ^ [ TraceCount ] ) 
     END RecordTrace 
 
 ; PROCEDURE RecordedTrace 

@@ -67,9 +67,7 @@ UNSAFE MODULE Heap
         BlockPtr := BlockList 
       ; BlockList := Memory . Alloc ( BYTESIZE ( tBlock ) ) 
       ; BlockList ^ . Successor := BlockPtr 
-      ; PoolFreePtr 
-          := ADR (* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 64 
- $$ *)         ( BlockList ^ . Block ) 
+      ; PoolFreePtr := ADR ( BlockList ^ . Block ) 
       ; PoolEndPtr := PoolFreePtr + PoolSize 
       ; INC ( HeapUsed , PoolSize ) 
       END (* IF *) 

@@ -286,8 +286,7 @@ UNSAFE MODULE Tree0
     ; yyBlockList := Memory . Alloc ( BYTESIZE ( yytBlock ) ) 
     ; yyBlockList ^ . yySuccessor := yyBlockPtr 
     ; yyPoolFreePtr 
-        := ADR (* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 274 
- $$ *)       ( yyBlockList ^ . yyBlock ) 
+        := ADR        ( yyBlockList ^ . yyBlock ) 
     ; yyPoolMaxPtr := yyPoolFreePtr + yyBlockSize - yyMaxSize + 1 
     ; INC ( HeapUsed , yyBlockSize ) 
     ; RETURN yyPoolFreePtr 
@@ -857,8 +856,8 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Node" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH m2tom3_desig_8 = yyt ^ . Node . Tree 
-      DO yyWriteHex ( LOOPHOLE ( m2tom3_desig_8 , ARRAY OF BYTE ) ) 
+    ; WITH Desig_8 = yyt ^ . Node . Tree 
+      DO yyWriteHex ( LOOPHOLE ( Desig_8 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
@@ -878,8 +877,8 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Node1" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH m2tom3_desig_11 = yyt ^ . Node1 . Tree 
-      DO yyWriteHex ( LOOPHOLE ( m2tom3_desig_11 , ARRAY OF BYTE ) ) 
+    ; WITH Desig_11 = yyt ^ . Node1 . Tree 
+      DO yyWriteHex ( LOOPHOLE ( Desig_11 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
@@ -899,8 +898,8 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Option" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH m2tom3_desig_7 = yyt ^ . Option . Tree 
-      DO yyWriteHex ( LOOPHOLE ( m2tom3_desig_7 , ARRAY OF BYTE ) ) 
+    ; WITH Desig_7 = yyt ^ . Option . Tree 
+      DO yyWriteHex ( LOOPHOLE ( Desig_7 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
@@ -920,8 +919,8 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Repetition" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH m2tom3_desig_12 = yyt ^ . Repetition . Tree 
-      DO yyWriteHex ( LOOPHOLE ( m2tom3_desig_12 , ARRAY OF BYTE ) ) 
+    ; WITH Desig_12 = yyt ^ . Repetition . Tree 
+      DO yyWriteHex ( LOOPHOLE ( Desig_12 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
@@ -941,8 +940,8 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Node2" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH m2tom3_desig_0 = yyt ^ . Node2 . Tree 
-      DO yyWriteHex ( LOOPHOLE ( m2tom3_desig_0 , ARRAY OF BYTE ) ) 
+    ; WITH Desig_0 = yyt ^ . Node2 . Tree 
+      DO yyWriteHex ( LOOPHOLE ( Desig_0 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
@@ -963,8 +962,8 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "List" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH m2tom3_desig_10 = yyt ^ . List . Tree 
-      DO yyWriteHex ( LOOPHOLE ( m2tom3_desig_10 , ARRAY OF BYTE ) ) 
+    ; WITH Desig_10 = yyt ^ . List . Tree 
+      DO yyWriteHex ( LOOPHOLE ( Desig_10 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
@@ -985,8 +984,8 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Sequence" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH m2tom3_desig_1 = yyt ^ . Sequence . Tree 
-      DO yyWriteHex ( LOOPHOLE ( m2tom3_desig_1 , ARRAY OF BYTE ) ) 
+    ; WITH Desig_1 = yyt ^ . Sequence . Tree 
+      DO yyWriteHex ( LOOPHOLE ( Desig_1 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
@@ -1007,8 +1006,8 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Alternative" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH m2tom3_desig_4 = yyt ^ . Alternative . Tree 
-      DO yyWriteHex ( LOOPHOLE ( m2tom3_desig_4 , ARRAY OF BYTE ) ) 
+    ; WITH Desig_4 = yyt ^ . Alternative . Tree 
+      DO yyWriteHex ( LOOPHOLE ( Desig_4 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
@@ -1029,8 +1028,8 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Ch" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH m2tom3_desig_5 = yyt ^ . Ch . Tree 
-      DO yyWriteHex ( LOOPHOLE ( m2tom3_desig_5 , ARRAY OF BYTE ) ) 
+    ; WITH Desig_5 = yyt ^ . Ch . Tree 
+      DO yyWriteHex ( LOOPHOLE ( Desig_5 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
@@ -1053,8 +1052,8 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Set" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH m2tom3_desig_6 = yyt ^ . Set . Tree 
-      DO yyWriteHex ( LOOPHOLE ( m2tom3_desig_6 , ARRAY OF BYTE ) ) 
+    ; WITH Desig_6 = yyt ^ . Set . Tree 
+      DO yyWriteHex ( LOOPHOLE ( Desig_6 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
@@ -1080,8 +1079,8 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "String" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH m2tom3_desig_9 = yyt ^ . String . Tree 
-      DO yyWriteHex ( LOOPHOLE ( m2tom3_desig_9 , ARRAY OF BYTE ) ) 
+    ; WITH Desig_9 = yyt ^ . String . Tree 
+      DO yyWriteHex ( LOOPHOLE ( Desig_9 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
@@ -1104,8 +1103,8 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Rule" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH m2tom3_desig_2 = yyt ^ . Rule . Tree 
-      DO yyWriteHex ( LOOPHOLE ( m2tom3_desig_2 , ARRAY OF BYTE ) ) 
+    ; WITH Desig_2 = yyt ^ . Rule . Tree 
+      DO yyWriteHex ( LOOPHOLE ( Desig_2 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
@@ -1137,8 +1136,8 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Pattern" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH m2tom3_desig_3 = yyt ^ . Pattern . Tree 
-      DO yyWriteHex ( LOOPHOLE ( m2tom3_desig_3 , ARRAY OF BYTE ) ) 
+    ; WITH Desig_3 = yyt ^ . Pattern . Tree 
+      DO yyWriteHex ( LOOPHOLE ( Desig_3 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 

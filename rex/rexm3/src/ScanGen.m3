@@ -381,8 +381,7 @@ PROCEDURE GenerateScanner       (ReduceCaseSize, Warnings, GenLine: BOOLEAN) =
                     WriteText (Out, Close);
             |  'T'=> PutComb     (Out);
             |  'B'=> PutBase     (Out);
-            |  'U'=> PutDefault(* $$ m2tom3 warning: actual parameter list is too short for procedure 'PutDefault' in line 385
- $$ *)  (Out);
+            |  'U'=> PutDefault (Out);
             |  'R'=> PutEobTrans (Out);
             |  'Q'=> IF ReduceCaseSize THEN PutAction (Out); END;
             |  '@'=> ExpandLine (Out, Line);

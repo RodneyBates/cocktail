@@ -157,8 +157,7 @@ PROCEDURE GetTable (Address: ADDRESS): CARDINAL;
     ; WHILE i <= TableSize 
       DO PutTable 
            ( Min ( BlockSize , TableSize + 1 - i ) * BYTESIZE ( ControlType ) 
-           , ADR (* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 131 
- $$ *)         ( ControlPtr ^ [ i ] ) 
+           , ADR          ( ControlPtr ^ [ i ] ) 
            ) 
       ; INC ( i , BlockSize ) 
       END (* WHILE *) 

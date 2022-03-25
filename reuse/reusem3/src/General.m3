@@ -152,9 +152,7 @@ UNSAFE MODULE General
 ; BEGIN (* General *) 
     MaxAlign 
       := LOOPHOLE 
-           ( ADR 
-               ( ForAlign . longreal (* $$ m2tom3 warning: unhandled ADR parameter 'longreal' in line 147 
- $$ *)         ) 
+           ( ADR ( ForAlign . longreal ) 
            , Word . T 
            ) 
          - LOOPHOLE ( ADR ( ForAlign . char ) , Word . T ) 

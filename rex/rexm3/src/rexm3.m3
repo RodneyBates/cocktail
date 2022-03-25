@@ -168,42 +168,24 @@ BEGIN
 
    IF h THEN
 
-WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 159
- $$ *) ("usage: rex [-options] [file]"                          ); WriteNl(); WriteNl();
-WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 160
- $$ *) (" a generate all (= -dsm)"                                      ); WriteNl();
-WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 161
- $$ *) (" m generate a lexical analyzer in Modula (default)"            ); WriteNl();
-WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 162
- $$ *) (" c generate a lexical analyzer in C"                           ); WriteNl();
-WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 163
- $$ *) (" d generate a definition module for the lexical analyzer"      ); WriteNl();
-WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 164
- $$ *) (" s generate support modules:"                                  ); WriteNl();
-WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 165
- $$ *) ("   . a source module for input"                                ); WriteNl();
-WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 166
- $$ *) ("   . a main program to be used as test driver"                 ); WriteNl();
-WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 167
- $$ *) (" r reduce number of generated case/switch labels"              ); WriteNl();
-WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 168
- $$ *) (" i use ISO 8 bit code (default: ASCII 7 bit code)"             ); WriteNl();
-WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 169
- $$ *) (" o optimize table size"                                        ); WriteNl();
-WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 170
- $$ *) (" n do not optimize table size"                                 ); WriteNl();
-WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 171
- $$ *) (" w suppress warnings"                                          ); WriteNl();
-WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 172
- $$ *) (" g generate # line directives"                                 ); WriteNl();
-WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 173
- $$ *) (" b do not partition character set into blocks"                 ); WriteNl();
-WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 174
- $$ *) (" 1 print statistics about the generated lexical analyzer"      ); WriteNl();
-WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 175
- $$ *) (" h print help information"                                     ); WriteNl();
-WriteT(* $$ m2tom3 warning: actual parameter list is too short for procedure 'WriteS' in line 176
- $$ *) (" ldir specify the directory dir where rex finds its data files"); WriteNl();
+WriteT ("usage: rex [-options] [file]"                          ); WriteNl(); WriteNl();
+WriteT (" a generate all (= -dsm)"                                      ); WriteNl();
+WriteT (" m generate a lexical analyzer in Modula (default)"            ); WriteNl();
+WriteT (" c generate a lexical analyzer in C"                           ); WriteNl();
+WriteT (" d generate a definition module for the lexical analyzer"      ); WriteNl();
+WriteT (" s generate support modules:"                                  ); WriteNl();
+WriteT ("   . a source module for input"                                ); WriteNl();
+WriteT ("   . a main program to be used as test driver"                 ); WriteNl();
+WriteT (" r reduce number of generated case/switch labels"              ); WriteNl();
+WriteT (" i use ISO 8 bit code (default: ASCII 7 bit code)"             ); WriteNl();
+WriteT (" o optimize table size"                                        ); WriteNl();
+WriteT (" n do not optimize table size"                                 ); WriteNl();
+WriteT (" w suppress warnings"                                          ); WriteNl();
+WriteT (" g generate # line directives"                                 ); WriteNl();
+WriteT (" b do not partition character set into blocks"                 ); WriteNl();
+WriteT (" 1 print statistics about the generated lexical analyzer"      ); WriteNl();
+WriteT (" h print help information"                                     ); WriteNl();
+WriteT (" ldir specify the directory dir where rex finds its data files"); WriteNl();
 
    ELSE
       Strings.TextToString (ScanTabName, FileNameS); (* name of scanner table *)
