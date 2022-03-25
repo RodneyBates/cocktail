@@ -65,9 +65,9 @@ PROCEDURE MakeNState (pTransitions: TransitionRange): NStateRange =
       IF NStateCount = NStateTableSize THEN
          ExtendArray (LOOPHOLE(NStateTablePtr,ADDRESS), NStateTableSize, BYTESIZE (NStateInfo));
       END;
-      WITH m2tom3_with_8=NStateTablePtr^[NStateCount] DO
-         m2tom3_with_8.Transitions := pTransitions;
-         m2tom3_with_8.Semantics   := NoRule;
+      WITH With_8=NStateTablePtr^[NStateCount] DO
+         With_8.Transitions := pTransitions;
+         With_8.Semantics   := NoRule;
       END;
       RETURN NStateCount;
    END MakeNState;
@@ -108,10 +108,10 @@ PROCEDURE MakeTransition (pCh: CHAR; State: NStateRange): TransitionRange =
       IF TransitionCount = TransitionTableSize THEN
          ExtendArray (LOOPHOLE(TransitionTablePtr,ADDRESS), TransitionTableSize, BYTESIZE (Transition));
       END;
-      WITH m2tom3_with_9=TransitionTablePtr^[TransitionCount] DO
-         m2tom3_with_9.Ch          := pCh;
-         m2tom3_with_9.NextState := State;
-         m2tom3_with_9.NextTrans := NoTransition;
+      WITH With_9=TransitionTablePtr^[TransitionCount] DO
+         With_9.Ch          := pCh;
+         With_9.NextState := State;
+         With_9.NextTrans := NoTransition;
       END;
       RETURN TransitionCount;
    END MakeTransition;
@@ -149,9 +149,9 @@ PROCEDURE CopyTransitions (t1: TransitionRange): TransitionRange =
    BEGIN
       t2 := NoTransition;
       WHILE t1 # NoTransition DO                (* NOT IsLastTransition *)
-         WITH m2tom3_with_10=TransitionTablePtr^[t1] DO (* GetCh + GetNextState *)
-            t2 := AddTransition (MakeTransition (m2tom3_with_10.Ch, m2tom3_with_10.NextState), t2);
-            t1 := m2tom3_with_10.NextTrans;                     (* NextTransition *)
+         WITH With_10=TransitionTablePtr^[t1] DO (* GetCh + GetNextState *)
+            t2 := AddTransition (MakeTransition (With_10.Ch, With_10.NextState), t2);
+            t1 := With_10.NextTrans;                     (* NextTransition *)
          END;
       END;
       RETURN t2;

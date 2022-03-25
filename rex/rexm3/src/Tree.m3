@@ -48,9 +48,9 @@ PROCEDURE MakeTree1 (pRule: SHORTCARD; pSon1: tTree): tTree =
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (Node));
-      WITH m2tom3_with_29=Tree^.vNode1 DO
-	 m2tom3_with_29.Rule := pRule;
-	 m2tom3_with_29.Son1 := pSon1;
+      WITH With_29=Tree^.vNode1 DO
+	 With_29.Rule := pRule;
+	 With_29.Son1 := pSon1;
       END;
       RETURN Tree;
    END MakeTree1;
@@ -59,10 +59,10 @@ PROCEDURE MakeTree2 (pRule: SHORTCARD; pSon1, pSon2: tTree): tTree =
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (Node));
-      WITH m2tom3_with_30=Tree^.vNode2 DO
-	 m2tom3_with_30.Rule := pRule;
-	 m2tom3_with_30.Son1 := pSon1;
-	 m2tom3_with_30.Son2 := pSon2;
+      WITH With_30=Tree^.vNode2 DO
+	 With_30.Rule := pRule;
+	 With_30.Son1 := pSon1;
+	 With_30.Son2 := pSon2;
       END;
       RETURN Tree;
    END MakeTree2;
@@ -71,9 +71,9 @@ PROCEDURE MakeTreeCh (pRule: SHORTCARD; pCh: CHAR): tTree =
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (Node));
-      WITH m2tom3_with_31=Tree^.vNodeCh DO
-	 m2tom3_with_31.Rule := pRule;
-	 m2tom3_with_31.Ch   := pCh;
+      WITH With_31=Tree^.vNodeCh DO
+	 With_31.Rule := pRule;
+	 With_31.Ch   := pCh;
       END;
       RETURN Tree;
    END MakeTreeCh;
@@ -82,9 +82,9 @@ PROCEDURE MakeTreeSet (pRule: SHORTCARD; pSet: tSet): tTree =
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (Node));
-      WITH m2tom3_with_32=Tree^.vNodeSet DO
-	 m2tom3_with_32.Rule := pRule;
-	 m2tom3_with_32.Set  := pSet;
+      WITH With_32=Tree^.vNodeSet DO
+	 With_32.Rule := pRule;
+	 With_32.Set  := pSet;
       END;
       RETURN Tree;
    END MakeTreeSet;
@@ -93,9 +93,9 @@ PROCEDURE MakeTreeString(pRule: SHORTCARD; pString: tStringRef): tTree =
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (Node));
-      WITH m2tom3_with_33=Tree^.vNodeString DO
-	 m2tom3_with_33.Rule	:= pRule;
-	 m2tom3_with_33.String	:= pString;
+      WITH With_33=Tree^.vNodeString DO
+	 With_33.Rule	:= pRule;
+	 With_33.String	:= pString;
       END;
       RETURN Tree;
    END MakeTreeString;
@@ -105,13 +105,13 @@ PROCEDURE MakeTreeRule	(pRule: SHORTCARD; pPatterns: tTree; pTargetCode:
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (Node));
-      WITH m2tom3_with_34=Tree^.vNodeRule DO
-	 m2tom3_with_34.Rule		:= pRule;
-	 m2tom3_with_34.Patterns	:= pPatterns;
-	 m2tom3_with_34.TargetCode	:= pTargetCode;
-	 m2tom3_with_34.Line		:= pLine;
-	 m2tom3_with_34.CodeMode	:= pCodeMode;
-	 m2tom3_with_34.RuleNr		:= pRuleNr;
+      WITH With_34=Tree^.vNodeRule DO
+	 With_34.Rule		:= pRule;
+	 With_34.Patterns	:= pPatterns;
+	 With_34.TargetCode	:= pTargetCode;
+	 With_34.Line		:= pLine;
+	 With_34.CodeMode	:= pCodeMode;
+	 With_34.RuleNr		:= pRuleNr;
       END;
       RETURN Tree;
    END MakeTreeRule;
@@ -122,14 +122,14 @@ PROCEDURE MakeTreePattern(pRule: SHORTCARD; pStartStates: tSet; pRegExpr,
    VAR Tree : tTree;
    BEGIN
       Tree := Alloc (BYTESIZE (Node));
-      WITH m2tom3_with_35=Tree^.vNodePattern DO
-	 m2tom3_with_35.Rule		:= pRule;
-	 m2tom3_with_35.StartStates	:= pStartStates;
-	 m2tom3_with_35.RegExpr	:= pRegExpr;
-	 m2tom3_with_35.RightContext	:= pRightContext;
-	 m2tom3_with_35.IsConstantRE	:= pIsConstantRE;
-	 m2tom3_with_35.PatternNr	:= pPatternNr;
-	 m2tom3_with_35.Position	:= pPosition;
+      WITH With_35=Tree^.vNodePattern DO
+	 With_35.Rule		:= pRule;
+	 With_35.StartStates	:= pStartStates;
+	 With_35.RegExpr	:= pRegExpr;
+	 With_35.RightContext	:= pRightContext;
+	 With_35.IsConstantRE	:= pIsConstantRE;
+	 With_35.PatternNr	:= pPatternNr;
+	 With_35.Position	:= pPosition;
       END;
       RETURN Tree;
    END MakeTreePattern;

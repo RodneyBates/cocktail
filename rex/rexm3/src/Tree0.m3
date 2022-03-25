@@ -303,7 +303,7 @@ PROCEDURE mNode (): tTree0 =
    yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Node] ); 
   yyt^.yyHead.yyMark := 0;
   yyt^.Kind := Node;
-  WITH m2tom3_with_16=yyt^.Node DO
+  WITH With_16=yyt^.Node DO
     
     
     
@@ -319,12 +319,12 @@ PROCEDURE mNode1 (pSon1: tTree0): tTree0 =
    yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Node1] ); 
   yyt^.yyHead.yyMark := 0;
   yyt^.Kind := Node1;
-  WITH m2tom3_with_17=yyt^.Node1 DO
+  WITH With_17=yyt^.Node1 DO
     
     
     
     
-   m2tom3_with_17.Son1 := pSon1;
+   With_17.Son1 := pSon1;
   END;
   RETURN yyt;
  END mNode1;
@@ -336,12 +336,12 @@ PROCEDURE mOption (pSon1: tTree0): tTree0 =
    yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Option] ); 
   yyt^.yyHead.yyMark := 0;
   yyt^.Kind := Option;
-  WITH m2tom3_with_18=yyt^.Option DO
+  WITH With_18=yyt^.Option DO
     
     
     
     
-   m2tom3_with_18.Son1 := pSon1;
+   With_18.Son1 := pSon1;
   END;
   RETURN yyt;
  END mOption;
@@ -353,12 +353,12 @@ PROCEDURE mRepetition (pSon1: tTree0): tTree0 =
    yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Repetition] ); 
   yyt^.yyHead.yyMark := 0;
   yyt^.Kind := Repetition;
-  WITH m2tom3_with_19=yyt^.Repetition DO
+  WITH With_19=yyt^.Repetition DO
     
     
     
     
-   m2tom3_with_19.Son1 := pSon1;
+   With_19.Son1 := pSon1;
   END;
   RETURN yyt;
  END mRepetition;
@@ -370,13 +370,13 @@ PROCEDURE mNode2 (pSon1: tTree0; pSon2: tTree0): tTree0 =
    yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Node2] ); 
   yyt^.yyHead.yyMark := 0;
   yyt^.Kind := Node2;
-  WITH m2tom3_with_20=yyt^.Node2 DO
+  WITH With_20=yyt^.Node2 DO
     
     
     
     
-   m2tom3_with_20.Son1 := pSon1;
-   m2tom3_with_20.Son2 := pSon2;
+   With_20.Son1 := pSon1;
+   With_20.Son2 := pSon2;
   END;
   RETURN yyt;
  END mNode2;
@@ -388,13 +388,13 @@ PROCEDURE mList (pSon1: tTree0; pSon2: tTree0): tTree0 =
    yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [List] ); 
   yyt^.yyHead.yyMark := 0;
   yyt^.Kind := List;
-  WITH m2tom3_with_21=yyt^.List DO
+  WITH With_21=yyt^.List DO
     
     
     
     
-   m2tom3_with_21.Son1 := pSon1;
-   m2tom3_with_21.Son2 := pSon2;
+   With_21.Son1 := pSon1;
+   With_21.Son2 := pSon2;
   END;
   RETURN yyt;
  END mList;
@@ -406,13 +406,13 @@ PROCEDURE mSequence (pSon1: tTree0; pSon2: tTree0): tTree0 =
    yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Sequence] ); 
   yyt^.yyHead.yyMark := 0;
   yyt^.Kind := Sequence;
-  WITH m2tom3_with_22=yyt^.Sequence DO
+  WITH With_22=yyt^.Sequence DO
     
     
     
     
-   m2tom3_with_22.Son1 := pSon1;
-   m2tom3_with_22.Son2 := pSon2;
+   With_22.Son1 := pSon1;
+   With_22.Son2 := pSon2;
   END;
   RETURN yyt;
  END mSequence;
@@ -424,13 +424,13 @@ PROCEDURE mAlternative (pSon1: tTree0; pSon2: tTree0): tTree0 =
    yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Alternative] ); 
   yyt^.yyHead.yyMark := 0;
   yyt^.Kind := Alternative;
-  WITH m2tom3_with_23=yyt^.Alternative DO
+  WITH With_23=yyt^.Alternative DO
     
     
     
     
-   m2tom3_with_23.Son1 := pSon1;
-   m2tom3_with_23.Son2 := pSon2;
+   With_23.Son1 := pSon1;
+   With_23.Son2 := pSon2;
   END;
   RETURN yyt;
  END mAlternative;
@@ -442,12 +442,12 @@ PROCEDURE mCh (pCh: CHAR): tTree0 =
    yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Ch] ); 
   yyt^.yyHead.yyMark := 0;
   yyt^.Kind := Ch;
-  WITH m2tom3_with_24=yyt^.Ch DO
+  WITH With_24=yyt^.Ch DO
     
     
     
     
-   m2tom3_with_24.Ch := pCh;
+   With_24.Ch := pCh;
   END;
   RETURN yyt;
  END mCh;
@@ -459,12 +459,12 @@ PROCEDURE mSet (pSet: tSet): tTree0 =
    yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Set] ); 
   yyt^.yyHead.yyMark := 0;
   yyt^.Kind := Set;
-  WITH m2tom3_with_25=yyt^.Set DO
+  WITH With_25=yyt^.Set DO
     
     
     
     
-   m2tom3_with_25.Set := pSet;
+   With_25.Set := pSet;
     
   END;
   RETURN yyt;
@@ -477,12 +477,12 @@ PROCEDURE mString (pString: tStringRef): tTree0 =
    yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [String] ); 
   yyt^.yyHead.yyMark := 0;
   yyt^.Kind := String;
-  WITH m2tom3_with_26=yyt^.String DO
+  WITH With_26=yyt^.String DO
     
     
     
     
-   m2tom3_with_26.String := pString;
+   With_26.String := pString;
   END;
   RETURN yyt;
  END mString;
@@ -494,16 +494,16 @@ PROCEDURE mRule (pPatterns: tTree0; pTargetCode: tText; pLine: SHORTCARD; pCodeM
    yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Rule] ); 
   yyt^.yyHead.yyMark := 0;
   yyt^.Kind := Rule;
-  WITH m2tom3_with_27=yyt^.Rule DO
+  WITH With_27=yyt^.Rule DO
     
     
     
     
-   m2tom3_with_27.Patterns := pPatterns;
-   m2tom3_with_27.TargetCode := pTargetCode;
-   m2tom3_with_27.Line := pLine;
-   m2tom3_with_27.CodeMode := pCodeMode;
-   m2tom3_with_27.RuleNr := pRuleNr;
+   With_27.Patterns := pPatterns;
+   With_27.TargetCode := pTargetCode;
+   With_27.Line := pLine;
+   With_27.CodeMode := pCodeMode;
+   With_27.RuleNr := pRuleNr;
   END;
   RETURN yyt;
  END mRule;
@@ -515,16 +515,16 @@ PROCEDURE mPattern (pStartStates: tSet; pRegExpr: tTree0; pRightContext: tTree0;
    yyt  := yyPoolFreePtr; IF LOOPHOLE ( yyt ,ADDRESS) >= yyPoolMaxPtr THEN  yyt  := yyAlloc (); END; INC (yyPoolFreePtr,   yyNodeSize [Pattern] ); 
   yyt^.yyHead.yyMark := 0;
   yyt^.Kind := Pattern;
-  WITH m2tom3_with_28=yyt^.Pattern DO
+  WITH With_28=yyt^.Pattern DO
     
     
     
     
-   m2tom3_with_28.StartStates := pStartStates;
-   m2tom3_with_28.RegExpr := pRegExpr;
-   m2tom3_with_28.RightContext := pRightContext;
-   m2tom3_with_28.PatternNr := pPatternNr;
-   m2tom3_with_28.Position := pPosition;
+   With_28.StartStates := pStartStates;
+   With_28.RegExpr := pRegExpr;
+   With_28.RightContext := pRightContext;
+   With_28.PatternNr := pPatternNr;
+   With_28.Position := pPosition;
     
   END;
   RETURN yyt;

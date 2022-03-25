@@ -80,16 +80,16 @@ PROCEDURE MakeDState    (): DStateRange =
       IF LOOPHOLE (DStateCount,SHORTINT) = TableSize THEN
          ExtendArray (LOOPHOLE(TablePtr,ADDRESS), TableSize, BYTESIZE (DStateInfo));
       END;
-      WITH m2tom3_with_5=TablePtr^[DStateCount] DO
+      WITH With_5=TablePtr^[DStateCount] DO
          RowSize        := ORD (LastCh) + 1;
-         MakeArray (LOOPHOLE(m2tom3_with_5.Row,ADDRESS), RowSize, BYTESIZE (DStateRange));
-         FOR Ch := '\000' TO LastCh DO m2tom3_with_5.Row^[Ch] := DNoState; END;
-         MakeSet (m2tom3_with_5.Semantics, PatternCount   );
-         m2tom3_with_5.Default  := DNoState;
-         MakeSet (m2tom3_with_5.StartSet , StartStateCount);
-         m2tom3_with_5.EobTrans := DNoState;
-         m2tom3_with_5.FirstElmt        := LastCh;
-         m2tom3_with_5.LastElmt         := FirstCh;
+         MakeArray (LOOPHOLE(With_5.Row,ADDRESS), RowSize, BYTESIZE (DStateRange));
+         FOR Ch := '\000' TO LastCh DO With_5.Row^[Ch] := DNoState; END;
+         MakeSet (With_5.Semantics, PatternCount   );
+         With_5.Default  := DNoState;
+         MakeSet (With_5.StartSet , StartStateCount);
+         With_5.EobTrans := DNoState;
+         With_5.FirstElmt        := LastCh;
+         With_5.LastElmt         := FirstCh;
       END;
       RETURN DStateCount;
    END MakeDState;
@@ -152,14 +152,14 @@ PROCEDURE GetTable      (State: DStateRange; Ch: CHAR): DStateRange =
 
 PROCEDURE PutTable      (State: DStateRange; Ch: CHAR; NextState: DStateRange) =
    BEGIN
-      WITH m2tom3_with_6=TablePtr^[State] DO
-         m2tom3_with_6.Row^[Ch] := NextState;
+      WITH With_6=TablePtr^[State] DO
+         With_6.Row^[Ch] := NextState;
          IF NextState # DNoState THEN                   (* Include *)
-            IF Ch < m2tom3_with_6.FirstElmt THEN m2tom3_with_6.FirstElmt := Ch; END;
-            IF Ch > m2tom3_with_6.LastElmt  THEN m2tom3_with_6.LastElmt  := Ch; END;
+            IF Ch < With_6.FirstElmt THEN With_6.FirstElmt := Ch; END;
+            IF Ch > With_6.LastElmt  THEN With_6.LastElmt  := Ch; END;
          ELSE                                           (* Exclude *)
-            IF (Ch = m2tom3_with_6.FirstElmt) AND (Ch < LastCh) THEN INC (m2tom3_with_6.FirstElmt); END;
-            IF (Ch = m2tom3_with_6.LastElmt) AND (Ch > FirstCh) THEN DEC (m2tom3_with_6.LastElmt ); END;
+            IF (Ch = With_6.FirstElmt) AND (Ch < LastCh) THEN INC (With_6.FirstElmt); END;
+            IF (Ch = With_6.LastElmt) AND (Ch > FirstCh) THEN DEC (With_6.LastElmt ); END;
 (*          
             IF Ch = FirstElmt THEN
                WHILE (FirstElmt < LastElmt) AND (Row^[FirstElmt] = DNoState) DO

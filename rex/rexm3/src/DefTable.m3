@@ -58,12 +58,12 @@ PROCEDURE MakeIdentDef  (
       IF DefCount = DefTableSize THEN
          ExtendArray (LOOPHOLE(DefTablePtr,ADDRESS), DefTableSize, BYTESIZE (DefType));
       END;
-      WITH m2tom3_with_1=DefTablePtr^[DefCount] DO
-         m2tom3_with_1.Symbol           := pSymbol      ;
-         m2tom3_with_1.Kind          := tKind.Ident  ;
-         m2tom3_with_1.Tree          := pTree        ;
-         m2tom3_with_1.LeafCount  := pLeafCount   ;
-         m2tom3_with_1.IsConstantRE  := pIsConstantRE;
+      WITH With_1=DefTablePtr^[DefCount] DO
+         With_1.Symbol           := pSymbol      ;
+         With_1.Kind          := tKind.Ident  ;
+         With_1.Tree          := pTree        ;
+         With_1.LeafCount  := pLeafCount   ;
+         With_1.IsConstantRE  := pIsConstantRE;
       END;
    END MakeIdentDef;
 
@@ -75,10 +75,10 @@ PROCEDURE MakeStartDef  (
       IF DefCount = DefTableSize THEN
          ExtendArray (LOOPHOLE(DefTablePtr,ADDRESS), DefTableSize, BYTESIZE (DefType));
       END;
-      WITH m2tom3_with_2=DefTablePtr^[DefCount] DO
-         m2tom3_with_2.Symbol           := pSymbol      ;
-         m2tom3_with_2.Kind          := tKind.Start  ;
-         m2tom3_with_2.Number          := pNumber      ;
+      WITH With_2=DefTablePtr^[DefCount] DO
+         With_2.Symbol           := pSymbol      ;
+         With_2.Kind          := tKind.Start  ;
+         With_2.Number          := pNumber      ;
       END;
    END MakeStartDef;
 
@@ -106,11 +106,11 @@ PROCEDURE GetIdentDef   (
       VAR pLeafCount    : SHORTCARD     ;
       VAR pIsConstantRE : BOOLEAN       ) =
    BEGIN
-      WITH m2tom3_with_3=DefTablePtr^[pDef] DO
-         pSymbol        := m2tom3_with_3.Symbol ;
-         pTree          := m2tom3_with_3.Tree          ;
-         pLeafCount     := m2tom3_with_3.LeafCount  ;
-         pIsConstantRE  := m2tom3_with_3.IsConstantRE  ;
+      WITH With_3=DefTablePtr^[pDef] DO
+         pSymbol        := With_3.Symbol ;
+         pTree          := With_3.Tree          ;
+         pLeafCount     := With_3.LeafCount  ;
+         pIsConstantRE  := With_3.IsConstantRE  ;
       END;
    END GetIdentDef;
 
@@ -119,9 +119,9 @@ PROCEDURE GetStartDef   (
       VAR pSymbol       : tIdent        ;
       VAR pNumber       : SHORTCARD     ) =
    BEGIN
-      WITH m2tom3_with_4=DefTablePtr^[pDef] DO
-         pSymbol        := m2tom3_with_4.Symbol ;
-         pNumber        := m2tom3_with_4.Number  ;
+      WITH With_4=DefTablePtr^[pDef] DO
+         pSymbol        := With_4.Symbol ;
+         pNumber        := With_4.Number  ;
       END;
    END GetStartDef;
 

@@ -182,10 +182,10 @@ PROCEDURE ComputeNfa() =
          WHILE patternList # NoTree DO
             pattern := patternList^.vNode2.Son2;
             PatternNr := pattern^.vNodePattern.PatternNr;
-            WITH m2tom3_with_7=PatternTablePtr^[PatternNr] DO
-               m2tom3_with_7.Rule             := RuleNr;
-               m2tom3_with_7.ContextLng       := NoContext;
-               m2tom3_with_7.Position         := pattern^.vNodePattern.Position;
+            WITH With_7=PatternTablePtr^[PatternNr] DO
+               With_7.Rule             := RuleNr;
+               With_7.ContextLng       := NoContext;
+               With_7.Position         := pattern^.vNodePattern.Position;
             END;
             IF NOT pattern^.vNodePattern.IsConstantRE THEN
                AttributeEvaluator (pattern^.vNodePattern.RegExpr, t1, f1, o1);

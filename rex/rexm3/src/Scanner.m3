@@ -1070,16 +1070,16 @@ PROCEDURE yyInitialize() =
    BEGIN
       IF yyFileStackPtr >= yyFileStackSize THEN yyErrorMessage (3); END;
       INC (yyFileStackPtr);                     (* push file *)
-      WITH m2tom3_with_11=yyFileStack [yyFileStackPtr] DO
-         m2tom3_with_11.SourceFile      := yySourceFile         ;
-         m2tom3_with_11.Eof             := yyEof                ;
-         m2tom3_with_11.ChBufferPtr     := yyChBufferPtr        ;
-         m2tom3_with_11.ChBufferStart   := yyChBufferStart      ;
-         m2tom3_with_11.ChBufferSize    := yyChBufferSize       ;
-         m2tom3_with_11.ChBufferIndex   := yyChBufferIndex      ;
-         m2tom3_with_11.BytesRead       := yyBytesRead          ;
-         m2tom3_with_11.LineCount       := yyLineCount          ;
-         m2tom3_with_11.LineStart       := yyLineStart          ;
+      WITH With_11=yyFileStack [yyFileStackPtr] DO
+         With_11.SourceFile      := yySourceFile         ;
+         With_11.Eof             := yyEof                ;
+         With_11.ChBufferPtr     := yyChBufferPtr        ;
+         With_11.ChBufferStart   := yyChBufferStart      ;
+         With_11.ChBufferSize    := yyChBufferSize       ;
+         With_11.ChBufferIndex   := yyChBufferIndex      ;
+         With_11.BytesRead       := yyBytesRead          ;
+         With_11.LineCount       := yyLineCount          ;
+         With_11.LineStart       := yyLineStart          ;
       END;
                                                 (* initialize file state *)
       yyChBufferSize    := yyInitBufferSize;
@@ -1102,16 +1102,16 @@ PROCEDURE CloseFile() =
       IF yyFileStackPtr = 0 THEN yyErrorMessage (4); END;
       Source.CloseSource (yySourceFile);
       DynArray.ReleaseArray (yyChBufferPtr, yyChBufferSize, BYTESIZE (CHAR));
-      WITH m2tom3_with_12=yyFileStack [yyFileStackPtr] DO       (* pop file *)
-         yySourceFile   := m2tom3_with_12.SourceFile            ;
-         yyEof          := m2tom3_with_12.Eof                   ;
-         yyChBufferPtr  := m2tom3_with_12.ChBufferPtr           ;
-         yyChBufferStart:= m2tom3_with_12.ChBufferStart ;
-         yyChBufferSize := m2tom3_with_12.ChBufferSize          ;
-         yyChBufferIndex:= m2tom3_with_12.ChBufferIndex ;
-         yyBytesRead    := m2tom3_with_12.BytesRead             ;
-         yyLineCount    := m2tom3_with_12.LineCount             ;
-         yyLineStart    := m2tom3_with_12.LineStart             ;
+      WITH With_12=yyFileStack [yyFileStackPtr] DO       (* pop file *)
+         yySourceFile   := With_12.SourceFile            ;
+         yyEof          := With_12.Eof                   ;
+         yyChBufferPtr  := With_12.ChBufferPtr           ;
+         yyChBufferStart:= With_12.ChBufferStart ;
+         yyChBufferSize := With_12.ChBufferSize          ;
+         yyChBufferIndex:= With_12.ChBufferIndex ;
+         yyBytesRead    := With_12.BytesRead             ;
+         yyLineCount    := With_12.LineCount             ;
+         yyLineStart    := With_12.LineStart             ;
       END;
       DEC (yyFileStackPtr);             
    END CloseFile;
