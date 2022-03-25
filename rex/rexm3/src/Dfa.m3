@@ -360,7 +360,7 @@ UNSAFE MODULE Dfa
           ; EXIT 
           END (* IF *) 
         ; GetDSemantics ( State , dSemantics ) 
-         (* IF IsEqual (dSemantics, DBPtr^[Block].Semantics) THEN EXIT; END; *) 
+     (* ; IF IsEqual (dSemantics, DBPtr^[Block].Semantics) THEN EXIT END *)  
         ; IF ( IsEmpty ( dSemantics ) 
                AND IsEmpty ( DBPtr ^ [ Block ] . Semantics ) 
              ) 
