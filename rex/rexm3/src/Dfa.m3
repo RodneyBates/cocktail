@@ -204,16 +204,16 @@ UNSAFE MODULE Dfa
             DEC ( With_6 . LastElmt ) 
           END (* IF *) 
 (* 
-            IF Ch = FirstElmt THEN 
+          ; IF Ch = FirstElmt THEN 
                WHILE (FirstElmt < LastElmt) AND (Row^[FirstElmt] = DNoState) DO 
-                  INC (FirstElmt); 
-               END; 
-            END; 
-            IF Ch = LastElmt THEN 
+                  INC (FirstElmt) 
+               END 
+            END 
+          ; IF Ch = LastElmt THEN 
                WHILE (LastElmt > FirstElmt) AND (Row^[LastElmt] = DNoState) DO 
-                  DEC (LastElmt); 
-               END; 
-            END; 
+                  DEC (LastElmt) 
+               END 
+            END 
 *) 
         END (* IF *) 
       END (* WITH *) 
@@ -885,7 +885,7 @@ UNSAFE MODULE Dfa
       ; Intersection ( Current , Cyclics ) 
       ; Include ( Current , State ) 
       ; Assign ( Next , Current ) 
-                                                (* Intersection (Next, CyclicStates); *) 
+   (* ; Intersection (Next, CyclicStates) *) 
       ; FOR i := Minimum ( Next ) TO Maximum ( Next ) 
         DO IF NOT IsElement ( i , CyclicStates ) 
            THEN 
@@ -974,7 +974,7 @@ UNSAFE MODULE Dfa
            ; IF DBPtr ^ [ State1 ] . Savings > 0 
              THEN 
                Assign ( Next , Current ) 
-                                                (* Intersection (Next, CyclicStates); *) 
+          (* ; Intersection (Next, CyclicStates) *) 
              ; FOR i := Minimum ( Next ) TO Maximum ( Next ) 
                DO IF NOT IsElement ( i , CyclicStates ) 
                   THEN 

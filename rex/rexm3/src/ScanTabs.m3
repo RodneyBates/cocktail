@@ -510,7 +510,7 @@ PROCEDURE GetTable (Address: ADDRESS): CARDINAL;
                 IF ( ControlPtr ^ [ base + ORD ( Ch ) ] . Check # DNoState ) 
                 THEN 
                   Success := FALSE 
-                        (* INC (base, ORD (Ch) - ORD (StartCh)); *) 
+             (* ; INC (base, ORD (Ch) - ORD (StartCh)) *) 
                 ; EXIT 
                 END (* IF *) 
               ; IF Ch = StopCh THEN EXIT END (* IF *) 
