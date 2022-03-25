@@ -78,18 +78,18 @@ UNSAFE MODULE Idents
     ; lIdentCount : tIdent 
 
   ; BEGIN (* MakeOrLookup *) 
-      WITH m2tom3_with_4 = s 
+      WITH With_4 = s 
       DO                                                        (* hash *) 
-         IF m2tom3_with_4 . Length = 0 
+         IF With_4 . Length = 0 
          THEN 
            HashTableIndex := 0 
          ELSE 
            HashTableIndex 
-             := ( ORD ( m2tom3_with_4 . Chars [ 1 ] ) 
-                  + ( ORD ( m2tom3_with_4 . Chars [ m2tom3_with_4 . Length ] ) 
+             := ( ORD ( With_4 . Chars [ 1 ] ) 
+                  + ( ORD ( With_4 . Chars [ With_4 . Length ] ) 
                       * 11 
                     ) 
-                  + m2tom3_with_4 . Length * 26 
+                  + With_4 . Length * 26 
                 ) 
                 MOD HashTableSize 
          END (* IF *) 
@@ -98,13 +98,13 @@ UNSAFE MODULE Idents
     ; CurIdent := HashTable [ HashTableIndex ]  (* search *) 
     ; LOOP 
         IF CurIdent = cNoIdent THEN EXIT END (* IF *) 
-      ; WITH m2tom3_with_5 = TablePtr ^ [ CurIdent ] 
-        DO IF ( m2tom3_with_5 . Length = s . Length ) 
-              AND IsEqual ( m2tom3_with_5 . String , s ) 
+      ; WITH With_5 = TablePtr ^ [ CurIdent ] 
+        DO IF ( With_5 . Length = s . Length ) 
+              AND IsEqual ( With_5 . String , s ) 
            THEN 
              RETURN CurIdent                    (* found *) 
            END (* IF *) 
-        ; CurIdent := m2tom3_with_5 . Collision 
+        ; CurIdent := With_5 . Collision 
         END (* WITH *) 
       END (* LOOP *) 
 
@@ -120,10 +120,10 @@ UNSAFE MODULE Idents
             , BYTESIZE ( IdentTableEntry ) 
             ) 
         END (* IF *) 
-      ; WITH m2tom3_with_6 = TablePtr ^ [ IdentCount ] 
-        DO m2tom3_with_6 . String := PutString ( s ) 
-        ; m2tom3_with_6 . Length := s . Length 
-        ; m2tom3_with_6 . Collision := HashTable [ HashTableIndex ] 
+      ; WITH With_6 = TablePtr ^ [ IdentCount ] 
+        DO With_6 . String := PutString ( s ) 
+        ; With_6 . Length := s . Length 
+        ; With_6 . Collision := HashTable [ HashTableIndex ] 
         END (* WITH *) 
       ; HashTable [ HashTableIndex ] := IdentCount 
       ; RETURN IdentCount 
@@ -147,8 +147,8 @@ UNSAFE MODULE Idents
 ; PROCEDURE GetString ( i : tIdent ; VAR s : tString ) 
 
   = BEGIN (* GetString *) 
-      WITH m2tom3_with_7 = TablePtr ^ [ i ] 
-      DO StringMem . GetString ( m2tom3_with_7 . String , s ) 
+      WITH With_7 = TablePtr ^ [ i ] 
+      DO StringMem . GetString ( With_7 . String , s ) 
       END (* WITH *) 
     END GetString 
 

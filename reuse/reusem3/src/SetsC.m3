@@ -97,29 +97,29 @@ UNSAFE MODULE SetsC
 ; PROCEDURE PrintSet ( Set : tSet ) 
 
   = BEGIN (* PrintSet *) 
-      WITH m2tom3_with_25 = Set 
+      WITH With_25 = Set 
       DO WriteT ( StdError , "BitsetPtr = " ) 
       ; WriteN 
           ( StdError 
-          , LOOPHOLE ( m2tom3_with_25 . BitsetPtr , INTEGER ) 
+          , LOOPHOLE ( With_25 . BitsetPtr , INTEGER ) 
           , 0 
           , 16 
           ) 
       ; WriteNl ( StdError ) 
       ; WriteT ( StdError , "MaxElmt   = " ) 
-      ; WriteI ( StdError , VAL ( m2tom3_with_25 . MaxElmt , INTEGER ) , 0 ) 
+      ; WriteI ( StdError , VAL ( With_25 . MaxElmt , INTEGER ) , 0 ) 
       ; WriteNl ( StdError ) 
       ; WriteT ( StdError , "LastBitset= " ) 
-      ; WriteI ( StdError , VAL ( m2tom3_with_25 . LastBitset , INTEGER ) , 0 ) 
+      ; WriteI ( StdError , VAL ( With_25 . LastBitset , INTEGER ) , 0 ) 
       ; WriteNl ( StdError ) 
       ; WriteT ( StdError , "Card      = " ) 
-      ; WriteI ( StdError , VAL ( m2tom3_with_25 . Card , INTEGER ) , 0 ) 
+      ; WriteI ( StdError , VAL ( With_25 . Card , INTEGER ) , 0 ) 
       ; WriteNl ( StdError ) 
       ; WriteT ( StdError , "FirstElmt = " ) 
-      ; WriteI ( StdError , VAL ( m2tom3_with_25 . FirstElmt , INTEGER ) , 0 ) 
+      ; WriteI ( StdError , VAL ( With_25 . FirstElmt , INTEGER ) , 0 ) 
       ; WriteNl ( StdError ) 
       ; WriteT ( StdError , "LastElmt  = " ) 
-      ; WriteI ( StdError , VAL ( m2tom3_with_25 . LastElmt , INTEGER ) , 0 ) 
+      ; WriteI ( StdError , VAL ( With_25 . LastElmt , INTEGER ) , 0 ) 
       ; WriteNl ( StdError ) 
       END (* WITH *) 
     END PrintSet 

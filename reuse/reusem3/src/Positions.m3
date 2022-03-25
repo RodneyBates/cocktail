@@ -21,20 +21,20 @@ UNSAFE MODULE Positions
 ; PROCEDURE Compare ( Position1 , Position2 : tPosition ) : INTEGER 
 
   = BEGIN (* Compare *) 
-      WITH m2tom3_with_23 = Position1 
-      DO IF m2tom3_with_23 . Line < Position2 . Line 
+      WITH With_23 = Position1 
+      DO IF With_23 . Line < Position2 . Line 
          THEN 
            RETURN - 1 
          END (* IF *) 
-      ; IF m2tom3_with_23 . Line > Position2 . Line 
+      ; IF With_23 . Line > Position2 . Line 
         THEN 
           RETURN 1 
         END (* IF *) 
-      ; IF m2tom3_with_23 . Column < Position2 . Column 
+      ; IF With_23 . Column < Position2 . Column 
         THEN 
           RETURN - 1 
         END (* IF *) 
-      ; IF m2tom3_with_23 . Column > Position2 . Column 
+      ; IF With_23 . Column > Position2 . Column 
         THEN 
           RETURN 1 
         END (* IF *) 

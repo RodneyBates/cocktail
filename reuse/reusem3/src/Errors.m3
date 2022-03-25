@@ -297,64 +297,51 @@ UNSAFE MODULE Errors
       Sort ( 1 , MessageCount , IsLess , Swap ) 
     ; Out := File 
     ; FOR i := 1 TO MessageCount 
-      DO WITH m2tom3_with_1 = ErrorTable [ i ] 
+      DO WITH With_1 = ErrorTable [ i ] 
          DO CASE 
-              m2tom3_with_1 . InfoClass (* $$ m2tom3 warning: application of variant field, possible cast of 'InfoClass' in line 193 
- $$ *)      OF Integer 
+              With_1 . InfoClass       OF Integer 
             => Info 
                  := ADR 
-                      ( m2tom3_with_1 . vInteger (* $$ m2tom3 warning: application of variant field, possible cast of 'vInteger' in line 194 
- $$ *)                ) 
+                      ( With_1 . vInteger                 ) 
             | Short 
             => Info 
                  := ADR 
-                      ( m2tom3_with_1 . vShort (* $$ m2tom3 warning: application of variant field, possible cast of 'vShort' in line 195 
- $$ *)                ) 
+                      ( With_1 . vShort                 ) 
             | Long 
             => Info 
                  := ADR 
-                      ( m2tom3_with_1 . vLong (* $$ m2tom3 warning: application of variant field, possible cast of 'vLong' in line 196 
- $$ *)                ) 
+                      ( With_1 . vLong                 ) 
             | Real 
             => Info 
                  := ADR 
-                      ( m2tom3_with_1 . vReal (* $$ m2tom3 warning: application of variant field, possible cast of 'vReal' in line 197 
- $$ *)                ) 
+                      ( With_1 . vReal                 ) 
             | Boolean 
             => Info 
                  := ADR 
-                      ( m2tom3_with_1 . vBoolean (* $$ m2tom3 warning: application of variant field, possible cast of 'vBoolean' in line 198 
- $$ *)                ) 
+                      ( With_1 . vBoolean                 ) 
             | Character 
             => Info 
                  := ADR 
-                      ( m2tom3_with_1 . vCharacter (* $$ m2tom3 warning: application of variant field, possible cast of 'vCharacter' in line 199 
- $$ *)                ) 
+                      ( With_1 . vCharacter                 ) 
             | String 
             => GetString 
-                 ( m2tom3_with_1 . vString (* $$ m2tom3 warning: application of variant field, possible cast of 'vString' in line 200 
- $$ *)           , s 
+                 ( With_1 . vString            , s 
                  ) 
             ; Info := ADR ( s ) 
             | Set 
             => Info 
-                 := m2tom3_with_1 . vSet (* $$ m2tom3 warning: application of variant field, possible cast of 'vSet' in line 201 
- $$ *)      | Ident 
+                 := With_1 . vSet       | Ident 
             => Info 
                  := ADR 
-                      ( m2tom3_with_1 . vIdent (* $$ m2tom3 warning: application of variant field, possible cast of 'vIdent' in line 202 
- $$ *)                ) 
+                      ( With_1 . vIdent                 ) 
             ELSE 
             END (* CASE *) 
          ; WriteMessage 
-             ( m2tom3_with_1 . IsErrorCode 
-             , m2tom3_with_1 . ErrorCode 
-             , m2tom3_with_1 . ErrorClass 
-             , m2tom3_with_1 . Position 
-             , m2tom3_with_1 . InfoClass 
-
-              (* $$ m2tom3 warning: application of variant field, possible cast of 'InfoClass' in line 208*) 
-
+             ( With_1 . IsErrorCode 
+             , With_1 . ErrorCode 
+             , With_1 . ErrorClass 
+             , With_1 . Position 
+             , With_1 . InfoClass 
              , Info 
              ) 
          END (* WITH *) 
@@ -386,79 +373,63 @@ UNSAFE MODULE Errors
       IF MessageCount < MaxError 
       THEN 
         INC ( MessageCount ) 
-      ; WITH m2tom3_with_2 = ErrorTable [ MessageCount ] 
-        DO m2tom3_with_2 . Position := pPosition 
-        ; m2tom3_with_2 . IsErrorCode := pIsErrorCode 
-        ; m2tom3_with_2 . ErrorNumber := VAL ( MessageCount , SHORTCARD ) 
-        ; m2tom3_with_2 . ErrorCode := VAL ( pErrorCode , SHORTCARD ) 
-        ; m2tom3_with_2 . ErrorClass := VAL ( pErrorClass , SHORTCARD ) 
-        ; m2tom3_with_2 . InfoClass (* $$ m2tom3 warning: application of variant field, possible cast of 'InfoClass' in line 238 
- $$ *)      := VAL ( pInfoClass , SHORTCARD ) 
+      ; WITH With_2 = ErrorTable [ MessageCount ] 
+        DO With_2 . Position := pPosition 
+        ; With_2 . IsErrorCode := pIsErrorCode 
+        ; With_2 . ErrorNumber := VAL ( MessageCount , SHORTCARD ) 
+        ; With_2 . ErrorCode := VAL ( pErrorCode , SHORTCARD ) 
+        ; With_2 . ErrorClass := VAL ( pErrorClass , SHORTCARD ) 
+        ; With_2 . InfoClass       := VAL ( pInfoClass , SHORTCARD ) 
         ; CASE 
-            m2tom3_with_2 . InfoClass (* $$ m2tom3 warning: application of variant field, possible cast of 'InfoClass' in line 239 
- $$ *)    OF Integer 
+            With_2 . InfoClass     OF Integer 
           => PtrToInteger := pInfo 
-          ; m2tom3_with_2 . vInteger (* $$ m2tom3 warning: application of variant field, possible cast of 'vInteger' in line 240 
- $$ *)        := PtrToInteger ^ 
+          ; With_2 . vInteger         := PtrToInteger ^ 
           | Short 
           => PtrToShort := pInfo 
-          ; m2tom3_with_2 . vShort (* $$ m2tom3 warning: application of variant field, possible cast of 'vShort' in line 241 
- $$ *)        := VAL ( PtrToShort ^ , INTEGER ) 
+          ; With_2 . vShort         := VAL ( PtrToShort ^ , INTEGER ) 
           | Long 
           => PtrToLong := pInfo 
-          ; m2tom3_with_2 . vLong (* $$ m2tom3 warning: application of variant field, possible cast of 'vLong' in line 242 
- $$ *)        := VAL ( PtrToLong ^ , INTEGER ) 
+          ; With_2 . vLong         := VAL ( PtrToLong ^ , INTEGER ) 
           | Real 
           => PtrToReal := pInfo 
-          ; m2tom3_with_2 . vReal (* $$ m2tom3 warning: application of variant field, possible cast of 'vReal' in line 243 
- $$ *)        := PtrToReal ^ 
+          ; With_2 . vReal         := PtrToReal ^ 
           | Boolean 
           => PtrToBoolean := pInfo 
-          ; m2tom3_with_2 . vBoolean (* $$ m2tom3 warning: application of variant field, possible cast of 'vBoolean' in line 244 
- $$ *)        := PtrToBoolean ^ 
+          ; With_2 . vBoolean         := PtrToBoolean ^ 
           | Character 
           => PtrToCharacter := pInfo 
-          ; m2tom3_with_2 . vCharacter (* $$ m2tom3 warning: application of variant field, possible cast of 'vCharacter' in line 245 
- $$ *)        := PtrToCharacter ^ 
+          ; With_2 . vCharacter         := PtrToCharacter ^ 
           | String 
           => PtrToString := pInfo 
-          ; m2tom3_with_2 . vString (* $$ m2tom3 warning: application of variant field, possible cast of 'vString' in line 246 
- $$ *)        := PutString ( PtrToString ^ ) 
+          ; With_2 . vString         := PutString ( PtrToString ^ ) 
           | Array 
           => PtrToArray := pInfo 
           ; ArrayToString ( PtrToArray ^ , s ) 
-          ; m2tom3_with_2 . InfoClass (* $$ m2tom3 warning: application of variant field, possible cast of 'InfoClass' in line 248 
- $$ *)        := String 
-          ; m2tom3_with_2 . vArray (* $$ m2tom3 warning: application of variant field, possible cast of 'vArray' in line 248 
- $$ *)        := PutString ( s ) 
+          ; With_2 . InfoClass         := String 
+          ; With_2 . vArray         := PutString ( s ) 
           | Set 
           => PtrToSet := pInfo 
-          ; m2tom3_with_2 . vSet (* $$ m2tom3 warning: application of variant field, possible cast of 'vSet' in line 249 
- $$ *)        := Alloc ( BYTESIZE ( tSet ) ) 
+          ; With_2 . vSet         := Alloc ( BYTESIZE ( tSet ) ) 
           ; MakeSet 
-              ( m2tom3_with_2 . vSet (* $$ m2tom3 warning: application of variant field, possible cast of 'vSet' in line 250 
- $$ *)          ^ 
+              ( With_2 . vSet           ^ 
               , Size ( PtrToSet ^ ) 
               ) 
           ; Assign 
-              ( m2tom3_with_2 . vSet (* $$ m2tom3 warning: application of variant field, possible cast of 'vSet' in line 251 
- $$ *)          ^ 
+              ( With_2 . vSet           ^ 
               , PtrToSet ^ 
               ) 
           | Ident 
           => PtrToIdent := pInfo 
-          ; m2tom3_with_2 . vIdent (* $$ m2tom3 warning: application of variant field, possible cast of 'vIdent' in line 252 
- $$ *)        := PtrToIdent ^ 
+          ; With_2 . vIdent         := PtrToIdent ^ 
           ELSE 
           END (* CASE *) 
         END (* WITH *) 
       ELSE 
-        WITH m2tom3_with_3 = ErrorTable [ MessageCount ] 
-        DO m2tom3_with_3 . IsErrorCode := TRUE 
-        ; m2tom3_with_3 . ErrorCode := TooManyErrors 
-        ; m2tom3_with_3 . ErrorClass := Restriction 
-        ; m2tom3_with_3 . InfoClass (* $$ m2tom3 warning: application of variant field, possible cast of 'InfoClass' in line 261 
- $$ *)      := None 
+        WITH With_3 = ErrorTable [ MessageCount ] 
+        DO With_3 . IsErrorCode := TRUE 
+        ; With_3 . ErrorCode := TooManyErrors 
+        ; With_3 . ErrorClass := Restriction 
+        ; With_3 . InfoClass       := None 
         END (* WITH *) 
       END (* IF *) 
     ; IF pErrorClass = Fatal 

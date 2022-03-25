@@ -283,15 +283,15 @@ PROCEDURE IsCyclic      (Rel: tRelation): BOOLEAN;
   = VAR aj : tSet 
 
   ; BEGIN (* Closure *)                 (* Warshall *) 
-      WITH m2tom3_with_24 = Rel 
-      DO FOR j := 0 TO m2tom3_with_24 . Max1 
-         DO IF NOT Sets . IsEmpty ( m2tom3_with_24 . ArrayPtr ^ [ j ] ) 
+      WITH With_24 = Rel 
+      DO FOR j := 0 TO With_24 . Max1 
+         DO IF NOT Sets . IsEmpty ( With_24 . ArrayPtr ^ [ j ] ) 
             THEN 
-              aj := m2tom3_with_24 . ArrayPtr ^ [ j ] 
-            ; FOR i := 0 TO m2tom3_with_24 . Max1 
-              DO IF Sets . IsElement ( j , m2tom3_with_24 . ArrayPtr ^ [ i ] ) 
+              aj := With_24 . ArrayPtr ^ [ j ] 
+            ; FOR i := 0 TO With_24 . Max1 
+              DO IF Sets . IsElement ( j , With_24 . ArrayPtr ^ [ i ] ) 
                  THEN 
-                   Sets . Union ( m2tom3_with_24 . ArrayPtr ^ [ i ] , aj ) 
+                   Sets . Union ( With_24 . ArrayPtr ^ [ i ] , aj ) 
                  END (* IF *) 
               END (* FOR *) 
             END (* IF *) 

@@ -31,11 +31,11 @@ UNSAFE MODULE Strings
 
    (* s1 := s2; *) 
 
-      WITH m2tom3_with_49 = s2 
-      DO FOR i := 1 TO m2tom3_with_49 . Length 
-         DO s1 . Chars [ i ] := m2tom3_with_49 . Chars [ i ] 
+      WITH With_49 = s2 
+      DO FOR i := 1 TO With_49 . Length 
+         DO s1 . Chars [ i ] := With_49 . Chars [ i ] 
          END (* FOR *) 
-      ; s1 . Length := m2tom3_with_49 . Length 
+      ; s1 . Length := With_49 . Length 
       END (* WITH *) 
     END Assign 
 
@@ -58,12 +58,12 @@ UNSAFE MODULE Strings
       THEN 
         Error ( ) 
       ELSE 
-        WITH m2tom3_with_50 = s1 
+        WITH With_50 = s1 
         DO FOR i := 1 TO s2 . Length 
-           DO m2tom3_with_50 . Chars [ m2tom3_with_50 . Length + i ] 
+           DO With_50 . Chars [ With_50 . Length + i ] 
                 := s2 . Chars [ i ] 
            END (* FOR *) 
-        ; INC ( m2tom3_with_50 . Length , s2 . Length ) 
+        ; INC ( With_50 . Length , s2 . Length ) 
         END (* WITH *) 
       END (* IF *) 
     END Concatenate 
@@ -160,11 +160,11 @@ UNSAFE MODULE Strings
    (* PRE 1 <=  to  <= Length (s1)                      *) 
 
   = BEGIN (* SubString *) 
-      WITH m2tom3_with_51 = s2 
-      DO m2tom3_with_51 . Length := 0 
+      WITH With_51 = s2 
+      DO With_51 . Length := 0 
       ; FOR i := from TO to 
-        DO INC ( m2tom3_with_51 . Length ) 
-        ; m2tom3_with_51 . Chars [ m2tom3_with_51 . Length ] 
+        DO INC ( With_51 . Length ) 
+        ; With_51 . Chars [ With_51 . Length ] 
             := s1 . Chars [ i ] 
         END (* FOR *) 
       END (* WITH *) 
