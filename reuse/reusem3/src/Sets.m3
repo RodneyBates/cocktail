@@ -1,4 +1,3 @@
-
 (* RMB July 98 Documentation/name changes. *) 
 
 (* RMB 97/06/05 Changed ForAllDo and IsElement to not choke on NIL 
@@ -23,7 +22,7 @@ UNSAFE MODULE Sets
 ; FROM DynArray IMPORT MakeArray , ReleaseArray 
 
 ; FROM ReuseIO 
-  IMPORT tFile , StdError , ReadCard , ReadC , WriteCard , WriteC , WriteT  
+  IMPORT tFile , StdError , ReadCard , ReadC , WriteCard , WriteC , WriteT 
   , WriteNl 
 
 ; CONST BitsPerBitset = BITSIZE ( BITSET ) 
@@ -187,8 +186,7 @@ UNSAFE MODULE Sets
 
       ; IF With_32 . Card # VAL ( NoCard , tInternalElmt ) 
         THEN 
-          With_32 . Card 
-            := With_32 . MaxElmt + 1 - With_32 . Card 
+          With_32 . Card := With_32 . MaxElmt + 1 - With_32 . Card 
         END (* IF *) 
       ; With_32 . FirstElmt := 0 
       ; With_32 . LastElmt := With_32 . MaxElmt 
@@ -330,9 +328,7 @@ UNSAFE MODULE Sets
       WITH With_38 = Set1 
       DO i := 0 
       ; WHILE i <= With_38 . LastBitset 
-        DO IF NOT ( With_38 . BitsetPtr ^ [ i ] 
-                    <= Set2 . BitsetPtr ^ [ i ] 
-                  ) 
+        DO IF NOT ( With_38 . BitsetPtr ^ [ i ] <= Set2 . BitsetPtr ^ [ i ] ) 
            THEN 
              RETURN FALSE 
            END (* IF *) 
@@ -550,7 +546,7 @@ UNSAFE MODULE Sets
          WriteNl (f); 
       *) 
 
-        g := f 
+         g := f 
       ; WriteC ( f , '{' ) 
       ; ForallDo ( Set , WriteElmt ) 
       ; WriteC ( f , '}' ) 

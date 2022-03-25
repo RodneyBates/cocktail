@@ -1,4 +1,3 @@
-
  (* Ich, Doktor Josef Grosch, Informatiker, 8.1.1988 *) 
 
 UNSAFE MODULE Relations 

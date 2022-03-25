@@ -1,4 +1,3 @@
-
 (* $Id: Positions.mi,v 1.1 1992/08/13 13:47:25 grosch rel $ *) 
 
 (* $Log: Positions.mi,v $ 
@@ -22,22 +21,10 @@ UNSAFE MODULE Positions
 
   = BEGIN (* Compare *) 
       WITH With_23 = Position1 
-      DO IF With_23 . Line < Position2 . Line 
-         THEN 
-           RETURN - 1 
-         END (* IF *) 
-      ; IF With_23 . Line > Position2 . Line 
-        THEN 
-          RETURN 1 
-        END (* IF *) 
-      ; IF With_23 . Column < Position2 . Column 
-        THEN 
-          RETURN - 1 
-        END (* IF *) 
-      ; IF With_23 . Column > Position2 . Column 
-        THEN 
-          RETURN 1 
-        END (* IF *) 
+      DO IF With_23 . Line < Position2 . Line THEN RETURN - 1 END (* IF *) 
+      ; IF With_23 . Line > Position2 . Line THEN RETURN 1 END (* IF *) 
+      ; IF With_23 . Column < Position2 . Column THEN RETURN - 1 END (* IF *) 
+      ; IF With_23 . Column > Position2 . Column THEN RETURN 1 END (* IF *) 
       ; RETURN 0 
       END (* WITH *) 
     END Compare 

@@ -1,4 +1,3 @@
-
 (* $Id: SetsC.mi,v 1.3 1991/11/21 14:33:17 grosch rel $ *) 
 
 (* $Log: SetsC.mi,v $ 
@@ -100,11 +99,7 @@ UNSAFE MODULE SetsC
       WITH With_25 = Set 
       DO WriteT ( StdError , "BitsetPtr = " ) 
       ; WriteN 
-          ( StdError 
-          , LOOPHOLE ( With_25 . BitsetPtr , INTEGER ) 
-          , 0 
-          , 16 
-          ) 
+          ( StdError , LOOPHOLE ( With_25 . BitsetPtr , INTEGER ) , 0 , 16 ) 
       ; WriteNl ( StdError ) 
       ; WriteT ( StdError , "MaxElmt   = " ) 
       ; WriteI ( StdError , VAL ( With_25 . MaxElmt , INTEGER ) , 0 ) 

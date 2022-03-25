@@ -1,4 +1,3 @@
-
 (* $Id: Errors.mi,v 1.0 1992/08/07 14:41:59 grosch rel $ *) 
 
 (* $Log: Errors.mi,v $ 
@@ -298,42 +297,26 @@ UNSAFE MODULE Errors
     ; Out := File 
     ; FOR i := 1 TO MessageCount 
       DO WITH With_1 = ErrorTable [ i ] 
-         DO CASE 
-              With_1 . InfoClass       OF Integer 
-            => Info 
-                 := ADR 
-                      ( With_1 . vInteger                 ) 
+         DO CASE With_1 . InfoClass 
+            OF Integer 
+            => Info := ADR ( With_1 . vInteger ) 
             | Short 
-            => Info 
-                 := ADR 
-                      ( With_1 . vShort                 ) 
+            => Info := ADR ( With_1 . vShort ) 
             | Long 
-            => Info 
-                 := ADR 
-                      ( With_1 . vLong                 ) 
+            => Info := ADR ( With_1 . vLong ) 
             | Real 
-            => Info 
-                 := ADR 
-                      ( With_1 . vReal                 ) 
+            => Info := ADR ( With_1 . vReal ) 
             | Boolean 
-            => Info 
-                 := ADR 
-                      ( With_1 . vBoolean                 ) 
+            => Info := ADR ( With_1 . vBoolean ) 
             | Character 
-            => Info 
-                 := ADR 
-                      ( With_1 . vCharacter                 ) 
+            => Info := ADR ( With_1 . vCharacter ) 
             | String 
-            => GetString 
-                 ( With_1 . vString            , s 
-                 ) 
+            => GetString ( With_1 . vString , s ) 
             ; Info := ADR ( s ) 
             | Set 
-            => Info 
-                 := With_1 . vSet       | Ident 
-            => Info 
-                 := ADR 
-                      ( With_1 . vIdent                 ) 
+            => Info := With_1 . vSet 
+            | Ident 
+            => Info := ADR ( With_1 . vIdent ) 
             ELSE 
             END (* CASE *) 
          ; WriteMessage 
@@ -379,48 +362,42 @@ UNSAFE MODULE Errors
         ; With_2 . ErrorNumber := VAL ( MessageCount , SHORTCARD ) 
         ; With_2 . ErrorCode := VAL ( pErrorCode , SHORTCARD ) 
         ; With_2 . ErrorClass := VAL ( pErrorClass , SHORTCARD ) 
-        ; With_2 . InfoClass       := VAL ( pInfoClass , SHORTCARD ) 
-        ; CASE 
-            With_2 . InfoClass     OF Integer 
+        ; With_2 . InfoClass := VAL ( pInfoClass , SHORTCARD ) 
+        ; CASE With_2 . InfoClass 
+          OF Integer 
           => PtrToInteger := pInfo 
-          ; With_2 . vInteger         := PtrToInteger ^ 
+          ; With_2 . vInteger := PtrToInteger ^ 
           | Short 
           => PtrToShort := pInfo 
-          ; With_2 . vShort         := VAL ( PtrToShort ^ , INTEGER ) 
+          ; With_2 . vShort := VAL ( PtrToShort ^ , INTEGER ) 
           | Long 
           => PtrToLong := pInfo 
-          ; With_2 . vLong         := VAL ( PtrToLong ^ , INTEGER ) 
+          ; With_2 . vLong := VAL ( PtrToLong ^ , INTEGER ) 
           | Real 
           => PtrToReal := pInfo 
-          ; With_2 . vReal         := PtrToReal ^ 
+          ; With_2 . vReal := PtrToReal ^ 
           | Boolean 
           => PtrToBoolean := pInfo 
-          ; With_2 . vBoolean         := PtrToBoolean ^ 
+          ; With_2 . vBoolean := PtrToBoolean ^ 
           | Character 
           => PtrToCharacter := pInfo 
-          ; With_2 . vCharacter         := PtrToCharacter ^ 
+          ; With_2 . vCharacter := PtrToCharacter ^ 
           | String 
           => PtrToString := pInfo 
-          ; With_2 . vString         := PutString ( PtrToString ^ ) 
+          ; With_2 . vString := PutString ( PtrToString ^ ) 
           | Array 
           => PtrToArray := pInfo 
           ; ArrayToString ( PtrToArray ^ , s ) 
-          ; With_2 . InfoClass         := String 
-          ; With_2 . vArray         := PutString ( s ) 
+          ; With_2 . InfoClass := String 
+          ; With_2 . vArray := PutString ( s ) 
           | Set 
           => PtrToSet := pInfo 
-          ; With_2 . vSet         := Alloc ( BYTESIZE ( tSet ) ) 
-          ; MakeSet 
-              ( With_2 . vSet           ^ 
-              , Size ( PtrToSet ^ ) 
-              ) 
-          ; Assign 
-              ( With_2 . vSet           ^ 
-              , PtrToSet ^ 
-              ) 
+          ; With_2 . vSet := Alloc ( BYTESIZE ( tSet ) ) 
+          ; MakeSet ( With_2 . vSet ^ , Size ( PtrToSet ^ ) ) 
+          ; Assign ( With_2 . vSet ^ , PtrToSet ^ ) 
           | Ident 
           => PtrToIdent := pInfo 
-          ; With_2 . vIdent         := PtrToIdent ^ 
+          ; With_2 . vIdent := PtrToIdent ^ 
           ELSE 
           END (* CASE *) 
         END (* WITH *) 
@@ -429,7 +406,7 @@ UNSAFE MODULE Errors
         DO With_3 . IsErrorCode := TRUE 
         ; With_3 . ErrorCode := TooManyErrors 
         ; With_3 . ErrorClass := Restriction 
-        ; With_3 . InfoClass       := None 
+        ; With_3 . InfoClass := None 
         END (* WITH *) 
       END (* IF *) 
     ; IF pErrorClass = Fatal 

@@ -1,4 +1,3 @@
-
 (* $Id: Idents.mi,v 1.8 1992/06/22 14:23:18 grosch rel $ *) 
 
 (* $Log: Idents.mi,v $ 
@@ -86,9 +85,7 @@ UNSAFE MODULE Idents
          ELSE 
            HashTableIndex 
              := ( ORD ( With_4 . Chars [ 1 ] ) 
-                  + ( ORD ( With_4 . Chars [ With_4 . Length ] ) 
-                      * 11 
-                    ) 
+                  + ( ORD ( With_4 . Chars [ With_4 . Length ] ) * 11 ) 
                   + With_4 . Length * 26 
                 ) 
                 MOD HashTableSize 

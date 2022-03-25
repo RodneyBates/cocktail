@@ -1,4 +1,3 @@
-
 (* Ich, Doktor Josef Grosch, Informatiker, Sept. 1987 *) 
 
 UNSAFE MODULE Strings 
@@ -60,8 +59,7 @@ UNSAFE MODULE Strings
       ELSE 
         WITH With_50 = s1 
         DO FOR i := 1 TO s2 . Length 
-           DO With_50 . Chars [ With_50 . Length + i ] 
-                := s2 . Chars [ i ] 
+           DO With_50 . Chars [ With_50 . Length + i ] := s2 . Chars [ i ] 
            END (* FOR *) 
         ; INC ( With_50 . Length , s2 . Length ) 
         END (* WITH *) 
@@ -164,8 +162,7 @@ UNSAFE MODULE Strings
       DO With_51 . Length := 0 
       ; FOR i := from TO to 
         DO INC ( With_51 . Length ) 
-        ; With_51 . Chars [ With_51 . Length ] 
-            := s1 . Chars [ i ] 
+        ; With_51 . Chars [ With_51 . Length ] := s1 . Chars [ i ] 
         END (* FOR *) 
       END (* WITH *) 
     END SubString 
@@ -337,7 +334,11 @@ UNSAFE MODULE Strings
       ; ch := s . Chars [ i ] 
       END (* WHILE *) 
 
-    ; IF ch = '.' THEN INC ( i ) ; ch := s . Chars [ i ] END (* IF *) (* decimal point        *) 
+    ; IF ch = '.' 
+      THEN 
+        INC ( i ) 
+      ; ch := s . Chars [ i ] 
+      END (* IF *) (* decimal point        *) 
 
     ; WHILE ( '0' <= ch ) AND ( ch <= '9' ) 
       DO                                        (* fractional part      *) 
