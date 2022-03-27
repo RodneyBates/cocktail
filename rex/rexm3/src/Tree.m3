@@ -59,7 +59,7 @@ UNSAFE MODULE Tree
   ; BEGIN (* MakeTree1 *) 
       Tree := Alloc ( BYTESIZE ( Node ) ) 
     ; WITH With_29 = Tree ^ . vNode1 
-      DO With_29 . Rule := pRule 
+      DO Tree ^ . Rule := pRule 
       ; With_29 . Son1 := pSon1 
       END (* WITH *) 
     ; RETURN Tree 
@@ -72,7 +72,7 @@ UNSAFE MODULE Tree
   ; BEGIN (* MakeTree2 *) 
       Tree := Alloc ( BYTESIZE ( Node ) ) 
     ; WITH With_30 = Tree ^ . vNode2 
-      DO With_30 . Rule := pRule 
+      DO Tree ^ . Rule := pRule 
       ; With_30 . Son1 := pSon1 
       ; With_30 . Son2 := pSon2 
       END (* WITH *) 
@@ -86,7 +86,7 @@ UNSAFE MODULE Tree
   ; BEGIN (* MakeTreeCh *) 
       Tree := Alloc ( BYTESIZE ( Node ) ) 
     ; WITH With_31 = Tree ^ . vNodeCh 
-      DO With_31 . Rule := pRule 
+      DO Tree ^ . Rule := pRule 
       ; With_31 . Ch := pCh 
       END (* WITH *) 
     ; RETURN Tree 
@@ -99,7 +99,7 @@ UNSAFE MODULE Tree
   ; BEGIN (* MakeTreeSet *) 
       Tree := Alloc ( BYTESIZE ( Node ) ) 
     ; WITH With_32 = Tree ^ . vNodeSet 
-      DO With_32 . Rule := pRule 
+      DO Tree ^ . Rule := pRule 
       ; With_32 . Set := pSet 
       END (* WITH *) 
     ; RETURN Tree 
@@ -113,7 +113,7 @@ UNSAFE MODULE Tree
   ; BEGIN (* MakeTreeString *) 
       Tree := Alloc ( BYTESIZE ( Node ) ) 
     ; WITH With_33 = Tree ^ . vNodeString 
-      DO With_33 . Rule := pRule 
+      DO Tree ^ . Rule := pRule 
       ; With_33 . String := pString 
       END (* WITH *) 
     ; RETURN Tree 
@@ -132,7 +132,7 @@ UNSAFE MODULE Tree
   ; BEGIN (* MakeTreeRule *) 
       Tree := Alloc ( BYTESIZE ( Node ) ) 
     ; WITH With_34 = Tree ^ . vNodeRule 
-      DO With_34 . Rule := pRule 
+      DO Tree ^ . Rule := pRule 
       ; With_34 . Patterns := pPatterns 
       ; With_34 . TargetCode := pTargetCode 
       ; With_34 . Line := pLine 
@@ -157,7 +157,7 @@ UNSAFE MODULE Tree
   ; BEGIN (* MakeTreePattern *) 
       Tree := Alloc ( BYTESIZE ( Node ) ) 
     ; WITH With_35 = Tree ^ . vNodePattern 
-      DO With_35 . Rule := pRule 
+      DO Tree ^ . Rule := pRule 
       ; With_35 . StartStates := pStartStates 
       ; With_35 . RegExpr := pRegExpr 
       ; With_35 . RightContext := pRightContext 
@@ -182,7 +182,7 @@ UNSAFE MODULE Tree
       ; RETURN 
       END (* IF *) 
 
-    ; CASE t ^ . vNode0 . Rule 
+    ; CASE t ^ . Rule 
       OF nRule 
       => WriteT ( StdOutput , "Rule " ) 
       ; WriteI ( StdOutput , t ^ . vNodeRule . RuleNr , 1 ) 
@@ -225,8 +225,8 @@ UNSAFE MODULE Tree
       ; WriteNl ( StdOutput ) 
       END (* CASE *) 
 
-    ; IF t ^ . vNode0 . Rule # nList THEN INC ( indent , 2 ) END (* IF *) 
-    ; CASE t ^ . vNode0 . Rule 
+    ; IF t ^ . Rule # nList THEN INC ( indent , 2 ) END (* IF *) 
+    ; CASE t ^ . Rule 
       OF nRule 
       => WriteTree ( t ^ . vNodeRule . Patterns ) 
       | nList 
@@ -247,7 +247,7 @@ UNSAFE MODULE Tree
       => WriteTree ( t ^ . vNode1 . Son1 ) 
       ELSE 
       END (* CASE *) 
-    ; IF t ^ . vNode0 . Rule # nList THEN DEC ( indent , 2 ) END (* IF *) 
+    ; IF t ^ . Rule # nList THEN DEC ( indent , 2 ) END (* IF *) 
     END WriteTree 
 
 ; VAR indent : SHORTCARD 

@@ -255,7 +255,7 @@ UNSAFE MODULE GenTabs
   ; BEGIN (* ComputeLength *) 
       IF t = NoTree THEN RETURN NoContext END (* IF *) 
 
-    ; CASE t ^ . vNode0 . Rule 
+    ; CASE t ^ . Rule 
       OF nAlternative 
       => l1 := ComputeLength ( t ^ . vNode2 . Son1 ) 
       ; l2 := ComputeLength ( t ^ . vNode2 . Son2 ) 
@@ -305,7 +305,7 @@ UNSAFE MODULE GenTabs
       ; RETURN 
       END (* IF *) 
 
-    ; CASE t ^ . vNode0 . Rule 
+    ; CASE t ^ . Rule 
 
       OF nAlternative 
       => (* regExpr = Alternative (regExpr regExpr) *) 
@@ -719,7 +719,7 @@ UNSAFE MODULE GenTabs
       THEN 
         Strings . AssignEmpty ( String ) 
       ELSE 
-        CASE t ^ . vNode0 . Rule 
+        CASE t ^ . Rule 
         OF nSequence 
         => ComputeConstantRE ( t ^ . vNode2 . Son1 , String ) 
         ; ComputeConstantRE ( t ^ . vNode2 . Son2 , string2 ) 

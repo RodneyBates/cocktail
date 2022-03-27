@@ -58,23 +58,23 @@ UNSAFE INTERFACE Tree
 
 ; TYPE tTree = UNTRACED BRANDED REF Node 
 
-  ; Node0 = RECORD Rule : SHORTCARD END (* RECORD *) 
+  ; Node0 = RECORD zzRule : SHORTCARD END (* RECORD *) 
 
-  ; Node1 = RECORD Rule : SHORTCARD ; Son1 : tTree END (* RECORD *) 
+  ; Node1 = RECORD zzRule : SHORTCARD ; Son1 : tTree END (* RECORD *) 
 
   ; Node2 
-    = RECORD Rule : SHORTCARD ; Son1 : tTree ; Son2 : tTree END (* RECORD *) 
+    = RECORD zzRule : SHORTCARD ; Son1 : tTree ; Son2 : tTree END (* RECORD *) 
 
-  ; NodeCh = RECORD Rule : SHORTCARD ; Ch : CHAR END (* RECORD *) 
+  ; NodeCh = RECORD zzRule : SHORTCARD ; Ch : CHAR END (* RECORD *) 
 
-  ; NodeSet = RECORD Rule : SHORTCARD ; Set : tSet END (* RECORD *) 
+  ; NodeSet = RECORD zzRule : SHORTCARD ; Set : tSet END (* RECORD *) 
 
   ; NodeString 
-    = RECORD Rule : SHORTCARD ; String : tStringRef END (* RECORD *) 
+    = RECORD zzRule : SHORTCARD ; String : tStringRef END (* RECORD *) 
 
   ; NodeRule 
     = RECORD 
-        Rule : SHORTCARD 
+        zzRule : SHORTCARD 
       ; Patterns : tTree 
       ; TargetCode : tText 
       ; Line : SHORTCARD 
@@ -84,7 +84,7 @@ UNSAFE INTERFACE Tree
 
   ; NodePattern 
     = RECORD 
-        Rule : SHORTCARD 
+        zzRule : SHORTCARD 
       ; StartStates : tSet 
       ; RegExpr : tTree 
       ; RightContext : tTree 
@@ -95,8 +95,8 @@ UNSAFE INTERFACE Tree
 
   ; Node 
     = RECORD 
-
-        vNode0 : Node0 
+        Rule : SHORTCARD 
+      ; vNode0 : Node0 
       ; vNode1 : Node1 
       ; vNode2 : Node2 
       ; vNodeCh : NodeCh 
