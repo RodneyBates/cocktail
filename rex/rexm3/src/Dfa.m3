@@ -63,7 +63,8 @@ UNSAFE MODULE Dfa
 ; TYPE RowType = UNTRACED BRANDED REF ARRAY CHAR OF DStateRange 
   ; DStateInfo 
     = RECORD 
-        Row : RowType 
+        Row : RowType
+      ; RowSize : M2LONGINT 
       ; Semantics : tSet 
       ; Default : DStateRange 
       ; StartSet : tSet 
@@ -81,9 +82,7 @@ UNSAFE MODULE Dfa
 
 ; PROCEDURE MakeDState ( ) : DStateRange 
 
-  = VAR RowSize : M2LONGINT 
-
-  ; BEGIN (* MakeDState *) 
+  = BEGIN (* MakeDState *) 
       INC ( DStateCount ) 
     ; IF LOOPHOLE ( DStateCount , SHORTINT ) = TableSize 
       THEN 
@@ -94,12 +93,12 @@ UNSAFE MODULE Dfa
           ) 
       END (* IF *) 
     ; WITH With_5 = TablePtr ^ [ DStateCount ] 
-      DO RowSize := ORD ( LastCh ) + 1 
+      DO With_5 . RowSize := ORD ( LastCh ) + 1 
       ; MakeArray 
-          ( LOOPHOLE ( With_5 . Row , ADDRESS ) 
-          , RowSize 
+          ( (*OUT*) LOOPHOLE ( With_5 . Row , ADDRESS ) 
+          , (*INOUT*) With_5 . RowSize 
           , BYTESIZE ( DStateRange ) 
-          ) 
+          )
       ; FOR Ch := '\000' TO LastCh 
         DO With_5 . Row ^ [ Ch ] := DNoState 
         END (* FOR *) 
@@ -115,18 +114,17 @@ UNSAFE MODULE Dfa
 
 ; PROCEDURE ReleaseDState ( State : DStateRange ) 
 
-  = VAR RowSize : M2LONGINT 
-
-  ; BEGIN (* ReleaseDState *) 
+  = BEGIN (* ReleaseDState *) 
       DEC ( DStateCount ) 
-    ; RowSize := ORD ( LastCh ) + 1 
-    ; ReleaseArray 
-        ( TablePtr ^ [ State ] . Row , RowSize , BYTESIZE ( DStateRange ) ) 
-    ; ReleaseSet ( TablePtr ^ [ State ] . Semantics ) 
-    ; ReleaseSet ( TablePtr ^ [ State ] . StartSet ) 
+    ; WITH With_5a = TablePtr ^ [ State ]  
+      DO ReleaseArray 
+           ( With_5a . Row , With_5a . RowSize , BYTESIZE ( DStateRange ) ) 
+      ; ReleaseSet ( With_5a . Semantics ) 
+      ; ReleaseSet ( With_5a . StartSet )
+      END (* WITH *)
     END ReleaseDState 
 
-; PROCEDURE GetEobTrans ( State : DStateRange ) : DStateRange 
+; PROCEDURE GetEobTrans ( State : DStateRange ) : DStateRange
 
   = BEGIN (* GetEobTrans *) 
       RETURN TablePtr ^ [ State ] . EobTrans 
