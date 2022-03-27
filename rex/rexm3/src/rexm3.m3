@@ -268,9 +268,9 @@ UNSAFE MODULE rexm3 EXPORTS Main
       ; ComputeClasses ( b ) 
       ; Eval ( Tree0Root ) 
       ; IF n >= 16 THEN WriteTree0 ( StdOutput , Tree0Root ) END (* IF *) 
-      ; LeafCount := StartStateCount + Tree0Root ^ . List . LeafCount 
-      ; NodeCount := Tree0Root ^ . List . NodeCount 
-      ; Root := Tree0Root ^ . List . Tree 
+      ; LeafCount := StartStateCount + Tree0Root ^ . yyHead . LeafCount 
+      ; NodeCount := Tree0Root ^ . yyHead . NodeCount 
+      ; Root := Tree0Root ^ . yyHead . Tree 
       ; ReleaseSetMem ( ) 
       ; ReleaseTree0Module ( ) 
       ; IF n >= 15 THEN WriteTree ( Root ) END (* IF *) 

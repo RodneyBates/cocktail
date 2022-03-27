@@ -39,117 +39,127 @@ UNSAFE INTERFACE Tree0
 
 
 
-; TYPE yytNodeHead = RECORD yyKind , yyMark : SHORTCARD END (* RECORD *) 
+; TYPE yytNodeHead
+         = RECORD
+             yyMark : SHORTCARD
+           ; Tree : tTree 
+           ; IsConstantRE : BOOLEAN 
+           ; LeafCount : SHORTINT 
+           ; NodeCount : SHORTINT 
+           ; Son1 : tTree0 
+           ; Son2 : tTree0 
+           END (* RECORD *)
+
   ; yNode 
     = RECORD 
         yyHead : yytNodeHead 
-      ; Tree : tTree 
-      ; IsConstantRE : BOOLEAN 
-      ; LeafCount : SHORTINT 
-      ; NodeCount : SHORTINT 
+      ; zzTree : tTree 
+      ; zzIsConstantRE : BOOLEAN 
+      ; zzLeafCount : SHORTINT 
+      ; zzNodeCount : SHORTINT 
       END (* RECORD *) 
   ; yNode1 
     = RECORD 
         yyHead : yytNodeHead 
-      ; Tree : tTree 
-      ; IsConstantRE : BOOLEAN 
-      ; LeafCount : SHORTINT 
-      ; NodeCount : SHORTINT 
-      ; Son1 : tTree0 
+      ; zzTree : tTree 
+      ; zzIsConstantRE : BOOLEAN 
+      ; zzLeafCount : SHORTINT 
+      ; zzNodeCount : SHORTINT 
+      ; zzSon1 : tTree0 
       END (* RECORD *) 
   ; yOption 
     = RECORD 
         yyHead : yytNodeHead 
-      ; Tree : tTree 
-      ; IsConstantRE : BOOLEAN 
-      ; LeafCount : SHORTINT 
-      ; NodeCount : SHORTINT 
-      ; Son1 : tTree0 
+      ; zzTree : tTree 
+      ; zzIsConstantRE : BOOLEAN 
+      ; zzLeafCount : SHORTINT 
+      ; zzNodeCount : SHORTINT 
+      ; zzSon1 : tTree0 
       END (* RECORD *) 
   ; yRepetition 
     = RECORD 
         yyHead : yytNodeHead 
-      ; Tree : tTree 
-      ; IsConstantRE : BOOLEAN 
-      ; LeafCount : SHORTINT 
-      ; NodeCount : SHORTINT 
-      ; Son1 : tTree0 
+      ; zzTree : tTree 
+      ; zzIsConstantRE : BOOLEAN 
+      ; zzLeafCount : SHORTINT 
+      ; zzNodeCount : SHORTINT 
+      ; zzSon1 : tTree0 
       END (* RECORD *) 
   ; yNode2 
     = RECORD 
         yyHead : yytNodeHead 
-      ; Tree : tTree 
-      ; IsConstantRE : BOOLEAN 
-      ; LeafCount : SHORTINT 
-      ; NodeCount : SHORTINT 
-      ; Son1 : tTree0 
-      ; Son2 : tTree0 
+      ; zzTree : tTree 
+      ; zzIsConstantRE : BOOLEAN 
+      ; zzLeafCount : SHORTINT 
+      ; zzNodeCount : SHORTINT 
+      ; zzSon1 : tTree0 
+      ; zzSon2 : tTree0 
       END (* RECORD *) 
   ; yList 
     = RECORD 
         yyHead : yytNodeHead 
-      ; Tree : tTree 
-      ; IsConstantRE : BOOLEAN 
-      ; LeafCount : SHORTINT 
-      ; NodeCount : SHORTINT 
-      ; Son1 : tTree0 
-      ; Son2 : tTree0 
+      ; zzTree : tTree 
+      ; zzIsConstantRE : BOOLEAN 
+      ; zzLeafCount : SHORTINT 
+      ; zzNodeCount : SHORTINT 
+      ; zzSon1 : tTree0 
+      ; zzSon2 : tTree0 
       END (* RECORD *) 
   ; ySequence 
     = RECORD 
         yyHead : yytNodeHead 
-      ; Tree : tTree 
-      ; IsConstantRE : BOOLEAN 
-      ; LeafCount : SHORTINT 
-      ; NodeCount : SHORTINT 
-      ; Son1 : tTree0 
-      ; Son2 : tTree0 
+      ; zzTree : tTree 
+      ; zzIsConstantRE : BOOLEAN 
+      ; zzLeafCount : SHORTINT 
+      ; zzNodeCount : SHORTINT 
+      ; zzSon1 : tTree0 
+      ; zzSon2 : tTree0 
       END (* RECORD *) 
   ; yAlternative 
     = RECORD 
         yyHead : yytNodeHead 
-      ; Tree : tTree 
-      ; IsConstantRE : BOOLEAN 
-      ; LeafCount : SHORTINT 
-      ; NodeCount : SHORTINT 
-      ; Son1 : tTree0 
-      ; Son2 : tTree0 
+      ; zzTree : tTree 
+      ; zzIsConstantRE : BOOLEAN 
+      ; zzLeafCount : SHORTINT 
+      ; zzNodeCount : SHORTINT 
+      ; zzSon1 : tTree0 
+      ; zzSon2 : tTree0 
       END (* RECORD *) 
   ; yCh 
     = RECORD 
         yyHead : yytNodeHead 
-      ; Tree : tTree 
-      ; IsConstantRE : BOOLEAN 
-      ; LeafCount : SHORTINT 
-      ; NodeCount : SHORTINT 
+      ; zzTree : tTree 
+      ; zzIsConstantRE : BOOLEAN 
+      ; zzLeafCount : SHORTINT 
+      ; zzNodeCount : SHORTINT 
       ; Ch : CHAR 
       END (* RECORD *) 
   ; ySet 
     = RECORD 
         yyHead : yytNodeHead 
-      ; Tree : tTree 
-      ; IsConstantRE : BOOLEAN 
-      ; LeafCount : SHORTINT 
-      ; NodeCount : SHORTINT 
+      ; zzTree : tTree 
+      ; zzIsConstantRE : BOOLEAN 
+      ; zzLeafCount : SHORTINT 
+      ; zzNodeCount : SHORTINT 
       ; Set : tSet 
       ; card : SHORTCARD 
       END (* RECORD *) 
   ; yString 
     = RECORD 
         yyHead : yytNodeHead 
-      ; Tree : tTree 
-      ; IsConstantRE : BOOLEAN 
-      ; LeafCount : SHORTINT 
-      ; NodeCount : SHORTINT 
+      ; zzTree : tTree 
+      ; zzIsConstantRE : BOOLEAN 
+      ; zzLeafCount : SHORTINT 
+      ; zzNodeCount : SHORTINT 
       ; String : tStringRef 
       END (* RECORD *) 
   ; yRule 
     = RECORD 
         yyHead : yytNodeHead 
-      ; Tree : tTree 
-      ; IsConstantRE : BOOLEAN 
-      ; LeafCount : SHORTINT 
-      ; NodeCount : SHORTINT 
+      ; zzTree : tTree 
+      ; zzIsConstantRE : BOOLEAN 
+      ; zzLeafCount : SHORTINT 
+      ; zzNodeCount : SHORTINT 
       ; Patterns : tTree0 
       ; TargetCode : tText 
       ; Line : SHORTCARD 
@@ -159,10 +169,10 @@ UNSAFE INTERFACE Tree0
   ; yPattern 
     = RECORD 
         yyHead : yytNodeHead 
-      ; Tree : tTree 
-      ; IsConstantRE : BOOLEAN 
-      ; LeafCount : SHORTINT 
-      ; NodeCount : SHORTINT 
+      ; zzTree : tTree 
+      ; zzIsConstantRE : BOOLEAN 
+      ; zzLeafCount : SHORTINT 
+      ; zzNodeCount : SHORTINT 
       ; StartStates : tSet 
       ; RegExpr : tTree0 
       ; RightContext : tTree0 

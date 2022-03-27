@@ -357,7 +357,7 @@ UNSAFE MODULE Tree0
     ; INC ( yyPoolFreePtr , yyNodeSize [ Node1 ] ) 
     ; yyt ^ . yyHead . yyMark := 0 
     ; yyt ^ . Kind := Node1 
-    ; WITH With_17 = yyt ^ . Node1 
+    ; WITH With_17 = yyt ^ . Node1 . yyHead  
       DO 
 
 
@@ -382,7 +382,7 @@ UNSAFE MODULE Tree0
     ; INC ( yyPoolFreePtr , yyNodeSize [ Option ] ) 
     ; yyt ^ . yyHead . yyMark := 0 
     ; yyt ^ . Kind := Option 
-    ; WITH With_18 = yyt ^ . Option 
+    ; WITH With_18 = yyt ^ . yyHead 
       DO 
 
 
@@ -407,7 +407,7 @@ UNSAFE MODULE Tree0
     ; INC ( yyPoolFreePtr , yyNodeSize [ Repetition ] ) 
     ; yyt ^ . yyHead . yyMark := 0 
     ; yyt ^ . Kind := Repetition 
-    ; WITH With_19 = yyt ^ . Repetition 
+    ; WITH With_19 = yyt ^ . yyHead 
       DO 
 
 
@@ -432,7 +432,7 @@ UNSAFE MODULE Tree0
     ; INC ( yyPoolFreePtr , yyNodeSize [ Node2 ] ) 
     ; yyt ^ . yyHead . yyMark := 0 
     ; yyt ^ . Kind := Node2 
-    ; WITH With_20 = yyt ^ . Node2 
+    ; WITH With_20 = yyt ^ . yyHead  
       DO 
 
 
@@ -458,7 +458,7 @@ UNSAFE MODULE Tree0
     ; INC ( yyPoolFreePtr , yyNodeSize [ List ] ) 
     ; yyt ^ . yyHead . yyMark := 0 
     ; yyt ^ . Kind := List 
-    ; WITH With_21 = yyt ^ . List 
+    ; WITH With_21 = yyt ^ . yyHead  
       DO 
 
 
@@ -484,7 +484,7 @@ UNSAFE MODULE Tree0
     ; INC ( yyPoolFreePtr , yyNodeSize [ Sequence ] ) 
     ; yyt ^ . yyHead . yyMark := 0 
     ; yyt ^ . Kind := Sequence 
-    ; WITH With_22 = yyt ^ . Sequence 
+    ; WITH With_22 = yyt ^ . yyHead 
       DO 
 
 
@@ -510,7 +510,7 @@ UNSAFE MODULE Tree0
     ; INC ( yyPoolFreePtr , yyNodeSize [ Alternative ] ) 
     ; yyt ^ . yyHead . yyMark := 0 
     ; yyt ^ . Kind := Alternative 
-    ; WITH With_23 = yyt ^ . Alternative 
+    ; WITH With_23 = yyt ^ . yyHead  
       DO 
 
 
@@ -699,28 +699,28 @@ UNSAFE MODULE Tree0
 
       ; CASE yyt ^ . Kind 
         OF Node1 
-        => yyt := yyt ^ . Node1 . Son1 
+        => yyt := yyt ^ . yyHead . Son1 
         | Option 
-        => yyt := yyt ^ . Option . Son1 
+        => yyt := yyt ^ . yyHead . Son1 
         | Repetition 
-        => yyt := yyt ^ . Repetition . Son1 
+        => yyt := yyt ^ . yyHead . Son1 
         | Node2 
-        => yyMarkProc ( yyt ^ . Node2 . Son1 ) 
-        ; yyt := yyt ^ . Node2 . Son2 
+        => yyMarkProc ( yyt ^ . yyHead . Son1 ) 
+        ; yyt := yyt ^ . yyHead . Son2 
         | List 
         => 
 
            IF recCallCt = recCallStop THEN v4 := v3 END (* IF *) 
         ; INC ( recCallCt ) 
 
-        ; yyMarkProc ( yyt ^ . List . Son1 , yyt ^ . List . Son1 ) 
-        ; yyt := yyt ^ . List . Son2 
+        ; yyMarkProc ( yyt ^ . yyHead . Son1 , yyt ^ . yyHead . Son1 ) 
+        ; yyt := yyt ^ . yyHead . Son2 
         | Sequence 
-        => yyMarkProc ( yyt ^ . Sequence . Son1 ) 
-        ; yyt := yyt ^ . Sequence . Son2 
+        => yyMarkProc ( yyt ^ . yyHead . Son1 ) 
+        ; yyt := yyt ^ . yyHead . Son2 
         | Alternative 
-        => yyMarkProc ( yyt ^ . Alternative . Son1 ) 
-        ; yyt := yyt ^ . Alternative . Son2 
+        => yyMarkProc ( yyt ^ . yyHead . Son1 ) 
+        ; yyt := yyt ^ . yyHead . Son2 
         | Rule 
         => yyt := yyt ^ . Rule . Patterns 
         | Pattern 
@@ -856,18 +856,18 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Node" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH Desig_8 = yyt ^ . Node . Tree 
+    ; WITH Desig_8 = yyt ^ . yyHead . Tree 
       DO yyWriteHex ( LOOPHOLE ( Desig_8 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
-    ; ReuseIO . WriteB ( yyf , yyt ^ . Node . IsConstantRE ) 
+    ; ReuseIO . WriteB ( yyf , yyt ^ . yyHead . IsConstantRE ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "LeafCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Node . LeafCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . LeafCount , 0 ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "NodeCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Node . NodeCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . NodeCount , 0 ) 
     ; yyWriteNl ( ) 
     END yWriteNode 
 
@@ -877,18 +877,18 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Node1" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH Desig_11 = yyt ^ . Node1 . Tree 
+    ; WITH Desig_11 = yyt ^ . yyHead . Tree 
       DO yyWriteHex ( LOOPHOLE ( Desig_11 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
-    ; ReuseIO . WriteB ( yyf , yyt ^ . Node1 . IsConstantRE ) 
+    ; ReuseIO . WriteB ( yyf , yyt ^ . yyHead . IsConstantRE ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "LeafCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Node1 . LeafCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . LeafCount , 0 ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "NodeCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Node1 . NodeCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . NodeCount , 0 ) 
     ; yyWriteNl ( ) 
     END yWriteNode1 
 
@@ -898,18 +898,18 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Option" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH Desig_7 = yyt ^ . Option . Tree 
+    ; WITH Desig_7 = yyt ^ . yyHead . Tree 
       DO yyWriteHex ( LOOPHOLE ( Desig_7 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
-    ; ReuseIO . WriteB ( yyf , yyt ^ . Option . IsConstantRE ) 
+    ; ReuseIO . WriteB ( yyf , yyt ^ . yyHead . IsConstantRE ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "LeafCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Option . LeafCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . LeafCount , 0 ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "NodeCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Option . NodeCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . NodeCount , 0 ) 
     ; yyWriteNl ( ) 
     END yWriteOption 
 
@@ -919,18 +919,18 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Repetition" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH Desig_12 = yyt ^ . Repetition . Tree 
+    ; WITH Desig_12 = yyt ^ . yyHead . Tree 
       DO yyWriteHex ( LOOPHOLE ( Desig_12 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
-    ; ReuseIO . WriteB ( yyf , yyt ^ . Repetition . IsConstantRE ) 
+    ; ReuseIO . WriteB ( yyf , yyt ^ . yyHead . IsConstantRE ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "LeafCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Repetition . LeafCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . LeafCount , 0 ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "NodeCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Repetition . NodeCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . NodeCount , 0 ) 
     ; yyWriteNl ( ) 
     END yWriteRepetition 
 
@@ -940,20 +940,20 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Node2" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH Desig_0 = yyt ^ . Node2 . Tree 
+    ; WITH Desig_0 = yyt ^ . yyHead . Tree 
       DO yyWriteHex ( LOOPHOLE ( Desig_0 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
-    ; ReuseIO . WriteB ( yyf , yyt ^ . Node2 . IsConstantRE ) 
+    ; ReuseIO . WriteB ( yyf , yyt ^ . yyHead . IsConstantRE ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "LeafCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Node2 . LeafCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . LeafCount , 0 ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "NodeCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Node2 . NodeCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . NodeCount , 0 ) 
     ; yyWriteNl ( ) 
-    ; yyIndentSelectorTree ( "Son1" , yyt ^ . Node2 . Son1 ) 
+    ; yyIndentSelectorTree ( "Son1" , yyt ^ . yyHead . Son1 ) 
     END yWriteNode2 
 
 ; PROCEDURE yWriteList ( yyt : tTree0 ) 
@@ -962,20 +962,20 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "List" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH Desig_10 = yyt ^ . List . Tree 
+    ; WITH Desig_10 = yyt ^ . yyHead . Tree 
       DO yyWriteHex ( LOOPHOLE ( Desig_10 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
-    ; ReuseIO . WriteB ( yyf , yyt ^ . List . IsConstantRE ) 
+    ; ReuseIO . WriteB ( yyf , yyt ^ . yyHead . IsConstantRE ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "LeafCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . List . LeafCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . LeafCount , 0 ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "NodeCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . List . NodeCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . NodeCount , 0 ) 
     ; yyWriteNl ( ) 
-    ; yyIndentSelectorTree ( "Son1" , yyt ^ . List . Son1 ) 
+    ; yyIndentSelectorTree ( "Son1" , yyt ^ . yyHead . Son1 ) 
     END yWriteList 
 
 ; PROCEDURE yWriteSequence ( yyt : tTree0 ) 
@@ -984,20 +984,20 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Sequence" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH Desig_1 = yyt ^ . Sequence . Tree 
+    ; WITH Desig_1 = yyt ^ . yyHead . Tree 
       DO yyWriteHex ( LOOPHOLE ( Desig_1 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
-    ; ReuseIO . WriteB ( yyf , yyt ^ . Sequence . IsConstantRE ) 
+    ; ReuseIO . WriteB ( yyf , yyt ^ . yyHead . IsConstantRE ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "LeafCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Sequence . LeafCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . LeafCount , 0 ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "NodeCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Sequence . NodeCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . NodeCount , 0 ) 
     ; yyWriteNl ( ) 
-    ; yyIndentSelectorTree ( "Son1" , yyt ^ . Sequence . Son1 ) 
+    ; yyIndentSelectorTree ( "Son1" , yyt ^ . yyHead . Son1 ) 
     END yWriteSequence 
 
 ; PROCEDURE yWriteAlternative ( yyt : tTree0 ) 
@@ -1006,20 +1006,20 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Alternative" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH Desig_4 = yyt ^ . Alternative . Tree 
+    ; WITH Desig_4 = yyt ^ . yyHead . Tree 
       DO yyWriteHex ( LOOPHOLE ( Desig_4 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
-    ; ReuseIO . WriteB ( yyf , yyt ^ . Alternative . IsConstantRE ) 
+    ; ReuseIO . WriteB ( yyf , yyt ^ . yyHead . IsConstantRE ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "LeafCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Alternative . LeafCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . LeafCount , 0 ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "NodeCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Alternative . NodeCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . NodeCount , 0 ) 
     ; yyWriteNl ( ) 
-    ; yyIndentSelectorTree ( "Son1" , yyt ^ . Alternative . Son1 ) 
+    ; yyIndentSelectorTree ( "Son1" , yyt ^ . yyHead . Son1 ) 
     END yWriteAlternative 
 
 ; PROCEDURE yWriteCh ( yyt : tTree0 ) 
@@ -1028,18 +1028,18 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Ch" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH Desig_5 = yyt ^ . Ch . Tree 
+    ; WITH Desig_5 = yyt ^ . yyHead . Tree 
       DO yyWriteHex ( LOOPHOLE ( Desig_5 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
-    ; ReuseIO . WriteB ( yyf , yyt ^ . Ch . IsConstantRE ) 
+    ; ReuseIO . WriteB ( yyf , yyt ^ . yyHead . IsConstantRE ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "LeafCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Ch . LeafCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . LeafCount , 0 ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "NodeCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Ch . NodeCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . NodeCount , 0 ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Ch" ) 
     ; ReuseIO . WriteC ( yyf , yyt ^ . Ch . Ch ) 
@@ -1052,18 +1052,18 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Set" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH Desig_6 = yyt ^ . Set . Tree 
+    ; WITH Desig_6 = yyt ^ . yyHead . Tree 
       DO yyWriteHex ( LOOPHOLE ( Desig_6 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
-    ; ReuseIO . WriteB ( yyf , yyt ^ . Set . IsConstantRE ) 
+    ; ReuseIO . WriteB ( yyf , yyt ^ . yyHead . IsConstantRE ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "LeafCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Set . LeafCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . LeafCount , 0 ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "NodeCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Set . NodeCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . NodeCount , 0 ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Set" ) 
     ; Sets . WriteSet ( yyf , yyt ^ . Set . Set ) 
@@ -1079,18 +1079,18 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "String" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH Desig_9 = yyt ^ . String . Tree 
+    ; WITH Desig_9 = yyt ^ . yyHead . Tree 
       DO yyWriteHex ( LOOPHOLE ( Desig_9 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
-    ; ReuseIO . WriteB ( yyf , yyt ^ . String . IsConstantRE ) 
+    ; ReuseIO . WriteB ( yyf , yyt ^ . yyHead . IsConstantRE ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "LeafCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . String . LeafCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . LeafCount , 0 ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "NodeCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . String . NodeCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . NodeCount , 0 ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "String" ) 
     ; StringMem . WriteString ( yyf , yyt ^ . String . String ) 
@@ -1103,18 +1103,18 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Rule" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH Desig_2 = yyt ^ . Rule . Tree 
+    ; WITH Desig_2 = yyt ^ . yyHead . Tree 
       DO yyWriteHex ( LOOPHOLE ( Desig_2 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
-    ; ReuseIO . WriteB ( yyf , yyt ^ . Rule . IsConstantRE ) 
+    ; ReuseIO . WriteB ( yyf , yyt ^ . yyHead . IsConstantRE ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "LeafCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Rule . LeafCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . LeafCount , 0 ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "NodeCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Rule . NodeCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . NodeCount , 0 ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "TargetCode" ) 
     ; Texts . WriteText ( yyf , yyt ^ . Rule . TargetCode ) 
@@ -1136,18 +1136,18 @@ UNSAFE MODULE Tree0
       ReuseIO . WriteT ( yyf , "Pattern" ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "Tree" ) 
-    ; WITH Desig_3 = yyt ^ . Pattern . Tree 
+    ; WITH Desig_3 = yyt ^ . yyHead . Tree 
       DO yyWriteHex ( LOOPHOLE ( Desig_3 , ARRAY OF BYTE ) ) 
       END (* WITH *) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "IsConstantRE" ) 
-    ; ReuseIO . WriteB ( yyf , yyt ^ . Pattern . IsConstantRE ) 
+    ; ReuseIO . WriteB ( yyf , yyt ^ . yyHead . IsConstantRE ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "LeafCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Pattern . LeafCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . LeafCount , 0 ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "NodeCount" ) 
-    ; ReuseIO . WriteI ( yyf , yyt ^ . Pattern . NodeCount , 0 ) 
+    ; ReuseIO . WriteI ( yyf , yyt ^ . yyHead . NodeCount , 0 ) 
     ; yyWriteNl ( ) 
     ; yyIndentSelector ( "StartStates" ) 
     ; Sets . WriteSet ( yyf , yyt ^ . Pattern . StartStates ) 
@@ -1201,31 +1201,31 @@ UNSAFE MODULE Tree0
         | Node1 
         => yWriteNode1 ( yyt ) 
         ; yyIndentSelector ( "Son1" ) 
-        ; yyt := yyt ^ . Node1 . Son1 
+        ; yyt := yyt ^ . yyHead . Son1 
         | Option 
         => yWriteOption ( yyt ) 
         ; yyIndentSelector ( "Son1" ) 
-        ; yyt := yyt ^ . Option . Son1 
+        ; yyt := yyt ^ . yyHead . Son1 
         | Repetition 
         => yWriteRepetition ( yyt ) 
         ; yyIndentSelector ( "Son1" ) 
-        ; yyt := yyt ^ . Repetition . Son1 
+        ; yyt := yyt ^ . yyHead . Son1 
         | Node2 
         => yWriteNode2 ( yyt ) 
         ; yyIndentSelector ( "Son2" ) 
-        ; yyt := yyt ^ . Node2 . Son2 
+        ; yyt := yyt ^ . yyHead . Son2 
         | List 
         => yWriteList ( yyt ) 
         ; yyIndentSelector ( "Son2" ) 
-        ; yyt := yyt ^ . List . Son2 
+        ; yyt := yyt ^ . yyHead . Son2 
         | Sequence 
         => yWriteSequence ( yyt ) 
         ; yyIndentSelector ( "Son2" ) 
-        ; yyt := yyt ^ . Sequence . Son2 
+        ; yyt := yyt ^ . yyHead . Son2 
         | Alternative 
         => yWriteAlternative ( yyt ) 
         ; yyIndentSelector ( "Son2" ) 
-        ; yyt := yyt ^ . Alternative . Son2 
+        ; yyt := yyt ^ . yyHead . Son2 
         | Ch 
         => yWriteCh ( yyt ) 
         ; EXIT 
@@ -1299,23 +1299,23 @@ UNSAFE MODULE Tree0
 
       ; CASE yyt ^ . Kind 
         OF Node1 
-        => yyt := yyt ^ . Node1 . Son1 
+        => yyt := yyt ^ . yyHead . Son1 
         | Option 
-        => yyt := yyt ^ . Option . Son1 
+        => yyt := yyt ^ . yyHead . Son1 
         | Repetition 
-        => yyt := yyt ^ . Repetition . Son1 
+        => yyt := yyt ^ . yyHead . Son1 
         | Node2 
-        => yyTraverseTree0TD ( yyt ^ . Node2 . Son1 ) 
-        ; yyt := yyt ^ . Node2 . Son2 
+        => yyTraverseTree0TD ( yyt ^ . yyHead . Son1 ) 
+        ; yyt := yyt ^ . yyHead . Son2 
         | List 
-        => yyTraverseTree0TD ( yyt ^ . List . Son1 ) 
-        ; yyt := yyt ^ . List . Son2 
+        => yyTraverseTree0TD ( yyt ^ . yyHead . Son1 ) 
+        ; yyt := yyt ^ . yyHead . Son2 
         | Sequence 
-        => yyTraverseTree0TD ( yyt ^ . Sequence . Son1 ) 
-        ; yyt := yyt ^ . Sequence . Son2 
+        => yyTraverseTree0TD ( yyt ^ . yyHead . Son1 ) 
+        ; yyt := yyt ^ . yyHead . Son2 
         | Alternative 
-        => yyTraverseTree0TD ( yyt ^ . Alternative . Son1 ) 
-        ; yyt := yyt ^ . Alternative . Son2 
+        => yyTraverseTree0TD ( yyt ^ . yyHead . Son1 ) 
+        ; yyt := yyt ^ . yyHead . Son2 
         | Rule 
         => yyt := yyt ^ . Rule . Patterns 
         | Pattern 
