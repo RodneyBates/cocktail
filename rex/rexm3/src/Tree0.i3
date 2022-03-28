@@ -52,7 +52,7 @@ UNSAFE INTERFACE Tree0
 
   ; yNode 
     = RECORD 
-        yyHead : yytNodeHead 
+        zzHead : yytNodeHead 
       ; zzTree : tTree 
       ; zzIsConstantRE : BOOLEAN 
       ; zzLeafCount : SHORTINT 
@@ -60,7 +60,7 @@ UNSAFE INTERFACE Tree0
       END (* RECORD *) 
   ; yNode1 
     = RECORD 
-        yyHead : yytNodeHead 
+        zzHead : yytNodeHead 
       ; zzTree : tTree 
       ; zzIsConstantRE : BOOLEAN 
       ; zzLeafCount : SHORTINT 
@@ -69,7 +69,7 @@ UNSAFE INTERFACE Tree0
       END (* RECORD *) 
   ; yOption 
     = RECORD 
-        yyHead : yytNodeHead 
+        zzHead : yytNodeHead 
       ; zzTree : tTree 
       ; zzIsConstantRE : BOOLEAN 
       ; zzLeafCount : SHORTINT 
@@ -78,7 +78,7 @@ UNSAFE INTERFACE Tree0
       END (* RECORD *) 
   ; yRepetition 
     = RECORD 
-        yyHead : yytNodeHead 
+        zzHead : yytNodeHead 
       ; zzTree : tTree 
       ; zzIsConstantRE : BOOLEAN 
       ; zzLeafCount : SHORTINT 
@@ -87,7 +87,7 @@ UNSAFE INTERFACE Tree0
       END (* RECORD *) 
   ; yNode2 
     = RECORD 
-        yyHead : yytNodeHead 
+        zzHead : yytNodeHead 
       ; zzTree : tTree 
       ; zzIsConstantRE : BOOLEAN 
       ; zzLeafCount : SHORTINT 
@@ -97,7 +97,7 @@ UNSAFE INTERFACE Tree0
       END (* RECORD *) 
   ; yList 
     = RECORD 
-        yyHead : yytNodeHead 
+        zzHead : yytNodeHead 
       ; zzTree : tTree 
       ; zzIsConstantRE : BOOLEAN 
       ; zzLeafCount : SHORTINT 
@@ -107,7 +107,7 @@ UNSAFE INTERFACE Tree0
       END (* RECORD *) 
   ; ySequence 
     = RECORD 
-        yyHead : yytNodeHead 
+        zzHead : yytNodeHead 
       ; zzTree : tTree 
       ; zzIsConstantRE : BOOLEAN 
       ; zzLeafCount : SHORTINT 
@@ -117,7 +117,7 @@ UNSAFE INTERFACE Tree0
       END (* RECORD *) 
   ; yAlternative 
     = RECORD 
-        yyHead : yytNodeHead 
+        zzHead : yytNodeHead 
       ; zzTree : tTree 
       ; zzIsConstantRE : BOOLEAN 
       ; zzLeafCount : SHORTINT 
@@ -127,7 +127,7 @@ UNSAFE INTERFACE Tree0
       END (* RECORD *) 
   ; yCh 
     = RECORD 
-        yyHead : yytNodeHead 
+        zzHead : yytNodeHead 
       ; zzTree : tTree 
       ; zzIsConstantRE : BOOLEAN 
       ; zzLeafCount : SHORTINT 
@@ -136,7 +136,7 @@ UNSAFE INTERFACE Tree0
       END (* RECORD *) 
   ; ySet 
     = RECORD 
-        yyHead : yytNodeHead 
+        zzHead : yytNodeHead 
       ; zzTree : tTree 
       ; zzIsConstantRE : BOOLEAN 
       ; zzLeafCount : SHORTINT 
@@ -146,7 +146,7 @@ UNSAFE INTERFACE Tree0
       END (* RECORD *) 
   ; yString 
     = RECORD 
-        yyHead : yytNodeHead 
+        zzHead : yytNodeHead 
       ; zzTree : tTree 
       ; zzIsConstantRE : BOOLEAN 
       ; zzLeafCount : SHORTINT 
@@ -155,7 +155,7 @@ UNSAFE INTERFACE Tree0
       END (* RECORD *) 
   ; yRule 
     = RECORD 
-        yyHead : yytNodeHead 
+        zzHead : yytNodeHead 
       ; zzTree : tTree 
       ; zzIsConstantRE : BOOLEAN 
       ; zzLeafCount : SHORTINT 
@@ -168,7 +168,7 @@ UNSAFE INTERFACE Tree0
       END (* RECORD *) 
   ; yPattern 
     = RECORD 
-        yyHead : yytNodeHead 
+        zzHead : yytNodeHead 
       ; zzTree : tTree 
       ; zzIsConstantRE : BOOLEAN 
       ; zzLeafCount : SHORTINT 

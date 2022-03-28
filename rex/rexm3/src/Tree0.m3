@@ -357,7 +357,7 @@ UNSAFE MODULE Tree0
     ; INC ( yyPoolFreePtr , yyNodeSize [ Node1 ] ) 
     ; yyt ^ . yyHead . yyMark := 0 
     ; yyt ^ . Kind := Node1 
-    ; WITH With_17 = yyt ^ . Node1 . yyHead  
+    ; WITH With_17 = yyt ^ . yyHead  
       DO 
 
 
