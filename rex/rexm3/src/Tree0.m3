@@ -657,11 +657,7 @@ UNSAFE MODULE Tree0
     ; yyt ^ . Kind := Pattern 
     ; WITH With_28 = yyt ^ . Pattern 
       DO 
-
-
-
-
-         With_28 . StartStates := pStartStates 
+        With_28 . StartStates := pStartStates
       ; With_28 . RegExpr := pRegExpr 
       ; With_28 . RightContext := pRightContext 
       ; With_28 . PatternNr := pPatternNr 

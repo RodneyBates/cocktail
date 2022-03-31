@@ -291,8 +291,8 @@ UNSAFE MODULE Eval
 
       ; IF yyt ^ . Pattern . RegExpr ^ . yyHead . IsConstantRE 
            AND yyt ^ . Pattern . RightContext ^ . yyHead . IsConstantRE 
-        THEN 
-          yyt ^ . Pattern . card := Card ( yyt ^ . Pattern . StartStates ) 
+        THEN
+          yyt ^ . Pattern . card := Card ( yyt ^ . Pattern . StartStates )
         ; yyt ^ . yyHead . NodeCount 
             := ( yyt ^ . Pattern . RegExpr ^ . yyHead . NodeCount 
                  + yyt ^ . Pattern . RightContext ^ . yyHead . NodeCount 
@@ -331,7 +331,7 @@ UNSAFE MODULE Eval
                ) 
       ELSE 
       END (* CASE *) 
-    END yyVisit1 
+    END yyVisit1
 
 ; PROCEDURE BeginEval ( ) 
 
