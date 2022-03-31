@@ -120,23 +120,35 @@ UNSAFE MODULE ScanGen
 
 ; IMPORT Word , Texts , Strings , Idents 
 
-; CONST ScannerMd = "Scanner.md"        (* file names for Modula2      *) 
+(* File names for Modula2:*) 
+; CONST ScannerMd = "Scanner.md" 
   ; ScannerMi = "Scanner.mi" 
   ; SourceMd = "Source.md" 
   ; SourceMi = "Source.mi" 
   ; ScanDrvMi = "ScanDrv.mi" 
 
-  ; ScannerH = "Scanner.h"              (* file names for C             *) 
+(* File names for Modula3: *)
+; CONST ScannerM3 = "Scanner.m3"  
+  ; ScannerI3 = "Scanner.i3" 
+  ; SourceM3 = "Source.m3" 
+  ; SourceI3 = "Source.i3" 
+  ; ScanDrvM3 = "ScanDrv.m3" 
+
+(* File names for C:*) 
+; CONST ScannerH = "Scanner.h" 
   ; ScannerC = "Scanner.c" 
   ; SourceH = "Source.h" 
   ; SourceC = "Source.c" 
   ; ScanDrvC = "ScanDrv.c" 
 
+(* File name fragments: *)
   ; Scanner = "Scanner" 
   ; Source = "Source" 
   ; Drv = "Drv" 
   ; ExtMd = ".md" 
   ; ExtMi = ".mi" 
+  ; ExtM3 = ".m3" 
+  ; ExtI3 = ".i3" 
   ; ExtH = ".h" 
   ; ExtC = ".c" 
 
@@ -242,6 +254,14 @@ UNSAFE MODULE ScanGen
       => CopyFile ( SourceMd , SourceName , ExtMd ) 
       ; CopyFile ( SourceMi , SourceName , ExtMi ) 
       ; CopyFile ( ScanDrvMi , DriverName , ExtMi ) 
+
+      | tLanguage . Modula3 
+      => CopyFile ( SourceM3 , SourceName , ExtM3 ) 
+      ; CopyFile ( SourceI3 , SourceName , ExtI3 ) 
+      ; CopyFile ( ScanDrvM3 , DriverName , ExtM3 ) 
+
+      | tLanguage . Schutz 
+      => 
 
       | tLanguage . C 
       => CopyFile ( SourceH , SourceName , ExtH ) 
