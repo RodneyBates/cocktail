@@ -1245,7 +1245,7 @@ UNSAFE MODULE GenTabs
       THEN 
         WriteStepTime ( "CompressTables  " ) 
       END (* IF *) 
-    ; IF Language = tLanguage . Modula 
+    ; IF Language = tLanguage . Modula2 
       THEN 
         PutTables ( ReduceCaseSize ) 
       ; IF DebugLevel >= 2 

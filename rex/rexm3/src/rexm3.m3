@@ -128,7 +128,7 @@ UNSAFE MODULE rexm3 EXPORTS Main
   ; b := TRUE 
   ; optimize := 40 
   ; n := 0 
-  ; Language := tLanguage . Modula 
+  ; Language := tLanguage . Modula2 
   ; AssignEmpty ( RexLib ) 
   ; SourceFile [ 0 ] := '\000' 
 
@@ -162,7 +162,7 @@ UNSAFE MODULE rexm3 EXPORTS Main
             | 'c' 
             => Language := tLanguage . C 
             | 'm' 
-            => Language := tLanguage . Modula 
+            => Language := tLanguage . Modula2 
             | 'd' 
             => d := TRUE 
             | 's' 
@@ -211,7 +211,7 @@ UNSAFE MODULE rexm3 EXPORTS Main
     ; WriteNl ( ) 
     ; WriteT ( " a generate all (= -dsm)" ) 
     ; WriteNl ( ) 
-    ; WriteT ( " m generate a lexical analyzer in Modula (default)" ) 
+    ; WriteT ( " m generate a lexical analyzer in Modula2 (default)" ) 
     ; WriteNl ( ) 
     ; WriteT ( " c generate a lexical analyzer in C" ) 
     ; WriteNl ( ) 

@@ -43,7 +43,8 @@ UNSAFE INTERFACE ScanGen
 ; CONST Position = 0 
   ; NoPosition = 1 
 
-; TYPE tLanguage = { Modula , C } 
+; TYPE tLanguage = { C, Modula2 , Modula3 , Schutz }
+       (* Schutz is in Modula3, but uses Schutz' interface. *) 
 
 ; VAR Export , Global , Local , Begin , Close , Default , Eof , BlankText 
     , TabText 

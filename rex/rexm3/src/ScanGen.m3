@@ -68,7 +68,7 @@
  * correction and redesign of source position handling 
  * 
  * Revision 1.2  88/11/22  19:19:25  grosch 
- * fixed bug: changed variables Context2 and Context4 for variable right context in Modula 
+ * fixed bug: changed variables Context2 and Context4 for variable right context in Modula2 
  * 
  * Revision 1.1  88/11/06  14:55:00  grosch 
  * terminate case labels with superfluous ; to avoid yacc stack overflow with SUN's cc 
@@ -120,7 +120,7 @@ UNSAFE MODULE ScanGen
 
 ; IMPORT Word , Texts , Strings , Idents 
 
-; CONST ScannerMd = "Scanner.md"        (* file names for Modula-2      *) 
+; CONST ScannerMd = "Scanner.md"        (* file names for Modula2      *) 
   ; ScannerMi = "Scanner.mi" 
   ; SourceMd = "Source.md" 
   ; SourceMi = "Source.mi" 
@@ -238,7 +238,7 @@ UNSAFE MODULE ScanGen
     ; TextToString ( Drv , Suffix ) 
     ; Concatenate ( DriverName , Suffix ) 
     ; CASE Language 
-      OF tLanguage . Modula 
+      OF tLanguage . Modula2 
       => CopyFile ( SourceMd , SourceName , ExtMd ) 
       ; CopyFile ( SourceMi , SourceName , ExtMi ) 
       ; CopyFile ( ScanDrvMi , DriverName , ExtMi ) 
@@ -258,7 +258,7 @@ UNSAFE MODULE ScanGen
 
   ; BEGIN (* GenerateInterface *) 
       CASE Language 
-      OF tLanguage . Modula 
+      OF tLanguage . Modula2 
       => TextToString ( ScannerMd , FileNameS ) 
       | tLanguage . C 
       => TextToString ( ScannerH , FileNameS ) 
@@ -278,7 +278,7 @@ UNSAFE MODULE ScanGen
         Idents . GetString ( ScannerName , PathS ) 
       END (* IF *) 
     ; CASE Language 
-      OF tLanguage . Modula 
+      OF tLanguage . Modula2 
       => TextToString ( ExtMd , FileNameS ) 
       | tLanguage . C 
       => TextToString ( ExtH , FileNameS ) 
@@ -317,7 +317,7 @@ UNSAFE MODULE ScanGen
   ; BEGIN (* GenerateScanner *) 
       gGenLine := GenLine 
     ; CASE Language 
-      OF tLanguage . Modula 
+      OF tLanguage . Modula2 
       => TextToString ( ScannerMi , FileNameS ) 
       | tLanguage . C 
       => TextToString ( ScannerC , FileNameS ) 
@@ -337,7 +337,7 @@ UNSAFE MODULE ScanGen
         Idents . GetString ( ScannerName , PathS ) 
       END (* IF *) 
     ; CASE Language 
-      OF tLanguage . Modula 
+      OF tLanguage . Modula2 
       => TextToString ( ExtMi , FileNameS ) 
       | tLanguage . C 
       => TextToString ( ExtC , FileNameS ) 
@@ -586,7 +586,7 @@ UNSAFE MODULE ScanGen
 
   = BEGIN (* GenerateDecConstDef *) 
       CASE Language 
-      OF tLanguage . Modula 
+      OF tLanguage . Modula2 
       => Strings . WriteS ( Out , Name ) 
       ; WriteT ( Out , " = " ) 
       ; WriteI ( Out , Value , 0 ) 
@@ -606,7 +606,7 @@ UNSAFE MODULE ScanGen
 
   = BEGIN (* GenerateCharConstDef *) 
       CASE Language 
-      OF tLanguage . Modula 
+      OF tLanguage . Modula2 
       => Strings . WriteS ( Out , Name ) 
       ; WriteT ( Out , " = " ) 
       ; WriteN ( Out , ORD ( Value ) , 1 , 8 ) 
@@ -627,7 +627,7 @@ UNSAFE MODULE ScanGen
 
   = BEGIN (* GenerateDecrement *) 
       CASE Language 
-      OF tLanguage . Modula 
+      OF tLanguage . Modula2 
       => WriteT ( Out , "DEC (" ) 
       ; Strings . WriteS ( Out , Name ) 
       ; WriteT ( Out , ", " ) 
@@ -647,7 +647,7 @@ UNSAFE MODULE ScanGen
 
   = BEGIN (* GenerateCaseLabel *) 
       CASE Language 
-      OF tLanguage . Modula 
+      OF tLanguage . Modula2 
       => WriteT ( Out , "| " ) 
       ; WriteI ( Out , Label , 0 ) 
       ; WriteC ( Out , ':' ) 
@@ -666,7 +666,7 @@ UNSAFE MODULE ScanGen
 
   ; BEGIN (* GenerateCaseLabels *) 
       CASE Language 
-      OF tLanguage . Modula 
+      OF tLanguage . Modula2 
       => FirstTime := TRUE 
       ; WriteC ( Out , '|' ) 
       ; WHILE NOT IsEmpty ( Set ) 
@@ -722,7 +722,7 @@ UNSAFE MODULE ScanGen
       IF Line # 0 
       THEN 
         CASE Language 
-        OF tLanguage . Modula 
+        OF tLanguage . Modula2 
         => WriteT ( Out , "(* line " ) 
         ; WriteI ( Out , Line , 0 ) 
         ; WriteT ( Out , " \"" ) 
@@ -804,7 +804,7 @@ UNSAFE MODULE ScanGen
 
   = BEGIN (* InitScanGen *) 
       CASE Language 
-      OF tLanguage . Modula 
+      OF tLanguage . Modula2 
       => ConvertAppend ( "CASE yyStateStack^ [TokenLength] OF" , Case1 ) 
 
       ; ConvertAppend 
