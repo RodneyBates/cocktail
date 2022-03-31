@@ -93,8 +93,6 @@ UNSAFE MODULE ScanGen
   , WriteT 
   , WriteNl , WriteC , WriteI , WriteS , tFile 
 
-; FROM Texts IMPORT tText , MakeText , WriteText 
-
 ; FROM Sets IMPORT IsEmpty , Card , Select , Extract , tSet 
 
 ; FROM Strings 
@@ -118,7 +116,8 @@ UNSAFE MODULE ScanGen
   , PatternCount 
   , VariableContext , LeftJustUsed 
 
-; IMPORT Word , Texts , Strings , Idents 
+; IMPORT Word , Strings , Idents 
+; IMPORT Texts AS TextLists 
 
 (* File names for Modula2:*) 
 ; CONST ScannerMd = "Scanner.md" 
@@ -157,7 +156,7 @@ UNSAFE MODULE ScanGen
 
 ; VAR Case1 , Case2 , Context1 , Context2 , Context3 , Context4 , Leader 
     , Trailer 
-    : tText 
+    : TextLists . tText 
   ; LabelCount , DummyCount : Word . T 
   ; gGenLine : BOOLEAN 
 
@@ -316,7 +315,7 @@ UNSAFE MODULE ScanGen
           CASE Char ( Line , 2 ) 
           OF 'E' 
           => WriteLine ( Out , ExportLine ) 
-          ; WriteText ( Out , Export ) 
+          ; TextLists . WriteText ( Out , Export ) 
           | '@' 
           => ExpandLine ( Out , Line ) 
           END (* CASE *) 
@@ -375,7 +374,7 @@ UNSAFE MODULE ScanGen
           CASE Char ( Line , 2 ) 
           OF 'G' 
           => WriteLine ( Out , GlobalLine ) 
-          ; WriteText ( Out , Global ) 
+          ; TextLists . WriteText ( Out , Global ) 
           | 'C' 
           => GenerateConstants ( Out ) 
           | 'M' 
@@ -387,7 +386,7 @@ UNSAFE MODULE ScanGen
              END (* IF *) 
           | 'L' 
           => WriteLine ( Out , LocalLine ) 
-          ; WriteText ( Out , Local ) 
+          ; TextLists . WriteText ( Out , Local ) 
           | 'J' 
           => IF LeftJustUsed 
              THEN 
@@ -416,7 +415,7 @@ UNSAFE MODULE ScanGen
              END (* IF *) 
           | 'D' 
           => WriteLine ( Out , DefaultLine ) 
-          ; WriteText ( Out , Default ) 
+          ; TextLists . WriteText ( Out , Default ) 
           | 'O' 
           => IF ReduceCaseSize 
              THEN 
@@ -427,13 +426,13 @@ UNSAFE MODULE ScanGen
              END (* IF *) 
           | 'E' 
           => WriteLine ( Out , EofLine ) 
-          ; WriteText ( Out , Eof ) 
+          ; TextLists . WriteText ( Out , Eof ) 
           | 'I' 
           => WriteLine ( Out , BeginLine ) 
-          ; WriteText ( Out , Begin ) 
+          ; TextLists . WriteText ( Out , Begin ) 
           | 'F' 
           => WriteLine ( Out , CloseLine ) 
-          ; WriteText ( Out , Close ) 
+          ; TextLists . WriteText ( Out , Close ) 
           | 'T' 
           => PutComb ( Out ) 
           | 'B' 
@@ -504,9 +503,9 @@ UNSAFE MODULE ScanGen
   ; BEGIN (* GenerateActions *) 
       IF ReduceCaseSize 
       THEN 
-        WriteText ( Out , Case2 ) 
+        TextLists . WriteText ( Out , Case2 ) 
       ELSE 
-        WriteText ( Out , Case1 ) 
+        TextLists . WriteText ( Out , Case1 ) 
       END (* IF *) 
     ; FOR Pattern := 1 TO PatternCount - 2 
       DO                                        (* omit special rules *) 
@@ -523,15 +522,15 @@ UNSAFE MODULE ScanGen
            THEN 
              IF Card ( PatternTablePtr ^ [ Pattern ] . DContext ) = 1 
              THEN 
-               WriteText ( Out , Context1 ) 
+               TextLists . WriteText ( Out , Context1 ) 
              ; WriteI 
                  ( Out 
                  , Select ( PatternTablePtr ^ [ Pattern ] . DContext ) 
                  , 0 
                  ) 
-             ; WriteText ( Out , Context2 ) 
+             ; TextLists . WriteText ( Out , Context2 ) 
              ELSE 
-               WriteText ( Out , Context3 ) 
+               TextLists . WriteText ( Out , Context3 ) 
              ; GenerateCaseLabels 
                  ( Out , PatternTablePtr ^ [ Pattern ] . DContext ) 
              ; IF Language = tLanguage . C 
@@ -539,7 +538,7 @@ UNSAFE MODULE ScanGen
                  Label := MakeLabel ( ) 
                ; GenerateGoto ( Out , Label ) 
                END (* IF *) 
-             ; WriteText ( Out , Context4 ) 
+             ; TextLists . WriteText ( Out , Context4 ) 
              ; IF Language = tLanguage . C 
                THEN 
                  GenerateLabel ( Out , Label ) 
@@ -576,11 +575,11 @@ UNSAFE MODULE ScanGen
          ; Rule := PatternTablePtr ^ [ Pattern ] . Rule 
          ; IF RuleToCodePtr ^ [ Rule ] . CodeMode = Position 
            THEN 
-             WriteText ( Out , Leader ) 
+             TextLists . WriteText ( Out , Leader ) 
            END (* IF *) 
          ; WriteLine ( Out , RuleToCodePtr ^ [ Rule ] . TextLine ) 
          ; IF Language = tLanguage . C THEN WriteC ( Out , '{' ) END (* IF *) 
-         ; WriteText ( Out , RuleToCodePtr ^ [ Rule ] . Text ) 
+         ; TextLists . WriteText ( Out , RuleToCodePtr ^ [ Rule ] . Text ) 
          ; IF Language = tLanguage . C 
            THEN 
              INC ( DummyCount ) 
@@ -588,7 +587,7 @@ UNSAFE MODULE ScanGen
            ; WriteI ( Out , DummyCount , 0 ) 
            ; WriteT ( Out , ": " ) 
            END (* IF *) 
-         ; WriteText ( Out , Trailer ) 
+         ; TextLists . WriteText ( Out , Trailer ) 
          ELSIF ( PatternTablePtr ^ [ Pattern ] . Position . Line # 0 ) 
                AND Warnings 
          THEN 
@@ -742,7 +741,9 @@ UNSAFE MODULE ScanGen
       IF Line # 0 
       THEN 
         CASE Language 
-        OF tLanguage . Modula2 
+        OF tLanguage . Modula2
+        , tLanguage . Modula3
+        , tLanguage . Schutz
         => WriteT ( Out , "(* line " ) 
         ; WriteI ( Out , Line , 0 ) 
         ; WriteT ( Out , " \"" ) 
@@ -769,16 +770,16 @@ UNSAFE MODULE ScanGen
       END (* IF *) 
     END WriteLine 
 
-; PROCEDURE ConvertAppend ( a : TEXT ; VAR Text : tText ) 
+; PROCEDURE ConvertAppend ( a : TEXT ; VAR Text : TextLists . tText ) 
 
   = VAR String : tString 
 
   ; BEGIN (* ConvertAppend *) 
       TextToString ( a , String ) 
-    ; Texts . Append ( Text , String ) 
+    ; TextLists . Append ( Text , String ) 
     END ConvertAppend 
 
-; PROCEDURE ConvertAppend2 ( a1 , a2 : TEXT ; VAR Text : tText ) 
+; PROCEDURE ConvertAppend2 ( a1 , a2 : TEXT ; VAR Text : TextLists . tText ) 
 
   = VAR String1 , String2 : tString 
 
@@ -792,10 +793,11 @@ UNSAFE MODULE ScanGen
       END (* IF *) 
     ; TextToString ( a2 , String2 ) 
     ; Concatenate ( String1 , String2 ) 
-    ; Texts . Append ( Text , String1 ) 
+    ; TextLists . Append ( Text , String1 ) 
     END ConvertAppend2 
 
-; PROCEDURE ConvertAppend3 ( a1 , a2 , a3 : TEXT ; VAR Text : tText ) 
+; PROCEDURE ConvertAppend3
+    ( a1 , a2 , a3 : TEXT ; VAR Text : TextLists . tText ) 
 
   = VAR String1 , String2 : tString 
 
@@ -817,7 +819,7 @@ UNSAFE MODULE ScanGen
       END (* IF *) 
     ; TextToString ( a3 , String2 ) 
     ; Concatenate ( String1 , String2 ) 
-    ; Texts . Append ( Text , String1 ) 
+    ; TextLists . Append ( Text , String1 ) 
     END ConvertAppend3 
 
 ; PROCEDURE InitScanGen ( ) 
@@ -871,7 +873,7 @@ UNSAFE MODULE ScanGen
       ; ConvertAppend ( "   END;" , Context4 ) 
       ; ConvertAppend ( "END;" , Context4 ) 
 
-      ; IF Texts . IsEmpty ( Export ) 
+      ; IF TextLists . IsEmpty ( Export ) 
         THEN 
           ConvertAppend ( "IMPORT Positions;" , Export ) 
         ; ConvertAppend 
@@ -883,7 +885,7 @@ UNSAFE MODULE ScanGen
             , Export 
             ) 
         END (* IF *) 
-      ; IF Texts . IsEmpty ( Global ) 
+      ; IF TextLists . IsEmpty ( Global ) 
         THEN 
           ConvertAppend 
             ( "PROCEDURE ErrorAttribute (Token: INTEGER; VAR Attribute: tScanAttribute);" 
@@ -892,7 +894,7 @@ UNSAFE MODULE ScanGen
         ; ConvertAppend ( "   BEGIN" , Global ) 
         ; ConvertAppend ( "   END ErrorAttribute;" , Global ) 
         END (* IF *) 
-      ; IF Texts . IsEmpty ( Default ) 
+      ; IF TextLists . IsEmpty ( Default ) 
         THEN 
           ConvertAppend 
             ( "IO.WriteC (IO.StdOutput, yyChBufferPtr^ [yyChBufferIndex-1]);" 
@@ -954,7 +956,7 @@ UNSAFE MODULE ScanGen
       ; ConvertAppend ( "   }" , Context4 ) 
       ; ConvertAppend ( "}" , Context4 ) 
 
-      ; IF Texts . IsEmpty ( Export ) 
+      ; IF TextLists . IsEmpty ( Export ) 
         THEN 
           ConvertAppend ( "# include \"Positions.h\"" , Export ) 
         ; ConvertAppend2 
@@ -969,7 +971,7 @@ UNSAFE MODULE ScanGen
             , Export 
             ) 
         END (* IF *) 
-      ; IF Texts . IsEmpty ( Global ) 
+      ; IF TextLists . IsEmpty ( Global ) 
         THEN 
           ConvertAppend2 
             ( "void " , "ErrorAttribute (Token, Attribute)" , Global ) 
@@ -977,7 +979,7 @@ UNSAFE MODULE ScanGen
         ; ConvertAppend2 ( "   " , "tScanAttribute * Attribute;" , Global ) 
         ; ConvertAppend ( "   { }" , Global ) 
         END (* IF *) 
-      ; IF Texts . IsEmpty ( Default ) 
+      ; IF TextLists . IsEmpty ( Default ) 
         THEN 
           ConvertAppend 
             ( "(void) putchar ((int) yyChBufferIndexReg [-1]);" , Default ) 
@@ -997,24 +999,24 @@ UNSAFE MODULE ScanGen
   ; GlobalLine := 0 
   ; LabelCount := 0 
   ; LocalLine := 0 
-  ; MakeText ( Begin ) 
-  ; MakeText ( BlankText ) 
-  ; MakeText ( Case1 ) 
-  ; MakeText ( Case2 ) 
-  ; MakeText ( Close ) 
-  ; MakeText ( Context1 ) 
-  ; MakeText ( Context2 ) 
-  ; MakeText ( Context3 ) 
-  ; MakeText ( Context4 ) 
-  ; MakeText ( Default ) 
-  ; MakeText ( Eof ) 
-  ; MakeText ( EolText ) 
-  ; MakeText ( Export ) 
-  ; MakeText ( Global ) 
-  ; MakeText ( Leader ) 
-  ; MakeText ( Local ) 
-  ; MakeText ( TabText ) 
-  ; MakeText ( Trailer ) 
+  ; TextLists . MakeText ( Begin ) 
+  ; TextLists . MakeText ( BlankText ) 
+  ; TextLists . MakeText ( Case1 ) 
+  ; TextLists . MakeText ( Case2 ) 
+  ; TextLists . MakeText ( Close ) 
+  ; TextLists . MakeText ( Context1 ) 
+  ; TextLists . MakeText ( Context2 ) 
+  ; TextLists . MakeText ( Context3 ) 
+  ; TextLists . MakeText ( Context4 ) 
+  ; TextLists . MakeText ( Default ) 
+  ; TextLists . MakeText ( Eof ) 
+  ; TextLists . MakeText ( EolText ) 
+  ; TextLists . MakeText ( Export ) 
+  ; TextLists . MakeText ( Global ) 
+  ; TextLists . MakeText ( Leader ) 
+  ; TextLists . MakeText ( Local ) 
+  ; TextLists . MakeText ( TabText ) 
+  ; TextLists . MakeText ( Trailer ) 
   END ScanGen 
 . 
 
