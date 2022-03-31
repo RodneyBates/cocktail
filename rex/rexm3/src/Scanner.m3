@@ -26,10 +26,9 @@ UNSAFE MODULE Scanner
 ; IMPORT Process 
 
 ; FROM SYSTEM IMPORT SHORTCARD , M2LONGINT , M2LONGCARD 
-; IMPORT Errors 
 ; IMPORT RexErrors 
 
-; FROM Errors IMPORT ErrLine 
+; FROM RexErrors IMPORT ErrLine 
 
 ; FROM Strings 
   IMPORT tString , Concatenate , Char , SubString , StringToInt , AssignEmpty 
@@ -41,7 +40,7 @@ UNSAFE MODULE Scanner
 
 ; FROM Idents IMPORT tIdent , MakeIdent , NoIdent 
 
-; FROM Errors IMPORT ErrorMessage , Error 
+; FROM RexErrors IMPORT ErrorMessage , Error 
 
 ; FROM ScanGen IMPORT Language , tLanguage 
 

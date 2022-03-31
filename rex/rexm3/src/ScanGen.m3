@@ -104,7 +104,7 @@ UNSAFE MODULE ScanGen
 
 ; FROM Idents IMPORT tIdent , NoIdent , WriteIdent 
 
-; FROM Errors IMPORT ErrorMessage 
+; FROM RexErrors IMPORT ErrorMessage 
 
 ; FROM DefTable IMPORT GetKind , DefCount , tKind , GetStartDef 
 

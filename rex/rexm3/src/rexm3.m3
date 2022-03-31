@@ -67,7 +67,6 @@ UNSAFE MODULE rexm3 EXPORTS Main
 ; FROM SYSTEM IMPORT SHORTCARD , SHORTINT 
 ; IMPORT ReuseIO 
 ; IMPORT Strings 
-; IMPORT RexErrors AS Errors 
 
 ; FROM System IMPORT GetArgCount , GetArgument , Exit 
 
@@ -84,7 +83,7 @@ UNSAFE MODULE rexm3 EXPORTS Main
 
 ; FROM Parser IMPORT ParsTabName , Parser 
 
-; FROM Errors IMPORT ErrorCount 
+; FROM RexErrors IMPORT ErrorCount 
 
 ; FROM Classes IMPORT ComputeClasses , ReleaseSetMem 
 
