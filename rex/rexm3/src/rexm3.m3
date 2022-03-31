@@ -163,7 +163,7 @@ UNSAFE MODULE rexm3 EXPORTS Main
             => Language := tLanguage . C 
             | 'm' 
             => Language := tLanguage . Modula2 
-            | '3' 
+            | 'M' 
             => Language := tLanguage . Modula3 
             | 'z' 
             => Language := tLanguage . Schutz 
@@ -217,7 +217,7 @@ UNSAFE MODULE rexm3 EXPORTS Main
     ; WriteNl ( ) 
     ; WriteT ( " m generate source code in Modula2" ) 
     ; WriteNl ( ) 
-    ; WriteT ( " 3 generate source code in Modula3 (default)" ) 
+    ; WriteT ( " M generate source code in Modula3 (default)" ) 
     ; WriteNl ( ) 
     ; WriteT ( " z generate source code in Modula3, with Schutz interface." ) 
     ; WriteNl ( ) 
