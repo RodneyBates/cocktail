@@ -40,7 +40,7 @@ UNSAFE INTERFACE Sets
 
    (* ^ Change this only, for different range of elements. *) 
 
-  ; tElement = [ 0 .. LAST ( tInternalElmt ) - 1 ] 
+  ; tElement = [ 0 ..  LAST ( tInternalElmt ) - 1 ] 
   ; ArrayOfBitset = ARRAY [ 0 .. LAST ( SHORTCARD ) ] OF BITSET 
   ; ProcOftElement = PROCEDURE ( p0 : tElement ) 
   ; ProcOftElementToBool = PROCEDURE ( p0 : tElement ) : BOOLEAN 
@@ -50,14 +50,14 @@ UNSAFE INTERFACE Sets
         BitsetPtr : UNTRACED BRANDED REF ArrayOfBitset 
       ; LastBitset : SHORTCARD 
       ; MaxElmt : tInternalElmt 
-      ; Card : tInternalElmt 
+      ; Card : tInternalElmt := LAST ( tInternalElmt )
       ; FirstElmt : tInternalElmt 
       ; LastElmt : tInternalElmt 
       END (* RECORD *) 
 
 ; PROCEDURE InitNullSet ( VAR Set : tSet ) 
 
-; PROCEDURE MakeSet ( VAR Set : tSet ; MaxElement : tElement ) 
+; PROCEDURE MakeSet ( VAR Set : tSet ; MaxElement : INTEGER ) 
 
 ; PROCEDURE ReleaseSet ( VAR Set : tSet ) 
 

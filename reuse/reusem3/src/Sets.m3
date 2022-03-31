@@ -30,7 +30,62 @@ UNSAFE MODULE Sets
   ; BytesPerBitset = BitsPerBitset DIV BitsPerByte 
   ; NoCard = LAST ( tInternalElmt ) 
 
-; VAR AllBits : BITSET 
+; VAR AllBits : BITSET
+
+; VAR DoCheck := TRUE
+; VAR DoCompute := FALSE
+; VAR DoRepair := FALSE 
+
+; PROCEDURE SanityCheck ( Set : tSet )
+
+  = VAR LCard : INTEGER 
+  
+  ; BEGIN
+      IF NOT DoCheck THEN RETURN END 
+    ; IF Set . LastElmt < Set . FirstElmt
+      THEN (* Empty, according to the bounds. *)
+        IF Set . Card = NoCard
+        THEN
+          IF DoCompute THEN Set . Card := 0 END (* IF *)  
+        ELSIF Set . Card > 0
+        THEN
+          IF DoRepair
+          THEN Set . Card := 0 
+          ELSE 
+            <* ASSERT FALSE *>
+          END (* IF *)
+        END (* IF *)
+      ELSE (* Nonempty? At least has bitsets. *)
+        <* ASSERT Set . FirstElmt >= 0 *>
+        <* ASSERT Set . LastElmt <= Set . MaxElmt *>
+        <* ASSERT Set . BitsetPtr # NIL *>
+        <* ASSERT NUMBER ( Set . BitsetPtr ^ )
+                  >= Set . MaxElmt DIV BITSIZE ( BITSET ) + 1 *> 
+        IF Set . Card # NoCard
+           AND Set . Card > Set . LastElmt - Set . FirstElmt + 1
+        THEN <* ASSERT FALSE *>
+        ELSE
+          LCard := 0
+        ; FOR RI := Set . FirstElmt TO Set . LastElmt
+          DO INC ( LCard
+                   , ORD ( RI MOD BitsPerBitset 
+                           IN Set . BitsetPtr ^ [ RI DIV BitsPerBitset ]
+                         ) 
+                 )
+          END (* FOR *)
+        ; IF Set . Card = NoCard
+          THEN IF DoCompute THEN Set . Card := LCard END (* IF *)
+          ELSIF LCard # Set . Card
+          THEN
+            IF DoRepair
+            THEN Set . Card := LCard  
+            ELSE 
+              <* ASSERT FALSE *>
+            END (* IF *)
+          END (* IF *) 
+        END (* IF *)
+      END (* IF *)
+    END SanityCheck 
 
 ; PROCEDURE InitNullSet ( VAR Set : tSet ) 
 
@@ -39,13 +94,14 @@ UNSAFE MODULE Sets
       DO With_26 . MaxElmt := 0 
       ; With_26 . LastBitset := 0 
       ; With_26 . Card := 0 
-      ; With_26 . FirstElmt := 0 
+      ; With_26 . FirstElmt := LAST ( tInternalElmt )  
       ; With_26 . LastElmt := 0 
       ; With_26 . BitsetPtr := NIL 
-      END (* WITH Set *) 
+      END (* WITH Set *)
+    ; SanityCheck ( Set ) 
     END InitNullSet 
 
-; PROCEDURE MakeSet ( VAR Set : tSet ; MaxElement : tElement ) 
+; PROCEDURE MakeSet ( VAR Set : tSet ; MaxElement: INTEGER ) 
 
   = VAR BitsetCount : M2LONGINT 
 
@@ -99,6 +155,7 @@ UNSAFE MODULE Sets
       ; With_28 . LastElmt 
           := MaxSHORTCARD ( With_28 . LastElmt , Set2 . LastElmt ) 
       END (* WITH *) 
+    ; SanityCheck ( Set1 ) 
     END Union 
 
 ; PROCEDURE Difference ( VAR Set1 : tSet ; Set2 : tSet ) 
@@ -115,6 +172,7 @@ UNSAFE MODULE Sets
         END (* WHILE *) 
       ; With_29 . Card := VAL ( NoCard , tInternalElmt ) 
       END (* WITH *) 
+    ; SanityCheck ( Set1 ) 
     END Difference 
 
 ; PROCEDURE Intersection ( VAR Set1 : tSet ; Set2 : tSet ) 
@@ -135,6 +193,7 @@ UNSAFE MODULE Sets
       ; With_30 . LastElmt 
           := MinSHORTCARD ( With_30 . LastElmt , Set2 . LastElmt ) 
       END (* WITH *) 
+    ; SanityCheck ( Set1 ) 
     END Intersection 
 
 ; PROCEDURE SymDiff ( VAR Set1 : tSet ; Set2 : tSet ) 
@@ -155,6 +214,7 @@ UNSAFE MODULE Sets
       ; With_31 . LastElmt 
           := MaxSHORTCARD ( With_31 . LastElmt , Set2 . LastElmt ) 
       END (* WITH *) 
+    ; SanityCheck ( Set1 ) 
     END SymDiff 
 
 ; PROCEDURE Complement ( VAR Set : tSet ) 
@@ -191,55 +251,55 @@ UNSAFE MODULE Sets
       ; With_32 . FirstElmt := 0 
       ; With_32 . LastElmt := With_32 . MaxElmt 
       END (* WITH *) 
+    ; SanityCheck ( Set ) 
     END Complement 
 
 ; PROCEDURE Include ( VAR Set : tSet ; Elmt : tElement ) 
 
-  = BEGIN (* Include *) 
-      WITH With_33 = Set 
-      DO WITH 
-           WBitset 
-           = With_33 . BitsetPtr ^ 
-               [ VAL ( Elmt DIV BitsPerBitset , SHORTCARD ) ] 
-         DO WBitset := WBitset + BITSET { Elmt MOD BitsPerBitset } 
-         END (* WITH *) 
-
-      (* FirstElmt := Min (FirstElmt, Elmt); 
-         LastElmt  := Max (LastElmt, Elmt); *) 
-
-      ; IF With_33 . FirstElmt > VAL ( Elmt , tInternalElmt ) 
-        THEN 
-          With_33 . FirstElmt := VAL ( Elmt , tInternalElmt ) 
-        END (* IF *) 
-      ; IF With_33 . LastElmt < VAL ( Elmt , tInternalElmt ) 
-        THEN 
-          With_33 . LastElmt := VAL ( Elmt , tInternalElmt ) 
-        END (* IF *) 
-      END (* WITH *) 
+  = VAR WasEmpty : BOOLEAN
+  
+  ; BEGIN (* Include *)
+      IF IsElement ( Elmt , Set ) THEN (* No change. *) RETURN END (* IF *)
+    ; WasEmpty := IsEmpty ( Set ) 
+    ; WITH WBitset = Set . BitsetPtr ^ [ Elmt DIV BitsPerBitset ] 
+      DO WBitset := WBitset + BITSET { Elmt MOD BitsPerBitset }
+      END (* WITH *)
+    ; IF WasEmpty 
+      THEN 
+        Set . FirstElmt := Elmt 
+      ; Set . LastElmt := Elmt 
+      ; Set . Card := 1
+      ELSE
+        IF Set . FirstElmt > VAL ( Elmt , tInternalElmt ) 
+        THEN Set . FirstElmt := VAL ( Elmt , tInternalElmt )
+        ELSIF Set . LastElmt < VAL ( Elmt , tInternalElmt ) 
+        THEN Set . LastElmt := VAL ( Elmt , tInternalElmt ) 
+        END (* IF *)
+      ; INC ( Set . Card , ORD ( Set . Card # NoCard ) ) 
+      END (* IF *)
+    ; SanityCheck ( Set ) 
     END Include 
 
 ; PROCEDURE Exclude ( VAR Set : tSet ; Elmt : tElement ) 
 
-  = BEGIN (* Exclude *) 
-      WITH With_34 = Set 
-      DO WITH 
-           WBitset 
-           = With_34 . BitsetPtr ^ 
-               [ VAL ( Elmt DIV BitsPerBitset , SHORTCARD ) ] 
-         DO WBitset := WBitset - BITSET { Elmt MOD BitsPerBitset } 
-         END (* WITH *) 
-      ; With_34 . Card := VAL ( NoCard , tInternalElmt ) 
-      ; IF ( VAL ( Elmt , tInternalElmt ) = With_34 . FirstElmt ) 
-           AND ( VAL ( Elmt , tInternalElmt ) < With_34 . MaxElmt ) 
-        THEN 
-          INC ( With_34 . FirstElmt ) 
-        END (* IF *) 
-      ; IF ( VAL ( Elmt , tInternalElmt ) = With_34 . LastElmt ) 
-           AND ( Elmt > 0 ) 
-        THEN 
-          DEC ( With_34 . LastElmt ) 
-        END (* IF *) 
-      END (* WITH *) 
+  = BEGIN (* Exclude *)
+      IF NOT IsElement ( Elmt , Set ) THEN (* No change. *) RETURN END (* IF *)
+    ; WITH WBitset = Set . BitsetPtr ^ [ Elmt DIV BitsPerBitset ] 
+      DO WBitset := WBitset - BITSET { Elmt MOD BitsPerBitset }
+      END (* WITH *)
+    ; IF VAL ( Elmt , tInternalElmt ) = Set . FirstElmt  
+      THEN
+        INC ( Set . FirstElmt ) 
+      ; IF Set . FirstElmt >  Set . LastElmt
+        THEN (* Went empty. *)
+          Set . Card := 0
+        ; RETURN 
+        END (* IF *)
+      ELSIF VAL ( Elmt , tInternalElmt ) = Set . LastElmt 
+      THEN DEC ( Set . LastElmt ) 
+      END (* IF *) 
+    ; DEC ( Set . Card , ORD ( Set . Card # NoCard ) ) 
+    ; SanityCheck ( Set ) 
     END Exclude 
 
 ; PROCEDURE Card ( VAR Set : tSet ) : tElement 
@@ -317,6 +377,7 @@ UNSAFE MODULE Sets
   ; BEGIN (* Extract *) 
       i := Minimum ( Set ) 
     ; Exclude ( Set , i ) 
+    ; SanityCheck ( Set ) 
     ; RETURN i 
     END Extract 
 
@@ -467,6 +528,7 @@ UNSAFE MODULE Sets
       ; With_44 . FirstElmt := Set2 . FirstElmt 
       ; With_44 . LastElmt := Set2 . LastElmt 
       END (* WITH *) 
+    ; SanityCheck ( Set1 ) 
     END Assign 
 
 ; PROCEDURE AssignElmt ( VAR Set : tSet ; Elmt : tElement ) 
@@ -479,6 +541,7 @@ UNSAFE MODULE Sets
       ; With_45 . FirstElmt := VAL ( Elmt , tInternalElmt ) 
       ; With_45 . LastElmt := VAL ( Elmt , tInternalElmt ) 
       END (* WITH *) 
+    ; SanityCheck ( Set ) 
     END AssignElmt 
 
 ; PROCEDURE AssignEmpty ( VAR Set : tSet ) 
@@ -496,6 +559,7 @@ UNSAFE MODULE Sets
       ; With_46 . FirstElmt := With_46 . MaxElmt 
       ; With_46 . LastElmt := 0 
       END (* WITH *) 
+    ; SanityCheck ( Set ) 
     END AssignEmpty 
 
 ; PROCEDURE ForallDo ( Set : tSet ; Proc : ProcOftElement ) 
