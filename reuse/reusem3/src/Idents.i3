@@ -42,55 +42,50 @@ UNSAFE INTERFACE Idents
 ; TYPE tIdent = SHORTCARD 
 
 ; CONST cNoIdent = 0 
-
-                        (* A null value. *) 
+  (* A null value. *) 
 
 ; VAR NoIdent : tIdent 
-
-                        (* A default identifer (empty string).          *) 
+  (* A default identifer (empty string).          *) 
 
 ; PROCEDURE MakeIdent ( READONLY s : tString ) : tIdent 
+  (* The string 's' is mapped to a unique number  *) 
+  (* (an integer) which is returned.              *) 
 
-                        (* The string 's' is mapped to a unique number  *) 
-                        (* (an integer) which is returned.              *) 
+; PROCEDURE MakeIdentT ( text : TEXT ) : tIdent 
 
 ; PROCEDURE LookupIdent ( READONLY s : tString ) : tIdent 
+  (* If s has previously been  mapped by a call to*) 
+  (* MakeIdent, return its tIdent value.  Else    *) 
+  (* return cNoIdent.                             *) 
 
-                        (* If s has previously been  mapped by a call to*) 
-                        (* MakeIdent, return its tIdent value.  Else    *) 
-                        (* return cNoIdent.                             *) 
+; PROCEDURE LookupIdentT ( text : TEXT ) : tIdent 
 
 ; PROCEDURE GetString ( i : tIdent ; VAR s : tString ) 
-
-                        (* Returns the string 's' whose number is 'i'.  *) 
+  (* Returns the string 's' whose number is 'i'.  *) 
 
 ; PROCEDURE GetStringRef ( i : tIdent ) : tStringRef 
+  (* Returns a reference to the string whose      *) 
+  (* number is 'i'.                               *) 
 
-                        (* Returns a reference to the string whose      *) 
-                        (* number is 'i'.                               *) 
+; PROCEDURE Text ( i : tIdent ) : TEXT 
 
 ; PROCEDURE MaxIdent ( ) : tIdent 
-
-                        (* Returns the current maximal value of the     *) 
-                        (* type 'tIdent'.                               *) 
+  (* Returns the current maximal value of the     *) 
+  (* type 'tIdent'.                               *) 
 
 ; PROCEDURE WriteIdent ( f : tFile ; i : tIdent ) 
-
-                        (* The string encoded by the ident 'i' is       *) 
-                        (* printed on file 'f'.                         *) 
+  (* The string encoded by the ident 'i' is       *) 
+  (* printed on file 'f'.                         *) 
 
 ; PROCEDURE WriteIdents ( ) 
-
-                        (* The contents of the identifier table is      *) 
-                        (* printed on the terminal.                     *) 
+  (* The contents of the identifier table is      *) 
+  (* printed on the terminal.                     *) 
 
 ; PROCEDURE InitIdents ( ) 
-
-                        (* The identifier table is initialized.         *) 
+  (* The identifier table is initialized.         *) 
 
 ; PROCEDURE WriteHashTable ( ) 
 
-; 
-END Idents 
+; END Idents 
 . 
 

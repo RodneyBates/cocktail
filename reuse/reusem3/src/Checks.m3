@@ -45,9 +45,9 @@ UNSAFE MODULE Checks
       IF n < 0 
       THEN 
         WriteT ( StdError , s ) 
-      ; WriteT ( StdError , " : \000" ) 
+      ; WriteT ( StdError , " : " ) 
       ; WriteI ( StdError , n , 2 ) 
-      ; WriteT ( StdError , ", errno     = \000" ) 
+      ; WriteT ( StdError , ", errno     = " ) 
       ; WriteI ( StdError , ErrNum ( ) , 2 ) 
       ; WriteNl ( StdError ) 
       ; Flush ( StdError )

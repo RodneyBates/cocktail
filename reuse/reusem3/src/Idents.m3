@@ -135,11 +135,29 @@ UNSAFE MODULE Idents
       RETURN MakeOrLookup ( s , TRUE ) 
     END MakeIdent 
 
+; PROCEDURE MakeIdentT ( text : TEXT ) : tIdent 
+
+  = VAR LString : tString
+  
+  ; BEGIN (* MakeIdentT *)
+      Strings . TextToString ( text , LString ) 
+    ; RETURN MakeOrLookup ( LString , TRUE ) 
+    END MakeIdentT 
+
 ; PROCEDURE LookupIdent ( READONLY s : tString ) : tIdent 
 
   = BEGIN (* LookupIdent *) 
       RETURN MakeOrLookup ( s , FALSE ) 
     END LookupIdent 
+
+; PROCEDURE LookupIdentT ( text : TEXT  ) : tIdent 
+
+  = VAR LString : tString
+  
+  ; BEGIN (* LookupIdentT *)
+      Strings . TextToString ( text , LString ) 
+    ; RETURN MakeOrLookup ( LString , FALSE ) 
+    END LookupIdentT 
 
 ; PROCEDURE GetString ( i : tIdent ; VAR s : tString ) 
 
@@ -147,7 +165,15 @@ UNSAFE MODULE Idents
       WITH With_7 = TablePtr ^ [ i ] 
       DO StringMem . GetString ( With_7 . String , s ) 
       END (* WITH *) 
-    END GetString 
+    END GetString
+
+; PROCEDURE Text ( i : tIdent ) : TEXT
+  = VAR LString : tString
+
+  ; BEGIN
+      GetString ( i , LString )
+    ; RETURN Strings . StringToText ( LString ) 
+    END  Text 
 
 ; PROCEDURE GetStringRef ( i : tIdent ) : tStringRef 
 
