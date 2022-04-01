@@ -118,16 +118,19 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
       f : tFile 
 
   ; BEGIN (* ReadOpen *) 
-      f := System . OpenInput ( FileName ) 
-    ; WITH With_9 = BufferPool [ f ] 
-      DO With_9 . Buffer := Alloc ( BufferSize + 1 ) 
-      ; With_9 . BufferIndex := 0 
-      ; With_9 . BytesRead := 0 
-      ; With_9 . OpenForOutput := FALSE
-      ; With_9 . IsIntermittent := System . IsIntermittent ( f ) 
-      ; With_9 . EndOfFile := FALSE 
-      END (* WITH *) 
-    ; CheckFlushLine ( f ) 
+      f := System . OpenInput ( FileName )
+    ; IF f >= 0
+      THEN 
+        WITH With_9 = BufferPool [ f ] 
+        DO With_9 . Buffer := Alloc ( BufferSize + 1 ) 
+        ; With_9 . BufferIndex := 0 
+        ; With_9 . BytesRead := 0 
+        ; With_9 . OpenForOutput := FALSE
+        ; With_9 . IsIntermittent := System . IsIntermittent ( f ) 
+        ; With_9 . EndOfFile := FALSE 
+        END (* WITH *)
+      ; CheckFlushLine ( f ) 
+      END(* IF *)
     ; RETURN f 
     END ReadOpen 
 
@@ -137,16 +140,19 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
       f : tFile 
 
   ; BEGIN (* ReadOpenT *) 
-      f := System . OpenInputT ( FileName ) 
-    ; WITH With_9 = BufferPool [ f ] 
-      DO With_9 . Buffer := Alloc ( BufferSize + 1 ) 
-      ; With_9 . BufferIndex := 0 
-      ; With_9 . BytesRead := 0 
-      ; With_9 . OpenForOutput := FALSE
-      ; With_9 . IsIntermittent := System . IsIntermittent ( f ) 
-      ; With_9 . EndOfFile := FALSE 
-      END (* WITH *) 
-    ; CheckFlushLine ( f ) 
+      f := System . OpenInputT ( FileName )
+    ; IF f >= 0
+      THEN 
+        WITH With_9 = BufferPool [ f ] 
+        DO With_9 . Buffer := Alloc ( BufferSize + 1 ) 
+        ; With_9 . BufferIndex := 0 
+        ; With_9 . BytesRead := 0 
+        ; With_9 . OpenForOutput := FALSE
+        ; With_9 . IsIntermittent := System . IsIntermittent ( f ) 
+        ; With_9 . EndOfFile := FALSE 
+        END (* WITH *) 
+      ; CheckFlushLine ( f ) 
+      END(* IF *)
     ; RETURN f 
     END ReadOpenT 
 
@@ -469,12 +475,15 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
 
   ; BEGIN (* WriteOpen *) 
       f := System . OpenOutput ( FileName ) 
-    ; WITH With_15 = BufferPool [ f ] 
-      DO With_15 . Buffer := Alloc ( BufferSize + 1 ) 
-      ; With_15 . BufferIndex := 0 
-      ; With_15 . OpenForOutput := TRUE 
-      END (* WITH *) 
-    ; CheckFlushLine ( f ) 
+    ; IF f >= 0
+      THEN 
+        WITH With_15 = BufferPool [ f ] 
+        DO With_15 . Buffer := Alloc ( BufferSize + 1 ) 
+        ; With_15 . BufferIndex := 0 
+        ; With_15 . OpenForOutput := TRUE 
+        END (* WITH *) 
+      ; CheckFlushLine ( f ) 
+      END(* IF *)
     ; RETURN f 
     END WriteOpen 
 
@@ -485,12 +494,15 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
 
   ; BEGIN (* WriteOpenT *) 
       f := System . OpenOutputT ( FileName ) 
-    ; WITH With_15 = BufferPool [ f ] 
-      DO With_15 . Buffer := Alloc ( BufferSize + 1 ) 
-      ; With_15 . BufferIndex := 0 
-      ; With_15 . OpenForOutput := TRUE 
-      END (* WITH *) 
-    ; CheckFlushLine ( f ) 
+    ; IF f >= 0
+      THEN 
+        WITH With_15 = BufferPool [ f ] 
+        DO With_15 . Buffer := Alloc ( BufferSize + 1 ) 
+        ; With_15 . BufferIndex := 0 
+        ; With_15 . OpenForOutput := TRUE 
+        END (* WITH *) 
+      ; CheckFlushLine ( f ) 
+      END(* IF *)
     ; RETURN f 
     END WriteOpenT 
 
@@ -827,10 +839,8 @@ UNSAFE MODULE ReuseIO                   (* buffered IO          *)
          DO IF With_21 . Buffer # NIL 
             THEN 
               IF With_21 . OpenForOutput 
-              THEN 
-                WriteClose ( i ) 
-              ELSE 
-                ReadClose ( i ) 
+              THEN WriteClose ( i )
+              ELSE ReadClose ( i ) 
               END (* IF *) 
             END (* IF *) 
          END (* WITH *) 
