@@ -10,7 +10,7 @@ DEFINITION MODULE Scanner;
 
 IMPORT Strings;
 
-(* line 62 "rex.rex" *)
+(* line 62 "rexm3.rex" *)
 
 
 FROM Idents	IMPORT tIdent	;

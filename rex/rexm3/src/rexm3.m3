@@ -61,8 +61,9 @@
 
 (* Ich, Doktor Josef Grosch, Informatiker, Nov. 1987 *) 
 
-UNSAFE MODULE rexm3 EXPORTS Main 
+UNSAFE MODULE rexm3 EXPORTS Main
 
+; IMPORT Text 
 
 ; FROM SYSTEM IMPORT SHORTCARD , SHORTINT 
 ; IMPORT ReuseIO 
@@ -101,7 +102,9 @@ UNSAFE MODULE rexm3 EXPORTS Main
 ; FROM ScanGen 
   IMPORT GenerateScanner , GenerateInterface , GenerateSupport , Language 
   , tLanguage 
-  , RexLib , SourceFile 
+  , SourceFile
+
+; IMPORT RexGlobals 
 
 ; PROCEDURE WriteT ( t : TEXT ) 
 
@@ -109,7 +112,7 @@ UNSAFE MODULE rexm3 EXPORTS Main
       ReuseIO . WriteT ( ReuseIO . StdOutput , t ) 
     END WriteT 
 
-; TYPE AOC = ARRAY OF CHAR 
+; TYPE AOC = ARRAY OF CHAR
 
 ; VAR Argument : ARRAY [ 0 .. 127 ] OF CHAR 
   ; FileNameS , Path : tString 
@@ -129,7 +132,7 @@ UNSAFE MODULE rexm3 EXPORTS Main
   ; optimize := 40 
   ; n := 0 
   ; Language := tLanguage . Modula3 
-  ; AssignEmpty ( RexLib ) 
+  ; RexGlobals . RexLib := "" 
   ; SourceFile [ 0 ] := '\000' 
 
   ; FOR i := 1 TO GetArgCount ( ) - 1 
@@ -138,15 +141,15 @@ UNSAFE MODULE rexm3 EXPORTS Main
       THEN 
         IF Argument [ 1 ] = 'l' 
         THEN 
-          AssignEmpty ( RexLib ) 
+          RexGlobals . RexLib := "" 
         ; j := 2 
         ; LOOP 
             ch := Argument [ j ] 
-          ; IF ch = '\000' THEN EXIT END (* IF *) 
-          ; Append ( RexLib , ch ) 
+          ; IF ch = '\000' THEN EXIT END (* IF *)
+          ; RexGlobals . RexLib := RexGlobals . RexLib & Text . FromChar ( ch ) 
           ; INC ( j ) 
           END (* LOOP *) 
-        ; Append ( RexLib , '/' ) 
+        ; RexGlobals . RexLib := RexGlobals . RexLib & Text . FromChar ( '/' ) 
         ELSE 
           j := 0 
         ; LOOP 
@@ -175,7 +178,8 @@ UNSAFE MODULE rexm3 EXPORTS Main
             => r := TRUE 
             | 'a' 
             => d := TRUE 
-            ; s := TRUE 
+            ; s := TRUE
+            ; Language := tLanguage . Modula2 
             | 'i' 
             => LastCh := '\377' 
             | 'o' 
@@ -250,21 +254,13 @@ UNSAFE MODULE rexm3 EXPORTS Main
     ; WriteT ( " h print help information" ) 
     ; WriteNl ( ) 
     ; WriteT 
-        ( " ldir specify the directory dir where rex finds its data files" ) 
+        ( " ldir specify the directory dir where rex finds its data files" )
+    ; WriteT ( "<number> set debug level to <number>. " ) 
     ; WriteNl ( ) 
 
-    ELSE 
-      Strings . TextToString ( ScanTabName , FileNameS ) (* name of scanner table *) 
-    ; Assign ( Path , RexLib ) 
-    ; Concatenate ( Path , FileNameS ) 
-    ; Append ( Path , '\000' ) 
-    ; ScanTabName := Strings . StringToText ( Path ) 
-
-    ; TextToString ( ParsTabName , FileNameS ) (* name of parser table *) 
-    ; Assign ( Path , RexLib ) 
-    ; Concatenate ( Path , FileNameS ) 
-    ; Append ( Path , '\000' ) 
-    ; ParsTabName := StringToText ( Path ) 
+    ELSE
+      ScanTabName := RexGlobals . RexLib & ScanTabName & RexGlobals . InputSuffix  
+    ; ParsTabName := RexGlobals . RexLib & ParsTabName & RexGlobals . InputSuffix 
 
     ; BeginScanner ( ) 
     ; IF SourceFile [ 0 ] # '\000' THEN BeginFile ( SourceFile ) END (* IF *) 

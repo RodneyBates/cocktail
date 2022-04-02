@@ -29,7 +29,7 @@
 
 (* Ich, Doktor Josef Grosch, Informatiker, Sept. 1987 *) 
 
-UNSAFE INTERFACE Idents 
+INTERFACE Idents 
 
 ; FROM SYSTEM IMPORT SHORTCARD 
 

@@ -1678,7 +1678,7 @@ UNSAFE MODULE Scanner
         => ErrLine ("Unable to open scanner table file " & ScanTabName ) 
         ; Process.Exit (RexErrors.AbnormalTermination) 
       END (* EXCEPT *) 
-    ; Checks . ErrorCheckT ( "yyGetTables.OpenInput" , TableFile ) 
+    ; Checks . ErrorCheckT ( "Unable to open " & ScanTabName , TableFile ) 
     ; IF ( ( yyGetTable ( TableFile , ADR ( Base [ FIRST ( Base ) ] ) ) 
              DIV BYTESIZE ( yyTableElmt ) 
              - 1 

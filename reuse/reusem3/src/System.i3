@@ -33,7 +33,7 @@
 
 (* Ich, Doktor Josef Grosch, Informatiker, Jan. 1992 *) 
 
-UNSAFE INTERFACE System (* interface for machine dependencies   *) 
+INTERFACE System (* interface for machine dependencies   *) 
 
 ; FROM SYSTEM IMPORT M2LONGINT 
 
@@ -120,7 +120,7 @@ UNSAFE INTERFACE System (* interface for machine dependencies   *)
 
 ; PROCEDURE System ( VAR String : ARRAY OF CHAR ) : INTEGER 
 
-; PROCEDURE Exit ( Status : INTEGER ) 
+; PROCEDURE Exit ( Status : CARDINAL ) 
 
 ; 
 END System 

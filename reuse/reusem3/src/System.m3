@@ -307,7 +307,7 @@ UNSAFE MODULE System
     END System 
 
 (*EXPORTED*) 
-; PROCEDURE Exit ( Status : INTEGER ) 
+; PROCEDURE Exit ( Status : CARDINAL ) 
 
   = BEGIN (* Exit *) 
       Process . Exit ( Status ) 

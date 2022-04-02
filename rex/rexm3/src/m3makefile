@@ -4,6 +4,7 @@ import("libm3")
 import("m2libs")
 import("reusem3")
 
+module ("RexGlobals")
 module("RexErrors")
 module("Classes")
 module("DefTable")

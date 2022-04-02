@@ -92,7 +92,7 @@ UNSAFE MODULE ScanTabs
 
 ; FROM Classes IMPORT ClassCount , ClassMemPtr , ToClass , ToChar 
 
-; FROM ScanGen IMPORT ScannerName 
+; FROM ScanGen IMPORT ScannerIdent 
 
 ; VAR Tables : tFile 
 ; VAR ElmtSize : TableElmt 
@@ -134,11 +134,11 @@ PROCEDURE GetTable (Address: ADDRESS): CARDINAL;
   ; BEGIN (* PutTables *) 
       BlockSize := 64000 DIV BYTESIZE ( ControlType ) 
     ; StateCount := DStateCount 
-    ; IF ScannerName = NoIdent 
+    ; IF ScannerIdent = NoIdent 
       THEN 
         Strings . TextToString ( "Scanner" , PathS ) 
       ELSE 
-        GetString ( ScannerName , PathS ) 
+        GetString ( ScannerIdent , PathS ) 
       END (* IF *) 
     ; Strings . TextToString ( ".Tab" , FileNameS ) 
     ; Concatenate ( PathS , FileNameS ) 

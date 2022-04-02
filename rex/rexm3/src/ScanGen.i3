@@ -53,9 +53,8 @@ UNSAFE INTERFACE ScanGen
   ; ExportLine , GlobalLine , LocalLine , BeginLine , CloseLine , DefaultLine 
     , EofLine 
     : SHORTCARD 
-  ; ScannerName : tIdent 
+  ; ScannerIdent : tIdent 
   ; Language : tLanguage 
-  ; RexLib : tString 
   ; SourceFile : ARRAY [ 0 .. 127 ] OF CHAR 
 
 ; PROCEDURE InitScanGen ( ) 

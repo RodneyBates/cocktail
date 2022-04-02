@@ -82,14 +82,16 @@
 
 UNSAFE MODULE ScanGen 
 
-
+; IMPORT Word 
 
 ; FROM SYSTEM IMPORT SHORTCARD 
 
-; FROM Checks IMPORT ErrorCheckS 
+; FROM Checks IMPORT ErrorCheckT
+; IMPORT Checks 
 
+; IMPORT ReuseIO 
 ; FROM ReuseIO 
-  IMPORT ReadOpen , WriteOpen , WriteClose , ReadClose , EndOfFile , WriteN 
+  IMPORT ReadOpenT , WriteOpenT , WriteClose , ReadClose , EndOfFile , WriteN 
   , WriteT 
   , WriteNl , WriteC , WriteI , WriteS , tFile 
 
@@ -116,7 +118,8 @@ UNSAFE MODULE ScanGen
   , PatternCount 
   , VariableContext , LeftJustUsed 
 
-; IMPORT Word , Strings , Idents 
+; IMPORT RexGlobals 
+; IMPORT Strings , Idents 
 ; IMPORT Texts AS TextLists 
 
 (* File names for Modula2:*) 
@@ -173,18 +176,18 @@ UNSAFE MODULE ScanGen
       ; Ch := Char ( Line , i ) 
       ; CASE Ch 
         OF '@' 
-        => IF ScannerName = NoIdent 
+        => IF ScannerIdent = NoIdent 
            THEN 
              WriteT ( Out , Scanner ) 
            ELSE 
-             WriteIdent ( Out , ScannerName ) 
+             WriteIdent ( Out , ScannerIdent ) 
            END (* IF *) 
         | '$' 
-        => IF ScannerName = NoIdent 
+        => IF ScannerIdent = NoIdent 
            THEN 
              IF Char ( Line , i + 1 ) = '_' THEN INC ( i ) END (* IF *) 
            ELSE 
-             WriteIdent ( Out , ScannerName ) 
+             WriteIdent ( Out , ScannerIdent ) 
            END (* IF *) 
         ELSE 
           WriteC ( Out , Ch ) 
@@ -194,32 +197,27 @@ UNSAFE MODULE ScanGen
 
 ; PROCEDURE GenerateSupport ( ) 
 
-  = VAR SourceName , DriverName , Suffix : tString 
+  = VAR LSourceNameT : TEXT 
+  ; VAR LDriverNameT : TEXT 
 
   ; PROCEDURE CopyFile 
-      ( InputA : TEXT ; READONLY OutputS : tString ; SuffixA : TEXT ) 
+      ( InputT : TEXT ; OutputT : TEXT ) 
 
     = VAR In , Out : tFile 
-      ; FileNameS , PathS , Line : tString 
-      ; LOutputS : tString 
-      ; PathA : ARRAY [ 0 .. 127 ] OF CHAR 
+    ; VAR Line : tString 
+    ; VAR LFullInPathT : TEXT 
+    ; VAR LFullOutPathT : TEXT 
 
     ; BEGIN (* CopyFile *) 
-        TextToString ( InputA , FileNameS ) 
-      ; Assign ( PathS , RexLib ) 
-      ; Concatenate ( PathS , FileNameS ) 
-      ; Append ( PathS , '\000' ) 
-      ; StringToArray ( PathS , PathA ) 
-      ; In := ReadOpen ( PathA ) 
-      ; ErrorCheckS ( PathA , In ) 
+        LFullInPathT := RexGlobals . RexLib & InputT  
+      ; In := ReuseIO . ReadOpenT ( LFullInPathT ) 
+      ; Checks . ErrorCheckT
+          ( "Unable to open input file " & LFullInPathT , In ) 
 
-      ; Assign ( LOutputS , OutputS ) 
-      ; TextToString ( SuffixA , FileNameS ) 
-      ; Concatenate ( LOutputS , FileNameS ) 
-      ; Append ( LOutputS , '\000' ) 
-      ; StringToArray ( LOutputS , PathA ) 
-      ; Out := WriteOpen ( PathA ) 
-      ; ErrorCheckS ( PathA , Out ) 
+      ; LFullOutPathT := OutputT 
+      ; Out := ReuseIO . WriteOpenT ( LFullOutPathT ) 
+      ; Checks . ErrorCheckT
+          ( "Unable to open output file " & LFullOutPathT , Out ) 
 
       ; WHILE NOT EndOfFile ( In ) 
         DO ReadL ( In , Line ) 
@@ -236,77 +234,69 @@ UNSAFE MODULE ScanGen
       ; WriteClose ( Out ) 
       END CopyFile 
 
-  ; BEGIN (* GenerateSupport *) 
-      Idents . GetString ( ScannerName , SourceName ) 
-    ; TextToString ( Source , Suffix ) 
-    ; Concatenate ( SourceName , Suffix ) 
-    ; IF ScannerName = NoIdent 
-      THEN 
-        TextToString ( Scanner , DriverName ) 
-      ELSE 
-        Idents . GetString ( ScannerName , DriverName ) 
-      END (* IF *) 
-    ; TextToString ( Drv , Suffix ) 
-    ; Concatenate ( DriverName , Suffix ) 
+  ; BEGIN (* GenerateSupport *)
+      LSourceNameT := RexGlobals . SourceDefaultNameT 
+    ; LDriverNameT 
+       := RexGlobals . IdentDefaultT
+            ( ScannerIdent , RexGlobals . ScannerDefaultNameT )
+          & RexGlobals . DriverSuffix 
+   
     ; CASE Language 
       OF tLanguage . Modula2 
-      => CopyFile ( SourceMd , SourceName , ExtMd ) 
-      ; CopyFile ( SourceMi , SourceName , ExtMi ) 
-      ; CopyFile ( ScanDrvMi , DriverName , ExtMi ) 
+      => CopyFile ( SourceMd & RexGlobals . InputSuffix , LSourceNameT & ExtMd ) 
+      ; CopyFile ( SourceMi & RexGlobals . InputSuffix , LSourceNameT & ExtMi ) 
+      ; CopyFile ( ScanDrvMi & RexGlobals . InputSuffix , LDriverNameT & ExtMi ) 
 
       | tLanguage . Modula3 
-      => CopyFile ( SourceM3 , SourceName , ExtM3 ) 
-      ; CopyFile ( SourceI3 , SourceName , ExtI3 ) 
-      ; CopyFile ( ScanDrvM3 , DriverName , ExtM3 ) 
+      => CopyFile ( SourceI3 & RexGlobals . InputSuffix , LSourceNameT & ExtI3 ) 
+      ; CopyFile ( SourceM3 & RexGlobals . InputSuffix , LSourceNameT & ExtM3 ) 
+      ; CopyFile ( ScanDrvM3 & RexGlobals . InputSuffix , LDriverNameT & ExtM3 ) 
 
       | tLanguage . Schutz 
-      => 
+      => CopyFile ( SourceI3 & RexGlobals . InputSuffix , LSourceNameT & ExtI3 ) 
+      ; CopyFile ( SourceM3 & RexGlobals . InputSuffix , LSourceNameT & ExtM3 ) 
+      ; CopyFile ( ScanDrvM3 & RexGlobals . InputSuffix , LDriverNameT & ExtM3 ) 
 
       | tLanguage . C 
-      => CopyFile ( SourceH , SourceName , ExtH ) 
-      ; CopyFile ( SourceC , SourceName , ExtC ) 
-      ; CopyFile ( ScanDrvC , DriverName , ExtC ) 
+      => CopyFile ( SourceH & RexGlobals . InputSuffix , LSourceNameT & ExtH ) 
+      ; CopyFile ( SourceC & RexGlobals . InputSuffix , LSourceNameT & ExtC ) 
+      ; CopyFile ( ScanDrvC & RexGlobals . InputSuffix , LDriverNameT & ExtC ) 
       END (* CASE *) 
     END GenerateSupport 
 
 ; PROCEDURE GenerateInterface ( ) 
 
   = VAR In , Out : tFile 
-    ; FileNameS , PathS , Line : tString 
-    ; PathA : ARRAY [ 0 .. 127 ] OF CHAR 
+  ; VAR FileNameS , PathS , Line : tString 
+  ; VAR PathA : ARRAY [ 0 .. 127 ] OF CHAR
+  ; VAR LTemplPathT , LFileName , LInterfaceNameT , LExt: TEXT
+  ; VAR LTemplFileNameT : TEXT 
 
   ; BEGIN (* GenerateInterface *) 
       CASE Language 
-      OF tLanguage . Modula2 
-      => TextToString ( ScannerMd , FileNameS ) 
-      | tLanguage . C 
-      => TextToString ( ScannerH , FileNameS ) 
+      OF tLanguage . Modula2 => LTemplFileNameT := ScannerMd 
+      | tLanguage . Modula3 => LTemplFileNameT := ScannerI3 
+      | tLanguage . Schutz => LTemplFileNameT := ScannerI3 
+      | tLanguage . C => LTemplFileNameT := ScannerH 
       END (* CASE *) 
+    ; LTemplPathT
+        := RexGlobals . RexLib & LTemplFileNameT & RexGlobals . InputSuffix 
+    ; In := ReadOpenT ( LTemplPathT ) 
+    ; ErrorCheckT
+        ( "Unable to open input template file " & LTemplPathT , In ) 
 
-    ; Assign ( PathS , RexLib ) 
-    ; Concatenate ( PathS , FileNameS ) 
-    ; Append ( PathS , '\000' ) 
-    ; StringToArray ( PathS , PathA ) 
-    ; In := ReadOpen ( PathA ) 
-    ; ErrorCheckS ( PathA , In ) 
-
-    ; IF ScannerName = NoIdent 
-      THEN 
-        TextToString ( Scanner , PathS ) 
-      ELSE 
-        Idents . GetString ( ScannerName , PathS ) 
-      END (* IF *) 
+    ; LInterfaceNameT 
+        := RexGlobals . IdentDefaultT
+             ( ScannerIdent , RexGlobals . ScannerDefaultNameT )
     ; CASE Language 
-      OF tLanguage . Modula2 
-      => TextToString ( ExtMd , FileNameS ) 
-      | tLanguage . C 
-      => TextToString ( ExtH , FileNameS ) 
-      END (* CASE *) 
-    ; Concatenate ( PathS , FileNameS ) 
-    ; Append ( PathS , '\000' ) 
-    ; StringToArray ( PathS , PathA ) 
-    ; Out := WriteOpen ( PathA ) 
-    ; ErrorCheckS ( PathA , Out ) 
+      OF tLanguage . Modula2 => LExt := ExtMd 
+      | tLanguage . Modula3 => LExt := ExtI3 
+      | tLanguage . Schutz => LExt := ExtI3 
+      | tLanguage . C => LExt := ExtH 
+      END (* CASE *)
+    ; LInterfaceNameT := LInterfaceNameT & LExt 
+    ; Out := WriteOpenT ( LInterfaceNameT ) 
+    ; ErrorCheckT ( "Unable to open output file " & LInterfaceNameT , Out ) 
 
     ; WHILE NOT EndOfFile ( In ) 
       DO ReadL ( In , Line ) 
@@ -331,10 +321,40 @@ UNSAFE MODULE ScanGen
 
   = VAR In , Out : tFile 
     ; FileNameS , PathS , Line : tString 
-    ; PathA : ARRAY [ 0 .. 127 ] OF CHAR 
+    ; PathA : ARRAY [ 0 .. 127 ] OF CHAR
+
+  ; VAR LTemplPathT , LModuleNameT , LExt: TEXT
+  ; VAR LTemplFileNameT : TEXT 
 
   ; BEGIN (* GenerateScanner *) 
-      gGenLine := GenLine 
+      gGenLine := GenLine
+
+    ; CASE Language 
+      OF tLanguage . Modula2 => LTemplFileNameT := ScannerMi 
+      | tLanguage . Modula3 => LTemplFileNameT := ScannerM3 
+      | tLanguage . Schutz => LTemplFileNameT := ScannerM3 
+      | tLanguage . C => LTemplFileNameT := ScannerC 
+      END (* CASE *) 
+    ; LTemplPathT
+        := RexGlobals . RexLib & LTemplFileNameT & RexGlobals . InputSuffix
+    ; In := ReadOpenT ( LTemplPathT ) 
+    ; ErrorCheckT
+        ( "Unable to open imput template file " & LTemplPathT , In ) 
+
+    ; LModuleNameT 
+        := RexGlobals . IdentDefaultT
+             ( ScannerIdent , RexGlobals . ScannerDefaultNameT )
+    ; CASE Language 
+      OF tLanguage . Modula2 => LExt := ExtMi 
+      | tLanguage . Modula3 => LExt := ExtM3 
+      | tLanguage . Schutz => LExt := ExtM3 
+      | tLanguage . C => LExt := ExtH 
+      END (* CASE *) 
+    ; LModuleNameT := LModuleNameT & LExt 
+    ; Out := WriteOpenT ( LModuleNameT ) 
+    ; ErrorCheckT ( "Unable to open output file " & LModuleNameT , Out ) 
+
+(*
     ; CASE Language 
       OF tLanguage . Modula2 
       => TextToString ( ScannerMi , FileNameS ) 
@@ -342,18 +362,18 @@ UNSAFE MODULE ScanGen
       => TextToString ( ScannerC , FileNameS ) 
       END (* CASE *) 
 
-    ; Assign ( PathS , RexLib ) 
+    ; Assign ( PathS , RexGlobals . RexLib ) 
     ; Concatenate ( PathS , FileNameS ) 
     ; Append ( PathS , '\000' ) 
     ; StringToArray ( PathS , PathA ) 
     ; In := ReadOpen ( PathA ) 
     ; ErrorCheckS ( PathA , In ) 
 
-    ; IF ScannerName = NoIdent 
+    ; IF ScannerIdent = NoIdent 
       THEN 
         TextToString ( Scanner , PathS ) 
       ELSE 
-        Idents . GetString ( ScannerName , PathS ) 
+        Idents . GetString ( ScannerIdent , PathS ) 
       END (* IF *) 
     ; CASE Language 
       OF tLanguage . Modula2 
@@ -365,7 +385,8 @@ UNSAFE MODULE ScanGen
     ; Append ( PathS , '\000' ) 
     ; StringToArray ( PathS , PathA ) 
     ; Out := WriteOpen ( PathA ) 
-    ; ErrorCheckS ( PathA , Out ) 
+    ; ErrorCheckS ( PathA , Out )
+*)
 
     ; WHILE NOT EndOfFile ( In ) 
       DO ReadL ( In , Line ) 
@@ -551,11 +572,11 @@ UNSAFE MODULE ScanGen
                ( Out , String , PatternTablePtr ^ [ Pattern ] . ContextLng ) 
            ; IF Language = tLanguage . C 
              THEN 
-               IF ScannerName = NoIdent 
+               IF ScannerIdent = NoIdent 
                THEN 
                  TextToString ( "TokenLength" , String ) 
                ELSE 
-                 Idents . GetString ( ScannerName , String ) 
+                 Idents . GetString ( ScannerIdent , String ) 
                ; Append ( String , '_' ) 
                ; TextToString ( "TokenLength" , String2 ) 
                ; Concatenate ( String , String2 ) 
@@ -785,9 +806,9 @@ UNSAFE MODULE ScanGen
 
   ; BEGIN (* ConvertAppend2 *) 
       TextToString ( a1 , String1 ) 
-    ; IF ScannerName # NoIdent 
+    ; IF ScannerIdent # NoIdent 
       THEN 
-        Idents . GetString ( ScannerName , String2 ) 
+        Idents . GetString ( ScannerIdent , String2 ) 
       ; Concatenate ( String1 , String2 ) 
       ; Append ( String1 , '_' ) 
       END (* IF *) 
@@ -803,17 +824,17 @@ UNSAFE MODULE ScanGen
 
   ; BEGIN (* ConvertAppend3 *) 
       TextToString ( a1 , String1 ) 
-    ; IF ScannerName # NoIdent 
+    ; IF ScannerIdent # NoIdent 
       THEN 
-        Idents . GetString ( ScannerName , String2 ) 
+        Idents . GetString ( ScannerIdent , String2 ) 
       ; Concatenate ( String1 , String2 ) 
       ; Append ( String1 , '_' ) 
       END (* IF *) 
     ; TextToString ( a2 , String2 ) 
     ; Concatenate ( String1 , String2 ) 
-    ; IF ScannerName # NoIdent 
+    ; IF ScannerIdent # NoIdent 
       THEN 
-        Idents . GetString ( ScannerName , String2 ) 
+        Idents . GetString ( ScannerIdent , String2 ) 
       ; Concatenate ( String1 , String2 ) 
       ; Append ( String1 , '_' ) 
       END (* IF *) 
@@ -900,7 +921,12 @@ UNSAFE MODULE ScanGen
             ( "IO.WriteC (IO.StdOutput, yyChBufferPtr^ [yyChBufferIndex-1]);" 
             , Default 
             ) 
-        END (* IF *) 
+        END (* IF *)
+
+      | tLanguage . Modula3 =>
+
+(* CODEME. *)
+
 
       | tLanguage . C 
       => ConvertAppend ( "switch (* -- yyStatePtr) {" , Case1 ) 
@@ -989,7 +1015,7 @@ UNSAFE MODULE ScanGen
     END InitScanGen 
 
 ; BEGIN (* ScanGen *) 
-    ScannerName := NoIdent 
+    ScannerIdent := NoIdent 
   ; BeginLine := 0 
   ; CloseLine := 0 
   ; DefaultLine := 0 

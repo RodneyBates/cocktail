@@ -9,17 +9,18 @@ UNSAFE MODULE Parser
 ; IMPORT Process 
 ; IMPORT Text 
 
-
 ; FROM SYSTEM IMPORT M2LONGINT , M2LONGCARD , SHORTCARD 
 
 ; IMPORT Word 
-  , SYSTEM 
+
+; IMPORT SYSTEM 
   , Scanner 
   , Positions 
   , Strings 
   , DynArray 
   , Sets 
-  , System 
+  , System
+  , Checks 
 
 (* line 24 "/tmp/lalr4706" *) 
 (* line 26 ../src/rex.lalr *) 
@@ -59,7 +60,7 @@ UNSAFE MODULE Parser
   , NoPosition 
   , ExportLine , GlobalLine , LocalLine , BeginLine , CloseLine , EofLine 
   , DefaultLine 
-  , Default , BlankText , TabText , EolText , ScannerName , InitScanGen 
+  , Default , BlankText , TabText , EolText , ScannerIdent , InitScanGen 
 
 ; CONST IdentUndefined = 10 
   ; ImproperUse = 11 
@@ -497,22 +498,21 @@ UNSAFE MODULE Parser
             ; yyNonterminal := 40 
 (* line 203 "/tmp/lalr4706" *) 
   (* line 202 ../src/rex.lalr *) 
-            ; ScannerName := NoIdent 
+            ; ScannerIdent := NoIdent 
             | 104 
             => (* name : 'SCANNER' .*) 
                DEC ( yyStackPtr , 1 ) 
             ; yyNonterminal := 40 
 (* line 205 "/tmp/lalr4706" *) 
   (* line 203 ../src/rex.lalr *) 
-            ; Strings . TextToString ( "Scanner" , string ) 
-            ; ScannerName := MakeIdent ( string ) 
+            ; ScannerIdent := NoIdent  
             | 105 , 56 
             => (* name : 'SCANNER' Ident .*) 
                DEC ( yyStackPtr , 2 ) 
             ; yyNonterminal := 40 
 (* line 207 "/tmp/lalr4706" *) 
   (* line 204 ../src/rex.lalr *) 
-            ; ScannerName 
+            ; ScannerIdent 
                 := yyAttributeStack ^ [ yyStackPtr + 2 ] . Scan . Ident 
             | 106 
             => (* code : .*) 
@@ -1545,13 +1545,16 @@ UNSAFE MODULE Parser
       BlockSize := 64000 DIV BYTESIZE ( yyTCombType ) 
     ; OK := TRUE 
     ; TRY 
-        yyTableFile := System.OpenInputT (ParsTabName)  
+        yyTableFile := System.OpenInputT ( ParsTabName )  
       EXCEPT 
-        OSError.E (code) 
-        => Errors.ErrLine 
-             ("Error: Can't open parse table file " & ParsTabName)
-        ; OK := FALSE; 
-      END (* EXCEPT *) 
+        OSError.E ( code ) 
+        => Errors . ErrLine 
+             ( "Error: Can't open parse table file " & ParsTabName )
+        ; OK := FALSE  
+      END (* EXCEPT *)
+    ; Checks . ErrorCheckT
+        ( "Unable to open parse table file " & ParsTabName , yyTableFile )
+    ; OK := OK AND yyTableFile >= 0 
     ; IF OK 
       THEN 
         ReadVal 
@@ -1744,9 +1747,15 @@ UNSAFE MODULE Parser
     ; Length : yyTableElmt 
     ; LongLength : Word . T 
 
-  ; BEGIN (* yyGetTable *) 
-      N := System . Read 
-             ( yyTableFile , ADR ( Length ) , BYTESIZE ( yyTableElmt ) ) 
+  ; BEGIN (* yyGetTable *)
+      TRY 
+        N := System . Read 
+               ( yyTableFile , ADR ( Length ) , BYTESIZE ( yyTableElmt ) )
+      EXCEPT
+      System . FileNoError
+      => Errors . ErrLine ( "Unable to read parser table file " ) 
+      ; System . Exit ( 1 ) 
+      END (* EXCEPT *)
     ; yyErrorCheck ( Errors . ReadParseTable , N ) 
     ; LongLength := Length 
     ; N := System . Read ( yyTableFile , Address , LongLength ) 
