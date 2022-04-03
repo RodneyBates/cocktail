@@ -256,14 +256,15 @@ UNSAFE MODULE rexm3 EXPORTS Main
     ; WriteNl ( ) 
     ; WriteT ( " h print help information" ) 
     ; WriteNl ( ) 
-    ; WriteT 
-        ( " ldir specify the directory dir where rex finds its data files" )
-    ; WriteT ( "<number> set debug level to <number>. " ) 
+    ; WriteT ( " l<dir> specify directory <dir> where rex finds its data files" )
+    ; WriteNl ( ) 
+    ; WriteT ( "        (default: \"../lib\"" )
+    ; WriteNl ( ) 
+    ; WriteT ( " <number> set debug level to <number>. " ) 
     ; WriteNl ( ) 
 
     ELSE
-      
-      ScanTabName := RexGlobals . RexLib & ScanTabName & RexGlobals . InputSuffix  
+      ScanTabName := RexGlobals . RexLib & ScanTabName & RexGlobals . InputSuffix 
     ; ParsTabName := RexGlobals . RexLib & ParsTabName & RexGlobals . InputSuffix 
 
     ; BeginScanner ( ) 
