@@ -13,6 +13,7 @@ INTERFACE RexGlobals
 
 ; VAR DriverSuffix : TEXT := "Drv" 
 
+; VAR RexLibDefault : TEXT := "../lib/" 
 ; VAR RexLib : TEXT := ""
 
 ; PROCEDURE IdentDefaultT ( Id : Idents . tIdent ; Default : TEXT ) : TEXT

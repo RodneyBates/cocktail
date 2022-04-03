@@ -132,7 +132,7 @@ UNSAFE MODULE rexm3 EXPORTS Main
   ; optimize := 40 
   ; n := 0 
   ; Language := tLanguage . Modula3 
-  ; RexGlobals . RexLib := "" 
+  ; RexGlobals . RexLib := RexGlobals . RexLibDefault  
   ; SourceFile [ 0 ] := '\000' 
 
   ; FOR i := 1 TO GetArgCount ( ) - 1 
@@ -149,7 +149,10 @@ UNSAFE MODULE rexm3 EXPORTS Main
           ; RexGlobals . RexLib := RexGlobals . RexLib & Text . FromChar ( ch ) 
           ; INC ( j ) 
           END (* LOOP *) 
-        ; RexGlobals . RexLib := RexGlobals . RexLib & Text . FromChar ( '/' ) 
+        ; IF NOT Text . Equal ( RexGlobals . RexLib , "" )
+          THEN
+            RexGlobals . RexLib := RexGlobals . RexLib & Text . FromChar ( '/' )
+          END (* IF *) 
         ELSE 
           j := 0 
         ; LOOP 
@@ -259,6 +262,7 @@ UNSAFE MODULE rexm3 EXPORTS Main
     ; WriteNl ( ) 
 
     ELSE
+      
       ScanTabName := RexGlobals . RexLib & ScanTabName & RexGlobals . InputSuffix  
     ; ParsTabName := RexGlobals . RexLib & ParsTabName & RexGlobals . InputSuffix 
 

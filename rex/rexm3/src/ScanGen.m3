@@ -354,40 +354,6 @@ UNSAFE MODULE ScanGen
     ; Out := WriteOpenT ( LModuleNameT ) 
     ; ErrorCheckT ( "Unable to open output file " & LModuleNameT , Out ) 
 
-(*
-    ; CASE Language 
-      OF tLanguage . Modula2 
-      => TextToString ( ScannerMi , FileNameS ) 
-      | tLanguage . C 
-      => TextToString ( ScannerC , FileNameS ) 
-      END (* CASE *) 
-
-    ; Assign ( PathS , RexGlobals . RexLib ) 
-    ; Concatenate ( PathS , FileNameS ) 
-    ; Append ( PathS , '\000' ) 
-    ; StringToArray ( PathS , PathA ) 
-    ; In := ReadOpen ( PathA ) 
-    ; ErrorCheckS ( PathA , In ) 
-
-    ; IF ScannerIdent = NoIdent 
-      THEN 
-        TextToString ( Scanner , PathS ) 
-      ELSE 
-        Idents . GetString ( ScannerIdent , PathS ) 
-      END (* IF *) 
-    ; CASE Language 
-      OF tLanguage . Modula2 
-      => TextToString ( ExtMi , FileNameS ) 
-      | tLanguage . C 
-      => TextToString ( ExtC , FileNameS ) 
-      END (* CASE *) 
-    ; Concatenate ( PathS , FileNameS ) 
-    ; Append ( PathS , '\000' ) 
-    ; StringToArray ( PathS , PathA ) 
-    ; Out := WriteOpen ( PathA ) 
-    ; ErrorCheckS ( PathA , Out )
-*)
-
     ; WHILE NOT EndOfFile ( In ) 
       DO ReadL ( In , Line ) 
       ; IF ( Length ( Line ) >= 2 ) AND ( Char ( Line , 1 ) = '$' ) 

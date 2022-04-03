@@ -1670,7 +1670,7 @@ UNSAFE MODULE Scanner
     ; Base : ARRAY yyStateRange OF yyTableRange 
 
   ; BEGIN (* yyGetTables *) 
-      BlockSize := 64000 DIV BYTESIZE ( yyCombType ) 
+      BlockSize := 64000 DIV BYTESIZE ( yyCombType )
     ; TRY 
         TableFile := System.OpenInputT (ScanTabName) 
       EXCEPT 
