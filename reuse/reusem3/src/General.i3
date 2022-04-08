@@ -23,7 +23,7 @@
 
 (* General Subroutines: minimum, maximum, binary logarithm, and power of 2 *) 
 
-UNSAFE INTERFACE General 
+INTERFACE General 
 
 ; IMPORT Word 
 
