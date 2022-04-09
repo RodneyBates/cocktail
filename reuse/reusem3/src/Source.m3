@@ -5,12 +5,12 @@ UNSAFE MODULE Source
 
 ; IMPORT Word 
 
-; FROM System IMPORT tFile , OpenInput , Read , Close 
+; FROM System IMPORT tFile , OpenInputT , Read , Close 
 
-; PROCEDURE BeginSource ( READONLY FileName : ARRAY OF CHAR ) : tFile 
+; PROCEDURE BeginSource ( READONLY FileName : TEXT ) : tFile 
 
   = BEGIN (* BeginSource *) 
-      RETURN OpenInput ( FileName ) 
+      RETURN OpenInputT ( FileName ) 
     END BeginSource 
 
 ; PROCEDURE GetLine 

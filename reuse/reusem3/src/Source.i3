@@ -16,7 +16,7 @@ INTERFACE Source
 
 ; FROM System IMPORT tFile 
 
-; PROCEDURE BeginSource ( READONLY FileName : ARRAY OF CHAR ) : tFile 
+; PROCEDURE BeginSource ( READONLY FileName : TEXT ) : tFile 
 
    (* 
       BeginSource is called from the scanner to open files. 
