@@ -27,7 +27,7 @@ UNSAFE INTERFACE Scanner
         Position : tPosition 
 
       ; Ident : tIdent 
-      ; Number : SHORTCARD 
+      ; Number : INTEGER  
       ; String : tStringRef 
       ; Ch : CHAR 
       ; Text : tText 
@@ -47,7 +47,7 @@ UNSAFE INTERFACE Scanner
 
 ; PROCEDURE BeginScanner ( ) 
 
-; PROCEDURE BeginFile ( READONLY FileName : ARRAY OF CHAR ) 
+; PROCEDURE BeginFile ( FileName : TEXT ) 
 
 ; PROCEDURE GetToken ( ) : INTEGER 
 

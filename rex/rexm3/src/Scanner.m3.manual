@@ -1387,7 +1387,7 @@ UNSAFE MODULE Scanner
       END (* LOOP *) 
     END GetToken 
 
-; PROCEDURE BeginFile ( READONLY FileName : ARRAY OF CHAR ) 
+; PROCEDURE BeginFile ( FileName : TEXT ) 
 
   = BEGIN (* BeginFile *) 
       IF yyStateStack ^ [ 0 ] = yyDNoState 
