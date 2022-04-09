@@ -1,88 +1,97 @@
-(* $Id: ScanGen.mi,v 3.9 1992/08/18 09:06:44 grosch rel $ *) 
+(* File ScanGen.m3 *)
+(* Old comments from original version in Modula2. *)
 
-(* $Log: ScanGen.mi,v $ 
- * Revision 3.9  1992/08/18  09:06:44  grosch 
- * removed limitation for length of token and lookahead 
- * 
- * Revision 3.8  1992/08/07  15:10:26  grosch 
- * allow several scanner and parsers; extend module Errors 
- * 
- * Revision 3.7  1992/02/11  16:43:56  grosch 
- * replaced tString = unsigned char * by char * 
- * 
- * Revision 3.6  1992/01/30  15:29:14  grosch 
- * added labels to suppress warnings for unreachable statements 
- * 
- * Revision 3.5  1992/01/30  13:29:56  grosch 
- * redesign of interface to operating system 
- * 
- * Revision 3.4  1991/11/21  14:42:49  grosch 
- * fixed bug: interference of right context between constant and non-constant RE 
- * new version of RCS on SPARC 
- * 
- * Revision 3.3  91/09/18  15:05:38  grosch 
- * added option to control generation of # line directives 
- * 
- * Revision 3.2  91/04/26  16:16:02  grosch 
- * introduced ARGS trick for ANSI C compatibility 
- * 
- * Revision 3.1  91/04/08  15:51:16  grosch 
- * corrected LastCh to OldLastCh 
- * 
- * Revision 3.0  91/04/04  18:07:40  grosch 
- * introduced partitioning of character set 
- * 
- * Revision 2.0  91/03/08  18:18:10  grosch 
- * turned tables into initialized arrays (in C) 
- * reduced case size 
- * changed interface for source position 
- * 
- * Revision 1.11  91/02/13  11:35:17  grosch 
- * moved tables from file to initialization in C; reduced case size 
- * 
- * Revision 1.10  90/10/09  17:33:54  grosch 
- * output one case label per line, only 
- * 
- * Revision 1.9  90/09/20  10:12:20  grosch 
- * calmed down lint 
- * 
- * Revision 1.8  90/06/11  11:25:44  grosch 
- * minimal layout improvements 
- * 
- * Revision 1.7  89/11/06  12:36:26  grosch 
- * renamed module Rex to GenTabs to avoid name clash with rex under VMS 
- * 
- * Revision 1.6  89/08/29  11:44:47  grosch 
- * make all char constants unsigned 
- * 
- * Revision 1.5  89/03/01  10:59:43  grosch 
- * improve default action 
- * 
- * Revision 1.4  89/02/23  15:55:43  grosch 
- * added include files 
- * added DEFAULT section 
- * added completeness check for the automaton 
- * improved handling of right context 
- * 
- * Revision 1.3  89/01/17  15:01:50  grosch 
- * correction and redesign of source position handling 
- * 
- * Revision 1.2  88/11/22  19:19:25  grosch 
- * fixed bug: changed variables Context2 and Context4 for variable right context in Modula2 
- * 
- * Revision 1.1  88/11/06  14:55:00  grosch 
- * terminate case labels with superfluous ; to avoid yacc stack overflow with SUN's cc 
- * 
- * Revision 1.0  88/10/04  11:59:44  grosch 
- * Initial revision 
- * 
- *) 
+     (* $Id: ScanGen.mi,v 3.9 1992/08/18 09:06:44 grosch rel $ *) 
 
-(* Ich, Doktor Josef Grosch, Informatiker, Nov. 1987 *) 
+     (* $Log: ScanGen.mi,v $ 
+      * Revision 3.9  1992/08/18  09:06:44  grosch 
+      * removed limitation for length of token and lookahead 
+      * 
+      * Revision 3.8  1992/08/07  15:10:26  grosch 
+      * allow several scanner and parsers; extend module Errors 
+      * 
+      * Revision 3.7  1992/02/11  16:43:56  grosch 
+      * replaced tString = unsigned char * by char * 
+      * 
+      * Revision 3.6  1992/01/30  15:29:14  grosch 
+      * added labels to suppress warnings for unreachable statements 
+      * 
+      * Revision 3.5  1992/01/30  13:29:56  grosch 
+      * redesign of interface to operating system 
+      * 
+      * Revision 3.4  1991/11/21  14:42:49  grosch 
+      * fixed bug: interference of right context between constant and non-constant RE 
+      * new version of RCS on SPARC 
+      * 
+      * Revision 3.3  91/09/18  15:05:38  grosch 
+      * added option to control generation of # line directives 
+      * 
+      * Revision 3.2  91/04/26  16:16:02  grosch 
+      * introduced ARGS trick for ANSI C compatibility 
+      * 
+      * Revision 3.1  91/04/08  15:51:16  grosch 
+      * corrected LastCh to OldLastCh 
+      * 
+      * Revision 3.0  91/04/04  18:07:40  grosch 
+      * introduced partitioning of character set 
+      * 
+      * Revision 2.0  91/03/08  18:18:10  grosch 
+      * turned tables into initialized arrays (in C) 
+      * reduced case size 
+      * changed interface for source position 
+      * 
+      * Revision 1.11  91/02/13  11:35:17  grosch 
+      * moved tables from file to initialization in C; reduced case size 
+      * 
+      * Revision 1.10  90/10/09  17:33:54  grosch 
+      * output one case label per line, only 
+      * 
+      * Revision 1.9  90/09/20  10:12:20  grosch 
+      * calmed down lint 
+      * 
+      * Revision 1.8  90/06/11  11:25:44  grosch 
+      * minimal layout improvements 
+      * 
+      * Revision 1.7  89/11/06  12:36:26  grosch 
+      * renamed module Rex to GenTabs to avoid name clash with rex under VMS 
+      * 
+      * Revision 1.6  89/08/29  11:44:47  grosch 
+      * make all char constants unsigned 
+      * 
+      * Revision 1.5  89/03/01  10:59:43  grosch 
+      * improve default action 
+      * 
+      * Revision 1.4  89/02/23  15:55:43  grosch 
+      * added include files 
+      * added DEFAULT section 
+      * added completeness check for the automaton 
+      * improved handling of right context 
+      * 
+      * Revision 1.3  89/01/17  15:01:50  grosch 
+      * correction and redesign of source position handling 
+      * 
+      * Revision 1.2  88/11/22  19:19:25  grosch 
+      * fixed bug: changed variables Context2 and Context4 for variable right context in Modula2 
+      * 
+      * Revision 1.1  88/11/06  14:55:00  grosch 
+      * terminate case labels with superfluous ; to avoid yacc stack overflow with SUN's cc 
+      * 
+      * Revision 1.0  88/10/04  11:59:44  grosch 
+      * Initial revision 
+      * 
+      *) 
+
+     (* Ich, Doktor Josef Grosch, Informatiker, Nov. 1987 *) 
+
+(* End of old comments. *) 
 
 UNSAFE MODULE ScanGen 
 
-; IMPORT Word 
+; IMPORT Fmt
+; IMPORT Text 
+; IMPORT TextWr 
+; IMPORT Word
+; IMPORT Wr 
 
 ; FROM SYSTEM IMPORT SHORTCARD 
 
@@ -156,6 +165,9 @@ UNSAFE MODULE ScanGen
 
   ; PatternNoMatch = 15 
   ; Warning = 4 
+
+; CONST M3PrintableChars = SET OF CHAR { ' ' .. '~' }
+                                    (* ^ Assumes ASCII. *) 
 
 ; VAR Case1 , Case2 , Context1 , Context2 , Context3 , Context4 , Leader 
     , Trailer 
@@ -305,7 +317,8 @@ UNSAFE MODULE ScanGen
           CASE Char ( Line , 2 ) 
           OF 'E' 
           => WriteLine ( Out , ExportLine ) 
-          ; TextLists . WriteText ( Out , Export ) 
+          ; TextLists . WriteText ( Out , Export )
+          ; WriteLine ( Out , ExportLine , End := TRUE ) 
           | '@' 
           => ExpandLine ( Out , Line ) 
           END (* CASE *) 
@@ -362,6 +375,7 @@ UNSAFE MODULE ScanGen
           OF 'G' 
           => WriteLine ( Out , GlobalLine ) 
           ; TextLists . WriteText ( Out , Global ) 
+          ; WriteLine ( Out , GlobalLine , End := TRUE ) 
           | 'C' 
           => GenerateConstants ( Out ) 
           | 'M' 
@@ -374,6 +388,7 @@ UNSAFE MODULE ScanGen
           | 'L' 
           => WriteLine ( Out , LocalLine ) 
           ; TextLists . WriteText ( Out , Local ) 
+          ; WriteLine ( Out , LocalLine , End := TRUE ) 
           | 'J' 
           => IF LeftJustUsed 
              THEN 
@@ -403,6 +418,7 @@ UNSAFE MODULE ScanGen
           | 'D' 
           => WriteLine ( Out , DefaultLine ) 
           ; TextLists . WriteText ( Out , Default ) 
+          ; WriteLine ( Out , DefaultLine , End := TRUE ) 
           | 'O' 
           => IF ReduceCaseSize 
              THEN 
@@ -414,12 +430,15 @@ UNSAFE MODULE ScanGen
           | 'E' 
           => WriteLine ( Out , EofLine ) 
           ; TextLists . WriteText ( Out , Eof ) 
+          ; WriteLine ( Out , EofLine , End := TRUE ) 
           | 'I' 
           => WriteLine ( Out , BeginLine ) 
           ; TextLists . WriteText ( Out , Begin ) 
+          ; WriteLine ( Out , BeginLine , End := TRUE ) 
           | 'F' 
           => WriteLine ( Out , CloseLine ) 
           ; TextLists . WriteText ( Out , Close ) 
+          ; WriteLine ( Out , CloseLine , End := TRUE ) 
           | 'T' 
           => PutComb ( Out ) 
           | 'B' 
@@ -445,7 +464,7 @@ UNSAFE MODULE ScanGen
 
   = VAR String : tString 
     ; Ident : tIdent 
-    ; Number : SHORTCARD 
+    ; Number : INTEGER  
 
   ; BEGIN (* GenerateConstants *) 
       TextToString ( "yyFirstCh" , String ) 
@@ -564,9 +583,13 @@ UNSAFE MODULE ScanGen
            THEN 
              TextLists . WriteText ( Out , Leader ) 
            END (* IF *) 
-         ; WriteLine ( Out , RuleToCodePtr ^ [ Rule ] . TextLine ) 
-         ; IF Language = tLanguage . C THEN WriteC ( Out , '{' ) END (* IF *) 
-         ; TextLists . WriteText ( Out , RuleToCodePtr ^ [ Rule ] . Text ) 
+         ; WITH WCode = RuleToCodePtr ^ [ Rule ]
+           DO 
+             WriteLine ( Out , WCode . TextLine ) 
+           ; IF Language = tLanguage . C THEN WriteC ( Out , '{' ) END (* IF *) 
+           ; TextLists . WriteText ( Out , WCode . Text )
+           ; WriteLine ( Out , WCode . TextLine , End := TRUE ) 
+           END (* WITH *) 
          ; IF Language = tLanguage . C 
            THEN 
              INC ( DummyCount ) 
@@ -598,6 +621,12 @@ UNSAFE MODULE ScanGen
       ; WriteI ( Out , Value , 0 ) 
       ; WriteC ( Out , ';' ) 
       ; WriteNl ( Out ) 
+      | tLanguage . Modula3 , tLanguage . Schutz  
+      => WriteT ( Out , "; " ) 
+      ; Strings . WriteS ( Out , Name ) 
+      ; WriteT ( Out , " = " ) 
+      ; WriteI ( Out , Value , 0 ) 
+      ; WriteNl ( Out )  
       | tLanguage . C 
       => WriteT ( Out , "# define " ) 
       ; Strings . WriteS ( Out , Name ) 
@@ -605,7 +634,25 @@ UNSAFE MODULE ScanGen
       ; WriteI ( Out , Value , 0 ) 
       ; WriteNl ( Out ) 
       END (* CASE *) 
-    END GenerateDecConstDef 
+    END GenerateDecConstDef
+
+; PROCEDURE M3CharConst ( CharValue : CHAR ) : TEXT
+
+  = VAR LCharLit : TEXT
+
+  ; BEGIN
+      IF CharValue IN M3PrintableChars
+      THEN LCharLit := Text . FromChar ( CharValue ) 
+      ELSE
+        LCharLit
+          := "\\"
+             & Fmt . Pad
+                 ( Fmt . Int ( ORD ( CharValue ) , base := 8 )
+                 , length := 3 , padChar := '0' , align := Fmt . Align . Right 
+                 ) 
+      END  (* IF *)
+    ; RETURN "\'" & LCharLit & "\'" 
+    END M3CharConst 
 
 ; PROCEDURE GenerateCharConstDef 
     ( Out : tFile ; READONLY Name : tString ; Value : CHAR ) 
@@ -617,6 +664,12 @@ UNSAFE MODULE ScanGen
       ; WriteT ( Out , " = " ) 
       ; WriteN ( Out , ORD ( Value ) , 1 , 8 ) 
       ; WriteT ( Out , "C;" ) 
+      ; WriteNl ( Out ) 
+      | tLanguage . Modula3 , tLanguage . Schutz  
+      => WriteT ( Out , "; " ) 
+      ; Strings . WriteS ( Out , Name ) 
+      ; WriteT ( Out , " = " )
+      ; WriteT ( Out , M3CharConst ( Value ) ) 
       ; WriteNl ( Out ) 
       | tLanguage . C 
       => WriteT ( Out , "# define " ) 
@@ -640,6 +693,13 @@ UNSAFE MODULE ScanGen
       ; WriteI ( Out , Value , 0 ) 
       ; WriteT ( Out , ");" ) 
       ; WriteNl ( Out ) 
+      | tLanguage . Modula3 , tLanguage . Schutz  
+      => WriteT ( Out , "; DEC ( " ) 
+      ; Strings . WriteS ( Out , Name ) 
+      ; WriteT ( Out , " , " ) 
+      ; WriteI ( Out , Value , 0 ) 
+      ; WriteT ( Out , " )" ) 
+      ; WriteNl ( Out ) 
       | tLanguage . C 
       => Strings . WriteS ( Out , Name ) 
       ; WriteT ( Out , " -= " ) 
@@ -657,7 +717,12 @@ UNSAFE MODULE ScanGen
       => WriteT ( Out , "| " ) 
       ; WriteI ( Out , Label , 0 ) 
       ; WriteC ( Out , ':' ) 
-      ; WriteNl ( Out ) 
+      ; WriteNl ( Out )
+      | tLanguage . Modula3 , tLanguage . Schutz  
+      => WriteT ( Out , "| " ) 
+      ; WriteI ( Out , Label , 0 ) 
+      ; WriteT ( Out , " => " ) 
+      ; WriteNl ( Out )
       | tLanguage . C 
       => WriteT ( Out , "case " ) 
       ; WriteI ( Out , Label , 0 ) 
@@ -686,7 +751,20 @@ UNSAFE MODULE ScanGen
         ; WriteNl ( Out ) 
         END (* WHILE *) 
       ; WriteC ( Out , ':' ) 
-      ; WriteNl ( Out ) 
+      ; WriteNl ( Out )
+      | tLanguage . Modula3 , tLanguage . Schutz  
+      => FirstTime := TRUE 
+      ; WriteT( Out , "| " ) 
+      ; WHILE NOT IsEmpty ( Set ) 
+        DO IF FirstTime 
+           THEN FirstTime := FALSE 
+           ELSE WriteT ( Out , ", " ) 
+           END (* IF *) 
+        ; WriteI ( Out , Extract ( Set ) , 0 ) 
+        ; WriteNl ( Out ) 
+        END (* WHILE *) 
+      ; WriteT ( Out , "=> " ) 
+      ; WriteNl ( Out )
       | tLanguage . C 
       => WHILE NOT IsEmpty ( Set ) 
          DO WriteT ( Out , "case " ) 
@@ -722,7 +800,8 @@ UNSAFE MODULE ScanGen
     ; WriteNl ( Out ) 
     END GenerateLabel 
 
-; PROCEDURE WriteLine ( Out : tFile ; Line : SHORTCARD ) 
+; PROCEDURE WriteLine
+    ( Out : tFile ; Line : SHORTCARD ; End : BOOLEAN := FALSE ) 
 
   = BEGIN (* WriteLine *) 
       IF Line # 0 
@@ -731,25 +810,29 @@ UNSAFE MODULE ScanGen
         OF tLanguage . Modula2
         , tLanguage . Modula3
         , tLanguage . Schutz
-        => WriteT ( Out , "(* line " ) 
+        => WriteT ( Out , "(* " ) 
+        ; IF End THEN WriteT ( Out , "End of " ) END (* IF *)
+        ; WriteT ( Out , "line " ) 
         ; WriteI ( Out , Line , 0 ) 
         ; WriteT ( Out , " \"" ) 
-        ; WriteS ( Out , SourceFile ) 
+        ; WriteT ( Out , SourceFileName ) 
         ; WriteT ( Out , "\" *)" ) 
         ; WriteNl ( Out ) 
         | tLanguage . C 
-        => IF gGenLine 
+        => IF gGenLine AND NOT End 
            THEN 
              WriteT ( Out , "# line " ) 
            ; WriteI ( Out , Line , 0 ) 
            ; WriteT ( Out , " \"" ) 
-           ; WriteS ( Out , SourceFile ) 
+           ; WriteT ( Out , SourceFileName ) 
            ; WriteT ( Out , "\"\000" ) 
            ELSE 
-             WriteT ( Out , "/* line " ) 
+             WriteT ( Out , "/* " ) 
+           ; IF End THEN WriteT ( Out , "End of " ) END (* IF *)
+           ; WriteT ( Out , "line " ) 
            ; WriteI ( Out , Line , 0 ) 
            ; WriteT ( Out , " \"" ) 
-           ; WriteS ( Out , SourceFile ) 
+           ; WriteT ( Out , SourceFileName ) 
            ; WriteT ( Out , "\" */" ) 
            END (* IF *) 
         ; WriteNl ( Out ) 
@@ -884,15 +967,90 @@ UNSAFE MODULE ScanGen
       ; IF TextLists . IsEmpty ( Default ) 
         THEN 
           ConvertAppend 
-            ( "IO.WriteC (IO.StdOutput, yyChBufferPtr^ [yyChBufferIndex-1]);" 
+            ( "  ReuseIO . WriteC ( IO . StdOutput , yyChBufferPtr ^ [ yyChBufferIndex - 1 ] ) " 
             , Default 
             ) 
         END (* IF *)
 
-      | tLanguage . Modula3 =>
+      | tLanguage . Modula3 
+      , tLanguage . Schutz  
 
-(* CODEME. *)
+(* REVIEWME for Schutz code. *)
+      => ConvertAppend ( " CASE yyStateStack^ [TokenLength] OF" , Case1 ) 
 
+      ; ConvertAppend 
+          ( " CASE yyAction [yyStateStack^ [TokenLength]] OF" , Case2 ) 
+
+      ; ConvertAppend ( "  Attribute.Position.Line   := yyLineCount " , Leader ) 
+      ; ConvertAppend 
+          ( "; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength " 
+          , Leader 
+          ) 
+
+      ; ConvertAppend ( "; yyRestartFlag := FALSE; EXIT " , Trailer ) 
+
+      ; ConvertAppend ( "(* BlankAction *)" , BlankText ) 
+      ; ConvertAppend 
+          ( "  WHILE yyChBufferPtr^ [yyChBufferIndex] = ' ' DO INC (yyChBufferIndex) END " 
+          , BlankText 
+          ) 
+
+      ; ConvertAppend ( "(* TabAction *)" , TabText ) 
+      ; ConvertAppend 
+          ( "  DEC ( yyLineStart , 7 - (yyChBufferIndex - yyLineStart - 2 ) MOD 8 ) " 
+          , TabText 
+          ) 
+
+      ; ConvertAppend ( "(* EolAction *)" , EolText ) 
+      ; ConvertAppend ( " INC ( yyLineCount ) " , EolText ) 
+      ; ConvertAppend ( "; yyLineStart := yyChBufferIndex - 1 " , EolText ) 
+
+      ; ConvertAppend ( "; WHILE yyStateStack ^ [ TokenLength ] # " , Context1 ) 
+
+      ; ConvertAppend ( "  DO " , Context2 ) 
+      ; ConvertAppend ( "    DEC ( yyChBufferIndex) " , Context2 ) 
+      ; ConvertAppend ( "  ; DEC ( TokenLength ) " , Context2 ) 
+      ; ConvertAppend ( "  END " , Context2 ) 
+
+      ; ConvertAppend ( "; LOOP" , Context3 ) 
+      ; ConvertAppend ( ";   CASE yyStateStack ^ [ TokenLength ] OF " , Context3 ) 
+
+      ; ConvertAppend ( "      ; EXIT " , Context4 ) 
+      ; ConvertAppend ( "    ELSE " , Context4 ) 
+      ; ConvertAppend ( "      DEC ( yyChBufferIndex ) " , Context4 ) 
+      ; ConvertAppend ( "    ; DEC ( TokenLength ) " , Context4 ) 
+      ; ConvertAppend ( "    END " , Context4 ) 
+      ; ConvertAppend ( "  END " , Context4 ) 
+
+      ; IF TextLists . IsEmpty ( Export ) 
+        THEN 
+          ConvertAppend ( "; IMPORT Positions " , Export ) 
+        ; ConvertAppend 
+            ( "; TYPE tScanAttribute  = RECORD Position : Positions . tPosition  END" 
+            , Export 
+            ) 
+        ; ConvertAppend 
+            ( "; PROCEDURE ErrorAttribute ( Token : INTEGER ; VAR Attribute : tScanAttribute ) " 
+            , Export 
+            ) 
+        END (* IF *) 
+      ; IF TextLists . IsEmpty ( Global ) 
+        THEN 
+          ConvertAppend 
+            ( "; PROCEDURE ErrorAttribute ( Token : INTEGER ; VAR Attribute : tScanAttribute ) " 
+            , Global 
+            ) 
+        ; ConvertAppend ( "  = BEGIN " , Global ) 
+        ; ConvertAppend ( "    END ErrorAttribute " , Global ) 
+        END (* IF *) 
+      ; IF TextLists . IsEmpty ( Default ) 
+        THEN 
+          ConvertAppend2 
+            ( "; ReuseIO . WriteC "
+            , "    ( ReuseIO . StdOutput , yyChBufferPtr ^ [ yyChBufferIndex - 1 ] ) " 
+            , Default 
+            ) 
+        END (* IF *)
 
       | tLanguage . C 
       => ConvertAppend ( "switch (* -- yyStatePtr) {" , Case1 ) 
@@ -978,7 +1136,7 @@ UNSAFE MODULE ScanGen
         END (* IF *) 
 
       END (* CASE *) 
-    END InitScanGen 
+    END InitScanGen
 
 ; BEGIN (* ScanGen *) 
     ScannerIdent := NoIdent 

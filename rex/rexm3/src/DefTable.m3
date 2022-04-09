@@ -132,7 +132,7 @@ UNSAFE MODULE DefTable
     END GetIdentDef 
 
 ; PROCEDURE GetStartDef 
-    ( pDef : DefRange ; VAR pSymbol : tIdent ; VAR pNumber : SHORTCARD ) 
+    ( pDef : DefRange ; VAR pSymbol : tIdent ; VAR pNumber : INTEGER ) 
 
   = BEGIN (* GetStartDef *) 
       WITH With_4 = DefTablePtr ^ [ pDef ] 

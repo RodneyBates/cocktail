@@ -163,7 +163,6 @@ UNSAFE MODULE Scanner
   ; yyStateStackSize : M2LONGINT 
   ; yyStartState : yyStateRange 
   ; yyPreviousStart : yyStateRange 
-  ; yyCh : CHAR 
 
   ; yySourceFile : System . tFile 
   ; yyEof : BOOLEAN 
@@ -1243,7 +1242,7 @@ UNSAFE MODULE Scanner
 
             ; IF yyChBufferIndex # ( yyChBufferStart + yyBytesRead ) 
               THEN 
-                yyState := yyEobTrans [ yyState ]       (* end of buffer sentinel in buffer *) 
+                yyState := yyEobTrans [ yyState ]       (* end of buffer sentinel  buffer *) 
               ; IF yyState # yyDNoState 
                 THEN 
                   INC ( yyChBufferIndex ) 
@@ -1388,7 +1387,7 @@ UNSAFE MODULE Scanner
       END (* LOOP *) 
     END GetToken 
 
-; PROCEDURE BeginFile ( READONLY FileName : ARRAY OF CHAR ) 
+; PROCEDURE BeginFile ( FileName : TEXT ) 
 
   = BEGIN (* BeginFile *) 
       IF yyStateStack ^ [ 0 ] = yyDNoState 

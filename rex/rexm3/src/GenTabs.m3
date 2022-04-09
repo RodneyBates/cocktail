@@ -909,7 +909,7 @@ UNSAFE MODULE GenTabs
 ; PROCEDURE CheckTables ( )        (* check automaton for completeness *) 
 
   = VAR Ident : Idents . tIdent 
-    ; StartState : SHORTCARD 
+    ; StartState : INTEGER  
 
   ; BEGIN (* CheckTables *) 
       FOR Definition := 1 TO DefCount 

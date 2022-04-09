@@ -64,17 +64,13 @@
 UNSAFE MODULE rexm3 EXPORTS Main
 
 ; IMPORT Text 
+; IMPORT TextWr 
+; IMPORT Wr 
 
 ; FROM SYSTEM IMPORT SHORTCARD , SHORTINT 
 ; IMPORT ReuseIO 
-; IMPORT Strings 
 
 ; FROM System IMPORT GetArgCount , GetArgument , Exit 
-
-; FROM Strings 
-  IMPORT tString , AssignEmpty , Assign , Append , Concatenate 
-  , ArrayToString 
-  , StringToArray , TextToString , StringToText 
 
 ; FROM ReuseIO IMPORT StdOutput , CloseIO 
 
@@ -102,7 +98,7 @@ UNSAFE MODULE rexm3 EXPORTS Main
 ; FROM ScanGen 
   IMPORT GenerateScanner , GenerateInterface , GenerateSupport , Language 
   , tLanguage 
-  , SourceFile
+  , SourceFileName
 
 ; IMPORT RexGlobals 
 
@@ -112,14 +108,36 @@ UNSAFE MODULE rexm3 EXPORTS Main
       ReuseIO . WriteT ( ReuseIO . StdOutput , t ) 
     END WriteT 
 
-; TYPE AOC = ARRAY OF CHAR
-
 ; VAR Argument : ARRAY [ 0 .. 127 ] OF CHAR 
-  ; FileNameS , Path : tString 
   ; optimize : SHORTINT 
   ; j , n : SHORTCARD 
-  ; d , s , r , h , w , g , b : BOOLEAN 
-  ; ch : CHAR 
+  ; d , s , r , h , w , g , b : BOOLEAN
+  ; ch : CHAR
+
+; CONST PathChars = SET OF CHAR { '/' , '.' , '_' , 'A' .. 'Z' , 'a' .. 'z' , '0' .. '9' } 
+
+; PROCEDURE PathArg ( ) : TEXT
+  (* PRE: Argument and j are set. *)
+  = VAR WrT : TextWr . T 
+  ; BEGIN
+      WrT := TextWr . New ( )
+    ; ch := Argument [ j ]
+    ; WHILE ch IN PathChars
+      DO Wr . PutChar ( WrT , ch )
+      ; INC ( j ) 
+      ; ch := Argument [ j ]
+      END (* WHILE*)
+    ; IF ch = '\000'
+      THEN RETURN TextWr . ToText ( WrT ) 
+      ELSE
+        h := TRUE
+      ; WHILE ch # '\000' 
+        DO INC ( j ) 
+        ; ch := Argument [ j ]
+        END (* WHILE*)
+      ; RETURN "" 
+      END (* IF *) 
+    END PathArg 
 
 ; BEGIN (* rexm3 *) 
     d := FALSE 
@@ -133,7 +151,7 @@ UNSAFE MODULE rexm3 EXPORTS Main
   ; n := 0 
   ; Language := tLanguage . Modula3 
   ; RexGlobals . RexLib := RexGlobals . RexLibDefault  
-  ; SourceFile [ 0 ] := '\000' 
+  ; SourceFileName := ""
 
   ; FOR i := 1 TO GetArgCount ( ) - 1 
     DO GetArgument ( i , Argument ) 
@@ -141,7 +159,8 @@ UNSAFE MODULE rexm3 EXPORTS Main
       THEN 
         IF Argument [ 1 ] = 'l' 
         THEN 
-          RexGlobals . RexLib := "" 
+          RexGlobals . RexLib := ""
+(* TODO: Use PathArg here. *) 
         ; j := 2 
         ; LOOP 
             ch := Argument [ j ] 
@@ -205,12 +224,8 @@ UNSAFE MODULE rexm3 EXPORTS Main
       THEN 
         h := TRUE 
       ELSE 
-        j := 0 
-      ; REPEAT 
-          ch := Argument [ j ] 
-        ; SourceFile [ j ] := ch 
-        ; INC ( j ) 
-        UNTIL ch = '\000' 
+        j := 0
+      ; SourceFileName := PathArg ( ) 
       END (* IF *) 
     END (* FOR *) 
 
@@ -267,8 +282,10 @@ UNSAFE MODULE rexm3 EXPORTS Main
       ScanTabName := RexGlobals . RexLib & ScanTabName & RexGlobals . InputSuffix 
     ; ParsTabName := RexGlobals . RexLib & ParsTabName & RexGlobals . InputSuffix 
 
-    ; BeginScanner ( ) 
-    ; IF SourceFile [ 0 ] # '\000' THEN BeginFile ( SourceFile ) END (* IF *) 
+    ; BeginScanner ( )
+    ; IF SourceFileName # NIL AND NOT Text . Equal ( SourceFileName , "" ) 
+      THEN BeginFile ( SourceFileName )
+      END (* IF *) 
     ; IF ( Parser ( ) = 0 ) AND ( ErrorCount = 0 ) 
       THEN 
         IF n >= 17 THEN WriteTree0 ( StdOutput , Tree0Root ) END (* IF *) 

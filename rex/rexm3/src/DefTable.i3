@@ -54,7 +54,7 @@ UNSAFE INTERFACE DefTable
     ) 
 
 ; PROCEDURE GetStartDef 
-    ( pDef : DefRange ; VAR pIdent : tIdent ; VAR pNumber : SHORTCARD ) 
+    ( pDef : DefRange ; VAR pIdent : tIdent ; VAR pNumber : INTEGER ) 
 
 ; 
 END DefTable 

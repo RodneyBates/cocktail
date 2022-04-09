@@ -29,7 +29,7 @@
 
 (* Ich, Doktor Josef Grosch, Informatiker, Nov. 1987 *) 
 
-UNSAFE INTERFACE RexErrors 
+INTERFACE RexErrors 
 
 ; IMPORT Text 
 ; IMPORT Word 

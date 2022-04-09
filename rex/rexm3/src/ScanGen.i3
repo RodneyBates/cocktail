@@ -30,7 +30,7 @@
 
 (* Ich, Doktor Josef Grosch, Informatiker, Nov. 1987 *) 
 
-UNSAFE INTERFACE ScanGen 
+INTERFACE ScanGen 
 
 ; FROM SYSTEM IMPORT SHORTCARD 
 
@@ -55,7 +55,8 @@ UNSAFE INTERFACE ScanGen
     : SHORTCARD 
   ; ScannerIdent : tIdent 
   ; Language : tLanguage 
-  ; SourceFile : ARRAY [ 0 .. 127 ] OF CHAR 
+  ; SourceFile_deprecated : ARRAY [ 0 .. 127 ] OF CHAR
+  ; SourceFileName : TEXT 
 
 ; PROCEDURE InitScanGen ( ) 
 
