@@ -1,0 +1,31 @@
+(* File Scanner.i30 *)
+
+$@ INTERFACE @
+
+; IMPORT Strings 
+
+(* User export declarations ($E): *)
+$E user export declarations
+(* End of user export declarations ($E): *)
+
+; CONST EofToken        = 0
+
+; VAR TokenLength : INTEGER
+; VAR Attribute : tScanAttribute
+; VAR ScanTabName : TEXT 
+; VAR Exit : PROCEDURE ( ) 
+
+; PROCEDURE BeginScanner ( ) 
+; PROCEDURE BeginFile ( FileName : TEXT ) 
+; PROCEDURE GetToken ( ) : INTEGER
+; PROCEDURE GetWord ( VAR Word : Strings . tString ) 
+; PROCEDURE GetLower ( VAR Word : Strings . tString ) 
+; PROCEDURE GetUpper ( VAR Word : Strings . tString ) 
+; PROCEDURE CloseFile ( ) 
+; PROCEDURE CloseScanner ( ) 
+; PROCEDURE UpperCase ( Ch : CHAR ) : CHAR  
+; PROCEDURE LowerCase ( Ch : CHAR ) : CHAR  
+; PROCEDURE TotalLineCount ( ) : CARDINAL  
+  (* line count including all files read. *) 
+
+$@ ; END @.
