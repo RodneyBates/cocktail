@@ -1,74 +1,54 @@
-(* $Id: Scanner.md,v 2.3 1992/08/18 09:05:32 grosch rel $ *) 
+(* File Scanner.i30 *)
 
-(* Modified Rodney M. Bates 
-   Mar 96 to add functions UpperCase and LowerCase. 
-   Apr 96 to add TotalLineCount 
-*) 
+INTERFACE Scanner
 
-UNSAFE INTERFACE Scanner 
+; IMPORT Strings 
 
-; FROM SYSTEM IMPORT SHORTCARD 
-; IMPORT SYSTEM 
-; IMPORT Word , Strings 
+(* User export declarations ($E): *)
+(* line 2 "rexm3.rex" *)
 
-(* line 62 "../src/rex.rex" *) 
 
+; IMPORT Word 
 
 ; FROM Idents IMPORT tIdent 
-
 ; FROM StringMem IMPORT tStringRef 
-
-; FROM Texts IMPORT tText 
-
+; FROM Texts IMPORT tText  
 ; FROM Positions IMPORT tPosition 
-
 ; TYPE tScanAttribute 
     = RECORD 
         Position : tPosition 
-
       ; Ident : tIdent 
-      ; Number : INTEGER  
+      ; Number : INTEGER 
       ; String : tStringRef 
       ; Ch : CHAR 
       ; Text : tText 
-
       END (* RECORD *) 
 
 ; PROCEDURE ErrorAttribute 
-    ( Token : Word . T ; VAR Attribute : tScanAttribute ) 
+    ( Token : Word . T ; VAR Attribute : tScanAttribute )
 
 
-; CONST EofToken = 0 
+(* End of line 2 "rexm3.rex" *)
+(* End of user export declarations ($E): *)
 
-; VAR TokenLength : INTEGER 
-; VAR Attribute : tScanAttribute 
+; CONST EofToken        = 0
+
+; VAR TokenLength : INTEGER
+; VAR Attribute : tScanAttribute
 ; VAR ScanTabName : TEXT 
-; VAR Exit : SYSTEM . PROC 
+; VAR Exit : PROCEDURE ( ) 
 
 ; PROCEDURE BeginScanner ( ) 
-
 ; PROCEDURE BeginFile ( FileName : TEXT ) 
-
-; PROCEDURE GetToken ( ) : INTEGER 
-
+; PROCEDURE GetToken ( ) : INTEGER
 ; PROCEDURE GetWord ( VAR Word : Strings . tString ) 
-
 ; PROCEDURE GetLower ( VAR Word : Strings . tString ) 
-
 ; PROCEDURE GetUpper ( VAR Word : Strings . tString ) 
-
 ; PROCEDURE CloseFile ( ) 
-
 ; PROCEDURE CloseScanner ( ) 
-
-; PROCEDURE UpperCase ( Ch : CHAR ) : CHAR 
-
-; PROCEDURE LowerCase ( Ch : CHAR ) : CHAR 
-
-; PROCEDURE TotalLineCount ( ) : Word . T 
+; PROCEDURE UpperCase ( Ch : CHAR ) : CHAR  
+; PROCEDURE LowerCase ( Ch : CHAR ) : CHAR  
+; PROCEDURE TotalLineCount ( ) : CARDINAL  
   (* line count including all files read. *) 
 
-; 
-END Scanner 
-. 
-
+; END Scanner.

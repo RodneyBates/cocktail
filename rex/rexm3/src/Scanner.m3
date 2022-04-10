@@ -1,49 +1,36 @@
-(* $Id: Scanner.mi,v 2.11 1992/09/24 13:14:00 grosch rel $ *) 
-
-(* Modified Rodney M. Bates 
-   Mar 94 to compile under WRL 
-   Mar 96 to fix a bug in PROCEDURE input 
-   Mar 96 to add functions UpperCase and LowerCase, to exploit 
-          the arrays yyToUpper and yyToLower, already there. 
-   Apr 96 to add yyTotalLineCount and TotalLineCount. 
-*) 
+(* File Scanner.m30. *) 
 
 UNSAFE MODULE Scanner 
 
-; IMPORT Word 
-  , SYSTEM 
-  , Checks 
+; FROM SYSTEM IMPORT SHORTCARD , M2LONGINT , M2LONGCARD
+
+; IMPORT OSError 
+; IMPORT Process
+
+; IMPORT Checks 
   , System 
   , General 
   , Positions 
   , ReuseIO 
   , DynArray 
-  , Strings 
-  , Source 
-(* line 84 "../src/rex.rex" *) 
+  , Strings
+; IMPORT RexErrors
 
-; IMPORT OSError 
-; IMPORT Process 
+; IMPORT Source 
+(* Global user declarations ($G): *) 
+(* line 25 "rexm3.rex" *)
 
-; FROM SYSTEM IMPORT SHORTCARD , M2LONGINT , M2LONGCARD 
-; IMPORT RexErrors 
 
-; FROM RexErrors IMPORT ErrLine 
+; IMPORT Word 
 
 ; FROM Strings 
   IMPORT tString , Concatenate , Char , SubString , StringToInt , AssignEmpty 
   , Length 
-
 ; FROM Texts IMPORT MakeText , Append 
-
 ; FROM StringMem IMPORT tStringRef , PutString 
-
 ; FROM Idents IMPORT tIdent , MakeIdent , NoIdent 
-
 ; FROM RexErrors IMPORT ErrorMessage , Error 
-
 ; FROM ScanGen IMPORT Language , tLanguage 
-
 ; FROM Positions IMPORT tPosition 
 
 ; CONST SymIdent = 1 
@@ -116,69 +103,74 @@ UNSAFE MODULE Scanner
       END (* CASE *) 
     END ErrorAttribute 
 
+(* End of line 25 "rexm3.rex" *)
+(* End of global user declarations ($G). *) 
 
 ; CONST yyTabSpace = 8 
-  ; yyDNoState = 0 
-  ; yyFileStackSize = 32 
-  ; yyInitBufferSize = ( 1024 * 8 ) + 256 
-  ; yyFirstCh = '\000' 
-  ; yyLastCh = '\377' 
-  ; yyEolCh = '\012' 
-  ; yyEobCh = '\177' 
-  ; yyDStateCount = 182 
-  ; yyTableSize = 4468 
-  ; yyEobState = 52 
-  ; yyDefaultState = 53 
-  ; STD = 1 
-  ; targetcode = 3 
-  ; set = 5 
-  ; rules = 7 
-  ; CComment = 9 
-  ; M2Comment = 11 
-  ; Str1 = 13 
-  ; Str2 = 15 
-  ; CStr1 = 17 
-  ; CStr2 = 19 
+; CONST yyDNoState = 0 
+; CONST yyFileStackSize = 32 
+; CONST yyInitBufferSize = ( 1024 * 8 ) + 256 
+(* User constant declarations ($C): *) 
+; yyFirstCh = '\000'
+; yyLastCh = '\177'
+; yyEolCh = '\012'
+; yyEobCh = '\177'
+; yyDStateCount = 182
+; yyTableSize = 2213
+; yyEobState = 52
+; yyDefaultState = 53
+; STD = 1
+; targetcode = 3
+; set = 5
+; rules = 7
+; CComment = 9
+; M2Comment = 11
+; Str1 = 13
+; Str2 = 15
+; CStr1 = 17
+; CStr2 = 19
+(* End of user constant declarations ($C). *) 
 
 ; TYPE yyTableElmt = SHORTCARD 
-  ; yyStateRange = yyTableElmt (* [0 .. yyDStateCount]*) 
-  ; yyStateRangePacked = BITS BITSIZE ( yyTableElmt ) FOR yyStateRange 
-  ; yyTableRange = yyTableElmt (* [0 .. yyTableSize]*) 
-  ; yyCombType 
-    = RECORD Check , Next : BITS 16 FOR yyStateRange END (* RECORD *) 
-  ; yyCombTypePtr = UNTRACED BRANDED REF yyCombType 
-  ; yytChBufferPtr = UNTRACED BRANDED REF ARRAY [ 0 .. 1000000 ] OF CHAR 
-  ; yyChRange = [ yyFirstCh .. yyLastCh ] 
-  ; yyFileStackPtrTyp = SHORTCARD 
-  ; yyFileStackSubscript (*yyFileStackPtrTyp*) = [ 1 .. yyFileStackSize ] 
+; TYPE yyStateRange (*yyTableElmt*) = [ 0 .. yyDStateCount ] 
+; TYPE yyStateRangePacked = BITS BITSIZE ( yyTableElmt ) FOR yyStateRange 
+; TYPE yyTableRange (*yyTableElmt*) = [ 0 .. yyTableSize ] 
+; TYPE yyCombType = RECORD Check , Next : BITS 16 FOR yyStateRange END (* RECORD *) 
+; TYPE yyCombTypePtr = UNTRACED BRANDED REF yyCombType 
+; TYPE yytChBufferPtr = UNTRACED BRANDED REF ARRAY [ 0 .. 1000000 ] OF CHAR 
+; TYPE yyChRange = [ yyFirstCh .. yyLastCh ] 
+; TYPE yyFileStackPtrTyp = SHORTCARD 
+; TYPE yyFileStackSubscript (*yyFileStackPtrTyp*) = [ 1 .. yyFileStackSize ] 
 
 ; VAR yyBasePtr : ARRAY yyStateRange OF M2LONGCARD 
-  ; yyDefault : ARRAY yyStateRange OF yyStateRangePacked 
-  ; yyComb : ARRAY yyTableRange OF yyCombType 
-  ; yyEobTrans : ARRAY yyStateRange OF yyStateRangePacked 
-  ; yyToLower , yyToUpper : ARRAY yyChRange OF CHAR 
+; VAR yyDefault : ARRAY yyStateRange OF yyStateRangePacked
+; VAR yyComb : ARRAY yyTableRange OF yyCombType 
+; VAR yyEobTrans : ARRAY yyStateRange OF yyStateRangePacked
+(* Only for ReduceCaseSize, #1 ($M): *)
+(* End of only for ReduceCaseSize, #1 ($M): *)
+; VAR yyToLower , yyToUpper : ARRAY yyChRange OF CHAR 
 
-  ; yyStateStack 
-    : UNTRACED BRANDED REF ARRAY [ 0 .. 1000000 ] OF yyStateRangePacked 
-  ; yyStateStackSize : M2LONGINT 
-  ; yyStartState : yyStateRange 
-  ; yyPreviousStart : yyStateRange 
+; VAR yyStateStack 
+    : UNTRACED BRANDED REF ARRAY [ 0 .. 1000000 ] OF yyStateRange 
+; VAR yyStateStackSize : M2LONGINT 
+; VAR yyStartState : yyStateRange 
+; VAR yyPreviousStart : yyStateRange 
 
-  ; yySourceFile : System . tFile 
-  ; yyEof : BOOLEAN 
-  ; yyChBufferPtr : yytChBufferPtr 
-  ; yyChBufferStart : INTEGER 
-  ; yyChBufferSize : M2LONGINT 
-  ; yyChBufferIndex : INTEGER 
-  ; yyBytesRead : INTEGER 
-  ; yyLineCount : SHORTCARD (* Number of the current line, 
+; VAR yySourceFile : System . tFile 
+; VAR yyEof : BOOLEAN 
+; VAR yyChBufferPtr : yytChBufferPtr 
+; VAR yyChBufferStart : INTEGER 
+; VAR yyChBufferSize : M2LONGINT 
+; VAR yyChBufferIndex : INTEGER 
+; VAR yyBytesRead : INTEGER 
+; VAR yyLineCount : SHORTCARD (* Number of the current line, 
                                         of the current file. *) 
-  ; yyTotalLineCount : Word . T    (* Number of lines already read, 
+; VAR yyTotalLineCount : Word . T    (* Number of lines already read, 
                                         of all files. *) 
-  ; yyLineStart : INTEGER 
+; VAR yyLineStart : INTEGER 
 
-  ; yyFileStackPtr : yyFileStackPtrTyp 
-  ; yyFileStack 
+; VAR yyFileStackPtr : yyFileStackPtrTyp 
+; VAR yyFileStack 
     : ARRAY yyFileStackSubscript 
       OF RECORD 
            SourceFile : System . tFile 
@@ -195,12 +187,14 @@ UNSAFE MODULE Scanner
 ; PROCEDURE GetToken ( ) : INTEGER 
 
   = VAR yyState : yyStateRange 
-    ; yyTablePtr : yyCombTypePtr 
-    ; yyRestartFlag : BOOLEAN 
-    ; yySource , yyTarget : INTEGER 
-    ; yyChBufferFree : M2LONGINT 
+  ; VAR yyTablePtr : yyCombTypePtr 
+  ; VAR yyRestartFlag : BOOLEAN 
+  ; VAR yyi , yySource , yyTarget : INTEGER 
+  ; VAR yyChBufferFree : M2LONGINT 
 
-(* line 163 "../src/rex.rex" *) 
+(* User local declarations ($L): *) 
+(* line 111 "rexm3.rex" *)
+
   ; VAR TargetCode , String , Word : tString 
 
   ; PROCEDURE AccumComment ( ) 
@@ -212,18 +206,22 @@ UNSAFE MODULE Scanner
         ; Concatenate ( TargetCode , Word ) 
         END (* IF *) 
       END AccumComment 
-
+  
+(* End of line 111 "rexm3.rex" *)
+(* End of user local declarations ($L). *)
 
   ; BEGIN (* GetToken *) 
       LOOP 
         yyState := yyStartState 
       ; TokenLength := 0 
+(* Only for LeftJustUsed ($J): *)
+(* End of only for LeftJustUsed ($J): *)
 
-      (* ASSERT yyChBuffer [yyChBufferIndex] = first character *) 
+      (* ASSERT yyChBuffer [ yyChBufferIndex] = first character *) 
 
-      ; LOOP            (* eventually restart after sentinel *) 
-          LOOP          (* execute as many state transitions as possible *) 
-                                                (* determine next state *) 
+      ; LOOP (* eventually restart after sentinel *) 
+          LOOP (* execute as many state transitions as possible *) 
+            (* determine next state *) 
             yyTablePtr 
               := LOOPHOLE 
                    ( yyBasePtr [ yyState ] 
@@ -242,41 +240,39 @@ UNSAFE MODULE Scanner
             ELSE 
               yyState := yyTablePtr ^ . Next 
             ; INC ( TokenLength ) 
-            ; yyStateStack ^ [ TokenLength ] := yyState  (* push state *) 
-            ; INC ( yyChBufferIndex )           (* get next character *) 
+            ; yyStateStack ^ [ TokenLength ] := yyState (* push state *) 
+            ; INC ( yyChBufferIndex ) (* get next character *) 
             END (* IF *) 
           END (* LOOP *) 
 
-        ; LOOP                                  (* search for last final state *) 
-            CASE yyStateStack ^ [ TokenLength ] 
-            OF 182 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 223 "../src/rex.rex" *) 
+        ; LOOP  (* search for last final state *)
+(* Generated actions ($A): *)
+ CASE yyStateStack^ [TokenLength] OF
+| 182
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 170 "rexm3.rex" *)
 
-            ; IF BraceNestingLevel = 0 
-              THEN 
-                MakeText ( Attribute . Text ) 
-              ; AssignEmpty ( TargetCode ) 
-              ; TargetPos := Attribute . Position 
-              ; InsideTarget := TRUE 
-              ELSE 
-                GetWord ( Word ) 
-              ; Concatenate ( TargetCode , Word ) 
-              END (* IF *) 
-            ; INC ( BraceNestingLevel ) 
+                           ; IF BraceNestingLevel = 0 
+                             THEN 
+                               MakeText ( Attribute . Text ) 
+                             ; AssignEmpty ( TargetCode ) 
+                             ; TargetPos := Attribute . Position 
+                             ; InsideTarget := TRUE 
+                             ELSE 
+                               GetWord ( Word ) 
+                             ; Concatenate ( TargetCode , Word ) 
+                             END (* IF *) 
+                           ; INC ( BraceNestingLevel ) 
+                        
+(* End of line 170 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 181
+=> 
+(* line 184 "rexm3.rex" *)
 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 181 
-            => 
-(* line 236 "../src/rex.rex" *) 
-
-               DEC ( BraceNestingLevel ) 
+              DEC ( BraceNestingLevel ) 
             ; IF BraceNestingLevel = 0 
               THEN 
                 yyStart ( PrevState ) 
@@ -287,25 +283,32 @@ UNSAFE MODULE Scanner
               ELSE 
                 GetWord ( Word ) 
               ; Concatenate ( TargetCode , Word ) 
+              END (* IF *)
+                            
+(* End of line 184 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 34
+, 45
+, 57
+, 65
+, 73
+, 164
+, 170
+=> 
+(* line 200 "rexm3.rex" *)
+
+              IF BraceNestingLevel > 0 
+              THEN 
+                GetWord ( Word ) 
+              ; Concatenate ( TargetCode , Word ) 
               END (* IF *) 
 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 34 , 45 , 57 , 65 , 73 , 164 , 170 
-            => 
-(* line 251 "../src/rex.rex" *) 
-
-               IF BraceNestingLevel > 0 
-               THEN 
-                 GetWord ( Word ) 
-               ; Concatenate ( TargetCode , Word ) 
-               END (* IF *) 
-
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 180 
-            => 
-(* line 258 "../src/rex.rex" *) 
+                        
+(* End of line 200 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 180
+=> 
+(* line 209 "rexm3.rex" *)
 
                IF BraceNestingLevel > 0 
                THEN 
@@ -313,11 +316,12 @@ UNSAFE MODULE Scanner
                END (* IF *) 
             ; yyTab ( ) 
 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 179 
-            => 
-(* line 265 "../src/rex.rex" *) 
+                           
+(* End of line 209 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 179
+=> 
+(* line 218 "rexm3.rex" *)
 
                IF BraceNestingLevel > 0 
                THEN 
@@ -325,231 +329,250 @@ UNSAFE MODULE Scanner
                ; AssignEmpty ( TargetCode ) 
                END (* IF *) 
             ; yyEol ( 0 ) 
-
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 35 
-            => 
-(* line 273 "../src/rex.rex" *) 
+                           
+(* End of line 218 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 35
+=> 
+(* line 227 "rexm3.rex" *)
 
                IF BraceNestingLevel > 0 
                THEN 
                  GetWord ( Word ) 
                ; Strings . Append ( TargetCode , Char ( Word , 2 ) ) 
                END (* IF *) 
-
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 32 
-            => 
-(* line 280 "../src/rex.rex" *) 
+                           
+(* End of line 227 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 32
+=> 
+(* line 235 "rexm3.rex" *)
 
                IF BraceNestingLevel > 0 
                THEN 
-                 Strings . Append ( TargetCode , '\'' ) 
+                 Strings . Append ( TargetCode , '\\' ) 
                END (* IF *) 
-
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 178 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 288 "../src/rex.rex" *) 
+                           
+(* End of line 235 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 178
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 244 "rexm3.rex" *)
 
             ; GetWord ( String ) 
             ; StringPos := Attribute . Position 
             ; IF Language = tLanguage . C 
-              THEN 
-                yyStart ( CStr1 ) 
-              ELSE 
-                yyStart ( Str1 ) 
+              THEN yyStart ( CStr1 )
+              ELSE yyStart ( Str1 ) 
               END (* IF *) 
-
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 177 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 297 "../src/rex.rex" *) 
+                          
+(* End of line 244 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 177
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 253 "rexm3.rex" *)
 
             ; GetWord ( String ) 
             ; StringPos := Attribute . Position 
             ; IF Language = tLanguage . C 
-              THEN 
-                yyStart ( CStr2 ) 
-              ELSE 
-                yyStart ( Str2 ) 
+              THEN yyStart ( CStr2 ) 
+              ELSE yyStart ( Str2 ) 
               END (* IF *) 
+                          
+(* End of line 253 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 24
+, 60
+, 68
+, 76
+=> 
+(* line 265 "rexm3.rex" *)
+ GetWord (Word)
+                                  ; Concatenate (String, Word)
+                                
+(* End of line 265 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 23
+, 61
+, 69
+, 77
+=> 
+(* line 265 "rexm3.rex" *)
+ GetWord (Word)
+                                  ; Concatenate (String, Word)
+                                
+(* End of line 265 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 22
+, 38
+, 48
+, 62
+, 70
+, 78
+=> 
+(* line 265 "rexm3.rex" *)
+ GetWord (Word)
+                                  ; Concatenate (String, Word)
+                                
+(* End of line 265 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 21
+, 37
+, 47
+, 63
+, 71
+, 79
+=> 
+(* line 265 "rexm3.rex" *)
+ GetWord (Word)
+                                  ; Concatenate (String, Word)
+                                
+(* End of line 265 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 176
+=> 
+(* line 270 "rexm3.rex" *)
+   GetWord (Word)
+                             ; Concatenate (String, Word)
+                             ; yyEol (0)
+                           
+(* End of line 270 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 175
+=> 
+(* line 270 "rexm3.rex" *)
+   GetWord (Word)
+                             ; Concatenate (String, Word)
+                             ; yyEol (0)
+                           
+(* End of line 270 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 174
+=> 
+(* line 276 "rexm3.rex" *)
+Strings.Append (String, Char (String, 1))
+                            ; yyPrevious ( ) 
+                            ; Concatenate (TargetCode, String)
+                        
+(* End of line 276 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 173
+=> 
+(* line 276 "rexm3.rex" *)
+Strings.Append (String, Char (String, 1))
+                            ; yyPrevious ( ) 
+                            ; Concatenate (TargetCode, String)
+                        
+(* End of line 276 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 172
+=> 
+(* line 281 "rexm3.rex" *)
+   Strings.Append ( String , '\011' )
+                                   ; yyTab ( ) 
+                                 
+(* End of line 281 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 171
+=> 
+(* line 286 "rexm3.rex" *)
+    ErrorMessage ( UnclosedString , Error , StringPos )
+                           ; Strings.Append ( String , Char ( String , 1 ) )
+                           ; yyEol ( 0 )
+                           ; yyPrevious  ( )
+                           ; Concatenate ( TargetCode , String ) 
+                        
+(* End of line 286 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 169
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 296 "rexm3.rex" *)
 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 24 , 60 , 68 , 76 
-            => 
-(* line 309 "../src/rex.rex" *) 
-               GetWord ( Word ) 
-            ; Concatenate ( String , Word ) 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 23 , 61 , 69 , 77 
-            => 
-(* line 309 "../src/rex.rex" *) 
-               GetWord ( Word ) 
-            ; Concatenate ( String , Word ) 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 22 , 38 , 48 , 62 , 70 , 78 
-            => 
-(* line 309 "../src/rex.rex" *) 
-               GetWord ( Word ) 
-            ; Concatenate ( String , Word ) 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 21 , 37 , 47 , 63 , 71 , 79 
-            => 
-(* line 309 "../src/rex.rex" *) 
-               GetWord ( Word ) 
-            ; Concatenate ( String , Word ) 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 176 
-            => 
-(* line 312 "../src/rex.rex" *) 
-               GetWord ( Word ) 
-            ; Concatenate ( String , Word ) 
-            ; yyEol ( 0 ) 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 175 
-            => 
-(* line 312 "../src/rex.rex" *) 
-               GetWord ( Word ) 
-            ; Concatenate ( String , Word ) 
-            ; yyEol ( 0 ) 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 174 
-            => 
-(* line 315 "../src/rex.rex" *) 
-               Strings . Append ( String , Char ( String , 1 ) ) 
-            ; yyPrevious ( ) 
-            ; Concatenate ( TargetCode , String ) 
-
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 173 
-            => 
-(* line 315 "../src/rex.rex" *) 
-               Strings . Append ( String , Char ( String , 1 ) ) 
-            ; yyPrevious ( ) 
-            ; Concatenate ( TargetCode , String ) 
-
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 172 
-            => 
-(* line 319 "../src/rex.rex" *) 
-               Strings . Append ( String , '\011' ) 
-            ; yyTab ( ) 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 171 
-            => 
-(* line 321 "../src/rex.rex" *) 
-               ErrorMessage ( UnclosedString , Error , StringPos ) 
-            ; Strings . Append ( String , Char ( String , 1 ) ) 
-            ; yyEol ( 0 ) 
-            ; yyPrevious ( ) 
-            ; Concatenate ( TargetCode , String ) 
-
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 169 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 329 "../src/rex.rex" *) 
             ; yyStart ( M2Comment ) 
             ; AccumComment ( ) 
             ; CommentNestingLevel := 1 
             ; CommentPos := Attribute . Position 
+     
+(* End of line 296 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 168
+=> 
+(* line 303 "rexm3.rex" *)
+ INC ( CommentNestingLevel ) ; AccumComment ( ) 
+(* End of line 303 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 166
+=> 
+(* line 305 "rexm3.rex" *)
 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 168 
-            => 
-(* line 335 "../src/rex.rex" *) 
-               INC ( CommentNestingLevel ) 
-            ; AccumComment ( ) 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 166 
-            => 
-(* line 337 "../src/rex.rex" *) 
+
                AccumComment ( ) 
             ; DEC ( CommentNestingLevel ) 
             ; IF CommentNestingLevel = 0 THEN yyPrevious ( ) END (* IF *) 
+                           
+(* End of line 305 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 25
+, 39
+, 59
+, 67
+, 75
+, 165
+, 167
+=> 
+(* line 312 "rexm3.rex" *)
+ AccumComment ( ) 
+(* End of line 312 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 163
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 317 "rexm3.rex" *)
 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 25 , 39 , 59 , 67 , 75 , 165 , 167 
-            => 
-(* line 342 "../src/rex.rex" *) 
-               AccumComment ( ) 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 163 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 347 "../src/rex.rex" *) 
             ; yyStart ( CComment ) 
             ; AccumComment ( ) 
             ; CommentPos := Attribute . Position 
-
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 161 
-            => 
-(* line 352 "../src/rex.rex" *) 
-               AccumComment ( ) 
-            ; yyPrevious ( ) 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 26 , 40 , 58 , 66 , 74 
-            => 
-(* line 354 "../src/rex.rex" *) 
-               AccumComment ( ) 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 160 
-            => 
-(* line 359 "../src/rex.rex" *) 
+     
+(* End of line 317 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 161
+=> 
+(* line 323 "rexm3.rex" *)
+ AccumComment ( ) ; yyPrevious ( ) 
+(* End of line 323 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 26
+, 40
+, 58
+, 66
+, 74
+=> 
+(* line 325 "rexm3.rex" *)
+ AccumComment ( ) 
+(* End of line 325 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 160
+=> 
+(* line 330 "rexm3.rex" *)
 
                IF InsideTarget AND ( BraceNestingLevel > 0 ) 
                THEN 
                  Strings . Append ( TargetCode , '\011' ) 
                END (* IF *) 
             ; yyTab ( ) 
-
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 159 
-            => 
-(* line 368 "../src/rex.rex" *) 
+                        
+(* End of line 330 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 159
+=> 
+(* line 339 "rexm3.rex" *)
 
                IF InsideTarget AND ( BraceNestingLevel > 0 ) 
                THEN 
@@ -557,669 +580,510 @@ UNSAFE MODULE Scanner
                ; AssignEmpty ( TargetCode ) 
                END (* IF *) 
             ; yyEol ( 0 ) 
-
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 158 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 377 "../src/rex.rex" *) 
-            ; PrevState := STD 
-            ; yyStart ( targetcode ) 
-            ; RETURN SymExport 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 153 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 378 "../src/rex.rex" *) 
-            ; PrevState := STD 
-            ; yyStart ( targetcode ) 
-            ; RETURN SymGlobal 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 147 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 379 "../src/rex.rex" *) 
-            ; PrevState := STD 
-            ; yyStart ( targetcode ) 
-            ; RETURN SymLocal 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 142 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 380 "../src/rex.rex" *) 
-            ; PrevState := STD 
-            ; yyStart ( targetcode ) 
-            ; RETURN SymBegin 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 137 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 381 "../src/rex.rex" *) 
-            ; PrevState := STD 
-            ; yyStart ( targetcode ) 
-            ; RETURN SymClose 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 132 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 382 "../src/rex.rex" *) 
-            ; PrevState := STD 
-            ; yyStart ( targetcode ) 
-            ; RETURN SymDefault 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 128 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 383 "../src/rex.rex" *) 
-            ; PrevState := STD 
-            ; yyStart ( targetcode ) 
-            ; RETURN SymEof 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 125 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 384 "../src/rex.rex" *) 
-            ; RETURN SymScanner 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 119 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 385 "../src/rex.rex" *) 
-            ; RETURN SymDefine 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 113 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 386 "../src/rex.rex" *) 
-            ; RETURN SymStart 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 36 , 46 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 387 "../src/rex.rex" *) 
-            ; yyStart ( rules ) 
-            ; RETURN SymRules 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 108 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 388 "../src/rex.rex" *) 
-            ; RETURN SymNot 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 28 
-            , 43 
-            , 49 
-            , 50 
-            , 106 
-            , 107 
-            , 109 
-            , 110 
-            , 111 
-            , 112 
-            , 114 
-            , 115 
-            , 116 
-            , 117 
-            , 118 
-            , 120 
-            , 121 
-            , 122 
-            , 123 
-            , 124 
-            , 126 
-            , 127 
-            , 129 
-            , 130 
-            , 131 
-            , 133 
-            , 134 
-            , 135 
-            , 136 
-            , 138 
-            , 139 
-            , 140 
-            , 141 
-            , 143 
-            , 144 
-            , 145 
-            , 146 
-            , 148 
-            , 149 
-            , 150 
-            , 151 
-            , 152 
-            , 154 
-            , 155 
-            , 156 
-            , 157 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 390 "../src/rex.rex" *) 
+                        
+(* End of line 339 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 158
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 348 "rexm3.rex" *)
+; PrevState := STD; yyStart (targetcode); RETURN SymExport     
+(* End of line 348 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 153
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 349 "rexm3.rex" *)
+; PrevState := STD; yyStart (targetcode); RETURN SymGlobal     
+(* End of line 349 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 147
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 350 "rexm3.rex" *)
+; PrevState := STD; yyStart (targetcode); RETURN SymLocal      
+(* End of line 350 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 142
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 351 "rexm3.rex" *)
+; PrevState := STD; yyStart (targetcode); RETURN SymBegin      
+(* End of line 351 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 137
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 352 "rexm3.rex" *)
+; PrevState := STD; yyStart (targetcode); RETURN SymClose      
+(* End of line 352 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 132
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 353 "rexm3.rex" *)
+; PrevState := STD; yyStart (targetcode); RETURN SymDefault    
+(* End of line 353 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 128
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 354 "rexm3.rex" *)
+; PrevState := STD; yyStart (targetcode); RETURN SymEof        
+(* End of line 354 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 125
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 355 "rexm3.rex" *)
+; RETURN SymScanner    
+(* End of line 355 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 119
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 356 "rexm3.rex" *)
+; RETURN SymDefine     
+(* End of line 356 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 113
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 357 "rexm3.rex" *)
+; RETURN SymStart      
+(* End of line 357 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 36
+, 46
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 358 "rexm3.rex" *)
+; yyStart (rules);     RETURN SymRules         
+(* End of line 358 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 108
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 359 "rexm3.rex" *)
+; RETURN SymNot        
+(* End of line 359 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 28
+, 43
+, 49
+, 50
+, 106
+, 107
+, 109
+, 110
+, 111
+, 112
+, 114
+, 115
+, 116
+, 117
+, 118
+, 120
+, 121
+, 122
+, 123
+, 124
+, 126
+, 127
+, 129
+, 130
+, 131
+, 133
+, 134
+, 135
+, 136
+, 138
+, 139
+, 140
+, 141
+, 143
+, 144
+, 145
+, 146
+, 148
+, 149
+, 150
+, 151
+, 152
+, 154
+, 155
+, 156
+, 157
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 361 "rexm3.rex" *)
 
             ; GetWord ( Word ) 
             ; Attribute . Ident := MakeIdent ( Word ) 
             ; RETURN SymIdent 
-
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 29 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 396 "../src/rex.rex" *) 
+                        
+(* End of line 361 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 29
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 367 "rexm3.rex" *)
 
             ; GetWord ( Word ) 
             ; Attribute . Number := StringToInt ( Word ) 
             ; RETURN SymNumber 
-
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 33 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 402 "../src/rex.rex" *) 
+                        
+(* End of line 367 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 33
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 373 "rexm3.rex" *)
 
             ; GetWord ( Word ) 
             ; SubString ( Word , 2 , Length ( Word ) - 1 , TargetCode ) 
             ; Attribute . String := PutString ( TargetCode ) 
             ; RETURN SymString 
-
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 105 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 409 "../src/rex.rex" *) 
-            ; RETURN SymDot 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 104 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 410 "../src/rex.rex" *) 
-            ; RETURN SymEqual 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 103 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 411 "../src/rex.rex" *) 
-            ; yyPrevious ( ) 
-            ; RETURN SymRBrace 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 102 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 412 "../src/rex.rex" *) 
-            ; RETURN SymMinus 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 101 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 413 "../src/rex.rex" *) 
-            ; RETURN SymComma 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 100 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 414 "../src/rex.rex" *) 
-            ; RETURN SymBar 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 99 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 415 "../src/rex.rex" *) 
-            ; RETURN SymPlus 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 98 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 416 "../src/rex.rex" *) 
-            ; RETURN SymAsterisk 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 97 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 417 "../src/rex.rex" *) 
-            ; RETURN SymQuestion 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 96 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 418 "../src/rex.rex" *) 
-            ; RETURN SymLParen 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 95 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 419 "../src/rex.rex" *) 
-            ; RETURN SymRParen 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 94 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 420 "../src/rex.rex" *) 
-            ; RETURN SymLBracket 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 93 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 421 "../src/rex.rex" *) 
-            ; RETURN SymRBracket 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 92 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 422 "../src/rex.rex" *) 
-            ; yyStart ( set ) 
-            ; RETURN SymLBrace 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 91 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 423 "../src/rex.rex" *) 
-            ; RETURN SymNrSign 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 90 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 424 "../src/rex.rex" *) 
-            ; RETURN SymSlash 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 89 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 425 "../src/rex.rex" *) 
-            ; RETURN SymLess 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 88 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 426 "../src/rex.rex" *) 
-            ; RETURN SymGreater 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 86 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 427 "../src/rex.rex" *) 
-            ; PrevState := rules 
-            ; yyStart ( targetcode ) 
-            ; RETURN SymColon 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 87 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 428 "../src/rex.rex" *) 
-            ; PrevState := rules 
-            ; yyStart ( targetcode ) 
-            ; RETURN SymColonMinus 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 85 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 430 "../src/rex.rex" *) 
-            ; Attribute . Ch := '\012' 
-            ; RETURN SymChar 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 84 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 431 "../src/rex.rex" *) 
-            ; Attribute . Ch := '\011' 
-            ; RETURN SymChar 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 83 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 432 "../src/rex.rex" *) 
-            ; Attribute . Ch := '\013' 
-            ; RETURN SymChar 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 82 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 433 "../src/rex.rex" *) 
-            ; Attribute . Ch := '\010' 
-            ; RETURN SymChar 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 81 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 434 "../src/rex.rex" *) 
-            ; Attribute . Ch := '\015' 
-            ; RETURN SymChar 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 80 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 435 "../src/rex.rex" *) 
-            ; Attribute . Ch := '\014' 
-            ; RETURN SymChar 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 31 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 437 "../src/rex.rex" *) 
+                        
+(* End of line 373 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 105
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 380 "rexm3.rex" *)
+; RETURN SymDot        
+(* End of line 380 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 104
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 381 "rexm3.rex" *)
+; RETURN SymEqual      
+(* End of line 381 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 103
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 382 "rexm3.rex" *)
+; yyPrevious ( ) ; RETURN SymRBrace        
+(* End of line 382 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 102
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 383 "rexm3.rex" *)
+; RETURN SymMinus      
+(* End of line 383 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 101
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 384 "rexm3.rex" *)
+; RETURN SymComma      
+(* End of line 384 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 100
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 385 "rexm3.rex" *)
+; RETURN SymBar        
+(* End of line 385 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 99
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 386 "rexm3.rex" *)
+; RETURN SymPlus       
+(* End of line 386 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 98
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 387 "rexm3.rex" *)
+; RETURN SymAsterisk   
+(* End of line 387 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 97
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 388 "rexm3.rex" *)
+; RETURN SymQuestion   
+(* End of line 388 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 96
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 389 "rexm3.rex" *)
+; RETURN SymLParen     
+(* End of line 389 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 95
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 390 "rexm3.rex" *)
+; RETURN SymRParen     
+(* End of line 390 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 94
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 391 "rexm3.rex" *)
+; RETURN SymLBracket   
+(* End of line 391 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 93
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 392 "rexm3.rex" *)
+; RETURN SymRBracket   
+(* End of line 392 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 92
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 393 "rexm3.rex" *)
+; yyStart (set);       RETURN SymLBrace        
+(* End of line 393 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 91
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 394 "rexm3.rex" *)
+; RETURN SymNrSign     
+(* End of line 394 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 90
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 395 "rexm3.rex" *)
+; RETURN SymSlash      
+(* End of line 395 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 89
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 396 "rexm3.rex" *)
+; RETURN SymLess       
+(* End of line 396 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 88
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 397 "rexm3.rex" *)
+; RETURN SymGreater    
+(* End of line 397 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 86
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 398 "rexm3.rex" *)
+; PrevState := rules; yyStart (targetcode); RETURN SymColon
+(* End of line 398 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 87
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 399 "rexm3.rex" *)
+; PrevState := rules; yyStart (targetcode); RETURN SymColonMinus
+(* End of line 399 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 85
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 401 "rexm3.rex" *)
+; Attribute.Ch := '\012' ;  RETURN SymChar
+(* End of line 401 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 84
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 402 "rexm3.rex" *)
+; Attribute.Ch := '\011' ; RETURN SymChar
+(* End of line 402 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 83
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 403 "rexm3.rex" *)
+; Attribute.Ch := '\013' ; RETURN SymChar
+(* End of line 403 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 82
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 404 "rexm3.rex" *)
+; Attribute.Ch := '\010' ; RETURN SymChar
+(* End of line 404 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 81
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 405 "rexm3.rex" *)
+; Attribute.Ch := '\015' ; RETURN SymChar
+(* End of line 405 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 80
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 406 "rexm3.rex" *)
+; Attribute.Ch := '\014' ; RETURN SymChar
+(* End of line 406 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 31
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 408 "rexm3.rex" *)
 
             ; GetWord ( Word ) 
             ; SubString ( Word , 2 , Length ( Word ) , TargetCode ) 
             ; Attribute . Ch := VAL ( StringToInt ( TargetCode ) , CHAR ) 
             ; RETURN SymChar 
-
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 30 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 444 "../src/rex.rex" *) 
+                        
+(* End of line 408 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 30
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 415 "rexm3.rex" *)
 
             ; GetWord ( Word ) 
             ; Attribute . Ch := Char ( Word , 2 ) 
             ; RETURN SymChar 
-
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 27 , 41 , 42 , 162 
-            => Attribute . Position . Line := yyLineCount 
-            ; Attribute . Position . Column 
-                := VAL 
-                     ( yyChBufferIndex - yyLineStart - TokenLength 
-                     , SHORTCARD 
-                     ) 
-(* line 450 "../src/rex.rex" *) 
+                        
+(* End of line 415 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 27
+, 41
+, 42
+, 162
+=> 
+  Attribute.Position.Line   := yyLineCount 
+; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
+(* line 421 "rexm3.rex" *)
 
             ; GetWord ( Word ) 
             ; Attribute . Ch := Char ( Word , 1 ) 
             ; RETURN SymChar 
+                        
+(* End of line 421 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 72
+=> 
+(* line 427 "rexm3.rex" *)
+ EVAL Word (* Because ";" will follow. *) 
+(* End of line 427 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 64
+=> 
+(* line 428 "rexm3.rex" *)
+ EVAL Word (* Because ";" will follow. *) 
+(* End of line 428 "rexm3.rex" *)
+; yyRestartFlag := FALSE; EXIT 
+| 56
+=> 
+(* BlankAction *)
+  WHILE yyChBufferPtr^ [yyChBufferIndex] = ' ' DO INC (yyChBufferIndex) END 
+; yyRestartFlag := FALSE; EXIT 
+| 55
+=> 
+(* TabAction *)
+  DEC ( yyLineStart , 7 - (yyChBufferIndex - yyLineStart - 2 ) MOD 8 ) 
+; yyRestartFlag := FALSE; EXIT 
+| 54
+=> 
+(* EolAction *)
+ INC ( yyLineCount ) 
+; yyLineStart := yyChBufferIndex - 1 
+; yyRestartFlag := FALSE; EXIT 
+(* End of generated actions ($A): *)
+(* Non final states ($N): *)  
+| 1
+, 2
+, 3
+, 4
+, 5
+, 6
+, 7
+, 8
+, 9
+, 10
+, 11
+, 12
+, 13
+, 14
+, 15
+, 16
+, 17
+, 18
+, 19
+, 20
+, 44
+, 51
+=> 
+(* End of non final states ($N). *)  
 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 72 
-            => 
-(* line 456 "../src/rex.rex" *) 
+            DEC ( yyChBufferIndex ) (* return character *) 
+          ; DEC ( TokenLength ) (* pop state *) 
 
-               yyRestartFlag := FALSE 
-            ; EXIT 
-            | 64 
-            => 
-(* line 457 "../src/rex.rex" *) 
-
-               yyRestartFlag := FALSE 
-            ; EXIT 
-            | 56 
-            => 
-(* BlankAction *) 
-               WHILE yyChBufferPtr ^ [ yyChBufferIndex ] = ' ' 
-               DO INC ( yyChBufferIndex ) 
-               END (* WHILE *) 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 55 
-            => 
-(* TabAction *) 
-               DEC 
-                 ( yyLineStart 
-                 , 7 - ( ( yyChBufferIndex - yyLineStart - 2 ) MOD 8 ) 
-                 ) 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 54 
-            => 
-(* EolAction *) 
-               INC ( yyLineCount ) 
-            ; yyLineStart := yyChBufferIndex - 1 
-            ; yyRestartFlag := FALSE 
-            ; EXIT 
-            | 1 
-            , 2 
-            , 3 
-            , 4 
-            , 5 
-            , 6 
-            , 7 
-            , 8 
-            , 9 
-            , 10 
-            , 11 
-            , 12 
-            , 13 
-            , 14 
-            , 15 
-            , 16 
-            , 17 
-            , 18 
-            , 19 
-            , 20 
-            , 44 
-            , 51 
-            => 
-            (* non final states *) 
-               DEC ( yyChBufferIndex )          (* return character *) 
-            ; DEC ( TokenLength )               (* pop state *) 
-
-            | 53 
-            => Attribute . Position . Line := yyLineCount 
+(* Only for ReduceCaseSize, #2 ($P): *)
+| 53 => 
+(* End of only for ReduceCaseSize, #2 ($P): *)
+              Attribute . Position . Line := yyLineCount 
             ; Attribute . Position . Column 
                 := VAL ( yyChBufferIndex - yyLineStart , SHORTCARD ) 
             ; INC ( yyChBufferIndex ) 
-            ; TokenLength := 1 
-            ; ReuseIO . WriteC 
-                ( ReuseIO . StdOutput 
-                , yyChBufferPtr ^ [ yyChBufferIndex - 1 ] 
-                ) 
+            ; TokenLength := 1
+(* Only for default line ($D): *)            
+; ReuseIO . WriteC     ( ReuseIO . StdOutput , yyChBufferPtr ^ [ yyChBufferIndex - 1 ] ) 
+(* End of only for default line ($D). *)            
             ; yyRestartFlag := FALSE 
             ; EXIT 
 
             | yyDNoState 
-            =>                                  (* automatic initialization *) 
+            => (* automatic initialization *) 
                yyGetTables ( ) 
             ; yyStateStack ^ [ 0 ] := yyDefaultState (* stack underflow sentinel *) 
             ; IF yyFileStackPtr = 0 
@@ -1230,19 +1094,23 @@ UNSAFE MODULE Scanner
             ; yyRestartFlag := FALSE 
             ; EXIT 
 
-            | 52 
-            => DEC ( yyChBufferIndex )          (* undo last state transition *) 
-            ; DEC ( TokenLength )               (* get previous state *) 
+(* Only for ReduceCaseSize, #3 ($O): *)
+| 52 => 
+(* End only for ReduceCaseSize, #3 ($O): *)
+               DEC ( yyChBufferIndex ) (* undo last state transition *) 
+            ; DEC ( TokenLength ) (* get previous state *) 
             ; IF TokenLength = 0 
               THEN 
                 yyState := yyStartState 
+(* Only for LeftJustUsed ($J): *)
+(* End of only for LeftJustUsed ($J): *)
               ELSE 
                 yyState := yyStateStack ^ [ TokenLength ] 
               END (* IF *) 
 
             ; IF yyChBufferIndex # ( yyChBufferStart + yyBytesRead ) 
               THEN 
-                yyState := yyEobTrans [ yyState ]       (* end of buffer sentinel  buffer *) 
+                yyState := yyEobTrans [ yyState ] (* end of buffer sentinel in buffer *) 
               ; IF yyState # yyDNoState 
                 THEN 
                   INC ( yyChBufferIndex ) 
@@ -1251,10 +1119,9 @@ UNSAFE MODULE Scanner
                 ; yyRestartFlag := TRUE 
                 ; EXIT 
                 END (* IF *) 
-              ELSE                              (* end of buffer reached *) 
+              ELSE (* end of buffer reached *) 
 
-                     (* copy initial part of token in front of input buffer *) 
-
+                (* copy initial part of token in front of input buffer *) 
                 yySource := yyChBufferIndex - TokenLength - 1 
               ; yyTarget 
                   := General . MaxAlign 
@@ -1273,7 +1140,7 @@ UNSAFE MODULE Scanner
                 END (* IF *) 
 
               ; IF NOT yyEof 
-                THEN                            (* read buffer and restart *) 
+                THEN (* read buffer and restart *) 
                   yyChBufferFree 
                     := VAL 
                          ( General . Exp2 
@@ -1312,11 +1179,10 @@ UNSAFE MODULE Scanner
                   ; IF yyStateStackSize < yyChBufferSize 
                     THEN 
                       DynArray . ExtendArray 
-                        ( LOOPHOLE ( yyStateStack , ADDRESS ) 
+                        ( LOOPHOLE ( yyStateStack , ADDRESS )  
                         , yyStateStackSize 
-                        , BYTESIZE ( yyStateRangePacked ) 
+                        , BYTESIZE ( yyStateRange ) 
                         ) 
-(*FIXME:                        ^ not necessarily right. *) 
                     ; IF yyStateStack = NIL 
                       THEN 
                         yyErrorMessage ( 1 ) 
@@ -1325,10 +1191,10 @@ UNSAFE MODULE Scanner
                   END (* IF *) 
                 ; yyChBufferIndex := yyChBufferStart 
                 ; yyBytesRead 
-                    := Source . GetLine 
+               := Source . GetLine 
                          ( yySourceFile 
                          , ADR ( yyChBufferPtr ^ [ yyChBufferIndex ] ) 
-                         , yyChBufferFree 
+                         , yyChBufferFree  
                          ) 
                 ; IF yyBytesRead <= 0 
                   THEN 
@@ -1344,34 +1210,35 @@ UNSAFE MODULE Scanner
                 END (* IF *) 
 
               ; IF TokenLength = 0 
-                THEN                            (* end of file reached *) 
+                THEN (* end of file reached *) 
                   Attribute . Position . Line := yyLineCount 
                 ; Attribute . Position . Column 
                     := VAL ( yyChBufferIndex - yyLineStart , SHORTCARD ) 
                 ; CloseFile ( ) 
                 ; IF yyFileStackPtr = 0 
-                  THEN 
-(* line 184 "../src/rex.rex" *) 
+                  THEN
+(* Eof action ($E): *)
+(* line 133 "rexm3.rex" *)
 
-                    CASE yyStartState 
-                    OF targetcode , set 
-                    => ErrorMessage ( BraceMissing , Error , TargetPos ) 
-                    | CComment , M2Comment 
-                    => ErrorMessage ( UnclosedComment , Error , CommentPos ) 
-                    ; IF InsideTarget 
-                      THEN 
-                        ErrorMessage ( BraceMissing , Error , TargetPos ) 
-                      END (* IF *) 
-                    | CStr1 , CStr2 , Str1 , Str2 
-                    => ErrorMessage ( UnclosedString , Error , StringPos ) 
-                    ; IF InsideTarget 
-                      THEN 
-                        ErrorMessage ( BraceMissing , Error , TargetPos ) 
-                      END (* IF *) 
-                    ELSE 
-                    END (* CASE *) 
-                  ; yyStart ( STD ) 
+   CASE yyStartState OF
+   | targetcode , set   
+   => ErrorMessage ( BraceMissing , Error , TargetPos ) 
+   | CComment , M2Comment       
+   => ErrorMessage ( UnclosedComment , Error , CommentPos ) 
+   ; IF InsideTarget 
+     THEN ErrorMessage ( BraceMissing , Error , TargetPos ) 
+     END (* IF *) ; 
+   | CStr1, CStr2, Str1, Str2
+   => ErrorMessage ( UnclosedString , Error , StringPos );
+      IF InsideTarget 
+      THEN ErrorMessage ( BraceMissing , Error , TargetPos ) 
+      END (* IF *) ; 
+   ELSE
+   END (* CASE *) 
+ ; yyStart (STD) 
 
+(* End of line 133 "rexm3.rex" *)
+(* End of Eof action ($E): *)
                   END (* IF *) 
                 ; IF yyFileStackPtr = 0 THEN RETURN EofToken END (* IF *) 
                 ; yyRestartFlag := FALSE 
@@ -1387,16 +1254,16 @@ UNSAFE MODULE Scanner
       END (* LOOP *) 
     END GetToken 
 
-; PROCEDURE BeginFile ( FileName : TEXT ) 
+; PROCEDURE BeginFile ( FileName : TEXT )  
 
   = BEGIN (* BeginFile *) 
       IF yyStateStack ^ [ 0 ] = yyDNoState 
-      THEN                                      (* have tables been read in ? *) 
+      THEN (* have tables been read in ? *) 
         yyGetTables ( ) 
-      ; yyStateStack ^ [ 0 ] := yyDefaultState  (* stack underflow sentinel *) 
+      ; yyStateStack ^ [ 0 ] := yyDefaultState (* stack underflow sentinel *) 
       END (* IF *) 
     ; yyInitialize ( ) 
-    ; yySourceFile := Source . BeginSource ( FileName ) 
+ ; yySourceFile := Source . BeginSource ( FileName ) 
     ; IF yySourceFile < 0 THEN yyErrorMessage ( 5 ) END (* IF *) 
     END BeginFile 
 
@@ -1407,21 +1274,22 @@ UNSAFE MODULE Scanner
       THEN 
         yyErrorMessage ( 3 ) 
       END (* IF *) 
-    ; INC ( yyFileStackPtr )                    (* push file *) 
-    ; WITH With_11 = yyFileStack [ yyFileStackPtr ] 
-      DO With_11 . SourceFile := yySourceFile 
-      ; With_11 . Eof := yyEof 
-      ; With_11 . ChBufferPtr := yyChBufferPtr 
-      ; With_11 . ChBufferStart := yyChBufferStart 
-      ; With_11 . ChBufferSize := yyChBufferSize 
-      ; With_11 . ChBufferIndex := yyChBufferIndex 
-      ; With_11 . BytesRead := yyBytesRead 
-      ; With_11 . LineCount := yyLineCount 
-      ; With_11 . LineStart := yyLineStart 
+      (* push file *) 
+    ; INC ( yyFileStackPtr ) 
+    ; WITH m2tom3_with_1 = yyFileStack [ yyFileStackPtr ] 
+      DO m2tom3_with_1 . SourceFile := yySourceFile 
+      ; m2tom3_with_1 . Eof := yyEof 
+      ; m2tom3_with_1 . ChBufferPtr := yyChBufferPtr 
+      ; m2tom3_with_1 . ChBufferStart := yyChBufferStart 
+      ; m2tom3_with_1 . ChBufferSize := yyChBufferSize 
+      ; m2tom3_with_1 . ChBufferIndex := yyChBufferIndex 
+      ; m2tom3_with_1 . BytesRead := yyBytesRead 
+      ; m2tom3_with_1 . LineCount := yyLineCount 
+      ; m2tom3_with_1 . LineStart := yyLineStart 
       END (* WITH *) 
-                                                (* initialize file state *) 
+      (* initialize file state *) 
     ; yyChBufferSize := yyInitBufferSize 
-    ; DynArray . MakeArray 
+    ; DynArray . MakeArray
         ( LOOPHOLE ( yyChBufferPtr , ADDRESS ) 
         , yyChBufferSize 
         , BYTESIZE ( CHAR ) 
@@ -1443,27 +1311,29 @@ UNSAFE MODULE Scanner
 
   = BEGIN (* CloseFile *) 
       IF yyFileStackPtr = 0 THEN yyErrorMessage ( 4 ) END (* IF *) 
-    ; Source . CloseSource ( yySourceFile ) 
+ ; Source . CloseSource ( yySourceFile ) 
     ; DynArray . ReleaseArray 
         ( yyChBufferPtr , yyChBufferSize , BYTESIZE ( CHAR ) ) 
-    ; WITH With_12 = yyFileStack [ yyFileStackPtr ] 
-      DO                                                 (* pop file *) 
-         yySourceFile := With_12 . SourceFile 
-      ; yyEof := With_12 . Eof 
-      ; yyChBufferPtr := With_12 . ChBufferPtr 
-      ; yyChBufferStart := With_12 . ChBufferStart 
-      ; yyChBufferSize := With_12 . ChBufferSize 
-      ; yyChBufferIndex := With_12 . ChBufferIndex 
-      ; yyBytesRead := With_12 . BytesRead 
-      ; yyLineCount := With_12 . LineCount 
-      ; yyLineStart := With_12 . LineStart 
+
+      (* pop file *)
+      ; WITH m2tom3_with_2 = yyFileStack [ yyFileStackPtr ] 
+      DO 
+        yySourceFile := m2tom3_with_2 . SourceFile 
+      ; yyEof := m2tom3_with_2 . Eof 
+      ; yyChBufferPtr := m2tom3_with_2 . ChBufferPtr 
+      ; yyChBufferStart := m2tom3_with_2 . ChBufferStart 
+      ; yyChBufferSize := m2tom3_with_2 . ChBufferSize 
+      ; yyChBufferIndex := m2tom3_with_2 . ChBufferIndex 
+      ; yyBytesRead := m2tom3_with_2 . BytesRead 
+      ; yyLineCount := m2tom3_with_2 . LineCount 
+      ; yyLineStart := m2tom3_with_2 . LineStart 
       END (* WITH *) 
     ; DEC ( yyFileStackPtr ) 
     END CloseFile 
 
 ; PROCEDURE GetWord ( VAR Word : Strings . tString ) 
 
-  = VAR WordStart : INTEGER 
+  = VAR i , WordStart : INTEGER 
 
   ; BEGIN (* GetWord *) 
       WordStart := yyChBufferIndex - TokenLength - 1 
@@ -1476,7 +1346,7 @@ UNSAFE MODULE Scanner
 
 ; PROCEDURE GetLower ( VAR Word : Strings . tString ) 
 
-  = VAR WordStart : INTEGER 
+  = VAR i , WordStart : INTEGER 
 
   ; BEGIN (* GetLower *) 
       WordStart := yyChBufferIndex - TokenLength - 1 
@@ -1489,7 +1359,7 @@ UNSAFE MODULE Scanner
 
 ; PROCEDURE GetUpper ( VAR Word : Strings . tString ) 
 
-  = VAR WordStart : INTEGER 
+  = VAR i , WordStart : INTEGER 
 
   ; BEGIN (* GetUpper *) 
       WordStart := yyChBufferIndex - TokenLength - 1 
@@ -1519,7 +1389,9 @@ UNSAFE MODULE Scanner
 
 ; PROCEDURE yyEcho ( ) 
 
-  = BEGIN (* yyEcho *) 
+  = VAR i : INTEGER 
+
+  ; BEGIN (* yyEcho *) 
       FOR i := yyChBufferIndex - TokenLength TO yyChBufferIndex - 1 
       DO ReuseIO . WriteC ( ReuseIO . StdOutput , yyChBufferPtr ^ [ i ] ) 
       END (* FOR *) 
@@ -1528,7 +1400,7 @@ UNSAFE MODULE Scanner
 ; PROCEDURE yyLess ( n : INTEGER ) 
 
   = BEGIN (* yyLess *) 
-      DEC ( yyChBufferIndex , TokenLength - n ) 
+      DEC ( yyChBufferIndex , TokenLength - n )
     ; TokenLength := n 
     END yyLess 
 
@@ -1602,7 +1474,7 @@ UNSAFE MODULE Scanner
         ; yyChBufferIndex := 0 
         ; yyChBufferStart := 0 
         ; yyBytesRead 
-            := Source . GetLine 
+           := Source . GetLine 
                  ( yySourceFile 
                  , yyChBufferPtr 
                  , General . Exp2 ( General . Log2 ( yyChBufferSize ) ) 
@@ -1640,7 +1512,7 @@ UNSAFE MODULE Scanner
     END LowerCase 
 
 (* VISIBLE *) 
-; PROCEDURE TotalLineCount ( ) : Word . T 
+; PROCEDURE TotalLineCount ( ) : CARDINAL  
 
   = BEGIN (* TotalLineCount *) 
       RETURN yyTotalLineCount 
@@ -1648,20 +1520,26 @@ UNSAFE MODULE Scanner
 
 ; PROCEDURE BeginScanner ( ) 
 
-  = BEGIN (* BeginScanner *) 
-(* line 177 "../src/rex.rex" *) 
-      BraceNestingLevel := 0 
+  = BEGIN (* BeginScanner *)
+(* User initialization code ($I): *)
+(* line 126 "rexm3.rex" *)
+   BraceNestingLevel := 0 
     ; CommentNestingLevel := 0 
-    ; AssignEmpty ( string ) 
-    ; NoString := PutString ( string ) 
-
+    ; AssignEmpty (string) 
+    ; NoString := PutString (string) 
+  
+(* End of line 126 "rexm3.rex" *)
+(* End of user initialization code ($I): *)
     END BeginScanner 
 
 ; PROCEDURE CloseScanner ( ) 
 
   = BEGIN (* CloseScanner *) 
-    END CloseScanner 
+(* User finalization code ($F): *)
+(* End of user finalization code ($F): *)
+    END CloseScanner
 
+(* From hand edited version, with $M lines inserted: *)
 ; PROCEDURE yyGetTables ( ) 
 
   = VAR BlockSize , j , n : Word . T 
@@ -1671,11 +1549,12 @@ UNSAFE MODULE Scanner
   ; BEGIN (* yyGetTables *) 
       BlockSize := 64000 DIV BYTESIZE ( yyCombType )
     ; TRY 
-        TableFile := System.OpenInputT (ScanTabName) 
+        TableFile := System . OpenInputT ( ScanTabName ) 
       EXCEPT 
-        OSError.E (code) 
-        => ErrLine ("Unable to open scanner table file " & ScanTabName ) 
-        ; Process.Exit (RexErrors.AbnormalTermination) 
+        OSError . E ( code ) 
+        => RexErrors . ErrLine
+             ( "Unable to open scanner table file " & ScanTabName ) 
+        ; Process . Exit ( RexErrors . AbnormalTermination )  
       END (* EXCEPT *) 
     ; Checks . ErrorCheckT ( "Unable to open " & ScanTabName , TableFile ) 
     ; IF ( ( yyGetTable ( TableFile , ADR ( Base [ FIRST ( Base ) ] ) ) 
@@ -1698,6 +1577,8 @@ UNSAFE MODULE Scanner
               ) 
               # yyDStateCount 
             ) 
+(* Only for ReduceCaseSize ($M): *)
+(* End of only for ReduceCaseSize ($M): *)
       THEN 
         yyErrorMessage ( 2 ) 
       END (* IF *) 
@@ -1722,6 +1603,72 @@ UNSAFE MODULE Scanner
       END (* FOR *) 
     END yyGetTables 
 
+(* Directly converted version: lacks manual fixes: 
+; PROCEDURE yyGetTables ( ) 
+
+  = VAR BlockSize , j , n : Word . T 
+    ; TableFile : System . tFile 
+    ; i : yyStateRange 
+    ; Base : ARRAY yyStateRange OF yyTableRange 
+
+  ; BEGIN (* yyGetTables *) 
+      BlockSize := 64000 DIV BYTESIZE ( yyCombType ) 
+    ; TableFile := System . OpenInputT ( ScanTabName ) 
+    ; Checks . ErrorCheckT
+        ( "Unable to open scanner table file " & ScanTabName, TableFile ) 
+    ; IF ( ( yyGetTable 
+               ( TableFile , ADR ( Base [ FIRST ( Base ) ] ) ) 
+             DIV BYTESIZE ( yyTableElmt ) 
+             - 1 
+           ) 
+           # yyDStateCount 
+         ) 
+         OR ( ( yyGetTable 
+                  ( TableFile 
+                  , ADR ( yyDefault [ FIRST ( yyDefault ) ] ) 
+                  ) 
+                DIV BYTESIZE ( yyTableElmt ) 
+                - 1 
+              ) 
+              # yyDStateCount 
+            ) 
+         OR ( ( yyGetTable 
+                  ( TableFile 
+                  , ADR ( yyEobTrans [ FIRST ( yyEobTrans ) ] ) 
+                  ) 
+                DIV BYTESIZE ( yyTableElmt ) 
+                - 1 
+              ) 
+              # yyDStateCount 
+            ) 
+(* Only for ReduceCaseSize ($M): *)
+(* End of only for ReduceCaseSize ($M): *)
+      THEN 
+        yyErrorMessage ( 2 ) 
+      END (* IF *) 
+    ; n := 0 
+    ; j := 0 
+    ; WHILE j <= yyTableSize 
+      DO INC 
+           ( n 
+           , yyGetTable 
+               ( TableFile 
+               , ADR ( yyComb [ VAL ( j , SHORTCARD ) ] ) 
+               ) 
+             DIV BYTESIZE ( yyCombType ) 
+           ) 
+      ; INC ( j , BlockSize ) 
+      END (* WHILE *) 
+    ; IF n # ( yyTableSize + 1 ) THEN yyErrorMessage ( 2 ) END (* IF *) 
+    ; System . Close ( TableFile ) 
+
+    ; FOR i := 0 TO yyDStateCount 
+      DO yyBasePtr [ i ] 
+           := LOOPHOLE ( ADR ( yyComb [ Base [ i ] ] ) , M2LONGCARD ) 
+      END (* FOR *) 
+    END yyGetTables
+  End of directly converted version. *)
+
 ; PROCEDURE yyGetTable 
     ( TableFile : System . tFile ; Address : ADDRESS ) : Word . T 
 
@@ -1732,14 +1679,16 @@ UNSAFE MODULE Scanner
   ; BEGIN (* yyGetTable *) 
       N := System . Read 
              ( TableFile , ADR ( Length ) , BYTESIZE ( yyTableElmt ) ) 
-    ; Checks . ErrorCheckT ( "yyGetTable.Read1" , N ) 
+    ; Checks . ErrorCheckT
+        ( "Unable to read size in scanner table file " & ScanTabName , N )  
     ; IF N < 0 
       THEN 
         Process . Exit ( RexErrors . AbnormalTermination ) 
       END (* IF *) 
     ; LongLength := Length 
     ; N := System . Read ( TableFile , Address , LongLength ) 
-    ; Checks . ErrorCheckT ( "yyGetTable.Read2" , N ) 
+    ; Checks . ErrorCheckT
+        ( "Unable to read data in scanner table file " & ScanTabName , N )  
     ; IF N < 0 
       THEN 
         Process . Exit ( RexErrors . AbnormalTermination ) 
@@ -1753,22 +1702,29 @@ UNSAFE MODULE Scanner
       Positions . WritePosition ( ReuseIO . StdError , Attribute . Position ) 
     ; CASE ErrorCode 
       OF 0 
-      => ReuseIO . WriteT ( ReuseIO . StdError , ": Scanner: internal error" ) 
+      => ReuseIO . WriteT 
+        ( ReuseIO . StdError , ": " & "Scanner" & ": internal error" ) 
       | 1 
-      => ReuseIO . WriteT ( ReuseIO . StdError , ": Scanner: out of memory" ) 
+      => ReuseIO . WriteT 
+        ( ReuseIO . StdError , ": " & "Scanner" & ": out of memory" ) 
       | 2 
-      => ReuseIO . WriteT ( ReuseIO . StdError , ": Scanner: table mismatch" ) 
+      => ReuseIO . WriteT 
+        ( ReuseIO . StdError , ": " & "Scanner" & ": table mismatch" ) 
       | 3 
       => ReuseIO . WriteT 
-           ( ReuseIO . StdError , ": Scanner: too many nested include files" ) 
+           ( ReuseIO . StdError 
+        , ": " & "Scanner" & ": too many nested include files"
+           ) 
       | 4 
       => ReuseIO . WriteT 
            ( ReuseIO . StdError 
-           , ": Scanner: file stack underflow (too many calls of CloseFile)" 
+        , ": " & "Scanner" & ": file stack underflow (too many calls of CloseFile)"
            ) 
       | 5 
       => ReuseIO . WriteT 
-           ( ReuseIO . StdError , ": Scanner: cannot open input file" ) 
+           ( ReuseIO . StdError 
+        , ": " & "Scanner" & ": unable to open input file. "
+           ) 
       END (* CASE *) 
     ; ReuseIO . WriteNl ( ReuseIO . StdError ) 
     ; Exit ( ) 
@@ -1781,18 +1737,18 @@ UNSAFE MODULE Scanner
     ; System . Exit ( 1 ) 
     END yyExit 
 
-; BEGIN (* Scanner *) 
+; BEGIN (* Name *)
     ScanTabName := "Scanner.Tab" 
   ; Exit := yyExit 
   ; yyFileStackPtr := 0 
-  ; yyStartState := 1                           (* set up for auto init *) 
+  ; yyStartState := 1 (* set up for auto init *) 
   ; yyPreviousStart := 1 
   ; yyBasePtr [ yyStartState ] 
       := LOOPHOLE ( ADR ( yyComb [ 0 ] ) , M2LONGCARD ) 
   ; yyDefault [ yyStartState ] := yyDNoState 
   ; yyComb [ 0 ] . Check := yyDNoState 
-  ; yyChBufferPtr := ADR ( yyComb [ 0 ] )       (* dirty trick *) 
-  ; yyChBufferIndex := 1                                (* dirty trick *) 
+  ; yyChBufferPtr := LOOPHOLE ( ADR ( yyComb [ 0 ] ) , yytChBufferPtr ) 
+  ; yyChBufferIndex := 1 (* dirty trick *) 
   ; yyStateStackSize := yyInitBufferSize 
   ; DynArray . MakeArray 
       ( LOOPHOLE ( yyStateStack , ADDRESS ) 
@@ -1814,6 +1770,6 @@ UNSAFE MODULE Scanner
     DO yyToUpper [ yyCh ] 
          := VAL ( ORD ( yyCh ) - ORD ( 'a' ) + ORD ( 'A' ) , CHAR ) 
     END (* FOR *) 
-  END Scanner 
+END Scanner 
 . 
 
