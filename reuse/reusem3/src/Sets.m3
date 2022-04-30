@@ -19,7 +19,9 @@ UNSAFE MODULE Sets
 
 ; FROM General IMPORT MinSHORTCARD , MaxSHORTCARD 
 
-; FROM DynArray IMPORT MakeArray , ReleaseArray 
+; FROM DynArray IMPORT MakeArray , ReleaseArray
+
+; IMPORT IntSets 
 
 ; FROM ReuseIO 
   IMPORT tFile , StdError , ReadCard , ReadC , WriteCard , WriteC , WriteT 
@@ -560,7 +562,19 @@ UNSAFE MODULE Sets
       ; With_46 . LastElmt := 0 
       END (* WITH *) 
     ; SanityCheck ( Set ) 
-    END AssignEmpty 
+    END AssignEmpty
+
+; PROCEDURE FromIntSet ( VAR Set : tSet ; IntSet : IntSets . T )
+
+  = PROCEDURE Visit ( Elem : IntSets . ValidElemT )
+    = BEGIN
+        Include ( Set , Elem ) 
+      END Visit
+      
+  ; BEGIN
+      AssignEmpty ( Set )
+    ; IntSets . ForAllDo ( IntSet , Visit ) 
+    END FromIntSet 
 
 ; PROCEDURE ForallDo ( Set : tSet ; Proc : ProcOftElement ) 
 

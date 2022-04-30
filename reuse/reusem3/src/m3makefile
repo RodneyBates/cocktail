@@ -1,9 +1,19 @@
-% m3makefile for Cocktaill reuse, modula-3 version
+% m3makefile for Cocktail reuse, modula-3 version
 import ("libm3")
 
 import("m2libs")
 
 % interface("Arguments")
+
+%instantiate and use OrdSets:
+include_dir("../generics")
+interface("IntForOrdSets")
+module("IntSets") % Instantiation: OrdSets->InitSets. 
+
+% Needed by intSets: 
+interface("BitNoTable")
+module("UnsafeUtils")
+
 Module("Checks")
 Module("DynArray")
 Module("Errors")

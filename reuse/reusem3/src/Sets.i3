@@ -34,7 +34,9 @@ UNSAFE INTERFACE Sets
 
 ; FROM SYSTEM IMPORT BITSET , SHORTCARD 
 
-; FROM ReuseIO IMPORT tFile 
+; FROM ReuseIO IMPORT tFile
+
+; IMPORT IntSets 
 
 ; TYPE tInternalElmt = SHORTCARD 
 
@@ -113,12 +115,13 @@ UNSAFE INTERFACE Sets
 
 ; PROCEDURE ForallDo ( Set : tSet ; Proc : ProcOftElement ) 
 
+; PROCEDURE FromIntSet ( VAR Set : tSet ; IntSet : IntSets . T )
+
 ; PROCEDURE ReadSet ( f : tFile ; VAR Set : tSet ) 
 
 ; PROCEDURE WriteSet ( f : tFile ; Set : tSet ) 
 
-; 
-END Sets 
+; END Sets 
 . 
 
 
