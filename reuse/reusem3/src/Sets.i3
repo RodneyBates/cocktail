@@ -97,7 +97,7 @@ UNSAFE INTERFACE Sets
 
 ; PROCEDURE IsNotEqual ( Set1 , Set2 : tSet ) : BOOLEAN 
 
-; PROCEDURE IsElement ( Elmt : tElement ; VAR Set : tSet ) : BOOLEAN 
+; PROCEDURE IsElement ( Elmt : tElement ; READONLY Set : tSet ) : BOOLEAN 
 
 ; PROCEDURE IsEmpty ( Set : tSet ) : BOOLEAN 
 
@@ -113,9 +113,11 @@ UNSAFE INTERFACE Sets
 
 ; PROCEDURE AssignEmpty ( VAR Set : tSet ) 
 
-; PROCEDURE ForallDo ( Set : tSet ; Proc : ProcOftElement ) 
+; PROCEDURE ForallDo ( READONLY Set : tSet ; Proc : ProcOftElement ) 
 
 ; PROCEDURE FromIntSet ( VAR Set : tSet ; IntSet : IntSets . T )
+
+; PROCEDURE IntSet ( READONLY Set : tSet ) : IntSets . T
 
 ; PROCEDURE ReadSet ( f : tFile ; VAR Set : tSet ) 
 

@@ -431,7 +431,7 @@ UNSAFE MODULE Sets
       RETURN NOT IsEqual ( Set1 , Set2 ) 
     END IsNotEqual 
 
-; PROCEDURE IsElement ( Elmt : tElement ; VAR Set : tSet ) : BOOLEAN 
+; PROCEDURE IsElement ( Elmt : tElement ; READONLY Set : tSet ) : BOOLEAN 
 
   = BEGIN (* IsElement *) 
       IF Set . BitsetPtr = NIL 
@@ -571,25 +571,40 @@ UNSAFE MODULE Sets
         Include ( Set , Elem ) 
       END Visit
       
-  ; BEGIN
+  ; BEGIN (* FromIntSet *) 
       AssignEmpty ( Set )
-    ; IntSets . ForAllDo ( IntSet , Visit ) 
-    END FromIntSet 
+    ; TRY IntSets . ForAllDo ( IntSet , Visit )
+      EXCEPT ELSE 
+      END (* EXCEPT *) 
+    END FromIntSet
 
-; PROCEDURE ForallDo ( Set : tSet ; Proc : ProcOftElement ) 
+; PROCEDURE IntSet ( READONLY Set : tSet ) : IntSets . T
+
+  = VAR Result : IntSets . T
+
+  ; PROCEDURE Visit ( Elem : tElement )
+    = BEGIN
+        Result := IntSets . Include ( Result , Elem ) 
+      END Visit
+      
+  ; BEGIN (* IntSet *) 
+      Result := IntSets . Empty ( ) 
+    ; ForallDo ( Set , Visit )
+    ; RETURN Result 
+    END IntSet 
+
+; PROCEDURE ForallDo ( READONLY Set : tSet ; Proc : ProcOftElement ) 
 
   = BEGIN (* ForallDo *) 
-      WITH With_47 = Set 
-      DO IF With_47 . BitsetPtr # NIL 
-         THEN 
-           FOR i := With_47 . FirstElmt TO With_47 . LastElmt 
-           DO IF IsElement ( VAL ( i , tElement ) , Set ) 
-              THEN 
-                Proc ( VAL ( i , tElement ) ) 
-              END (* IF *) 
-           END (* FOR *) 
-         END (* IF *) 
-      END (* WITH *) 
+      IF Set . BitsetPtr # NIL 
+      THEN 
+        FOR i := Set . FirstElmt TO Set . LastElmt 
+        DO IF IsElement ( VAL ( i , tElement ) , Set ) 
+           THEN 
+             Proc ( VAL ( i , tElement ) ) 
+           END (* IF *) 
+        END (* FOR *) 
+      END (* IF *) 
     END ForallDo 
 
 ; PROCEDURE ReadSet ( f : tFile ; VAR Set : tSet ) 
