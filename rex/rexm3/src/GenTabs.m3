@@ -1,64 +1,68 @@
-(* $Id: GenTabs.mi,v 3.2 1991/11/21 14:41:19 grosch rel $ *) 
+(* File GenTabs.m3 *)
+(* Old comments from original version in Modula2. *)
 
-(* Rodney M. Bates 
-    Apr. 1999 Minor changes to compile, after changes to Sets 
-*) 
+     (* $Id: GenTabs.mi,v 3.2 1991/11/21 14:41:19 grosch rel $ *) 
 
-(* $Log: GenTabs.mi,v $ 
- * Revision 3.2  1991/11/21  14:41:19  grosch 
- * fixed bug: interference of right context between constant and non-constant RE 
- * new version of RCS on SPARC 
- * 
- * Revision 3.1  91/04/26  18:19:08  grosch 
- * fixed bug in computing ControlSize 
- * 
- * Revision 3.0  91/04/04  18:06:59  grosch 
- * introduced partitioning of character set 
- * 
- * Revision 2.1  91/03/26  18:26:46  grosch 
- * improved generation time 
- * introduced options n and o to control table size and generation time 
- * increased limitation for table size from 64K to 256K 
- * 
- * Revision 2.0  91/03/08  18:17:46  grosch 
- * turned tables into initialized arrays (in C) 
- * reduced case size 
- * changed interface for source position 
- * 
- * Revision 1.9  91/02/13  11:34:34  grosch 
- * moved tables from file to initialization in C; reduced case size 
- * 
- * Revision 1.8  90/09/04  19:35:39  grosch 
- * fixed bug in AddConstantRE with StartSets 
- * 
- * Revision 1.7  90/06/11  11:27:29  grosch 
- * extended character range to 8 bits, ChRange -> CHAR 
- * 
- * Revision 1.6  90/05/17  11:20:32  grosch 
- * extend character range to 8 bits 
- * 
- * Revision 1.5  90/04/11  18:27:36  grosch 
- * added missing ) in message 
- * 
- * Revision 1.4  89/11/06  12:38:36  grosch 
- * renamed module Rex to GenTabs to avoid name clash with rex under VMS 
- * 
- * Revision 1.3  89/06/01  18:09:36  grosch 
- * fixed bug at optional right context 
- * 
- * Revision 1.2  89/02/23  15:55:34  grosch 
- * corrected confusion between RuleCount and PatternCount 
- * corrected debug procedure WritePattern 
- * improved handling of right context 
- * added completeness check for the automaton 
- * 
- * Revision 1.1  89/01/17  15:01:15  grosch 
- * correction and redesign of source position handling 
- * 
- * Revision 1.0  88/10/04  11:59:40  grosch 
- * Initial revision 
- * 
- *) 
+     (* Rodney M. Bates 
+         Apr. 1999 Minor changes to compile, after changes to Sets 
+     *) 
+
+     (* $Log: GenTabs.mi,v $ 
+      * Revision 3.2  1991/11/21  14:41:19  grosch 
+      * fixed bug: interference of right context between constant and non-constant RE 
+      * new version of RCS on SPARC 
+      * 
+      * Revision 3.1  91/04/26  18:19:08  grosch 
+      * fixed bug in computing ControlSize 
+      * 
+      * Revision 3.0  91/04/04  18:06:59  grosch 
+      * introduced partitioning of character set 
+      * 
+      * Revision 2.1  91/03/26  18:26:46  grosch 
+      * improved generation time 
+      * introduced options n and o to control table size and generation time 
+      * increased limitation for table size from 64K to 256K 
+      * 
+      * Revision 2.0  91/03/08  18:17:46  grosch 
+      * turned tables into initialized arrays (in C) 
+      * reduced case size 
+      * changed interface for source position 
+      * 
+      * Revision 1.9  91/02/13  11:34:34  grosch 
+      * moved tables from file to initialization in C; reduced case size 
+      * 
+      * Revision 1.8  90/09/04  19:35:39  grosch 
+      * fixed bug in AddConstantRE with StartSets 
+      * 
+      * Revision 1.7  90/06/11  11:27:29  grosch 
+      * extended character range to 8 bits, ChRange -> CHAR 
+      * 
+      * Revision 1.6  90/05/17  11:20:32  grosch 
+      * extend character range to 8 bits 
+      * 
+      * Revision 1.5  90/04/11  18:27:36  grosch 
+      * added missing ) in message 
+      * 
+      * Revision 1.4  89/11/06  12:38:36  grosch 
+      * renamed module Rex to GenTabs to avoid name clash with rex under VMS 
+      * 
+      * Revision 1.3  89/06/01  18:09:36  grosch 
+      * fixed bug at optional right context 
+      * 
+      * Revision 1.2  89/02/23  15:55:34  grosch 
+      * corrected confusion between RuleCount and PatternCount 
+      * corrected debug procedure WritePattern 
+      * improved handling of right context 
+      * added completeness check for the automaton 
+      * 
+      * Revision 1.1  89/01/17  15:01:15  grosch 
+      * correction and redesign of source position handling 
+      * 
+      * Revision 1.0  88/10/04  11:59:40  grosch 
+      * Initial revision 
+      * 
+      *) 
+(* End of old comments. *)
 
 (* Ich, Doktor Josef Grosch, Informatiker, Nov. 1987 *) 
 
@@ -79,15 +83,20 @@ UNSAFE MODULE GenTabs
 
 ; FROM StringMem IMPORT GetString 
 
-; FROM Times IMPORT WriteStepTime 
+; FROM Times IMPORT WriteStepTime
 
+; IMPORT IntSets 
+
+; IMPORT Sets 
+
+(*
 ; FROM Sets 
   IMPORT tSet , tElement , MakeSet , ReleaseSet , Union , Intersection 
   , Include 
   , Exclude , Minimum , Extract , IsEqual , IsElement , IsEmpty , Assign 
   , AssignElmt 
   , AssignEmpty , ForallDo , Maximum , IsSubset , WriteSet 
-
+*)
 ; FROM ReuseIO 
   IMPORT WriteT , WriteNl , WriteI , WriteC , StdOutput , StdError 
 
@@ -140,7 +149,7 @@ UNSAFE MODULE GenTabs
   ; SetOfNInfo 
     = RECORD 
         Next : SetOfNInfoPtr 
-      ; Set : tSet 
+      ; Set : Sets . tSet 
       ; DState : DStateRange 
       END (* RECORD *) 
   ; MapDToSetOfN = ARRAY [ 0 .. 100000 ] OF SetOfNInfoPtr 
@@ -157,7 +166,7 @@ UNSAFE MODULE GenTabs
   ; StackSize : M2LONGINT 
   ; StackTop : DStateRange 
 
-  ; StartSet , dSemantics : tSet 
+  ; StartSet , dSemantics : Sets . tSet 
   ; SentinelSavings : INTEGER 
 
   ; IsComputedNContext : BOOLEAN 
@@ -167,7 +176,7 @@ UNSAFE MODULE GenTabs
 ; PROCEDURE ComputeNfa ( ) 
 
   = VAR t1 , t2 : TransitionRange 
-    ; f1 , f2 : tSet 
+    ; f1 , f2 : Sets . tSet 
     ; o1 , o2 : BOOLEAN 
     ; ruleList : tTree 
     ; rule : tTree 
@@ -183,8 +192,8 @@ UNSAFE MODULE GenTabs
                                                                   (* ASSERT *) 
       END (* FOR *) 
 
-    ; MakeSet ( f1 , LeafCount ) 
-    ; MakeSet ( f2 , LeafCount ) 
+    ; Sets . MakeSet ( f1 , LeafCount ) 
+    ; Sets . MakeSet ( f2 , LeafCount ) 
     ; ruleList := Root 
 
     ; WHILE ruleList # NoTree 
@@ -211,12 +220,12 @@ UNSAFE MODULE GenTabs
           ; AttributeEvaluator 
               ( pattern ^ . vNodePattern . RightContext , t2 , f2 , o2 ) 
           ; tt := t1 
-          ; ForallDo 
+          ; Sets . ForallDo 
               ( pattern ^ . vNodePattern . StartStates , ExtendTransitions ) 
-          ; IF o2 THEN ForallDo ( f1 , EnterNSemantics ) END (* IF *) 
+          ; IF o2 THEN Sets . ForallDo ( f1 , EnterNSemantics ) END (* IF *) 
           ; tt := t2 
-          ; ForallDo ( f1 , ExtendTransitions ) 
-          ; ForallDo ( f2 , EnterNSemantics ) 
+          ; Sets . ForallDo ( f1 , ExtendTransitions ) 
+          ; Sets . ForallDo ( f2 , EnterNSemantics ) 
                                              (* context *) 
           ; length 
               := ComputeLength ( pattern ^ . vNodePattern . RightContext ) 
@@ -231,9 +240,9 @@ UNSAFE MODULE GenTabs
               ELSE 
                 PatternTablePtr ^ [ PatternNr ] . ContextLng 
                   := VariableContext 
-              ; MakeSet 
+              ; Sets . MakeSet 
                   ( PatternTablePtr ^ [ PatternNr ] . NContext , LeafCount ) 
-              ; Assign ( PatternTablePtr ^ [ PatternNr ] . NContext , f1 ) 
+              ; Sets . Assign ( PatternTablePtr ^ [ PatternNr ] . NContext , f1 ) 
               END (* IF *) 
             END (* IF *) 
           END (* IF *) 
@@ -243,8 +252,8 @@ UNSAFE MODULE GenTabs
       END (* WHILE *) 
 
     ; IsComputedNContext := TRUE 
-    ; ReleaseSet ( f1 ) 
-    ; ReleaseSet ( f2 ) 
+    ; Sets . ReleaseSet ( f1 ) 
+    ; Sets . ReleaseSet ( f2 ) 
     END ComputeNfa 
 
 ; PROCEDURE ComputeLength ( t : tTree ) : SHORTINT 
@@ -286,12 +295,12 @@ UNSAFE MODULE GenTabs
 ; PROCEDURE AttributeEvaluator 
     ( t : tTree 
     ; VAR Transitions : TransitionRange 
-    ; VAR FinalStates : tSet 
+    ; VAR FinalStates : Sets . tSet 
     ; VAR IsOptional : BOOLEAN 
     ) 
 
   = VAR t1 , t2 : TransitionRange 
-    ; f1 , f2 : tSet 
+    ; f1 , f2 : Sets . tSet 
     ; o1 , o2 : BOOLEAN 
     ; NState : NStateRange 
     ; string : tString 
@@ -300,7 +309,7 @@ UNSAFE MODULE GenTabs
       IF t = NoTree 
       THEN 
         Transitions := NoTransition 
-      ; AssignEmpty ( FinalStates ) 
+      ; Sets . AssignEmpty ( FinalStates ) 
       ; IsOptional := TRUE 
       ; RETURN 
       END (* IF *) 
@@ -309,25 +318,25 @@ UNSAFE MODULE GenTabs
 
       OF nAlternative 
       => (* regExpr = Alternative (regExpr regExpr) *) 
-         MakeSet ( f1 , LeafCount ) 
-      ; MakeSet ( f2 , LeafCount ) 
+         Sets . MakeSet ( f1 , LeafCount ) 
+      ; Sets . MakeSet ( f2 , LeafCount ) 
       ; AttributeEvaluator ( t ^ . vNode2 . Son1 , t1 , f1 , o1 ) 
       ; AttributeEvaluator ( t ^ . vNode2 . Son2 , t2 , f2 , o2 ) 
       ; Transitions := UniteTransitions ( t1 , t2 ) 
-      ; Assign ( FinalStates , f1 ) 
-      ; Union ( FinalStates , f2 ) 
+      ; Sets . Assign ( FinalStates , f1 ) 
+      ; Sets . Union ( FinalStates , f2 ) 
       ; IsOptional := o1 OR o2 
-      ; ReleaseSet ( f1 ) 
-      ; ReleaseSet ( f2 ) 
+      ; Sets . ReleaseSet ( f1 ) 
+      ; Sets . ReleaseSet ( f2 ) 
 
       | nSequence 
       => (* regExpr = Sequence (regExpr regExpr) *) 
-         MakeSet ( f1 , LeafCount ) 
-      ; MakeSet ( f2 , LeafCount ) 
+         Sets . MakeSet ( f1 , LeafCount ) 
+      ; Sets . MakeSet ( f2 , LeafCount ) 
       ; AttributeEvaluator ( t ^ . vNode2 . Son1 , t1 , f1 , o1 ) 
       ; AttributeEvaluator ( t ^ . vNode2 . Son2 , t2 , f2 , o2 ) 
       ; tt := t2 
-      ; ForallDo ( f1 , ExtendTransitions ) 
+      ; Sets . ForallDo ( f1 , ExtendTransitions ) 
       ; IF o1 
         THEN 
           Transitions := UniteTransitions ( t1 , t2 ) 
@@ -336,58 +345,59 @@ UNSAFE MODULE GenTabs
         END (* IF *) 
       ; IF o2 
         THEN 
-          Assign ( FinalStates , f1 ) 
-        ; Union ( FinalStates , f2 ) 
+          Sets . Assign ( FinalStates , f1 ) 
+        ; Sets . Union ( FinalStates , f2 ) 
         ELSE 
-          Assign ( FinalStates , f2 ) 
+          Sets . Assign ( FinalStates , f2 ) 
         END (* IF *) 
       ; IsOptional := o1 AND o2 
-      ; ReleaseSet ( f1 ) 
-      ; ReleaseSet ( f2 ) 
+      ; Sets . ReleaseSet ( f1 ) 
+      ; Sets . ReleaseSet ( f2 ) 
 
       | nRepetition 
       => (* regExpr = Repetition (regExpr) *) 
-         MakeSet ( f1 , LeafCount ) 
+         Sets . MakeSet ( f1 , LeafCount ) 
       ; AttributeEvaluator ( t ^ . vNode1 . Son1 , t1 , f1 , o1 ) 
       ; tt := t1 
-      ; ForallDo ( f1 , ExtendTransitions ) 
+      ; Sets . ForallDo ( f1 , ExtendTransitions ) 
       ; Transitions := t1 
-      ; Assign ( FinalStates , f1 ) 
+      ; Sets . Assign ( FinalStates , f1 ) 
       ; IsOptional := o1 
-      ; ReleaseSet ( f1 ) 
+      ; Sets . ReleaseSet ( f1 ) 
 
       | nOption 
       => (* regExpr = Option (regExpr) *) 
-         MakeSet ( f1 , LeafCount ) 
+         Sets . MakeSet ( f1 , LeafCount ) 
       ; AttributeEvaluator ( t ^ . vNode1 . Son1 , t1 , f1 , o1 ) 
       ; Transitions := t1 
-      ; Assign ( FinalStates , f1 ) 
+      ; Sets . Assign ( FinalStates , f1 ) 
       ; IsOptional := TRUE 
-      ; ReleaseSet ( f1 ) 
+      ; Sets . ReleaseSet ( f1 ) 
 
       | nChar 
       => (* regExpr = Char *) 
          NState := MakeNState ( NoTransition ) 
       ; Transitions := MakeTransition ( t ^ . vNodeCh . Ch , NState ) 
-      ; AssignElmt ( FinalStates , NState ) 
+      ; Sets . AssignElmt ( FinalStates , NState ) 
       ; IsOptional := FALSE 
 
       | nSet 
       => (* regExpr = Set *) 
-         MakeSet ( f1 , ORD ( LastCh ) ) 
-      ; Assign ( f1 , t ^ . vNodeSet . Set ) 
+         Sets . MakeSet ( f1 , ORD ( LastCh ) ) 
+      ; Sets . Assign ( f1 , t ^ . vNodeSet . Set ) 
       ; NState := MakeNState ( NoTransition ) 
       ; Transitions := NoTransition 
-      ; WHILE NOT IsEmpty ( f1 ) 
+      ; WHILE NOT Sets . IsEmpty ( f1 ) 
         DO Transitions 
              := AddTransition 
-                  ( MakeTransition ( VAL ( Extract ( f1 ) , CHAR ) , NState ) 
+                  ( MakeTransition
+                      ( VAL ( Sets . Extract ( f1 ) , CHAR ) , NState ) 
                   , Transitions 
                   ) 
         END (* WHILE *) 
-      ; AssignElmt ( FinalStates , NState ) 
+      ; Sets . AssignElmt ( FinalStates , NState ) 
       ; IsOptional := FALSE 
-      ; ReleaseSet ( f1 ) 
+      ; Sets . ReleaseSet ( f1 ) 
 
       | nString 
       => (* regExpr = String *) 
@@ -395,7 +405,7 @@ UNSAFE MODULE GenTabs
       ; NState := MakeNState ( NoTransition ) 
       ; Transitions 
           := MakeTransition ( Char ( string , Length ( string ) ) , NState ) 
-      ; AssignElmt ( FinalStates , NState ) 
+      ; Sets . AssignElmt ( FinalStates , NState ) 
       ; FOR i := Length ( string ) - 1 TO 1 BY - 1 
         DO NState := MakeNState ( Transitions ) 
         ; Transitions := MakeTransition ( Char ( string , i ) , NState ) 
@@ -407,7 +417,7 @@ UNSAFE MODULE GenTabs
 ; VAR tt : TransitionRange 
 ; VAR PatternNr : SHORTCARD 
 
-; PROCEDURE ExtendTransitions ( NState : tElement ) 
+; PROCEDURE ExtendTransitions ( NState : Sets . tElement ) 
 
   = BEGIN (* ExtendTransitions *) 
       PutTransitions 
@@ -417,24 +427,24 @@ UNSAFE MODULE GenTabs
         ) 
     END ExtendTransitions 
 
-; PROCEDURE EnterNSemantics ( NState : tElement ) 
+; PROCEDURE EnterNSemantics ( NState : Sets . tElement ) 
 
   = BEGIN (* EnterNSemantics *) 
       PutNSemantics ( NState , PatternNr ) 
     END EnterNSemantics 
 
-; PROCEDURE MapSetOfNToD ( t : tSet ) : DStateRange 
+; PROCEDURE MapSetOfNToD ( t : Sets . tSet ) : DStateRange 
 
   = VAR DState : DStateRange 
     ; Hash : Word . T 
     ; Current : SetOfNInfoPtr 
 
   ; BEGIN (* MapSetOfNToD *) 
-      Hash := Maximum ( t ) MOD LOOPHOLE ( NStateCount , Word . T ) 
+      Hash := Sets . Maximum ( t ) MOD LOOPHOLE ( NStateCount , Word . T ) 
     ; Current := HashDToSetOfNPtr ^ [ Hash ] 
     ; WHILE Current # NIL 
       DO                                        (* t IN S' ? *) 
-         IF IsEqual ( Current ^ . Set , t ) 
+         IF Sets . IsEqual ( Current ^ . Set , t ) 
          THEN 
            RETURN Current ^ . DState            (* yes *) 
          END (* IF *) 
@@ -451,8 +461,8 @@ UNSAFE MODULE GenTabs
           ) 
       END (* IF *) 
     ; MapDToSetOfNPtr ^ [ DState ] := Alloc ( BYTESIZE ( SetOfNInfo ) ) 
-    ; MakeSet ( MapDToSetOfNPtr ^ [ DState ] ^ . Set , NStateCount ) 
-    ; Assign ( MapDToSetOfNPtr ^ [ DState ] ^ . Set , t ) 
+    ; Sets . MakeSet ( MapDToSetOfNPtr ^ [ DState ] ^ . Set , NStateCount ) 
+    ; Sets . Assign ( MapDToSetOfNPtr ^ [ DState ] ^ . Set , t ) 
     ; MapDToSetOfNPtr ^ [ DState ] ^ . DState := DState 
     ; MapDToSetOfNPtr ^ [ DState ] ^ . Next := HashDToSetOfNPtr ^ [ Hash ] 
     ; HashDToSetOfNPtr ^ [ Hash ] := MapDToSetOfNPtr ^ [ DState ] 
@@ -475,12 +485,12 @@ UNSAFE MODULE GenTabs
   = CONST InitialStackSize = 64 
 
   ; VAR DState : DStateRange 
-    ; x : tSet 
-    ; y : ARRAY CHAR OF tSet 
+    ; x : Sets . tSet 
+    ; y : ARRAY CHAR OF Sets . tSet 
     ; Transition : TransitionRange 
     ; Ch : CHAR 
-    ; CharSet : tSet 
-    ; nStates : tSet 
+    ; CharSet : Sets . tSet 
+    ; nStates : Sets . tSet 
 
   ; BEGIN (* ComputeDfa *) 
       StackSize := InitialStackSize             (* initialize *) 
@@ -505,16 +515,16 @@ UNSAFE MODULE GenTabs
     ; FOR NState := 0 TO NStateCount - 1 
       DO HashDToSetOfNPtr ^ [ NState ] := NIL 
       END (* FOR *) 
-    ; MakeSet ( x , NStateCount ) 
+    ; Sets . MakeSet ( x , NStateCount ) 
     ; FOR Ch := FirstCh TO LastCh 
-      DO MakeSet ( y [ Ch ] , NStateCount ) 
+      DO Sets . MakeSet ( y [ Ch ] , NStateCount ) 
       END (* FOR *) 
-    ; MakeSet ( CharSet , ORD ( LastCh ) ) 
-    ; MakeSet ( nStates , LeafCount ) 
+    ; Sets . MakeSet ( CharSet , ORD ( LastCh ) ) 
+    ; Sets . MakeSet ( nStates , LeafCount ) 
 
     ; FOR NState := 1 TO StartStateCount 
       DO                                        (* FORALL start states *) 
-         AssignElmt ( x , NState )              (* map+push (start state) *) 
+         Sets . AssignElmt ( x , NState )              (* map+push (start state) *) 
       ; DState := MapSetOfNToD ( x ) 
       ; IF DState # NState THEN HALT ( ) END (* IF *)  (* ASSERT *) 
       END (* FOR *) 
@@ -522,26 +532,26 @@ UNSAFE MODULE GenTabs
     ; WHILE StackTop > 0 
       DO DState := StackPtr ^ [ StackTop ]      (* DState := pop () *) 
       ; DEC ( StackTop ) 
-      ; Assign ( x , MapDToSetOfNPtr ^ [ DState ] ^ . Set ) 
-      ; AssignEmpty ( CharSet ) 
+      ; Sets . Assign ( x , MapDToSetOfNPtr ^ [ DState ] ^ . Set ) 
+      ; Sets . AssignEmpty ( CharSet ) 
 
       ; FOR NState := 1 TO NStateCount 
-        DO IF IsElement ( NState , x ) 
+        DO IF Sets . IsElement ( NState , x ) 
            THEN 
              Transition := GetTransitions ( NState ) 
            ; WHILE NOT IsLastTransition ( Transition ) 
              DO Ch := GetCh ( Transition ) 
-             ; Include ( y [ Ch ] , GetNextState ( Transition ) ) 
-             ; Include ( CharSet , ORD ( Ch ) ) 
+             ; Sets . Include ( y [ Ch ] , GetNextState ( Transition ) ) 
+             ; Sets . Include ( CharSet , ORD ( Ch ) ) 
              ; Transition := NextTransition ( Transition ) 
              END (* WHILE *) 
            END (* IF *) 
         END (* FOR *) 
 
-      ; WHILE NOT IsEmpty ( CharSet ) 
-        DO Ch := VAL ( Extract ( CharSet ) , CHAR ) 
+      ; WHILE NOT Sets . IsEmpty ( CharSet ) 
+        DO Ch := VAL ( Sets . Extract ( CharSet ) , CHAR ) 
         ; PutTable ( DState , Ch , MapSetOfNToD ( y [ Ch ] ) ) 
-        ; AssignEmpty ( y [ Ch ] ) 
+        ; Sets . AssignEmpty ( y [ Ch ] ) 
         END (* WHILE *) 
       END (* WHILE *) 
 
@@ -550,16 +560,20 @@ UNSAFE MODULE GenTabs
       DO                                        (* context *) 
          IF PatternTablePtr ^ [ Pattern ] . ContextLng = VariableContext 
          THEN 
-           MakeSet ( PatternTablePtr ^ [ Pattern ] . DContext , NodeCount ) 
+           Sets . MakeSet
+             ( PatternTablePtr ^ [ Pattern ] . DContext , NodeCount ) 
          ; FOR DState := 1 TO DStateCount 
-           DO Assign ( nStates , PatternTablePtr ^ [ Pattern ] . NContext ) 
-           ; Intersection ( nStates , MapDToSetOfNPtr ^ [ DState ] ^ . Set ) 
-           ; IF NOT IsEmpty ( nStates ) 
+           DO Sets . Assign
+                ( nStates , PatternTablePtr ^ [ Pattern ] . NContext ) 
+           ; Sets . Intersection
+               ( nStates , MapDToSetOfNPtr ^ [ DState ] ^ . Set ) 
+           ; IF NOT Sets . IsEmpty ( nStates ) 
              THEN 
-               Include ( PatternTablePtr ^ [ Pattern ] . DContext , DState ) 
+               Sets . Include
+                 ( PatternTablePtr ^ [ Pattern ] . DContext , DState ) 
              END (* IF *) 
            END (* FOR *) 
-         ; ReleaseSet ( PatternTablePtr ^ [ Pattern ] . NContext ) 
+         ; Sets . ReleaseSet ( PatternTablePtr ^ [ Pattern ] . NContext ) 
          END (* IF *) 
       END (* FOR *) 
     ; IsComputedNContext := FALSE 
@@ -568,21 +582,22 @@ UNSAFE MODULE GenTabs
     ; FOR DState := 1 TO DStateCount 
       DO                                        (* semantics *) 
          dState := DState 
-      ; AssignEmpty ( dSemantics ) 
-      ; ForallDo ( MapDToSetOfNPtr ^ [ DState ] ^ . Set , EnterDSemantics ) 
-      ; Exclude ( dSemantics , NoRule ) 
+      ; Sets . AssignEmpty ( dSemantics ) 
+      ; Sets . ForallDo (
+          MapDToSetOfNPtr ^ [ DState ] ^ . Set , EnterDSemantics ) 
+      ; Sets . Exclude ( dSemantics , NoRule ) 
       ; PutDSemantics ( DState , dSemantics ) 
       END (* FOR *) 
 
     ; FOR DState := 1 TO DStateCount 
       DO                                        (* clean up *) 
-         ReleaseSet ( MapDToSetOfNPtr ^ [ DState ] ^ . Set ) 
+         Sets . ReleaseSet ( MapDToSetOfNPtr ^ [ DState ] ^ . Set ) 
       ; Free ( BYTESIZE ( SetOfNInfo ) , MapDToSetOfNPtr ^ [ DState ] ) 
       END (* FOR *) 
-    ; ReleaseSet ( x ) 
-    ; FOR Ch := FirstCh TO LastCh DO ReleaseSet ( y [ Ch ] ) END (* FOR *) 
-    ; ReleaseSet ( CharSet ) 
-    ; ReleaseSet ( nStates ) 
+    ; Sets . ReleaseSet ( x ) 
+    ; FOR Ch := FirstCh TO LastCh DO Sets . ReleaseSet ( y [ Ch ] ) END (* FOR *) 
+    ; Sets . ReleaseSet ( CharSet ) 
+    ; Sets . ReleaseSet ( nStates ) 
     ; ReleaseArray ( StackPtr , StackSize , BYTESIZE ( DStateRange ) ) 
     ; ReleaseArray 
         ( MapDToSetOfNPtr , MapDToSetOfNSize , BYTESIZE ( SetOfNInfoPtr ) ) 
@@ -593,10 +608,10 @@ UNSAFE MODULE GenTabs
 
 ; VAR dState : DStateRange 
 
-; PROCEDURE EnterDSemantics ( NState : tElement ) 
+; PROCEDURE EnterDSemantics ( NState : Sets . tElement ) 
 
   = BEGIN (* EnterDSemantics *) 
-      Include ( dSemantics , GetNSemantics ( NState ) ) 
+      Sets . Include ( dSemantics , GetNSemantics ( NState ) ) 
     END EnterDSemantics 
 
 ; PROCEDURE SaveSentinels ( ) 
@@ -604,7 +619,7 @@ UNSAFE MODULE GenTabs
   = VAR Default : DStateRange 
     ; Success : BOOLEAN 
     ; Ch , LastCh : CHAR 
-    ; Defaults : tSet 
+    ; Defaults : Sets . tSet 
 
   ; BEGIN (* SaveSentinels *) 
 
@@ -615,21 +630,21 @@ UNSAFE MODULE GenTabs
       (* - no transitions may be defined (except on EobCh)              *) 
 
       SentinelSavings := 0 
-    ; MakeSet ( Defaults , DStateCount ) 
+    ; Sets . MakeSet ( Defaults , DStateCount ) 
     ; FOR DState := 1 TO DStateCount 
-      DO Include ( Defaults , GetDefault ( DState ) ) 
+      DO Sets . Include ( Defaults , GetDefault ( DState ) ) 
       END (* FOR *) 
 
     ; FOR DState := 1 TO DStateCount 
       DO GetDSemantics ( DState , dSemantics ) 
       ; Default := GetDefault ( DState ) 
-      ; IF ( NOT IsEmpty ( dSemantics ) ) 
+      ; IF ( NOT Sets . IsEmpty ( dSemantics ) ) 
            AND                                      (* final state ?         *) 
                ( ( Default = DNoState ) 
                  OR                               (* don't use default ?   *) 
                     ( Default = EobDefaultState ) 
                ) 
-           AND ( NOT IsElement ( DState , Defaults ) ) 
+           AND ( NOT Sets . IsElement ( DState , Defaults ) ) 
         THEN (* not used as default ? *) 
 
           Success := TRUE                         (* check transitions     *) 
@@ -657,7 +672,7 @@ UNSAFE MODULE GenTabs
           END (* IF *) 
         END (* IF *) 
       END (* FOR *) 
-    ; ReleaseSet ( Defaults ) 
+    ; Sets . ReleaseSet ( Defaults ) 
     END SaveSentinels 
 
 ; PROCEDURE AddConstantREs ( ) 
@@ -671,7 +686,7 @@ UNSAFE MODULE GenTabs
 
   ; BEGIN (* AddConstantREs *) 
       InitTraces ( ) 
-    ; MakeSet ( StartSet , StartStateCount ) 
+    ; Sets . MakeSet ( StartSet , StartStateCount ) 
     ; ruleList := Root 
     ; WHILE ruleList # NoTree 
       DO rule := ruleList ^ . vNode2 . Son2 
@@ -690,7 +705,7 @@ UNSAFE MODULE GenTabs
           ; Concatenate ( string1 , string2 ) 
           ; ResetTraces ( Length ( string1 ) ) 
           ; FOR StartState := 1 TO StartStateCount 
-            DO IF IsElement 
+            DO IF Sets . IsElement 
                     ( StartState , pattern ^ . vNodePattern . StartStates ) 
                THEN 
                  AddConstantRE 
@@ -706,7 +721,7 @@ UNSAFE MODULE GenTabs
         END (* WHILE *) 
       ; ruleList := ruleList ^ . vNode2 . Son1 
       END (* WHILE *) 
-    ; ReleaseSet ( StartSet ) 
+    ; Sets . ReleaseSet ( StartSet ) 
     ; FinalizeTraces ( ) 
     END AddConstantREs 
 
@@ -737,7 +752,7 @@ UNSAFE MODULE GenTabs
     ( StartState : DStateRange 
     ; READONLY String : tString 
     ; PatternNr : SHORTCARD 
-    ; StartStates : tSet 
+    ; StartStates : Sets . tSet 
     ) 
 
   = VAR Ch : CHAR 
@@ -772,12 +787,13 @@ UNSAFE MODULE GenTabs
       ; Successor := GetTable ( State , Ch ) 
       ; IF Successor = DNoState THEN EXIT END (* IF *) 
       ; IF ( Successor <= MaxAmbiguousState ) 
-           AND IsElement ( Successor , AmbiguousStates ) 
+           AND Sets . IsElement ( Successor , AmbiguousStates ) 
         THEN 
           EXIT 
         END (* IF *) 
       ; GetStartSet ( Successor , StartSet ) 
-      ; IF NOT IsSubset ( StartSet , StartStates ) THEN EXIT END (* IF *) 
+      ; IF NOT Sets . IsSubset
+                 ( StartSet , StartStates ) THEN EXIT END (* IF *) 
 
       ; State := Successor 
       ; NewState := RecordedTrace ( ChIndex , State ) 
@@ -789,7 +805,7 @@ UNSAFE MODULE GenTabs
         ; NewState := State 
         END (* IF *) 
       ; GetStartSet ( NewState , StartSet ) 
-      ; Include ( StartSet , StartState ) 
+      ; Sets . Include ( StartSet , StartState ) 
       ; PutStartSet ( NewState , StartSet ) 
       ; PrevState := NewState 
       ; Ch := GetCh ( ) 
@@ -816,7 +832,7 @@ UNSAFE MODULE GenTabs
           END (* IF *) 
         ; PutTable ( PrevState , Ch , NewState ) 
         ; GetStartSet ( NewState , StartSet ) 
-        ; Include ( StartSet , StartState ) 
+        ; Sets . Include ( StartSet , StartState ) 
         ; PutStartSet ( NewState , StartSet ) 
         ; PrevState := NewState 
         ; Ch := GetCh ( ) 
@@ -839,7 +855,7 @@ UNSAFE MODULE GenTabs
         END (* IF *) 
       ; PutTable ( PrevState , Ch , NewState ) 
       ; GetStartSet ( NewState , StartSet ) 
-      ; Include ( StartSet , StartState ) 
+      ; Sets . Include ( StartSet , StartState ) 
       ; PutStartSet ( NewState , StartSet ) 
       ; PrevState := NewState 
       ; Ch := GetCh ( ) 
@@ -848,7 +864,7 @@ UNSAFE MODULE GenTabs
    (* INV EndOfInput *) 
 
     ; GetDSemantics ( PrevState , dSemantics )  (* process final state *) 
-    ; Include ( dSemantics , PatternNr ) 
+    ; Sets . Include ( dSemantics , PatternNr ) 
     ; PutDSemantics ( PrevState , dSemantics ) 
     END AddConstantRE 
 
@@ -866,15 +882,15 @@ UNSAFE MODULE GenTabs
     ; FOR Pattern := 0 TO PatternCount - 2 
       DO IF PatternTablePtr ^ [ Pattern ] . ContextLng = VariableContext 
          THEN 
-           Max := Maximum ( PatternTablePtr ^ [ Pattern ] . DContext ) 
+           Max := Sets . Maximum ( PatternTablePtr ^ [ Pattern ] . DContext ) 
          ; FOR State1 := 1 TO Max 
-           DO IF IsElement 
+           DO IF Sets . IsElement 
                    ( State1 , PatternTablePtr ^ [ Pattern ] . DContext ) 
               THEN 
                 FOR State2 := 1 TO DStateCount 
                 DO IF State1 = GetDefault ( State2 ) 
                    THEN 
-                     Include 
+                     Sets . Include 
                        ( PatternTablePtr ^ [ Pattern ] . DContext , State2 ) 
                    END (* IF *) 
                 END (* FOR *) 
@@ -890,17 +906,17 @@ UNSAFE MODULE GenTabs
 
   ; BEGIN (* InvertMapping *) 
       FOR Pattern := 0 TO PatternCount 
-      DO MakeSet ( PatternTablePtr ^ [ Pattern ] . Finals , DStateCount ) 
+      DO Sets . MakeSet ( PatternTablePtr ^ [ Pattern ] . Finals , DStateCount ) 
       END (* FOR *) 
 
     ; FOR State := 1 TO DStateCount 
       DO GetDSemantics ( State , dSemantics ) 
-      ; IF IsEmpty ( dSemantics ) 
+      ; IF Sets . IsEmpty ( dSemantics ) 
         THEN 
-          Include ( PatternTablePtr ^ [ 0 ] . Finals , State ) 
+          Sets . Include ( PatternTablePtr ^ [ 0 ] . Finals , State ) 
         ELSE 
-          Pattern := Minimum ( dSemantics ) 
-        ; Include ( PatternTablePtr ^ [ Pattern ] . Finals , State ) 
+          Pattern := Sets . Minimum ( dSemantics ) 
+        ; Sets . Include ( PatternTablePtr ^ [ Pattern ] . Finals , State ) 
         END (* IF *) 
       END (* FOR *) 
     ; IsComputedFinals := TRUE 
@@ -930,15 +946,16 @@ UNSAFE MODULE GenTabs
     ( StartState : SHORTCARD ; Ident : Idents . tIdent ; LeftJust : BOOLEAN ) 
 
   = VAR Ch : CHAR 
-    ; DState : DStateRange 
-    ; Undefined , Semantics : tSet 
-    ; String : tString 
-    ; Count : INTEGER 
+  ; VAR DState : DStateRange 
+  ; VAR String : tString 
+  ; VAR Count : INTEGER 
+  ; VAR Undefined : IntSets . T  
+  ; VAR dSemantics : Sets . tSet 
+  ; VAR Semantics : IntSets . T 
 
   ; BEGIN (* CheckStartState *) 
-      MakeSet ( Undefined , ORD ( OldLastCh ) ) 
-    ; MakeSet ( Semantics , PatternCount ) 
-    ; Union ( Undefined , Unused ) 
+      Sets . MakeSet ( dSemantics , PatternCount ) 
+    ; Undefined := IntSets . Union ( Undefined , Unused ) 
 
     ; FOR Ch := FirstCh TO LastCh 
       DO DState := GetTable ( StartState , Ch ) 
@@ -946,25 +963,28 @@ UNSAFE MODULE GenTabs
         THEN 
           IF Ch <= ClassCount 
           THEN 
-            Union ( Undefined , ClassMemPtr ^ [ Ch ] ) 
+            Undefined := IntSets . Union ( Undefined , ClassMemPtr ^ [ Ch ] ) 
           ELSE 
-            Include ( Undefined , ORD ( ToChar [ Ch ] ) ) 
+            Undefined
+              := IntSets . Include ( Undefined , ORD ( ToChar [ Ch ] ) ) 
           END (* IF *) 
         ELSE 
-          GetDSemantics ( DState , Semantics ) 
-        ; IF IsEmpty ( Semantics ) 
+          GetDSemantics ( DState , dSemantics )
+        ; Semantics := Sets . IntSet ( dSemantics ) 
+        ; IF IntSets . IsEmpty ( Semantics ) 
           THEN 
             IF Ch <= ClassCount 
             THEN 
-              Union ( Undefined , ClassMemPtr ^ [ Ch ] ) 
+              Undefined := IntSets . Union ( Undefined , ClassMemPtr ^ [ Ch ] ) 
             ELSE 
-              Include ( Undefined , ORD ( ToChar [ Ch ] ) ) 
+              Undefined
+                := IntSets . Include ( Undefined , ORD ( ToChar [ Ch ] ) ) 
             END (* IF *) 
           END (* IF *) 
         END (* IF *) 
       END (* FOR *) 
 
-    ; IF NOT IsEmpty ( Undefined ) 
+    ; IF NOT IntSets . IsEmpty ( Undefined ) 
       THEN 
         WriteT ( StdError , "Warning: in start state " ) 
       ; Idents . GetString ( Ident , String ) 
@@ -981,8 +1001,8 @@ UNSAFE MODULE GenTabs
       ; WriteNl ( StdError ) 
 
       ; Count := 0 
-      ; WHILE NOT IsEmpty ( Undefined ) 
-        DO Ch := VAL ( Extract ( Undefined ) , CHAR ) 
+      ; WHILE NOT IntSets . IsEmpty ( Undefined ) 
+        DO Ch := VAL ( IntSets . ExtractArbitraryMember ( Undefined ) , CHAR ) 
         ; WriteC ( StdError , ' ' ) 
         ; IF ( '!' <= Ch ) AND ( Ch <= '~' ) 
           THEN 
@@ -997,10 +1017,11 @@ UNSAFE MODULE GenTabs
         ; IF Count = 16 THEN WriteNl ( StdError ) ; Count := 0 END (* IF *) 
         END (* WHILE *) 
       ; WriteNl ( StdError ) 
-      END (* IF *) 
-
-    ; ReleaseSet ( Semantics ) 
-    ; ReleaseSet ( Undefined ) 
+      END (* IF *)
+      
+    ; Undefined := NIL  
+    ; Semantics := NIL
+    ; Sets . ReleaseSet ( dSemantics ) 
     END CheckStartState 
 
 ; PROCEDURE WritePattern ( ) 
@@ -1018,20 +1039,20 @@ UNSAFE MODULE GenTabs
              IF IsComputedNContext 
              THEN 
                WriteT ( StdOutput , " NContext " ) 
-             ; WriteSet 
+             ; Sets . WriteSet 
                  ( StdOutput , PatternTablePtr ^ [ Pattern ] . NContext ) 
              END (* IF *) 
            ; IF IsComputedDContext 
              THEN 
                WriteT ( StdOutput , " DContext " ) 
-             ; WriteSet 
+             ; Sets . WriteSet 
                  ( StdOutput , PatternTablePtr ^ [ Pattern ] . DContext ) 
              END (* IF *) 
            END (* IF *) 
          ; IF IsComputedFinals 
            THEN 
              WriteT ( StdOutput , " Finals " ) 
-           ; WriteSet ( StdOutput , PatternTablePtr ^ [ Pattern ] . Finals ) 
+           ; Sets . WriteSet ( StdOutput , PatternTablePtr ^ [ Pattern ] . Finals ) 
            END (* IF *) 
          ; WriteNl ( StdOutput ) 
          END (* IF *) 
@@ -1134,7 +1155,7 @@ UNSAFE MODULE GenTabs
         ) 
     ; PatternTablePtr ^ [ 0 ] . ContextLng := NoContext 
 
-    ; MakeSet ( dSemantics , PatternCount ) 
+    ; Sets . MakeSet ( dSemantics , PatternCount ) 
     ; ComputeNfa ( ) 
     ; IF DebugLevel >= 15 THEN WriteNfa ( ) ; WritePattern ( ) END (* IF *) 
     ; IF DebugLevel >= 2 
@@ -1168,9 +1189,9 @@ UNSAFE MODULE GenTabs
     ; ComputeCyclicStates ( ) 
     ; IF DebugLevel >= 12 
       THEN 
-        WriteSet ( StdOutput , AmbiguousStates ) 
+        Sets . WriteSet ( StdOutput , AmbiguousStates ) 
       ; WriteNl ( StdOutput ) 
-      ; WriteSet ( StdOutput , CyclicStates ) 
+      ; Sets . WriteSet ( StdOutput , CyclicStates ) 
       ; WriteNl ( StdOutput ) 
       END (* IF *) 
     ; IF DebugLevel >= 2 
@@ -1186,9 +1207,9 @@ UNSAFE MODULE GenTabs
       END (* IF *) 
 
     ; EobState := MakeDState ( ) 
-    ; AssignElmt ( dSemantics , EobAction ) 
+    ; Sets . AssignElmt ( dSemantics , EobAction ) 
     ; PutDSemantics ( EobState , dSemantics ) 
-    ; AssignElmt ( dSemantics , DefaultAction )         (* default state *) 
+    ; Sets . AssignElmt ( dSemantics , DefaultAction )         (* default state *) 
     ; PutDSemantics ( MakeDState ( ) , dSemantics ) 
 
     ; AddConstantREs ( ) 

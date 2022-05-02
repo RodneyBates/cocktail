@@ -22,7 +22,6 @@ Initial revision
 
 UNSAFE MODULE Classes 
 
-
 ; IMPORT Word 
 
 ; FROM DynArray IMPORT MakeArray , ExtendArray , ReleaseArray 
@@ -31,20 +30,28 @@ UNSAFE MODULE Classes
 
 ; FROM StringMem IMPORT GetString 
 
+; IMPORT IntSets
+
+; IMPORT Sets 
+
+(*
 ; FROM Sets 
   IMPORT tSet , tElement , MakeSet , Assign , Include , IsEqual , ForallDo 
   , Intersection 
   , Union , Difference , Complement , ReleaseSet , IsEmpty , IsSubset 
-
+*)
 ; FROM Tree0 IMPORT tTree0 , Tree0Root , TraverseTree0TD , Ch , Set , String 
 
 ; FROM Dfa IMPORT FirstCh , LastCh , OldLastCh , EobCh 
 
-; PROCEDURE IsInSetMem ( Set : tSet ) : INTEGER 
+; PROCEDURE IsInSetMem ( Set : Sets . tSet ) : INTEGER 
 
-  = BEGIN (* IsInSetMem *) 
-      FOR i := 1 TO SetCount 
-      DO IF IsEqual ( Set , SetMemPtr ^ [ i ] . Set ) 
+  = VAR LIntSet : IntSets . T
+
+  ; BEGIN (* IsInSetMem *)
+      LIntSet := Sets . IntSet ( Set ) 
+    ; FOR i := 1 TO SetCount 
+      DO IF IntSets . Equal ( LIntSet , SetMemPtr ^ [ i ] . Set ) 
          THEN 
            RETURN i 
          END (* IF *) 
@@ -52,17 +59,31 @@ UNSAFE MODULE Classes
     ; RETURN 0 
     END IsInSetMem 
 
+; PROCEDURE IsInIntSetMem ( Set : IntSets . T ) : INTEGER 
+
+  = BEGIN (* IsInSetMem *) 
+      FOR i := 1 TO SetCount 
+      DO IF IntSets . Equal ( Set , SetMemPtr ^ [ i ] . Set ) 
+         THEN 
+           RETURN i 
+         END (* IF *) 
+      END (* FOR *) 
+    ; RETURN 0 
+    END IsInIntSetMem 
+
 ; PROCEDURE CollectSets ( t : tTree0 ) 
 
-  = VAR string : tString 
+  = VAR string : tString
+  ; VAR SetIntSet : IntSets . T 
 
   ; BEGIN (* CollectSets *) 
       CASE t ^ . Kind 
       OF Ch 
-      => Include ( CharSet , ORD ( t ^ . Ch . Ch ) ) 
+      => CharSet := IntSets . Include ( CharSet , ORD ( t ^ . Ch . Ch ) ) 
 
       | Set 
-      => IF IsInSetMem ( t ^ . Set . Set ) = 0 
+      => SetIntSet := Sets . IntSet ( t ^ . Set . Set ) 
+      ;  IF IsInIntSetMem ( SetIntSet) = 0 
          THEN 
            INC ( SetCount ) 
          ; IF SetCount = SetMemSize 
@@ -72,16 +93,20 @@ UNSAFE MODULE Classes
                , SetMemSize 
                , BYTESIZE ( ClassInfo ) 
                ) 
-           END (* IF *) 
-         ; MakeSet ( SetMemPtr ^ [ SetCount ] . Set , ORD ( LastCh ) ) 
-         ; Assign ( SetMemPtr ^ [ SetCount ] . Set , t ^ . Set . Set ) 
-         ; Union ( Unused , t ^ . Set . Set ) 
+           END (* IF *)
+         ; SetMemPtr ^ [ SetCount ] . Set := SetIntSet 
+         ; Unused := IntSets . Union ( Unused , SetIntSet)
+(*       ; MakeSet ( SetMemPtr ^ [ SetCount ] . Set , ORD ( LastCh ) ) 
+         ; Assign ( SetMemPtr ^ [ SetCount ] . Set , SetIntSet) 
+         ; Union ( Unused , t ^ . Set . Set )
+*)
          END (* IF *) 
 
       | String 
       => GetString ( t ^ . String . String , string ) 
       ; FOR i := Length ( string ) TO 1 BY - 1 
-        DO Include ( CharSet , ORD ( Char ( string , i ) ) ) 
+        DO CharSet
+             := IntSets . Include ( CharSet , ORD ( Char ( string , i ) ) ) 
         END (* FOR *) 
       ELSE 
       END (* CASE *) 
@@ -89,54 +114,66 @@ UNSAFE MODULE Classes
 
 ; VAR Class : CHAR 
 
-; PROCEDURE CharToClass0 ( Ch : tElement ) 
+; PROCEDURE CharToClass0 ( Elem : IntSets . ValidElemT ) 
 
   = BEGIN (* CharToClass0 *) 
-      ToClass [ VAL ( Ch , CHAR ) ] := Class 
+      ToClass [ VAL ( Elem , CHAR ) ] := Class 
     END CharToClass0 
 
-; PROCEDURE CharToClass ( Ch : tElement ) 
+; PROCEDURE CharToClass ( Elem : IntSets . ValidElemT ) 
 
-  = BEGIN (* CharToClass *) 
-      INC ( LastCh ) 
-    ; ToClass [ VAL ( Ch , CHAR ) ] := LastCh 
-    ; ToChar [ LastCh ] := VAL ( Ch , CHAR ) 
+  = VAR Ch : IntSets . ValidElemT 
+  ; BEGIN (* CharToClass *)
+      Ch := ORD ( Elem ) 
+    ; INC ( LastCh ) 
+    ; ToClass [ VAL ( Elem , CHAR ) ] := LastCh 
+    ; ToChar [ LastCh ] := VAL ( Elem , CHAR ) 
     END CharToClass 
 
 ; PROCEDURE ComputeClasses ( Blocking : BOOLEAN ) 
 
-  = VAR Set : tSet 
+  = VAR Set : IntSets . T 
 
   ; BEGIN (* ComputeClasses *) 
       OldLastCh := LastCh 
-    ; MakeSet ( CharSet , ORD ( LastCh ) ) 
-    ; MakeSet ( Unused , ORD ( LastCh ) ) 
+    ; CharSet := IntSets . Empty ( ) 
+    ; Unused := IntSets . Empty ( ) 
 
     ; IF Blocking 
       THEN 
         TraverseTree0TD ( Tree0Root , CollectSets ) 
-      ; Include ( CharSet , ORD ( EobCh ) ) 
-      ; Union ( Unused , CharSet ) 
-      ; Complement ( Unused ) 
+      ; CharSet := IntSets . Include ( CharSet , ORD ( EobCh ) ) 
+      ; Unused := IntSets . Union ( Unused , CharSet ) 
+      ; Unused := IntSets . Complement ( Unused , 0 , ORD ( LastCh ) ) 
       ELSE 
-        Include ( CharSet , ORD ( FirstCh ) ) 
-      ; Complement ( CharSet ) 
+        CharSet := IntSets . Include ( CharSet , ORD ( FirstCh ) ) 
+      ; CharSet := IntSets . Complement ( CharSet , 0 , ORD ( FirstCh ) ) 
       END (* IF *) 
 
-    ; ClassCount := '\000' 
-    ; MakeSet ( ClassMemPtr ^ [ '\000' ] , ORD ( LastCh ) ) 
+    ; ClassCount := '\000'
+    ; ClassMemPtr ^ [ '\000' ]
+        := IntSets . Complement
+             ( IntSets . Union ( CharSet , Unused ) , 0 , ORD ( LastCh ) )
+(*  ; MakeSet ( ClassMemPtr ^ [ '\000' ] , ORD ( LastCh ) ) 
     ; Assign ( ClassMemPtr ^ [ '\000' ] , CharSet ) 
     ; Union ( ClassMemPtr ^ [ '\000' ] , Unused ) 
-    ; Complement ( ClassMemPtr ^ [ '\000' ] ) 
+    ; Complement ( ClassMemPtr ^ [ '\000' ] )
+*)
 
-    ; MakeSet ( Set , ORD ( LastCh ) ) 
     ; FOR i := 1 TO SetCount 
       DO FOR j := '\000' TO ClassCount 
-         DO Assign ( Set , SetMemPtr ^ [ i ] . Set ) 
+         DO
+           Set
+             := IntSets . Intersection
+                 ( IntSets . Difference ( SetMemPtr ^ [ i ] . Set , CharSet )
+                 , ClassMemPtr ^ [ j ]
+                 ) 
+(*         Assign ( Set , SetMemPtr ^ [ i ] . Set ) 
          ; Difference ( Set , CharSet ) 
-         ; Intersection ( Set , ClassMemPtr ^ [ j ] ) 
-         ; IF ( NOT IsEmpty ( Set ) ) 
-              AND ( NOT IsEqual ( Set , ClassMemPtr ^ [ j ] ) ) 
+         ; Intersection ( Set , ClassMemPtr ^ [ j ] )
+*)
+         ; IF NOT IntSets . IsEmpty ( Set )  
+              AND NOT IntSets . Equal ( Set , ClassMemPtr ^ [ j ] )  
            THEN 
              INC ( ClassCount ) 
            ; IF ORD ( ClassCount ) = LOOPHOLE ( ClassMemSize , Word . T ) 
@@ -144,42 +181,64 @@ UNSAFE MODULE Classes
                ExtendArray 
                  ( LOOPHOLE ( ClassMemPtr , ADDRESS ) 
                  , ClassMemSize 
-                 , BYTESIZE ( tSet ) 
+                 , BYTESIZE ( IntSets . T ) 
                  ) 
-             END (* IF *) 
-           ; MakeSet ( ClassMemPtr ^ [ ClassCount ] , ORD ( LastCh ) ) 
+             END (* IF *)
+           ; ClassMemPtr ^ [ ClassCount ] := Set 
+           ; WITH WClassJ = ClassMemPtr ^ [ j ]
+             DO WClassJ := IntSets . Difference ( WClassJ , Set ) 
+             END (* WITH *)
+(*         ; MakeSet ( ClassMemPtr ^ [ ClassCount ] , ORD ( LastCh ) ) 
            ; Assign ( ClassMemPtr ^ [ ClassCount ] , Set ) 
-           ; Difference ( ClassMemPtr ^ [ j ] , Set ) 
+           ; Difference ( ClassMemPtr ^ [ j ] , Set )
+*)
            END (* IF *) 
          END (* FOR *) 
       END (* FOR *) 
-    ; ReleaseSet ( Set ) 
+    ; Set := NIL  
 
     ; FOR i := 1 TO SetCount 
-      DO MakeSet ( SetMemPtr ^ [ i ] . Classes , ORD ( ClassCount ) ) 
+      DO
+        SetMemPtr ^ [ i ] . Classes := IntSets . Empty ( ) 
       ; FOR j := '\000' TO ClassCount 
-        DO IF IsSubset ( ClassMemPtr ^ [ j ] , SetMemPtr ^ [ i ] . Set ) 
+        DO IF IntSets . IsSubset
+                ( ClassMemPtr ^ [ j ] , SetMemPtr ^ [ i ] . Set ) 
+           THEN
+             WITH WClasses = SetMemPtr ^ [ i ] . Classes
+             DO WClasses := IntSets . Include ( WClasses , ORD ( j ) )
+             END (* WITH *) 
+           END (* IF *) 
+        END (* FOR *) 
+(*      MakeSet ( SetMemPtr ^ [ i ] . Classes , ORD ( ClassCount ) ) 
+      ; FOR j := '\000' TO ClassCount 
+        DO IF IntSets . IsSubset
+                ( ClassMemPtr ^ [ j ] , SetMemPtr ^ [ i ] . Set ) 
            THEN 
              Include ( SetMemPtr ^ [ i ] . Classes , ORD ( j ) ) 
            END (* IF *) 
         END (* FOR *) 
+*)
       END (* FOR *) 
 
     ; FOR j := '\000' TO ClassCount 
       DO Class := j 
-      ; ForallDo ( ClassMemPtr ^ [ j ] , CharToClass0 ) 
+      ; IntSets . ForAllDo ( ClassMemPtr ^ [ j ] , CharToClass0 ) 
       END (* FOR *) 
 
     ; LastCh := ClassCount 
-    ; ForallDo ( CharSet , CharToClass ) 
+    ; IntSets . ForAllDo ( CharSet , CharToClass ) 
     END ComputeClasses 
 
 ; PROCEDURE ReleaseSetMem ( ) 
 
   = BEGIN (* ReleaseSetMem *) 
       FOR i := 1 TO SetCount 
-      DO ReleaseSet ( SetMemPtr ^ [ i ] . Set ) 
-      ; ReleaseSet ( SetMemPtr ^ [ i ] . Classes ) 
+      DO
+        SetMemPtr ^ [ i ] . Set := NIL
+      ; SetMemPtr ^ [ i ] . Classes := NIL
+(*      ReleaseSet ( SetMemPtr ^ [ i ] . Set ) 
+      ; ReleaseSet ( SetMemPtr ^ [ i ] . Classes )
+*)
       END (* FOR *) 
     ; ReleaseArray ( SetMemPtr , SetMemSize , BYTESIZE ( ClassInfo ) ) 
     END ReleaseSetMem 
@@ -194,7 +253,10 @@ UNSAFE MODULE Classes
   ; SetCount := 0 
   ; ClassMemSize := 16 
   ; MakeArray 
-      ( LOOPHOLE ( ClassMemPtr , ADDRESS ) , ClassMemSize , BYTESIZE ( tSet ) ) 
+      ( LOOPHOLE ( ClassMemPtr , ADDRESS )
+      , ClassMemSize
+      , BYTESIZE ( IntSets . T )
+      ) 
   END Classes 
 . 
 

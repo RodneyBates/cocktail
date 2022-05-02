@@ -6,16 +6,21 @@ UNSAFE MODULE Eval
 
 ; FROM Strings IMPORT tString , AssignEmpty , Length , Append , Char 
 
-; FROM StringMem IMPORT GetString , PutString 
+; FROM StringMem IMPORT GetString , PutString
 
+; IMPORT IntSets 
+
+; IMPORT Sets 
+(*
 ; FROM Sets 
   IMPORT tSet , MakeSet , Card , Assign , Intersection , Select , Minimum 
   , IsEmpty 
   , Maximum , IsElement , Include 
+*)
+; FROM Classes IMPORT ToClass , IsInSetMem , SetMemPtr
+; IMPORT Classes 
 
-; FROM Classes IMPORT ToClass , IsInSetMem , SetMemPtr , CharSet 
-
-; FROM Dfa IMPORT LastCh 
+; IMPORT Dfa  
 ; IMPORT StringMem 
 
 ; FROM Tree 
@@ -26,7 +31,7 @@ UNSAFE MODULE Eval
   , nRepetition , nOption , nChar , nSet , nString 
 
 ; VAR String1 , String2 : tString 
-  ; Set1 , Set2 : tSet 
+  ; Set1 , Set2 : Sets . tSet 
   ; j : Word . T 
 
 
@@ -38,7 +43,9 @@ UNSAFE MODULE Eval
 
 ; PROCEDURE yyVisit1 ( yyt : Tree0 . tTree0 ) 
 
-  = BEGIN (* yyVisit1 *) 
+  = VAR LCharSet : Sets . tSet
+  
+  ; BEGIN (* yyVisit1 *) 
       CASE yyt ^ . Kind 
       OF Tree0 . Node 
       => 
@@ -184,55 +191,62 @@ UNSAFE MODULE Eval
          j := IsInSetMem ( yyt ^ . Set . Set ) 
       ; IF j # 0 
         THEN 
-          yyt ^ . Set . card := Card ( SetMemPtr ^ [ j ] . Classes ) 
-        ; Assign ( Set1 , yyt ^ . Set . Set ) 
-        ; Intersection ( Set1 , CharSet ) 
-        ; INC ( yyt ^ . Set . card , Card ( Set1 ) ) 
+          yyt ^ . Set . card := IntSets . Card ( SetMemPtr ^ [ j ] . Classes ) 
+        ; Sets . Assign ( Set1 , yyt ^ . Set . Set )
+        ; Sets . MakeSet ( LCharSet , ORD ( Dfa . LastCh ) ) 
+        ; Sets . FromIntSet ( LCharSet , Classes . CharSet ) 
+        ; Sets . Intersection ( Set1 , LCharSet )
+        ; Sets . ReleaseSet ( LCharSet ) 
+        ; INC ( yyt ^ . Set . card , Sets . Card ( Set1 ) ) 
         ; IF yyt ^ . Set . card = 1 
           THEN 
-            IF Card ( SetMemPtr ^ [ j ] . Classes ) = 1 
+            IF IntSets . Card ( SetMemPtr ^ [ j ] . Classes ) = 1 
             THEN 
               yyt ^ . yyHead . Tree 
                 := MakeTreeCh 
                      ( nChar 
-                     , VAL ( Select ( SetMemPtr ^ [ j ] . Classes ) , CHAR ) 
+                     , VAL ( IntSets . ArbitraryMember ( SetMemPtr ^ [ j ]
+                             . Classes )
+                           , CHAR
+                           ) 
                      ) 
             ELSE 
               yyt ^ . yyHead . Tree 
                 := MakeTreeCh 
-                     ( nChar , ToClass [ VAL ( Select ( Set1 ) , CHAR ) ] ) 
+                     ( nChar , ToClass [ VAL ( Sets . Select ( Set1 ) , CHAR ) ] ) 
             END (* IF *) 
           ELSE 
-            MakeSet ( Set2 , ORD ( LastCh ) ) 
-          ; IF NOT IsEmpty ( Set1 ) 
+            Sets . MakeSet ( Set2 , ORD ( Dfa . LastCh ) ) 
+          ; IF NOT Sets . IsEmpty ( Set1 ) 
             THEN 
-              FOR i := Minimum ( Set1 ) TO Maximum ( Set1 ) 
-              DO IF IsElement ( i , Set1 ) 
+              FOR i := Sets . Minimum ( Set1 ) TO Sets . Maximum ( Set1 ) 
+              DO IF Sets . IsElement ( i , Set1 ) 
                  THEN 
-                   Include ( Set2 , ORD ( ToClass [ VAL ( i , CHAR ) ] ) ) 
+                   Sets . Include
+                     ( Set2 , ORD ( ToClass [ VAL ( i , CHAR ) ] ) ) 
                  END (* IF *) 
               END (* FOR *) 
             END (* IF *) 
 
-          ; IF NOT IsEmpty ( SetMemPtr ^ [ j ] . Classes ) 
+          ; IF NOT IntSets . IsEmpty ( SetMemPtr ^ [ j ] . Classes ) 
             THEN 
-              FOR i := Minimum ( SetMemPtr ^ [ j ] . Classes ) 
-                    TO Maximum ( SetMemPtr ^ [ j ] . Classes ) 
-              DO IF IsElement ( i , SetMemPtr ^ [ j ] . Classes ) 
+              FOR i := IntSets . Minimum ( SetMemPtr ^ [ j ] . Classes ) 
+                    TO IntSets . Maximum ( SetMemPtr ^ [ j ] . Classes ) 
+              DO IF IntSets . IsElement ( i , SetMemPtr ^ [ j ] . Classes ) 
                  THEN 
-                   Include ( Set2 , i ) 
+                   Sets . Include ( Set2 , i ) 
                  END (* IF *) 
               END (* FOR *) 
             END (* IF *) 
           ; yyt ^ . yyHead . Tree := MakeTreeSet ( nSet , Set2 ) 
           END (* IF *) 
         ELSE 
-          yyt ^ . Set . card := Card ( yyt ^ . Set . Set ) 
+          yyt ^ . Set . card := Sets . Card ( yyt ^ . Set . Set ) 
         ; IF yyt ^ . Set . card = 1 
           THEN 
             yyt ^ . yyHead . Tree 
               := MakeTreeCh 
-                   ( nChar , VAL ( Select ( yyt ^ . Set . Set ) , CHAR ) ) 
+                   ( nChar , VAL ( Sets . Select ( yyt ^ . Set . Set ) , CHAR ) ) 
           ELSE 
             yyt ^ . yyHead . Tree := MakeTreeSet ( nSet , yyt ^ . Set . Set ) 
           END (* IF *) 
@@ -292,7 +306,8 @@ UNSAFE MODULE Eval
       ; IF yyt ^ . Pattern . RegExpr ^ . yyHead . IsConstantRE 
            AND yyt ^ . Pattern . RightContext ^ . yyHead . IsConstantRE 
         THEN
-          yyt ^ . Pattern . card := Card ( yyt ^ . Pattern . StartStates )
+          yyt ^ . Pattern . card
+            := Sets . Card ( yyt ^ . Pattern . StartStates )
         ; yyt ^ . yyHead . NodeCount 
             := ( yyt ^ . Pattern . RegExpr ^ . yyHead . NodeCount 
                  + yyt ^ . Pattern . RightContext ^ . yyHead . NodeCount 
@@ -337,7 +352,7 @@ UNSAFE MODULE Eval
 
   = BEGIN (* BeginEval *) 
 (* line 83 "../src/rex.cg" *) 
-      MakeSet ( Set1 , ORD ( LastCh ) ) 
+      Sets . MakeSet ( Set1 , ORD ( Dfa . LastCh ) ) 
     END BeginEval 
 
 ; PROCEDURE CloseEval ( ) 

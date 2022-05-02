@@ -1,49 +1,53 @@
-(* $Id: ScanTabs.mi,v 3.5 1992/08/07 15:10:26 grosch rel $ *) 
+(* File ScanTabs.m3. *)
 
-(* $Log: ScanTabs.mi,v $ 
- * Revision 3.5  1992/08/07  15:10:26  grosch 
- * allow several scanner and parsers; extend module Errors 
- * 
- * Revision 3.4  1992/01/30  13:29:56  grosch 
- * redesign of interface to operating system 
- * 
- * Revision 3.3  1991/11/21  14:41:19  grosch 
- * fixed bug: interference of right context between constant and non-constant RE 
- * new version of RCS on SPARC 
- * 
- * Revision 3.2  91/04/26  18:19:12  grosch 
- * fixed bug in computing ControlSize 
- * 
- * Revision 3.1  91/04/08  15:51:13  grosch 
- * corrected LastCh to OldLastCh 
- * 
- * Revision 3.0  91/04/04  18:07:46  grosch 
- * introduced partitioning of character set 
- * 
- * Revision 1.6  91/03/26  18:27:14  grosch 
- * improved generation time 
- * introduced options n and o to control table size and generation time 
- * increased limitation for table size from 64K to 256K 
- * 
- * Revision 1.5  91/02/13  11:34:51  grosch 
- * moved tables from file to initialization in C; reduced case size 
- * 
- * Revision 1.4  90/06/11  11:28:00  grosch 
- * extended character range to 8 bits, ChRange -> CHAR 
- * 
- * Revision 1.3  90/05/17  11:20:36  grosch 
- * extend character range to 8 bits 
- * 
- * Revision 1.2  89/12/05  18:02:05  grosch 
- * cosmetic changes 
- * 
- * Revision 1.1  89/10/18  17:49:51  grosch 
- * renamed ScanTab and ParsTab to Scan.Tab and Pars.Tab because of PCTE 
- * 
- * Revision 1.0  88/10/04  11:59:47  grosch 
- * Initial revision 
- * 
- *) 
+(* Old comments from original version in Modula2. *)
+     (* $Id: ScanTabs.mi,v 3.5 1992/08/07 15:10:26 grosch rel $ *) 
+
+     (* $Log: ScanTabs.mi,v $ 
+      * Revision 3.5  1992/08/07  15:10:26  grosch 
+      * allow several scanner and parsers; extend module Errors 
+      * 
+      * Revision 3.4  1992/01/30  13:29:56  grosch 
+      * redesign of interface to operating system 
+      * 
+      * Revision 3.3  1991/11/21  14:41:19  grosch 
+      * fixed bug: interference of right context between constant and non-constant RE 
+      * new version of RCS on SPARC 
+      * 
+      * Revision 3.2  91/04/26  18:19:12  grosch 
+      * fixed bug in computing ControlSize 
+      * 
+      * Revision 3.1  91/04/08  15:51:13  grosch 
+      * corrected LastCh to OldLastCh 
+      * 
+      * Revision 3.0  91/04/04  18:07:46  grosch 
+      * introduced partitioning of character set 
+      * 
+      * Revision 1.6  91/03/26  18:27:14  grosch 
+      * improved generation time 
+      * introduced options n and o to control table size and generation time 
+      * increased limitation for table size from 64K to 256K 
+      * 
+      * Revision 1.5  91/02/13  11:34:51  grosch 
+      * moved tables from file to initialization in C; reduced case size 
+      * 
+      * Revision 1.4  90/06/11  11:28:00  grosch 
+      * extended character range to 8 bits, ChRange -> CHAR 
+      * 
+      * Revision 1.3  90/05/17  11:20:36  grosch 
+      * extend character range to 8 bits 
+      * 
+      * Revision 1.2  89/12/05  18:02:05  grosch 
+      * cosmetic changes 
+      * 
+      * Revision 1.1  89/10/18  17:49:51  grosch 
+      * renamed ScanTab and ParsTab to Scan.Tab and Pars.Tab because of PCTE 
+      * 
+      * Revision 1.0  88/10/04  11:59:47  grosch 
+      * Initial revision 
+      * 
+      *) 
+(* End of old comments. *)
 
 (* Ich, Doktor Josef Grosch, Informatiker, Nov. 1987 *) 
 
@@ -67,13 +71,18 @@ UNSAFE MODULE ScanTabs
 ; FROM Strings 
   IMPORT tString , ArrayToString , Append , Concatenate , StringToArray 
 
-; FROM Idents IMPORT tIdent , NoIdent , GetString 
+; FROM Idents IMPORT tIdent , NoIdent , GetString
 
+; IMPORT IntSets 
+
+; IMPORT Sets 
+
+(*
 ; FROM Sets 
   IMPORT tSet , MakeSet , IsElement , Minimum , Maximum , IsEmpty 
   , AssignEmpty 
   , Union , Include 
-
+*)
 ; FROM System IMPORT tFile , OpenOutput , OpenInput , Read , Write 
 
 ; FROM ReuseIO 
@@ -260,9 +269,11 @@ PROCEDURE GetTable (Address: ADDRESS): CARDINAL;
         DO ActionPtr ^ [ State ] := PatternCount + 1 
         END (* FOR *) 
       ; FOR Pattern := 1 TO PatternCount 
-        DO FOR cState := Minimum ( PatternTablePtr ^ [ Pattern ] . Finals ) 
-                 TO Maximum ( PatternTablePtr ^ [ Pattern ] . Finals ) 
-           DO IF IsElement ( cState , PatternTablePtr ^ [ Pattern ] . Finals ) 
+        DO FOR cState
+                 := Sets . Minimum ( PatternTablePtr ^ [ Pattern ] . Finals ) 
+           TO Sets . Maximum ( PatternTablePtr ^ [ Pattern ] . Finals ) 
+           DO IF Sets . IsElement
+                ( cState , PatternTablePtr ^ [ Pattern ] . Finals ) 
               THEN 
                 ActionPtr ^ [ cState ] := Pattern 
               END (* IF *) 
@@ -298,7 +309,7 @@ PROCEDURE GetTable (Address: ADDRESS): CARDINAL;
       : UNTRACED BRANDED REF ARRAY [ 0 .. 100000 ] OF DiffsInfoPtr 
     ; HashTableSize : M2LONGINT 
     ; Current : DiffsInfoPtr 
-    ; Domain : tSet 
+    ; Domain : IntSets . T  
 
   ; BEGIN (* CompressTables *) 
       BaseSize := DStateCount + 1 
@@ -337,21 +348,19 @@ PROCEDURE GetTable (Address: ADDRESS): CARDINAL;
       DO HashTablePtr ^ [ i ] := NIL 
       END (* FOR *) 
 
-    ; MakeSet ( Domain , ORD ( OldLastCh ) ) 
     ; TableSize := 0 
     ; TableEntries := 0 
     ; Group [ 0 ] . Last := '\000' 
 
     ; FOR State := 1 TO DStateCount 
       DO 
-
          (* SPEC Success := EXISTS base : FORALL Ch IN CHAR : 
                               (Table [State, Ch]       # DNoState) AND 
                               (Check [base + ORD (Ch)] # DNoState)     *) 
 
          (* turn the row Table [State, ...] into a list of ranges (groups) *) 
 
-         AssignEmpty ( Domain ) 
+        Domain := IntSets . Empty ( )  
       ; Ch := GetFirst ( State ) 
       ; LastElmt := GetLast ( State ) 
 
@@ -362,9 +371,9 @@ PROCEDURE GetTable (Address: ADDRESS): CARDINAL;
             THEN 
               IF Ch <= ClassCount 
               THEN 
-                Union ( Domain , ClassMemPtr ^ [ Ch ] ) 
+                Domain := IntSets . Union ( Domain , ClassMemPtr ^ [ Ch ] ) 
               ELSE 
-                Include ( Domain , ORD ( ToChar [ Ch ] ) ) 
+                Domain := IntSets . Include ( Domain , ORD ( ToChar [ Ch ] ) ) 
               END (* IF *) 
             END (* IF *) 
           ; IF Ch = LastElmt THEN EXIT END (* IF *) 
@@ -373,17 +382,17 @@ PROCEDURE GetTable (Address: ADDRESS): CARDINAL;
         END (* IF *) 
 
       ; GroupCount := 0 
-      ; IF NOT IsEmpty ( Domain ) 
+      ; IF NOT IntSets . IsEmpty ( Domain ) 
         THEN 
-          Ch := VAL ( Minimum ( Domain ) , CHAR ) 
-        ; LastElmt := VAL ( Maximum ( Domain ) , CHAR ) 
+          Ch := VAL ( IntSets . Minimum ( Domain ) , CHAR ) 
+        ; LastElmt := VAL ( IntSets . Maximum ( Domain ) , CHAR ) 
 
         ; IF Ch <= LastElmt 
           THEN                                  (* arrange into groups *) 
             LOOP 
               LOOP 
                 IF Ch = LastElmt THEN EXIT END (* IF *) 
-              ; IF NOT IsElement ( ORD ( Ch ) , Domain ) 
+              ; IF NOT IntSets . IsElement ( ORD ( Ch ) , Domain ) 
                 THEN 
                   INC ( Ch ) 
                 ELSE 
@@ -391,20 +400,20 @@ PROCEDURE GetTable (Address: ADDRESS): CARDINAL;
                 END (* IF *) 
               END (* LOOP *) 
 
-            ; IF IsElement ( ORD ( Ch ) , Domain ) 
+            ; IF IntSets . IsElement ( ORD ( Ch ) , Domain ) 
               THEN 
                 INC ( GroupCount ) 
               ; Group [ GroupCount ] . First := Ch 
               ; LOOP 
                   IF Ch = LastElmt THEN EXIT END (* IF *) 
-                ; IF IsElement ( ORD ( Ch ) , Domain ) 
+                ; IF IntSets . IsElement ( ORD ( Ch ) , Domain ) 
                   THEN 
                     INC ( Ch ) 
                   ELSE 
                     EXIT 
                   END (* IF *) 
                 END (* LOOP *) 
-              ; IF IsElement ( ORD ( Ch ) , Domain ) 
+              ; IF IntSets . IsElement ( ORD ( Ch ) , Domain ) 
                 THEN 
                   Group [ GroupCount ] . Last := Ch 
                 ELSE 
