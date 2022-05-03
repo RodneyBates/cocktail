@@ -39,8 +39,10 @@ UNSAFE MODULE Dfa
 
 ; FROM General IMPORT Max 
 
-; FROM DynArray IMPORT MakeArray , ExtendArray , ReleaseArray 
+; FROM DynArray IMPORT MakeArray , ExtendArray , ReleaseArray
 
+; IMPORT Sets 
+(*
 ; FROM Sets 
   IMPORT tSet , MakeSet , WriteSet , Intersection , Complement , IsEmpty 
   , Extract 
@@ -48,7 +50,7 @@ UNSAFE MODULE Dfa
   , AssignEmpty , Minimum , IsSubset , Union , ReleaseSet , Maximum 
   , AssignElmt 
   , Select 
-
+*)
 ; FROM ReuseIO IMPORT StdOutput , WriteT , WriteNl , WriteC , WriteI 
 
 ; FROM Layout IMPORT WriteChar , WriteSpace 
@@ -65,15 +67,15 @@ UNSAFE MODULE Dfa
     = RECORD 
         Row : RowType
       ; RowSize : M2LONGINT 
-      ; Semantics : tSet 
+      ; Semantics : Sets . tSet 
       ; Default : DStateRange 
-      ; StartSet : tSet 
+      ; StartSet : Sets . tSet 
       ; EobTrans : DStateRange 
       ; FirstElmt : CHAR 
       ; LastElmt : CHAR 
       END (* RECORD *) 
   ; DStateTable = ARRAY [ 0 .. 100000 ] OF DStateInfo 
-  ; SuccSet = ARRAY [ 0 .. 100000 ] OF tSet 
+  ; SuccSet = ARRAY [ 0 .. 100000 ] OF Sets . tSet 
 
 ; VAR TablePtr : UNTRACED BRANDED REF DStateTable 
   ; TableSize : M2LONGINT 
@@ -102,9 +104,9 @@ UNSAFE MODULE Dfa
       ; FOR Ch := '\000' TO LastCh 
         DO With_5 . Row ^ [ Ch ] := DNoState 
         END (* FOR *) 
-      ; MakeSet ( With_5 . Semantics , PatternCount ) 
+      ; Sets . MakeSet ( With_5 . Semantics , PatternCount ) 
       ; With_5 . Default := DNoState 
-      ; MakeSet ( With_5 . StartSet , StartStateCount ) 
+      ; Sets . MakeSet ( With_5 . StartSet , StartStateCount ) 
       ; With_5 . EobTrans := DNoState 
       ; With_5 . FirstElmt := LastCh 
       ; With_5 . LastElmt := FirstCh 
@@ -119,8 +121,8 @@ UNSAFE MODULE Dfa
     ; WITH With_5a = TablePtr ^ [ State ]  
       DO ReleaseArray 
            ( With_5a . Row , With_5a . RowSize , BYTESIZE ( DStateRange ) ) 
-      ; ReleaseSet ( With_5a . Semantics ) 
-      ; ReleaseSet ( With_5a . StartSet )
+      ; Sets . ReleaseSet ( With_5a . Semantics ) 
+      ; Sets . ReleaseSet ( With_5a . StartSet )
       END (* WITH *)
     END ReleaseDState 
 
@@ -142,28 +144,28 @@ UNSAFE MODULE Dfa
       TablePtr ^ [ State ] . Default := DefaultState 
     END PutDefault 
 
-; PROCEDURE GetDSemantics ( State : DStateRange ; VAR Semantics : tSet ) 
+; PROCEDURE GetDSemantics ( State : DStateRange ; VAR Semantics : Sets . tSet ) 
 
   = BEGIN (* GetDSemantics *) 
-      Assign ( Semantics , TablePtr ^ [ State ] . Semantics ) 
+      Sets . Assign ( Semantics , TablePtr ^ [ State ] . Semantics ) 
     END GetDSemantics 
 
-; PROCEDURE PutDSemantics ( State : DStateRange ; Semantics : tSet ) 
+; PROCEDURE PutDSemantics ( State : DStateRange ; Semantics : Sets . tSet ) 
 
   = BEGIN (* PutDSemantics *) 
-      Assign ( TablePtr ^ [ State ] . Semantics , Semantics ) 
+      Sets . Assign ( TablePtr ^ [ State ] . Semantics , Semantics ) 
     END PutDSemantics 
 
-; PROCEDURE GetStartSet ( State : DStateRange ; VAR StartSet : tSet ) 
+; PROCEDURE GetStartSet ( State : DStateRange ; VAR StartSet : Sets . tSet ) 
 
   = BEGIN (* GetStartSet *) 
-      Assign ( StartSet , TablePtr ^ [ State ] . StartSet ) 
+      Sets . Assign ( StartSet , TablePtr ^ [ State ] . StartSet ) 
     END GetStartSet 
 
-; PROCEDURE PutStartSet ( State : DStateRange ; StartSet : tSet ) 
+; PROCEDURE PutStartSet ( State : DStateRange ; StartSet : Sets . tSet ) 
 
   = BEGIN (* PutStartSet *) 
-      Assign ( TablePtr ^ [ State ] . StartSet , StartSet ) 
+      Sets . Assign ( TablePtr ^ [ State ] . StartSet , StartSet ) 
     END PutStartSet 
 
 ; PROCEDURE GetTable ( State : DStateRange ; Ch : CHAR ) : DStateRange 
@@ -250,9 +252,9 @@ UNSAFE MODULE Dfa
       ; WriteI ( StdOutput , TablePtr ^ [ State ] . Default , 5 ) 
       ; WriteI ( StdOutput , TablePtr ^ [ State ] . EobTrans , 5 ) 
       ; WriteSpace ( StdOutput ) 
-      ; WriteSet ( StdOutput , TablePtr ^ [ State ] . Semantics ) 
+      ; Sets . WriteSet ( StdOutput , TablePtr ^ [ State ] . Semantics ) 
       ; WriteSpace ( StdOutput ) 
-      ; WriteSet ( StdOutput , TablePtr ^ [ State ] . StartSet ) 
+      ; Sets . WriteSet ( StdOutput , TablePtr ^ [ State ] . StartSet ) 
       ; WriteNl ( StdOutput ) 
       ; Count := 0 
       ; FOR Ch := GetFirst ( State ) TO GetLast ( State ) 
@@ -283,7 +285,7 @@ UNSAFE MODULE Dfa
       = RECORD 
           Partition : DStateRange 
         ; Card : SHORTCARD 
-        ; Semantics : tSet 
+        ; Semantics : Sets . tSet 
         ; Used : BOOLEAN 
         ; MapBlockToBlock : BlockRange 
         ; MapStateToBlock : BlockRange 
@@ -303,11 +305,11 @@ UNSAFE MODULE Dfa
     ; Gap : BlockRange 
     ; InitGap : BlockRange 
     ; NextGap : BlockRange 
-    ; BlockSet : tSet 
-    ; dSemantics : tSet 
+    ; BlockSet : Sets . tSet 
+    ; dSemantics : Sets . tSet 
     ; State : DStateRange 
     ; NextState : DStateRange 
-    ; dStates : tSet 
+    ; dStates : Sets . tSet 
     ; InitGapRow : RowType 
 
   ; 
@@ -330,8 +332,8 @@ UNSAFE MODULE Dfa
   ; BEGIN (* MinimizeDfa *) 
       DBSize := DStateCount + 2                 (* add room for InitGap *) 
     ; MakeArray ( LOOPHOLE ( DBPtr , ADDRESS ) , DBSize , BYTESIZE ( DBElmt ) ) 
-    ; MakeSet ( dSemantics , PatternCount ) 
-    ; MakeSet ( dStates , DStateCount ) 
+    ; Sets . MakeSet ( dSemantics , PatternCount ) 
+    ; Sets . MakeSet ( dStates , DStateCount ) 
     ; DBPtr ^ [ DNoState ] . MapStateToBlock := 0  (* initialize *) 
 
                         (* start state i -> block i of partition *) 
@@ -353,19 +355,19 @@ UNSAFE MODULE Dfa
           ; Block := BlockCount 
           ; DBPtr ^ [ Block ] . Partition := DNoState 
           ; DBPtr ^ [ Block ] . Card := 0 
-          ; MakeSet ( DBPtr ^ [ Block ] . Semantics , PatternCount ) 
+          ; Sets . MakeSet ( DBPtr ^ [ Block ] . Semantics , PatternCount ) 
           ; GetDSemantics ( State , DBPtr ^ [ Block ] . Semantics ) 
           ; EXIT 
           END (* IF *) 
         ; GetDSemantics ( State , dSemantics ) 
      (* ; IF IsEqual (dSemantics, DBPtr^[Block].Semantics) THEN EXIT END *)  
-        ; IF ( IsEmpty ( dSemantics ) 
-               AND IsEmpty ( DBPtr ^ [ Block ] . Semantics ) 
+        ; IF ( Sets . IsEmpty ( dSemantics ) 
+               AND Sets . IsEmpty ( DBPtr ^ [ Block ] . Semantics ) 
              ) 
-             OR ( ( NOT IsEmpty ( dSemantics ) ) 
-                  AND ( NOT IsEmpty ( DBPtr ^ [ Block ] . Semantics ) ) 
-                  AND ( Minimum ( dSemantics ) 
-                        = Minimum ( DBPtr ^ [ Block ] . Semantics ) 
+             OR ( ( NOT Sets . IsEmpty ( dSemantics ) ) 
+                  AND ( NOT Sets . IsEmpty ( DBPtr ^ [ Block ] . Semantics ) ) 
+                  AND ( Sets . Minimum ( dSemantics ) 
+                        = Sets . Minimum ( DBPtr ^ [ Block ] . Semantics ) 
                       ) 
                 ) 
           THEN 
@@ -380,7 +382,7 @@ UNSAFE MODULE Dfa
       END (* FOR *) 
 
     ; FOR Block := StartStateCount + 1 TO BlockCount 
-      DO ReleaseSet ( DBPtr ^ [ Block ] . Semantics ) 
+      DO Sets . ReleaseSet ( DBPtr ^ [ Block ] . Semantics ) 
       END (* FOR *) 
 
     ; REPEAT                                    (* minimize *) 
@@ -453,17 +455,17 @@ UNSAFE MODULE Dfa
         END (* FOR *) 
       END (* FOR *) 
 
-    ; MakeSet ( BlockSet , BlockCount )         (* permute rows of table *) 
-    ; Complement ( BlockSet ) 
-    ; Exclude ( BlockSet , DNoState ) 
+    ; Sets . MakeSet ( BlockSet , BlockCount )         (* permute rows of table *) 
+    ; Sets . Complement ( BlockSet ) 
+    ; Sets . Exclude ( BlockSet , DNoState ) 
     ; FOR State := 1 TO DStateCount 
       DO DBPtr ^ [ State ] . Location := State 
       END (* FOR *) 
     ; InitGap := MakeDState ( ) 
     ; InitGapRow := TablePtr ^ [ InitGap ] . Row 
 
-    ; WHILE NOT IsEmpty ( BlockSet ) 
-      DO Block := Extract ( BlockSet ) 
+    ; WHILE NOT Sets . IsEmpty ( BlockSet ) 
+      DO Block := Sets . Extract ( BlockSet ) 
       ; IF Block # DBPtr ^ [ Block ] . Partition 
         THEN 
           TablePtr ^ [ InitGap ] . Row := TablePtr ^ [ Block ] . Row 
@@ -484,7 +486,7 @@ UNSAFE MODULE Dfa
               := TablePtr ^ [ NextGap ] . LastElmt 
           ; GetDSemantics ( NextGap , dSemantics ) 
           ; PutDSemantics ( Gap , dSemantics ) 
-          ; Exclude ( BlockSet , Gap ) 
+          ; Sets . Exclude ( BlockSet , Gap ) 
           ; Gap := NextGap 
           UNTIL Gap > BlockCount 
         ; InitGap := Gap 
@@ -496,19 +498,19 @@ UNSAFE MODULE Dfa
       DO                                        (* context *) 
          IF PatternTablePtr ^ [ Pattern ] . ContextLng = VariableContext 
          THEN 
-           Assign ( dStates , PatternTablePtr ^ [ Pattern ] . DContext ) 
-         ; AssignEmpty ( PatternTablePtr ^ [ Pattern ] . DContext ) 
-         ; WHILE NOT IsEmpty ( dStates ) 
-           DO State := DBPtr ^ [ Extract ( dStates ) ] . MapStateToBlock 
-           ; Include ( PatternTablePtr ^ [ Pattern ] . DContext , State ) 
+           Sets . Assign ( dStates , PatternTablePtr ^ [ Pattern ] . DContext ) 
+         ; Sets . AssignEmpty ( PatternTablePtr ^ [ Pattern ] . DContext ) 
+         ; WHILE NOT Sets . IsEmpty ( dStates ) 
+           DO State := DBPtr ^ [ Sets . Extract ( dStates ) ] . MapStateToBlock 
+           ; Sets . Include ( PatternTablePtr ^ [ Pattern ] . DContext , State ) 
            END (* WHILE *) 
          END (* IF *) 
       END (* FOR *) 
 
     ; MinimizeSavings := DStateCount - BlockCount 
-    ; ReleaseSet ( BlockSet ) 
-    ; ReleaseSet ( dSemantics ) 
-    ; ReleaseSet ( dStates ) 
+    ; Sets . ReleaseSet ( BlockSet ) 
+    ; Sets . ReleaseSet ( dSemantics ) 
+    ; Sets . ReleaseSet ( dStates ) 
     ; FOR State := DStateCount TO BlockCount + 1 BY - 1 
       DO ReleaseDState ( State ) 
       END (* FOR *) 
@@ -522,14 +524,14 @@ UNSAFE MODULE Dfa
   ; BEGIN (* ComputeSuccGraph *) 
       SuccSetSize := DStateCount + 1 
     ; MakeArray 
-        ( LOOPHOLE ( SuccSetPtr , ADDRESS ) , SuccSetSize , BYTESIZE ( tSet ) ) 
+        ( LOOPHOLE ( SuccSetPtr , ADDRESS ) , SuccSetSize , BYTESIZE ( Sets . tSet ) ) 
     ; FOR State := 1 TO DStateCount 
-      DO MakeSet ( SuccSetPtr ^ [ State ] , DStateCount ) 
+      DO Sets . MakeSet ( SuccSetPtr ^ [ State ] , DStateCount ) 
       ; FOR Ch := GetFirst ( State ) TO GetLast ( State ) 
         DO NextState := GetTableNoDef ( State , Ch ) 
         ; IF NextState # DNoState 
           THEN 
-            Include ( SuccSetPtr ^ [ State ] , NextState ) 
+            Sets . Include ( SuccSetPtr ^ [ State ] , NextState ) 
           END (* IF *) 
         END (* FOR *) 
       END (* FOR *) 
@@ -545,7 +547,7 @@ UNSAFE MODULE Dfa
     ; PredCount2Size : M2LONGINT 
     ; State : DStateRange 
     ; Successor : DStateRange 
-    ; UnambiguousStates : tSet 
+    ; UnambiguousStates : Sets . tSet 
 
   ; BEGIN (* ComputeAmbiguousStates *) 
       PredCountSize := DStateCount + 1 
@@ -561,8 +563,8 @@ UNSAFE MODULE Dfa
         , BYTESIZE ( SHORTCARD ) 
         ) 
     ; MaxAmbiguousState := DStateCount 
-    ; MakeSet ( UnambiguousStates , MaxAmbiguousState ) 
-    ; MakeSet ( AmbiguousStates , MaxAmbiguousState ) 
+    ; Sets . MakeSet ( UnambiguousStates , MaxAmbiguousState ) 
+    ; Sets . MakeSet ( AmbiguousStates , MaxAmbiguousState ) 
 
     ; FOR State := 0 TO DStateCount 
       DO                                                (* initialize *) 
@@ -599,33 +601,33 @@ UNSAFE MODULE Dfa
       END (* FOR *) 
 
     ; FOR State := 1 TO StartStateCount 
-      DO Include ( UnambiguousStates , State ) 
+      DO Sets . Include ( UnambiguousStates , State ) 
       END (* FOR *) 
-    ; Complement ( AmbiguousStates ) 
-    ; Exclude ( AmbiguousStates , DNoState ) 
+    ; Sets . Complement ( AmbiguousStates ) 
+    ; Sets . Exclude ( AmbiguousStates , DNoState ) 
 
-    ; WHILE NOT IsEmpty ( UnambiguousStates ) 
-      DO State := Extract ( UnambiguousStates ) 
-      ; Exclude ( AmbiguousStates , State ) 
+    ; WHILE NOT Sets . IsEmpty ( UnambiguousStates ) 
+      DO State := Sets . Extract ( UnambiguousStates ) 
+      ; Sets . Exclude ( AmbiguousStates , State ) 
       ; FOR Successor := 1 TO DStateCount 
-        DO IF IsElement ( Successor , SuccSetPtr ^ [ State ] ) 
+        DO IF Sets . IsElement ( Successor , SuccSetPtr ^ [ State ] ) 
            THEN 
              IF PredCountPtr ^ [ Successor ] = 1 
              THEN 
-               Include ( UnambiguousStates , Successor ) 
+               Sets . Include ( UnambiguousStates , Successor ) 
              END (* IF *) 
            END (* IF *) 
         END (* FOR *) 
       END (* WHILE *) 
 
-    ; ReleaseSet ( UnambiguousStates ) 
+    ; Sets . ReleaseSet ( UnambiguousStates ) 
     ; ReleaseArray ( PredCountPtr , PredCountSize , BYTESIZE ( SHORTCARD ) ) 
     ; ReleaseArray ( PredCount2Ptr , PredCount2Size , BYTESIZE ( SHORTCARD ) ) 
     END ComputeAmbiguousStates 
 
 ; PROCEDURE ComputeCyclicStates ( ) 
 
-  = TYPE Succ = ARRAY [ 0 .. 100000 ] OF tSet 
+  = TYPE Succ = ARRAY [ 0 .. 100000 ] OF Sets . tSet 
 
   ; VAR SuccPtr : UNTRACED BRANDED REF Succ 
     ; SuccSize : M2LONGINT 
@@ -633,75 +635,75 @@ UNSAFE MODULE Dfa
   ; BEGIN (* ComputeCyclicStates *) 
       SuccSize := DStateCount + 1 
     ; MakeArray 
-        ( LOOPHOLE ( SuccPtr , ADDRESS ) , SuccSize , BYTESIZE ( tSet ) ) 
+        ( LOOPHOLE ( SuccPtr , ADDRESS ) , SuccSize , BYTESIZE ( Sets . tSet ) ) 
     ; FOR State := 1 TO DStateCount 
-      DO MakeSet ( SuccPtr ^ [ State ] , DStateCount ) 
-      ; Assign ( SuccPtr ^ [ State ] , SuccSetPtr ^ [ State ] ) 
+      DO Sets . MakeSet ( SuccPtr ^ [ State ] , DStateCount ) 
+      ; Sets . Assign ( SuccPtr ^ [ State ] , SuccSetPtr ^ [ State ] ) 
       END (* FOR *) 
 
     ; FOR j := 1 TO DStateCount 
       DO                                        (* Warshall *) 
          FOR i := 1 TO DStateCount 
-         DO IF IsElement ( j , SuccPtr ^ [ i ] ) 
+         DO IF Sets . IsElement ( j , SuccPtr ^ [ i ] ) 
             THEN 
-              Union ( SuccPtr ^ [ i ] , SuccPtr ^ [ j ] ) 
+              Sets . Union ( SuccPtr ^ [ i ] , SuccPtr ^ [ j ] ) 
             END (* IF *) 
          END (* FOR *) 
       END (* FOR *) 
 
-    ; MakeSet ( CyclicStates , DStateCount ) 
+    ; Sets . MakeSet ( CyclicStates , DStateCount ) 
     ; FOR State := 1 TO DStateCount 
-      DO IF IsElement ( State , SuccPtr ^ [ State ] ) 
+      DO IF Sets . IsElement ( State , SuccPtr ^ [ State ] ) 
          THEN 
-           Include ( CyclicStates , State ) 
+           Sets . Include ( CyclicStates , State ) 
          END (* IF *) 
-      ; ReleaseSet ( SuccPtr ^ [ State ] ) 
+      ; Sets . ReleaseSet ( SuccPtr ^ [ State ] ) 
       END (* FOR *) 
-    ; ReleaseArray ( SuccPtr , SuccSize , BYTESIZE ( tSet ) ) 
+    ; ReleaseArray ( SuccPtr , SuccSize , BYTESIZE ( Sets . tSet ) ) 
     END ComputeCyclicStates 
 
 ; PROCEDURE ComputeStartSets ( ) 
 
   = VAR State1 : DStateRange 
-    ; StartSet1 , StartSet2 , WorkingSet : tSet 
+    ; StartSet1 , StartSet2 , WorkingSet : Sets . tSet 
 
   ; BEGIN (* ComputeStartSets *) 
-      MakeSet ( StartSet1 , StartStateCount ) 
-    ; MakeSet ( StartSet2 , StartStateCount ) 
-    ; MakeSet ( WorkingSet , DStateCount ) 
+      Sets . MakeSet ( StartSet1 , StartStateCount ) 
+    ; Sets . MakeSet ( StartSet2 , StartStateCount ) 
+    ; Sets . MakeSet ( WorkingSet , DStateCount ) 
 
     ; FOR State1 := 1 TO StartStateCount 
       DO FOR State2 := 1 TO DStateCount 
-         DO IF IsElement ( State2 , SuccSetPtr ^ [ State1 ] ) 
+         DO IF Sets . IsElement ( State2 , SuccSetPtr ^ [ State1 ] ) 
             THEN 
               GetStartSet ( State2 , StartSet2 ) 
-            ; Include ( StartSet2 , State1 ) 
+            ; Sets . Include ( StartSet2 , State1 ) 
             ; PutStartSet ( State2 , StartSet2 ) 
             END (* IF *) 
          END (* FOR *) 
-      ; Union ( WorkingSet , SuccSetPtr ^ [ State1 ] ) 
+      ; Sets . Union ( WorkingSet , SuccSetPtr ^ [ State1 ] ) 
       END (* FOR *) 
 
-    ; WHILE NOT IsEmpty ( WorkingSet ) 
-      DO State1 := Extract ( WorkingSet ) 
+    ; WHILE NOT Sets . IsEmpty ( WorkingSet ) 
+      DO State1 := Sets . Extract ( WorkingSet ) 
       ; GetStartSet ( State1 , StartSet1 ) 
       ; FOR State2 := 1 TO DStateCount 
-        DO IF IsElement ( State2 , SuccSetPtr ^ [ State1 ] ) 
+        DO IF Sets . IsElement ( State2 , SuccSetPtr ^ [ State1 ] ) 
            THEN 
              GetStartSet ( State2 , StartSet2 ) 
-           ; IF NOT IsSubset ( StartSet1 , StartSet2 ) 
+           ; IF NOT Sets . IsSubset ( StartSet1 , StartSet2 ) 
              THEN 
-               Union ( StartSet2 , StartSet1 ) 
+               Sets . Union ( StartSet2 , StartSet1 ) 
              ; PutStartSet ( State2 , StartSet2 ) 
-             ; Include ( WorkingSet , State2 ) 
+             ; Sets . Include ( WorkingSet , State2 ) 
              END (* IF *) 
            END (* IF *) 
         END (* FOR *) 
       END (* WHILE *) 
 
-    ; ReleaseSet ( StartSet1 ) 
-    ; ReleaseSet ( StartSet2 ) 
-    ; ReleaseSet ( WorkingSet ) 
+    ; Sets . ReleaseSet ( StartSet1 ) 
+    ; Sets . ReleaseSet ( StartSet2 ) 
+    ; Sets . ReleaseSet ( WorkingSet ) 
     END ComputeStartSets 
 
 ; PROCEDURE SaveEobTransitions ( ) 
@@ -723,9 +725,9 @@ UNSAFE MODULE Dfa
 
   = TYPE DBElmt 
       = RECORD 
-          Domain : tSet 
-        ; Defaults : tSet (* optimal defaults   *) 
-        ; Users : tSet 
+          Domain : Sets . tSet 
+        ; Defaults : Sets . tSet (* optimal defaults   *) 
+        ; Users : Sets . tSet 
         ; Savings : SHORTCARD (* optimal savings    *) 
         ; DFN : SHORTCARD (* depth-first-number *) 
         ; DFNToState : SHORTCARD 
@@ -736,20 +738,20 @@ UNSAFE MODULE Dfa
     ; DBSize : M2LONGINT 
     ; State , State1 , State2 , DefaultState : DStateRange 
     ; DefaultCard : SHORTCARD 
-    ; Domain1 , Domain2 : tSet 
-    ; Marked , WorkingSet : tSet 
-    ; Cyclics , Current : tSet 
-    ; Next , Successors : tSet 
+    ; Domain1 , Domain2 : Sets . tSet 
+    ; Marked , WorkingSet : Sets . tSet 
+    ; Cyclics , Current : Sets . tSet 
+    ; Next , Successors : Sets . tSet 
     ; DFN : SHORTCARD (* depth-first-number *) 
 
   ; PROCEDURE DepthFirstTraversal ( State : DStateRange ) 
 
     = BEGIN (* DepthFirstTraversal *) 
-        Exclude ( WorkingSet , State ) 
-      ; Include ( Marked , State ) 
+        Sets . Exclude ( WorkingSet , State ) 
+      ; Sets . Include ( Marked , State ) 
       ; FOR State2 := From TO To 
-        DO IF IsElement ( State2 , DBPtr ^ [ State ] . Defaults ) 
-              AND ( NOT IsElement ( State2 , Marked ) ) 
+        DO IF Sets . IsElement ( State2 , DBPtr ^ [ State ] . Defaults ) 
+              AND ( NOT Sets . IsElement ( State2 , Marked ) ) 
            THEN 
              DepthFirstTraversal ( State2 ) 
            END (* IF *) 
@@ -762,44 +764,44 @@ UNSAFE MODULE Dfa
   ; BEGIN (* ComputeDefaults *) 
       DBSize := To + 1 
     ; MakeArray ( LOOPHOLE ( DBPtr , ADDRESS ) , DBSize , BYTESIZE ( DBElmt ) ) 
-    ; MakeSet ( Domain1 , ORD ( LastCh ) ) 
-    ; MakeSet ( Domain2 , ORD ( LastCh ) ) 
-    ; MakeSet ( Marked , To ) 
-    ; MakeSet ( WorkingSet , To ) 
-    ; MakeSet ( Cyclics , To ) 
-    ; MakeSet ( Current , To ) 
-    ; MakeSet ( Next , To ) 
-    ; MakeSet ( Successors , To ) 
+    ; Sets . MakeSet ( Domain1 , ORD ( LastCh ) ) 
+    ; Sets . MakeSet ( Domain2 , ORD ( LastCh ) ) 
+    ; Sets . MakeSet ( Marked , To ) 
+    ; Sets . MakeSet ( WorkingSet , To ) 
+    ; Sets . MakeSet ( Cyclics , To ) 
+    ; Sets . MakeSet ( Current , To ) 
+    ; Sets . MakeSet ( Next , To ) 
+    ; Sets . MakeSet ( Successors , To ) 
     ; DefaultSavings := 0 
 
     ; FOR State := From TO To 
       DO                                (* compute domain of all states *) 
-         MakeSet ( DBPtr ^ [ State ] . Domain , ORD ( LastCh ) ) 
+         Sets . MakeSet ( DBPtr ^ [ State ] . Domain , ORD ( LastCh ) ) 
       ; FOR Ch := GetFirst ( State ) TO GetLast ( State ) 
         DO IF GetTable ( State , Ch ) # DNoState 
            THEN 
-             Include ( DBPtr ^ [ State ] . Domain , ORD ( Ch ) ) 
+             Sets . Include ( DBPtr ^ [ State ] . Domain , ORD ( Ch ) ) 
            END (* IF *) 
         END (* FOR *) 
       END (* FOR *) 
 
     ; FOR State1 := From TO To 
       DO                                (* compute default relation *) 
-         MakeSet ( DBPtr ^ [ State1 ] . Defaults , To ) 
-      ; MakeSet ( DBPtr ^ [ State1 ] . Users , To ) 
+         Sets . MakeSet ( DBPtr ^ [ State1 ] . Defaults , To ) 
+      ; Sets . MakeSet ( DBPtr ^ [ State1 ] . Users , To ) 
       ; DBPtr ^ [ State1 ] . Savings := 0 
-      ; IF NOT IsEmpty ( DBPtr ^ [ State1 ] . Domain ) 
+      ; IF NOT Sets . IsEmpty ( DBPtr ^ [ State1 ] . Domain ) 
         THEN 
-          Assign ( Domain1 , DBPtr ^ [ State1 ] . Domain ) 
+          Sets . Assign ( Domain1 , DBPtr ^ [ State1 ] . Domain ) 
 
         ; FOR State2 := From TO To 
           DO IF State1 # State2 
              THEN 
-               Assign ( Domain2 , DBPtr ^ [ State2 ] . Domain ) 
-             ; IF IsSubset ( Domain2 , Domain1 ) 
+               Sets . Assign ( Domain2 , DBPtr ^ [ State2 ] . Domain ) 
+             ; IF Sets . IsSubset ( Domain2 , Domain1 ) 
                THEN 
-                  (* IF Card (Domain2) >= DBPtr^[State1].Savings THEN *) 
-                 IF Card ( DBPtr ^ [ State2 ] . Domain ) 
+                  (* IF Sets . Card (Domain2) >= DBPtr^[State1].Savings THEN *) 
+                 IF Sets . Card ( DBPtr ^ [ State2 ] . Domain ) 
                     >= DBPtr ^ [ State1 ] . Savings 
                  THEN 
                    FOR Ch := GetFirst ( State2 ) TO GetLast ( State2 ) 
@@ -807,19 +809,19 @@ UNSAFE MODULE Dfa
                    ; IF ( State # DNoState ) 
                         AND ( State # GetTable ( State1 , Ch ) ) 
                      THEN 
-                       Exclude ( Domain2 , ORD ( Ch ) ) 
+                       Sets . Exclude ( Domain2 , ORD ( Ch ) ) 
                      END (* IF *) 
                    END (* FOR *) 
 
-                 ; DefaultCard := Card ( Domain2 ) 
+                 ; DefaultCard := Sets . Card ( Domain2 ) 
                  ; IF DefaultCard > 0 
                    THEN 
                      IF DefaultCard = DBPtr ^ [ State1 ] . Savings 
                      THEN 
-                       Include ( DBPtr ^ [ State1 ] . Defaults , State2 ) 
+                       Sets . Include ( DBPtr ^ [ State1 ] . Defaults , State2 ) 
                      ELSIF DefaultCard > DBPtr ^ [ State1 ] . Savings 
                      THEN 
-                       AssignElmt ( DBPtr ^ [ State1 ] . Defaults , State2 ) 
+                       Sets . AssignElmt ( DBPtr ^ [ State1 ] . Defaults , State2 ) 
                      ; DBPtr ^ [ State1 ] . Savings := DefaultCard 
                      END (* IF *) 
                    END (* IF *) 
@@ -833,24 +835,24 @@ UNSAFE MODULE Dfa
     ; FOR State1 := From TO To 
       DO                                (* compute inverse relation *) 
          FOR State2 := From TO To 
-         DO IF IsElement ( State2 , DBPtr ^ [ State1 ] . Defaults ) 
+         DO IF Sets . IsElement ( State2 , DBPtr ^ [ State1 ] . Defaults ) 
             THEN 
-              Include ( DBPtr ^ [ State2 ] . Users , State1 ) 
+              Sets . Include ( DBPtr ^ [ State2 ] . Users , State1 ) 
             END (* IF *) 
          END (* FOR *) 
       END (* FOR *) 
 
     ; DFN := From - 1                   (* compute depth first numbers *) 
-    ; Complement ( WorkingSet ) 
+    ; Sets . Complement ( WorkingSet ) 
     ; FOR State := 0 TO From - 1 
-      DO Exclude ( WorkingSet , State ) 
+      DO Sets . Exclude ( WorkingSet , State ) 
       END (* FOR *) 
     ; IF ( From <= EobDefaultState ) AND ( EobDefaultState <= To ) 
       THEN 
         DepthFirstTraversal ( EobDefaultState ) (* minimal DFN *) 
       END (* IF *) 
-    ; WHILE NOT IsEmpty ( WorkingSet ) 
-      DO DepthFirstTraversal ( Select ( WorkingSet ) ) 
+    ; WHILE NOT Sets . IsEmpty ( WorkingSet ) 
+      DO DepthFirstTraversal ( Sets . Select ( WorkingSet ) ) 
       END (* WHILE *) 
 
     ; FOR State1 := From TO To 
@@ -858,69 +860,69 @@ UNSAFE MODULE Dfa
          State2 := State1 + 1 
       ; LOOP 
           IF State2 > To THEN EXIT END (* IF *) 
-        ; IF IsElement ( State2 , DBPtr ^ [ State1 ] . Defaults ) 
-             AND IsElement ( State1 , DBPtr ^ [ State2 ] . Defaults ) 
+        ; IF Sets . IsElement ( State2 , DBPtr ^ [ State1 ] . Defaults ) 
+             AND Sets . IsElement ( State1 , DBPtr ^ [ State2 ] . Defaults ) 
           THEN 
-            Include ( Cyclics , State1 ) 
-          ; Include ( Cyclics , State2 ) 
+            Sets . Include ( Cyclics , State1 ) 
+          ; Sets . Include ( Cyclics , State2 ) 
           ; EXIT 
           END (* IF *) 
         ; INC ( State2 ) 
         END (* LOOP *) 
       END (* FOR *) 
 
-    ; AssignEmpty ( Marked )            (* compute default states *) 
-    ; AssignEmpty ( WorkingSet ) 
-    ; Complement ( WorkingSet ) 
+    ; Sets . AssignEmpty ( Marked )            (* compute default states *) 
+    ; Sets . AssignEmpty ( WorkingSet ) 
+    ; Sets . Complement ( WorkingSet ) 
     ; FOR State := 0 TO From - 1 
-      DO Exclude ( WorkingSet , State ) 
+      DO Sets . Exclude ( WorkingSet , State ) 
       END (* FOR *) 
 
-    ; WHILE NOT IsEmpty ( WorkingSet ) 
+    ; WHILE NOT Sets . IsEmpty ( WorkingSet ) 
       DO                                        (* breadth first traversal *) 
-         State := DBPtr ^ [ Select ( WorkingSet ) ] . DFNToState (* ASSERT Select = Min *) 
-      ; Assign ( Current , DBPtr ^ [ State ] . Defaults ) (* compute cycle     *) 
-      ; Intersection ( Current , Cyclics ) 
-      ; Include ( Current , State ) 
-      ; Assign ( Next , Current ) 
-   (* ; Intersection (Next, CyclicStates) *) 
-      ; FOR i := Minimum ( Next ) TO Maximum ( Next ) 
-        DO IF NOT IsElement ( i , CyclicStates ) 
+         State := DBPtr ^ [ Sets . Select ( WorkingSet ) ] . DFNToState (* ASSERT Select = Min *) 
+      ; Sets . Assign ( Current , DBPtr ^ [ State ] . Defaults ) (* compute cycle     *) 
+      ; Sets . Intersection ( Current , Cyclics ) 
+      ; Sets . Include ( Current , State ) 
+      ; Sets . Assign ( Next , Current ) 
+   (* ; Sets . Intersection (Next, CyclicStates) *) 
+      ; FOR i := Sets . Minimum ( Next ) TO Sets . Maximum ( Next ) 
+        DO IF NOT Sets . IsElement ( i , CyclicStates ) 
            THEN 
-             Exclude ( Next , i ) 
+             Sets . Exclude ( Next , i ) 
            END (* IF *) 
         END (* FOR *) 
       ; IF ( From <= EobDefaultState ) 
            AND ( EobDefaultState <= To ) 
-           AND IsElement ( EobDefaultState , Current ) 
+           AND Sets . IsElement ( EobDefaultState , Current ) 
         THEN 
           State := EobDefaultState              (* prefer eob def. state *) 
-        ELSIF NOT IsEmpty ( Next ) 
+        ELSIF NOT Sets . IsEmpty ( Next ) 
         THEN 
-          State := Select ( Next )              (* prefer cyclic state  *) 
+          State := Sets . Select ( Next )              (* prefer cyclic state  *) 
         ELSE 
-          State := Select ( Current )           (* prefer small state   *) 
+          State := Sets . Select ( Current )           (* prefer small state   *) 
         END (* IF *) 
-      ; AssignElmt ( Current , State ) 
-      ; Include ( Marked , State ) 
+      ; Sets . AssignElmt ( Current , State ) 
+      ; Sets . Include ( Marked , State ) 
 
-      ; WHILE NOT IsEmpty ( Current ) 
-        DO AssignEmpty ( Next ) 
-        ; WHILE NOT IsEmpty ( Current ) 
-          DO State1 := Extract ( Current ) 
-          ; Exclude ( WorkingSet , DBPtr ^ [ State1 ] . DFN ) 
-          ; Assign ( Successors , DBPtr ^ [ State1 ] . Users ) 
-          ; WHILE NOT IsEmpty ( Successors ) 
-            DO State2 := Extract ( Successors ) 
-            ; IF NOT IsElement ( State2 , Marked ) 
+      ; WHILE NOT Sets . IsEmpty ( Current ) 
+        DO Sets . AssignEmpty ( Next ) 
+        ; WHILE NOT Sets . IsEmpty ( Current ) 
+          DO State1 := Sets . Extract ( Current ) 
+          ; Sets . Exclude ( WorkingSet , DBPtr ^ [ State1 ] . DFN ) 
+          ; Sets . Assign ( Successors , DBPtr ^ [ State1 ] . Users ) 
+          ; WHILE NOT Sets . IsEmpty ( Successors ) 
+            DO State2 := Sets . Extract ( Successors ) 
+            ; IF NOT Sets . IsElement ( State2 , Marked ) 
               THEN 
                 PutDefault ( State2 , State1 ) 
-              ; Include ( Next , State2 ) 
-              ; Include ( Marked , State2 ) 
+              ; Sets . Include ( Next , State2 ) 
+              ; Sets . Include ( Marked , State2 ) 
               END (* IF *) 
             END (* WHILE *) 
           END (* WHILE *) 
-        ; Assign ( Current , Next ) 
+        ; Sets . Assign ( Current , Next ) 
         END (* WHILE *) 
       END (* WHILE *) 
 
@@ -929,18 +931,18 @@ UNSAFE MODULE Dfa
          IF GetDefault ( State1 ) = DNoState 
          THEN 
            DBPtr ^ [ State1 ] . Savings := 0 
-         ; IF NOT IsEmpty ( DBPtr ^ [ State1 ] . Domain ) 
+         ; IF NOT Sets . IsEmpty ( DBPtr ^ [ State1 ] . Domain ) 
            THEN 
-             Assign ( Domain1 , DBPtr ^ [ State1 ] . Domain ) 
+             Sets . Assign ( Domain1 , DBPtr ^ [ State1 ] . Domain ) 
 
            ; FOR State2 := From TO To 
              DO IF State1 # State2 
                 THEN 
-                  Assign ( Domain2 , DBPtr ^ [ State2 ] . Domain ) 
-                ; IF IsStrictSubset ( Domain2 , Domain1 ) 
+                  Sets . Assign ( Domain2 , DBPtr ^ [ State2 ] . Domain ) 
+                ; IF Sets . IsStrictSubset ( Domain2 , Domain1 ) 
                   THEN 
-                     (* IF Card (Domain2) >= DBPtr^[State1].Savings THEN *) 
-                    IF Card ( DBPtr ^ [ State2 ] . Domain ) 
+                     (* IF Sets . Card (Domain2) >= DBPtr^[State1].Savings THEN *) 
+                    IF Sets . Card ( DBPtr ^ [ State2 ] . Domain ) 
                        >= DBPtr ^ [ State1 ] . Savings 
                     THEN 
                       FOR Ch := GetFirst ( State2 ) TO GetLast ( State2 ) 
@@ -948,19 +950,19 @@ UNSAFE MODULE Dfa
                       ; IF ( State # DNoState ) 
                            AND ( State # GetTable ( State1 , Ch ) ) 
                         THEN 
-                          Exclude ( Domain2 , ORD ( Ch ) ) 
+                          Sets . Exclude ( Domain2 , ORD ( Ch ) ) 
                         END (* IF *) 
                       END (* FOR *) 
 
-                    ; DefaultCard := Card ( Domain2 ) 
+                    ; DefaultCard := Sets . Card ( Domain2 ) 
                     ; IF DefaultCard > 0 
                       THEN 
                         IF DefaultCard = DBPtr ^ [ State1 ] . Savings 
                         THEN 
-                          Include ( Current , State2 ) 
+                          Sets . Include ( Current , State2 ) 
                         ELSIF DefaultCard > DBPtr ^ [ State1 ] . Savings 
                         THEN 
-                          AssignElmt ( Current , State2 ) 
+                          Sets . AssignElmt ( Current , State2 ) 
                         ; DBPtr ^ [ State1 ] . Savings := DefaultCard 
                         END (* IF *) 
                       END (* IF *) 
@@ -971,24 +973,24 @@ UNSAFE MODULE Dfa
 
            ; IF DBPtr ^ [ State1 ] . Savings > 0 
              THEN 
-               Assign ( Next , Current ) 
-          (* ; Intersection (Next, CyclicStates) *) 
-             ; FOR i := Minimum ( Next ) TO Maximum ( Next ) 
-               DO IF NOT IsElement ( i , CyclicStates ) 
+               Sets . Assign ( Next , Current ) 
+          (* ; Sets . Intersection (Next, CyclicStates) *) 
+             ; FOR i := Sets . Minimum ( Next ) TO Sets . Maximum ( Next ) 
+               DO IF NOT Sets . IsElement ( i , CyclicStates ) 
                   THEN 
-                    Exclude ( Next , i ) 
+                    Sets . Exclude ( Next , i ) 
                   END (* IF *) 
                END (* FOR *) 
              ; IF ( From <= EobDefaultState ) 
                   AND ( EobDefaultState <= To ) 
-                  AND IsElement ( EobDefaultState , Current ) 
+                  AND Sets . IsElement ( EobDefaultState , Current ) 
                THEN 
                  State := EobDefaultState       (* prefer eob def. state *) 
-               ELSIF NOT IsEmpty ( Next ) 
+               ELSIF NOT Sets . IsEmpty ( Next ) 
                THEN 
-                 State := Select ( Next )       (* prefer cyclic state  *) 
+                 State := Sets . Select ( Next )       (* prefer cyclic state  *) 
                ELSE 
-                 State := Select ( Current ) (* prefer small state   *) 
+                 State := Sets . Select ( Current ) (* prefer small state   *) 
                END (* IF *) 
              ; PutDefault ( State1 , State ) 
              END (* IF *) 
@@ -1014,18 +1016,18 @@ UNSAFE MODULE Dfa
 
     ; FOR State := From TO To 
       DO                                        (* clean up *) 
-         ReleaseSet ( DBPtr ^ [ State ] . Domain ) 
-      ; ReleaseSet ( DBPtr ^ [ State ] . Defaults ) 
-      ; ReleaseSet ( DBPtr ^ [ State ] . Users ) 
+         Sets . ReleaseSet ( DBPtr ^ [ State ] . Domain ) 
+      ; Sets . ReleaseSet ( DBPtr ^ [ State ] . Defaults ) 
+      ; Sets . ReleaseSet ( DBPtr ^ [ State ] . Users ) 
       END (* FOR *) 
-    ; ReleaseSet ( Domain1 ) 
-    ; ReleaseSet ( Domain2 ) 
-    ; ReleaseSet ( Marked ) 
-    ; ReleaseSet ( WorkingSet ) 
-    ; ReleaseSet ( Cyclics ) 
-    ; ReleaseSet ( Current ) 
-    ; ReleaseSet ( Next ) 
-    ; ReleaseSet ( Successors ) 
+    ; Sets . ReleaseSet ( Domain1 ) 
+    ; Sets . ReleaseSet ( Domain2 ) 
+    ; Sets . ReleaseSet ( Marked ) 
+    ; Sets . ReleaseSet ( WorkingSet ) 
+    ; Sets . ReleaseSet ( Cyclics ) 
+    ; Sets . ReleaseSet ( Current ) 
+    ; Sets . ReleaseSet ( Next ) 
+    ; Sets . ReleaseSet ( Successors ) 
     ; ReleaseArray ( DBPtr , DBSize , BYTESIZE ( DBElmt ) ) 
     END ComputeDefaults 
 
