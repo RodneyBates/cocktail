@@ -117,6 +117,9 @@ UNSAFE INTERFACE Sets
 
 ; PROCEDURE FromIntSet ( VAR Set : tSet ; IntSet : IntSets . T )
 
+; PROCEDURE IsEqualIntSet
+    ( READONLY Set : tSet ; IntSet : IntSets . T ) : BOOLEAN
+
 ; PROCEDURE IntSet ( READONLY Set : tSet ) : IntSets . T
 
 ; PROCEDURE ReadSet ( f : tFile ; VAR Set : tSet ) 

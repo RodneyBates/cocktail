@@ -578,6 +578,16 @@ UNSAFE MODULE Sets
       END (* EXCEPT *) 
     END FromIntSet
 
+; PROCEDURE IsEqualIntSet
+    ( READONLY Set : tSet ; FIntSet : IntSets . T ) : BOOLEAN
+
+  = VAR LResult : BOOLEAN 
+
+  ; BEGIN
+      LResult := IntSets . Equal ( IntSet ( Set ) , FIntSet ) 
+    ; RETURN LResult
+    END IsEqualIntSet 
+
 ; PROCEDURE IntSet ( READONLY Set : tSet ) : IntSets . T
 
   = VAR Result : IntSets . T
