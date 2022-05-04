@@ -51,7 +51,7 @@ GENERIC MODULE OrdSets ( )
 (* Thread safety: 
 
    I believe this module to be thread-safe, without needing mutual
-   exclusion around calls to its visible procedures, except for a
+   exclusion around calls to its exported procedures, except for a
    small chance of a small performance bug involving simultaneous calls
    to Hash or simultaneous calls to Card.  This has had no testing, but
    here is a rationale:
@@ -6107,12 +6107,12 @@ GENERIC MODULE OrdSets ( )
               :=  ConstructRangeset ( Lo := LIUnivLo , Hi := LIUnivHi ) 
           END (* IF *) 
 
-        ELSE (* Set is a Bitset. *)
-          IF LIUnivLo = IElemNull OR DInfo . RangeLo < LIUnivLo   
-          THEN LIUnivLo := DInfo . RangeLo 
+        ELSE (* Set is a nonempty Bitset. *)
+          IF LIUnivLo = IElemNull OR DInfo . BitsetInfo . BitsetLo < LIUnivLo   
+          THEN LIUnivLo := DInfo . BitsetInfo . BitsetLo
           END (* IF *)   
-        ; IF LIUnivHi = IElemNull OR DInfo . RangeHi > LIUnivHi   
-          THEN LIUnivHi := DInfo . RangeHi 
+        ; IF LIUnivHi = IElemNull OR DInfo . BitsetInfo . BitsetHi > LIUnivHi   
+          THEN LIUnivHi := DInfo . BitsetInfo . BitsetHi 
           END (* IF *)   
         ; ComplementResult 
             :=  DifferenceOverlappingRangeBitset 
@@ -8182,7 +8182,7 @@ GENERIC MODULE OrdSets ( )
     END SetSpecialWrite
 
 ; PROCEDURE SetSpecialRead 
-    ( special : Pickle2 . Special 
+    ( <* UNUSED *> special : Pickle2 . Special 
     ; reader : Pickle2 . Reader 
     ; Id : Pickle2 . RefID 
     )

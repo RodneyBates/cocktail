@@ -68,7 +68,7 @@ GENERIC INTERFACE OrdSets ( Element )
 (* Thread safety: 
 
    I believe this module to be thread-safe, without needing mutual
-   exclusion around calls to its visible procedures, except for a
+   exclusion around calls to its exported procedures, except for a
    small chance of a performance bug involving simultaneous calls to
    Hash or simultaneous calls to Card, where some cached-lazy computation
    could be repeated unnecessarily.  This has had no testing. 
