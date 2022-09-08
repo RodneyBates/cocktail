@@ -1,1 +1,12 @@
 generic_module("OrdSets")
+
+generic_module("Ranges")
+
+build_generic_intf("IntRanges","Ranges",["Integer"],VISIBLE)
+build_generic_impl("IntRanges","Ranges",[])
+
+generic_module("VarArray")
+
+build_generic_intf("VarArrRefany","VarArray",["Integer","Refany","IntRanges"],VISIBLE)
+build_generic_impl("VarArrRefany","VarArray",["IntRanges"])
+

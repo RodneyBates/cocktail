@@ -591,13 +591,19 @@ UNSAFE MODULE Sets
 ; PROCEDURE IntSet ( READONLY Set : tSet ) : IntSets . T
 
   = VAR Result : IntSets . T
+; VAR break := 0 
 
   ; PROCEDURE Visit ( Elem : tElement )
     = BEGIN
+IF Elem = 232
+THEN
+  break := 7
+END
+;
         Result := IntSets . Include ( Result , Elem ) 
       END Visit
       
-  ; BEGIN (* IntSet *) 
+  ; BEGIN (* IntSet *)
       Result := IntSets . Empty ( ) 
     ; ForallDo ( Set , Visit )
     ; RETURN Result 

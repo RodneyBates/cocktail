@@ -1,10 +1,8 @@
-UNSAFE MODULE Memory 
+UNSAFE MODULE Memory
 
 ; TYPE ByteTyp = [ 0 .. 16_FF ] 
 ; TYPE ByteArrTyp = ARRAY OF BITS 8 FOR ByteTyp 
 ; TYPE ByteArrRefTyp = UNTRACED REF ByteArrTyp 
-
-; TYPE IntRefTyp = UNTRACED REF INTEGER 
 ; TYPE AddrRefTyp = UNTRACED REF ADDRESS 
 
 ; CONST DopeSize = BYTESIZE ( ADDRESS ) + BYTESIZE ( INTEGER ) 
@@ -38,7 +36,7 @@ UNSAFE MODULE Memory
   ; VAR LResultAddr : ADDRESS 
 
   ; BEGIN (* Alloc *) 
-      LAlloc := NEW ( ByteArrRefTyp , ByteCount ) 
+      LAlloc := NEW ( ByteArrRefTyp , ByteCount )
     ; LAllocSize := DopeSize + ByteCount 
     ; INC ( MemoryUsed , LAllocSize ) 
     ; LResultAddr := LOOPHOLE ( LAlloc , ADDRESS ) + DopeSize 
