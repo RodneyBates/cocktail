@@ -970,8 +970,14 @@ UNSAFE MODULE GenTabs
           END (* IF *) 
         ELSE 
           GetDSemantics ( DState , dSemantics )
-        ; Semantics := Sets . IntSet ( dSemantics ) 
-        ; IF IntSets . IsEmpty ( Semantics ) 
+        ; Semantics := Sets . IntSet ( dSemantics )
+
+; IF NOT Sets . IsEqualIntSet ( dSemantics , Semantics ) 
+  THEN
+  END 
+
+     (* ; IF IntSets . IsEmpty ( Semantics ) *) 
+        ; IF Sets . IsEmpty ( dSemantics ) 
           THEN 
             IF Ch <= ClassCount 
             THEN 

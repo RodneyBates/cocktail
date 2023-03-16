@@ -116,7 +116,7 @@ UNSAFE MODULE Scanner
 ; yyEolCh = '\012'
 ; yyEobCh = '\177'
 ; yyDStateCount = 182
-; yyTableSize = 2213
+; yyTableSize = 2281
 ; yyEobState = 52
 ; yyDefaultState = 53
 ; STD = 1
@@ -288,7 +288,7 @@ UNSAFE MODULE Scanner
 (* End of line 184 "rexm3.rex" *)
 ; yyRestartFlag := FALSE; EXIT 
 | 34
-, 45
+, 47
 , 57
 , 65
 , 73
@@ -344,7 +344,7 @@ UNSAFE MODULE Scanner
                            
 (* End of line 227 "rexm3.rex" *)
 ; yyRestartFlag := FALSE; EXIT 
-| 32
+| 42
 => 
 (* line 235 "rexm3.rex" *)
 
@@ -409,7 +409,7 @@ UNSAFE MODULE Scanner
 ; yyRestartFlag := FALSE; EXIT 
 | 22
 , 38
-, 48
+, 50
 , 62
 , 70
 , 78
@@ -422,7 +422,7 @@ UNSAFE MODULE Scanner
 ; yyRestartFlag := FALSE; EXIT 
 | 21
 , 37
-, 47
+, 49
 , 63
 , 71
 , 79
@@ -664,7 +664,7 @@ Strings.Append (String, Char (String, 1))
 (* End of line 357 "rexm3.rex" *)
 ; yyRestartFlag := FALSE; EXIT 
 | 36
-, 46
+, 48
 => 
   Attribute.Position.Line   := yyLineCount 
 ; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
@@ -681,51 +681,6 @@ Strings.Append (String, Char (String, 1))
 (* End of line 359 "rexm3.rex" *)
 ; yyRestartFlag := FALSE; EXIT 
 | 28
-, 43
-, 49
-, 50
-, 106
-, 107
-, 109
-, 110
-, 111
-, 112
-, 114
-, 115
-, 116
-, 117
-, 118
-, 120
-, 121
-, 122
-, 123
-, 124
-, 126
-, 127
-, 129
-, 130
-, 131
-, 133
-, 134
-, 135
-, 136
-, 138
-, 139
-, 140
-, 141
-, 143
-, 144
-, 145
-, 146
-, 148
-, 149
-, 150
-, 151
-, 152
-, 154
-, 155
-, 156
-, 157
 => 
   Attribute.Position.Line   := yyLineCount 
 ; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
@@ -970,7 +925,7 @@ Strings.Append (String, Char (String, 1))
 ; Attribute.Ch := '\014' ; RETURN SymChar
 (* End of line 406 "rexm3.rex" *)
 ; yyRestartFlag := FALSE; EXIT 
-| 31
+| 32
 => 
   Attribute.Position.Line   := yyLineCount 
 ; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
@@ -983,7 +938,7 @@ Strings.Append (String, Char (String, 1))
                         
 (* End of line 408 "rexm3.rex" *)
 ; yyRestartFlag := FALSE; EXIT 
-| 30
+| 31
 => 
   Attribute.Position.Line   := yyLineCount 
 ; Attribute.Position.Column := yyChBufferIndex - yyLineStart - TokenLength 
@@ -997,7 +952,6 @@ Strings.Append (String, Char (String, 1))
 ; yyRestartFlag := FALSE; EXIT 
 | 27
 , 41
-, 42
 , 162
 => 
   Attribute.Position.Line   := yyLineCount 
@@ -1060,8 +1014,54 @@ Strings.Append (String, Char (String, 1))
 , 18
 , 19
 , 20
+, 30
+, 43
 , 44
+, 45
+, 46
 , 51
+, 106
+, 107
+, 109
+, 110
+, 111
+, 112
+, 114
+, 115
+, 116
+, 117
+, 118
+, 120
+, 121
+, 122
+, 123
+, 124
+, 126
+, 127
+, 129
+, 130
+, 131
+, 133
+, 134
+, 135
+, 136
+, 138
+, 139
+, 140
+, 141
+, 143
+, 144
+, 145
+, 146
+, 148
+, 149
+, 150
+, 151
+, 152
+, 154
+, 155
+, 156
+, 157
 => 
 (* End of non final states ($N). *)  
 

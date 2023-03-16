@@ -1,4 +1,4 @@
-(* $Id: Classes.mi,v 3.2 1991/11/21 14:41:19 grosch rel $ *) 
+ (* $Id: Classes.mi,v 3.2 1991/11/21 14:41:19 grosch rel $ *) 
 
 (* Rodney M. Bates 
     Apr. 1999 Minor changes to compile, after changes to Sets 
@@ -32,7 +32,9 @@ UNSAFE MODULE Classes
 
 ; IMPORT IntSets
 
-; IMPORT Sets 
+; IMPORT Sets
+
+; IMPORT ObjList 
 
 (*
 ; FROM Sets 
@@ -83,7 +85,7 @@ UNSAFE MODULE Classes
 
       | Set 
       => SetIntSet := Sets . IntSet ( t ^ . Set . Set ) 
-      ;  IF IsInIntSetMem ( SetIntSet) = 0 
+      ;  IF IsInIntSetMem ( SetIntSet ) = 0 
          THEN 
            INC ( SetCount ) 
          ; IF SetCount = SetMemSize 
@@ -94,10 +96,11 @@ UNSAFE MODULE Classes
                , BYTESIZE ( ClassInfo ) 
                ) 
            END (* IF *)
+         ; ObjList . Add ( SetIntSet ) 
          ; SetMemPtr ^ [ SetCount ] . Set := SetIntSet 
          ; Unused := IntSets . Union ( Unused , SetIntSet)
 (*       ; MakeSet ( SetMemPtr ^ [ SetCount ] . Set , ORD ( LastCh ) ) 
-         ; Assign ( SetMemPtr ^ [ SetCount ] . Set , SetIntSet) 
+         ; Assign ( SetMemPtr ^ [ SetCount ] . Set , Set ) 
          ; Union ( Unused , t ^ . Set . Set )
 *)
          END (* IF *) 
@@ -132,7 +135,11 @@ UNSAFE MODULE Classes
 
 ; PROCEDURE ComputeClasses ( Blocking : BOOLEAN ) 
 
-  = VAR Set : IntSets . T 
+  = VAR LSet , LSet2 , LSet3 : Sets . tSet  
+  ; VAR LIntSet , LIntSet1 , LIntSet2 , LAddIntSet : IntSets . T
+  ; VAR LEq , LEq2 : BOOLEAN
+
+; VAR Break := 0 
 
   ; BEGIN (* ComputeClasses *) 
       OldLastCh := LastCh 
@@ -147,33 +154,60 @@ UNSAFE MODULE Classes
       ; Unused := IntSets . Complement ( Unused , 0 , ORD ( LastCh ) ) 
       ELSE 
         CharSet := IntSets . Include ( CharSet , ORD ( FirstCh ) ) 
-      ; CharSet := IntSets . Complement ( CharSet , 0 , ORD ( FirstCh ) ) 
+      ; CharSet := IntSets . Complement ( CharSet , 0 , ORD ( LastCh ) ) 
       END (* IF *) 
 
     ; ClassCount := '\000'
-    ; ClassMemPtr ^ [ '\000' ]
+
+    ; LIntSet := IntSets . Union ( CharSet , Unused )
+    ; LIntSet1 := IntSets . Complement ( LIntSet , 0 , ORD ( LastCh ) )
+
+    ; LAddIntSet
         := IntSets . Complement
              ( IntSets . Union ( CharSet , Unused ) , 0 , ORD ( LastCh ) )
+    ; ObjList . Add ( LAddIntSet ) 
+    ; ClassMemPtr ^ [ '\000' ] := LAddIntSet 
+    ; LEq := IntSets . Equal ( LIntSet1 , ClassMemPtr ^ [ '\000' ] )  
+    ; Sets . MakeSet ( LSet , ORD ( LastCh ) ) 
+    ; Sets . MakeSet ( LSet2 , ORD ( LastCh ) )  
+(*
+    ; Sets . Assign ( LSet , CharSet ) 
+    ; Sets . Union ( LSet, Unused ) 
+    ; Sets . Complement ( LSet )
+
+    ; LSet2 := Sets . FromIntSet ( LSet2 , LIntSet1 ) 
+    ; LEq2 := IntSets . Equal ( LSet2 , LSet ) 
+*)
 (*  ; MakeSet ( ClassMemPtr ^ [ '\000' ] , ORD ( LastCh ) ) 
     ; Assign ( ClassMemPtr ^ [ '\000' ] , CharSet ) 
     ; Union ( ClassMemPtr ^ [ '\000' ] , Unused ) 
     ; Complement ( ClassMemPtr ^ [ '\000' ] )
 *)
 
+    ; Sets . MakeSet ( LSet3 , ORD ( LastCh ) )
+    
     ; FOR i := 1 TO SetCount 
       DO FOR j := '\000' TO ClassCount 
          DO
-           Set
+           LIntSet
              := IntSets . Intersection
                  ( IntSets . Difference ( SetMemPtr ^ [ i ] . Set , CharSet )
                  , ClassMemPtr ^ [ j ]
-                 ) 
-(*         Assign ( Set , SetMemPtr ^ [ i ] . Set ) 
-         ; Difference ( Set , CharSet ) 
-         ; Intersection ( Set , ClassMemPtr ^ [ j ] )
-*)
-         ; IF NOT IntSets . IsEmpty ( Set )  
-              AND NOT IntSets . Equal ( Set , ClassMemPtr ^ [ j ] )  
+                 )
+
+         ; Sets . FromIntSet ( LSet , SetMemPtr ^ [ i ] . Set )
+         ; Sets . FromIntSet ( LSet2 , CharSet )
+         ; Sets . Difference ( LSet , LSet2 ) 
+         ; Sets . FromIntSet ( LSet3 , ClassMemPtr ^ [ j ] )
+         ; Sets . Intersection ( LSet , LSet3 ) 
+
+         ; IF NOT Sets . IsEqualIntSet ( LSet , LIntSet )
+           THEN
+             LEq := TRUE 
+           END (* IF *)
+
+         ; IF NOT IntSets . IsEmpty ( LIntSet )  
+              AND NOT IntSets . Equal ( LIntSet , ClassMemPtr ^ [ j ] )  
            THEN 
              INC ( ClassCount ) 
            ; IF ORD ( ClassCount ) = LOOPHOLE ( ClassMemSize , Word . T ) 
@@ -184,18 +218,25 @@ UNSAFE MODULE Classes
                  , BYTESIZE ( IntSets . T ) 
                  ) 
              END (* IF *)
-           ; ClassMemPtr ^ [ ClassCount ] := Set 
+           ; ObjList . Add ( LIntSet ) 
+           ; ClassMemPtr ^ [ ClassCount ] := LIntSet 
            ; WITH WClassJ = ClassMemPtr ^ [ j ]
-             DO WClassJ := IntSets . Difference ( WClassJ , Set ) 
+             DO
+               LIntSet := IntSets . Difference ( WClassJ , LIntSet ) 
+             ; WClassJ := LIntSet 
              END (* WITH *)
 (*         ; MakeSet ( ClassMemPtr ^ [ ClassCount ] , ORD ( LastCh ) ) 
            ; Assign ( ClassMemPtr ^ [ ClassCount ] , Set ) 
            ; Difference ( ClassMemPtr ^ [ j ] , Set )
 *)
-           END (* IF *) 
+           END (* IF *)
+; Break := 5 
          END (* FOR *) 
-      END (* FOR *) 
-    ; Set := NIL  
+      END (* FOR *)
+    ; Sets . ReleaseSet ( LSet ) 
+    ; Sets . ReleaseSet ( LSet2 ) 
+    ; Sets . ReleaseSet ( LSet3 ) 
+    ; LIntSet := NIL  
 
     ; FOR i := 1 TO SetCount 
       DO
@@ -205,7 +246,10 @@ UNSAFE MODULE Classes
                 ( ClassMemPtr ^ [ j ] , SetMemPtr ^ [ i ] . Set ) 
            THEN
              WITH WClasses = SetMemPtr ^ [ i ] . Classes
-             DO WClasses := IntSets . Include ( WClasses , ORD ( j ) )
+             DO
+               LIntSet := IntSets . Include ( WClasses , ORD ( j ) )
+             ; ObjList . Add ( LIntSet ) 
+             ; WClasses := LIntSet 
              END (* WITH *) 
            END (* IF *) 
         END (* FOR *) 
@@ -234,7 +278,9 @@ UNSAFE MODULE Classes
   = BEGIN (* ReleaseSetMem *) 
       FOR i := 1 TO SetCount 
       DO
-        SetMemPtr ^ [ i ] . Set := NIL
+        EVAL ObjList .Remove ( SetMemPtr ^ [ i ] . Set )
+      ; SetMemPtr ^ [ i ] . Set := NIL
+      ; EVAL ObjList .Remove ( SetMemPtr ^ [ i ] . Classes )
       ; SetMemPtr ^ [ i ] . Classes := NIL
 (*      ReleaseSet ( SetMemPtr ^ [ i ] . Set ) 
       ; ReleaseSet ( SetMemPtr ^ [ i ] . Classes )
