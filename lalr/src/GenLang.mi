@@ -208,6 +208,13 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
           WriteProdComment (f, prod);
 
           IF index = 0 THEN   (* Endzustand *)
+            IF Language = Modula3 THEN
+              WriteS (f, '  yyStateStack := NIL;');
+              WriteNl (f);
+              WriteS (f, '  yyAttributeStack := NIL;');
+              WriteNl (f);
+              WriteS (f, '  RETURN yyErrorCount;');
+              WriteNl (f);
             IF Language = Modula2 THEN
               WriteS (f, '  DynArray.ReleaseArray (yyStateStack, yyStateStackSize, SYSTEM.TSIZE (yyTableElmt));');
               WriteNl (f);
@@ -224,7 +231,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
               WriteNl (f);
             END;
           ELSE
-            IF Language = Modula2 THEN
+            IF Language = Modula3 OR Language = Modula2 THEN
               IF prod^.Len <> 0 
               THEN 
                 WriteS (f, '  DEC (yyStackPtr, ');

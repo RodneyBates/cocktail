@@ -1,17 +1,23 @@
 (* Derived from: ** $Id: Parser.mi,v 2.8 1992/08/12 06:54:05 grosch rel $ *)
 (* Skeleton parser for Cocktail lalr. *)
-(* Modified Rodney M. Bates. Various times. *)
+(* Modified Rodney M. Bates. Various times. rodney.m.bates@acm.org*)
+(* Beginning 3-2023: 
+    3-2023 Add generation of Module-3 code. 
+    Further changes in https://github.com/RodneyBates/cocktail
+*) 
+
 
 (* Parser.m3. *) 
 
 $@ INTERFACE @;
 
-$@ IMPORT SYSTEM, $, Positions, Errors, Strings, DynArray, IntSets, System;
+$@ IMPORT SYSTEM, $, Positions, Errors, Strings, IntSets, System;
 
 $G (* GLOBAL section is inserted here *)
 
 CONST
    yyInitStackSize      = 100;
+   yyStackExpansionFactor = 2.0 
    yyNoState            = 0;
 
 $T (* Table Constants are inserted here *)
@@ -33,9 +39,9 @@ TYPE
    yyNCombType          = yyStateRange;
    yyTCombTypePtr       = REF yyTCombType;
    yyNCombTypePtr       = REF yyNCombType;
-   yyStackPtrType       = yyTableElmt [ MIN(yyTableElmt) .. MAX (yyTableElmt) ];
-   yyStackType          = REF ARRAY yyStackPtrType OF yyStateRange;
-   yyAttributeStackType = REF ARRAY yyStackPtrType OF tParsAttribute;
+   yyStackPtrType       = INTEGER 
+   yyStackType          = REF ARRAY OF yyStateRange;
+   yyAttributeStackType = REF ARRAY OF tParsAttribute 
 
 VAR
    yyTBasePtr           : ARRAY yyTableElmt [0 .. yyLastReadState] 
@@ -54,8 +60,8 @@ VAR
    yyIsInitialized      : BOOLEAN;
    yyTableFile          : System.tFile;
 
-PROCEDURE TokenName (Token: SHORTCARD; VAR Name: ARRAY OF CHAR);
-   PROCEDURE Copy (Source: ARRAY OF CHAR; VAR Target: ARRAY OF CHAR);
+PROCEDURE TokenName (Token: SHORTCARD; VAR Name: ARRAY OF CHAR) =
+   PROCEDURE Copy (Source: ARRAY OF CHAR; VAR Target: ARRAY OF CHAR)=
       VAR i, j: CARDINAL;
       BEGIN
          IF LAST (Source) < LAST (Target)
@@ -69,16 +75,17 @@ $W      (* token names are inserted here *)
       END;
    END TokenName;
 
-$@ PROCEDURE @ (): CARDINAL;
+$@ PROCEDURE @ (): CARDINAL =
 $L (* LOCAL section is inserted here *)
    VAR
       yyState           : yyStateRange;
       yyTerminal        : yySymbolRange;
       yyNonterminal     : yySymbolRange;        (* left-hand side symbol *)
       yyStackPtr        : yyStackPtrType;
-      yyStateStackSize  : LONGINT;
-      yyAttrStackSize   : LONGINT;
-      yyShortStackSize  : yyStackPtrType;
+      yyStackLAST       : INTEGER;
+      yyStateStackSize  : INTEGER;
+      (* yyStackPtr, yyStackLAST, and yyStateStackSize always apply equally
+         to yyStateStack and yyAttributeStack. *)
       yyStateStack      : yyStackType;
       yyAttributeStack  : yyAttributeStackType;
       yySynAttribute    : tParsAttribute;       (* synthesized attribute *)
@@ -89,17 +96,47 @@ $@    yyRepairAttribute : $.tScanAttribute;
       yyIsRepairing     : BOOLEAN;
       yyErrorCount      : CARDINAL;
       yyTokenString     : ARRAY [0..127] OF CHAR;
-   BEGIN
+      
+    PROCEDURE ExpandStateStack ( VAR Stack : yyStackTyp , ToSize : INTEGER ) =
+
+      VAR LOldStack : yyStackTyp;
+      VAR LStackNumber : INTEGER; 
+      BEGIN
+        LStackNumber := NUMBER ( Stack ^ );
+        IF LStackNumber < ToSize
+        THEN
+          LOldStack := Stack; 
+          Stack := NEW ( yyStackTyp , ToSize );
+          SUBARRAY ( Stack ^ , 0 LStackNumber - 1 ) := LOldStack ^;
+          LOldStack := NIL; 
+        END; 
+      END ExpandStateStack; 
+
+    PROCEDURE ExpandAttributeStack
+      ( VAR Stack : yyAttributeStackTyp , ToSize : INTEGER ) =
+
+      VAR LOldStack : yyAttributeStackTyp;
+      VAR LStackNumber : INTEGER; 
+      BEGIN
+        LStackNumber := NUMBER ( Stack ^ );
+        IF LStackNumber < ToSize
+        THEN
+          LOldStack := Stack; 
+          Stack := NEW ( yyAttributeStackTyp , ToSize );
+          SUBARRAY ( Stack ^ , 0 LStackNumber - 1 ) := LOldStack ^;
+          LOldStack := NIL; 
+        END; 
+      END ExpandAttributeStack; 
+
+$@ BEGIN (* @ *) 
 $@    Begin@;
       yyState           := yyStartState;
 $@    yyTerminal        := VAL ( yySymbolRange,$.GetToken ());
       yyStateStackSize  := yyInitStackSize;
       yyAttrStackSize   := yyInitStackSize;
-      DynArray.MakeArray 
-        (yyStateStack, yyStateStackSize, BYTESIZE (yyStateRange));
-      DynArray.MakeArray 
-        (yyAttributeStack, yyAttrStackSize, BYTESIZE (tParsAttribute));
-      yyShortStackSize  := VAL ( yyStackPtrType , yyStateStackSize ) - 1;
+      yyStateStack := NEW ( yStateStackType , yyStateStackSize )
+      yyAttributeStack := NEW ( yyAttributeStackType , yyStateStackSize ) 
+      yyStackLAST := LAST ( yyStateStack ^ ) (* Of yyAttributeStack too. *);
       yyStackPtr        := 0;
       yyErrorCount      := 0;
       yyIsRepairing     := FALSE;
@@ -110,18 +147,18 @@ $@    yyTerminal        := VAL ( yySymbolRange,$.GetToken ());
                  after an error.
               3) Either: 
                  a) Possibly one read-reduce followed by 
-                    A sequence of reduces
+                    a sequence of reduces
               or b) One read
            *)  
          (* Push state stack. *) 
-         IF yyStackPtr >= yyShortStackSize THEN
-            DynArray.ExtendArray 
-              (yyStateStack, yyStateStackSize, BYTESIZE (yyStateRange));
-            DynArray.ExtendArray 
-              (yyAttributeStack, yyAttrStackSize, 
-               BYTESIZE (tParsAttribute)
-              );
-            yyShortStackSize := VAL ( Size ) - 1;
+         IF yyStackPtr >= yyStackLAST 
+         THEN
+            yyStateStackSize
+              := MAX ( NUMBER ( yyStateStack ^ ) * 2 , yyStackPtr + 2 ) 
+            ExpandStateStack ( yyStateStack , yyStateStackSize ); 
+            ExpandAttributeStack ( yyAttributeStack , yyStateStackSize );
+            yyStackLAST
+              := LAST ( yyStateStack ^ ) (* Of yyAttributeStack too. *);
          END (* IF *) ;
          yyStateStack^ [yyStackPtr] := yyState;
 
@@ -173,7 +210,8 @@ $@                      $.Attribute.Position, Errors.Array,
                ELSE (* report and recover *)
                   INC (yyErrorCount);
                   ErrorRecovery 
-                    (yyTerminal, yyStateStack, yyStateStackSize, yyStackPtr);
+                    (yyTerminal, yyStateStack,
+                     NUMBER ( yyStateStack ^ ), yyStackPtr);
                   yyIsRepairing := TRUE;
                END (* IF *) ;
             END (* IF *) ;
@@ -223,7 +261,7 @@ PROCEDURE ErrorRecovery (
       VAR Terminal      : yySymbolRange ;
           StateStack    : yyStackType   ;
           StackSize     : LONGINT       ;
-          StackPtr      : yyStackPtrType);
+          StackPtr      : yyStackPtrType) =
    VAR
       TokensSkipped     : BOOLEAN;
       ContinueSet       : IntSets . T;
@@ -284,7 +322,7 @@ PROCEDURE ComputeContinuation (
           Stack         : yyStackType   ;
           StackSize     : LONGINT       ;
           StackPtr      : yyStackPtrType;
-      VAR ContinueSet   : IntSets . T     );
+      VAR ContinueSet   : IntSets . T     ) =
    VAR Terminal         : yySymbolRange;
    BEGIN
       ContinueSet:= IntSets . Empty ( );
@@ -303,14 +341,14 @@ PROCEDURE ComputeContinuation (
 PROCEDURE IsContinuation (
       Terminal          : yySymbolRange ;
       ParseStack        : yyStackType   ;
-      StackSize         : LONGINT       ;
-      StackPtr          : yyStackPtrType): BOOLEAN;
+      StackSize         : INTEGER       ;
+      StackPtr          : yyStackPtrType): BOOLEAN = 
    VAR
       State             : yyStackPtrType;
       Nonterminal       : yySymbolRange;
       Stack             : yyStackType;
    BEGIN
-      DynArray.MakeArray (Stack, StackSize, BYTESIZE (yyStateRange));
+      Stack := NEW (yyStackTyp , StackSize);
       FOR State := 0 TO StackPtr DO
          Stack^ [State] := ParseStack^ [State];
       END;
@@ -319,17 +357,18 @@ PROCEDURE IsContinuation (
          Stack^ [StackPtr] := State;
          State := Next (State, Terminal);
          IF State = yyNoState THEN
-            DynArray.ReleaseArray (Stack, StackSize, BYTESIZE (yyStateRange));
+            Stack := NIL; 
             RETURN FALSE;
          END;
-         IF State <= yyLastReadTermState THEN           (* read or read terminal reduce ? *)
-            DynArray.ReleaseArray (Stack, StackSize, BYTESIZE (yyStateRange));
+         IF State <= yyLastReadTermState (* read or read terminal reduce ? *)
+         THEN
+            Stack := NIL; 
             RETURN TRUE;
          END;
 
          LOOP                                           (* reduce *)
             IF State =  yyStopState THEN
-               DynArray.ReleaseArray (Stack, StackSize, BYTESIZE (yyStateRange));
+               Stack := NIL; 
                RETURN TRUE;
             ELSE 
                DEC (StackPtr, yyLength [State]);
@@ -337,8 +376,10 @@ PROCEDURE IsContinuation (
             END;
 
             State := Next (Stack^ [StackPtr], Nonterminal);
-            IF StackPtr >= VAL ( yyStackPtrType , StackSize ) THEN
-               DynArray.ExtendArray (Stack, StackSize, BYTESIZE (yyStateRange));
+            IF StackPtr >= StackSize THEN
+              ExpandStateStack
+                (Stack, MAX (NUMBER ( Stack ^ ) * 2 , StackPtr + 2 ) )
+              StackSize := NUMBER (Stack^); 
             END;
             INC (StackPtr);
             IF State < yyFirstFinalState THEN EXIT; END; (* read nonterminal ? *)
@@ -359,14 +400,14 @@ PROCEDURE ComputeRestartPoints (
           ParseStack    : yyStackType   ;
           StackSize     : LONGINT       ;
           StackPtr      : yyStackPtrType;
-      VAR RestartSet    : IntSets . T     );
+      VAR RestartSet    : IntSets . T     ) =
    VAR
       Stack             : yyStackType;
       State             : yyStackPtrType;
       Nonterminal       : yySymbolRange;
       ContinueSet       : IntSets . T;
    BEGIN
-      DynArray.MakeArray (Stack, StackSize, BYTESIZE (yyStateRange));
+      Stack := NEW (yyStackTyp, StackSize); 
       FOR State := 0 TO StackPtr DO
          Stack^ [State] := ParseStack^ [State];
       END;
@@ -374,8 +415,10 @@ PROCEDURE ComputeRestartPoints (
       State := Stack^ [StackPtr];
 
       LOOP
-         IF StackPtr >= VAL ( yyStackPtrType , StackSize ) THEN
-            DynArray.ExtendArray (Stack, StackSize, BYTESIZE (yyStateRange));
+         IF StackPtr >= StackSize THEN
+            ExpandStateStack
+              (Stack, MAX (NUMBER (Stack ^) * 2 , StackPtr + 2 ) )
+            StackSize := NUMBER (Stack^); 
          END;
          Stack^ [StackPtr] := State;
          ComputeContinuation (Stack, StackSize, StackPtr, ContinueSet);
@@ -390,7 +433,7 @@ PROCEDURE ComputeRestartPoints (
 
             LOOP                                        (* reduce *)
                IF State = yyStopState THEN
-                  DynArray.ReleaseArray (Stack, StackSize, BYTESIZE (yyStateRange));
+                  Stack := NIL; 
                   ContinueSet := NIL;
                   RETURN;
                ELSE 
@@ -411,7 +454,7 @@ PROCEDURE ComputeRestartPoints (
 
 (* access the parse table:   Next : State x Symbol -> State *)
 
-PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange;
+PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange =
    VAR
       TCombPtr          : yyTCombTypePtr;
       NCombPtr          : yyNCombTypePtr;
@@ -442,7 +485,7 @@ PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange;
       END;
    END Next;
 
-PROCEDURE yyGetTables;
+PROCEDURE yyGetTables ( ) = 
    VAR
       BlockSize, j, n   : CARDINAL;
       State     : yyStateRange;
@@ -491,7 +534,7 @@ PROCEDURE yyGetTables;
       END;
    END yyGetTables;
 
-PROCEDURE yyGetTable (Address: SYSTEM.ADDRESS): CARDINAL;
+PROCEDURE yyGetTable (Address: SYSTEM.ADDRESS): CARDINAL =
    VAR
       N         : INTEGER;
       Length    : yyTableElmt;
@@ -505,7 +548,7 @@ PROCEDURE yyGetTable (Address: SYSTEM.ADDRESS): CARDINAL;
       RETURN LongLength;
    END yyGetTable;
 
-PROCEDURE yyErrorCheck (ErrorCode: INTEGER; Info: INTEGER);
+PROCEDURE yyErrorCheck (ErrorCode: INTEGER; Info: INTEGER) =
    VAR ErrNo: INTEGER;
    BEGIN
      IF Info < 0 THEN
@@ -515,7 +558,7 @@ PROCEDURE yyErrorCheck (ErrorCode: INTEGER; Info: INTEGER);
      END;
    END yyErrorCheck;
 
-$@ PROCEDURE Begin@;
+$@ PROCEDURE Begin@ =
    BEGIN
 $B      (* BEGIN section is inserted here *)
       IF NOT yyIsInitialized THEN
@@ -524,7 +567,7 @@ $B      (* BEGIN section is inserted here *)
       END;
 $@    END Begin@;
 
-$@ PROCEDURE Close@;
+$@ PROCEDURE Close@ =
    BEGIN
 $C      (* CLOSE section is inserted here *)
 $@    END Close@;

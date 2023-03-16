@@ -3,9 +3,9 @@
 (* $Id: Gen.mi,v 2.6 1992/08/12 07:04:48 grosch rel $ *)
 
 (* Rodney M. Bates, modifications: 
-
     1-98 Change to not open /dev/null when -d (or -a) flag is not given. 
-
+    3-2023 Add generation of Module-3 code. 
+    Further changes in https://github.com/RodneyBates/cocktail
 *) 
 
 (* $Log: Gen.mi,v $
@@ -152,7 +152,7 @@ IMPLEMENTATION MODULE Gen;
     MakeList (act); pos.Line := 0;	pos.Column := 0;
     MakeList (com); cpos.Line := 0;	cpos.Column := 0;
 
-    IF Language = Modula2 THEN
+    IF Language = Modula3 OR Language = Modula2 THEN
       ArrayToString ('{', s);
 	Append (s,EOL); Lists.Append (act, ADDRESS (PutString (s)));
       ArrayToString ('TYPE', s);
@@ -207,7 +207,7 @@ IMPLEMENTATION MODULE Gen;
 
       INC (TableSize, LastTerminal);
       INC (NTableSize, LastSymbol);
-      IF Language = Modula2 THEN
+      IF Language = Modula3 OR Language = Modula2 THEN
 	 MakeFileName (ParserName, Parser, ".Tab", FileName);
 	 out := OpenOutput (FileName);
 	 IF StatIsBad (out) THEN

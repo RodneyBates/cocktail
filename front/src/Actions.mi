@@ -1,5 +1,10 @@
 (* hanlde global actions and comments *)
 
+(* Rodney M. Bates, modifications: 
+    3-2023 Add generation of Module-3 code. 
+    Further changes in https://github.com/RodneyBates/cocktail
+*) 
+
 (* $Id: Actions.mi,v 1.5 1992/08/07 15:13:51 grosch rel $ *)
 
 (* $Log: Actions.mi,v $
@@ -88,7 +93,7 @@ FROM WriteTok	IMPORT tLanguage, Language, SourceFileName;
   PROCEDURE WriteActions (kind: tActionMode; f: tFile; Line: BOOLEAN);
     BEGIN
       IF Action [kind].ActPos.Line # 0 THEN
-	IF Language = Modula2 THEN
+	IF Language = Modula3 OR Language = Modula2 THEN
 	  WriteS (f, '(* line ');
 	  WriteI (f, Action [kind].ActPos.Line, 0);
 	  WriteS (f, ' "');

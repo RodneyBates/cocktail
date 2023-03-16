@@ -3,9 +3,9 @@
 (* $Id: ArgCheck.md,v 1.2 1992/08/07 15:22:49 grosch rel $ *)
 
 (* Rodney M. Bates, modifications: 
-
-    1-98 Change to not open /dev/null when -d (or -a) flag is not given. 
-
+    1-98 Change to not open /dev/null when -d (or -a) flag is not given.
+    3-2023 Add generation of Module-3 code.
+    Further changes in https://github.com/RodneyBates/cocktail
 *) 
 
 (* $Log: ArgCheck.md,v $
@@ -22,19 +22,19 @@
 
 DEFINITION MODULE ArgCheck;
 
-FROM	IO	IMPORT	tFile;
-FROM	Strings	IMPORT	tString;
-FROM	Idents	IMPORT	tIdent;
+FROM    IO      IMPORT  tFile;
+FROM    Strings IMPORT  tString;
+FROM    Idents  IMPORT  tIdent;
 
 CONST
-  Scanner	= 'Scanner';
-  Parser	= 'Parser';
+  Scanner       = 'Scanner';
+  Parser        = 'Parser';
 
 VAR
-  LineFlag	,
-  Generate	: BOOLEAN;
-  Pars, Def	: tFile;
-  TEST		: BOOLEAN;
+  LineFlag      ,
+  Generate      : BOOLEAN;
+  Pars, Def     : tFile;
+  TEST          : BOOLEAN;
   ExtDef, ExtImp: ARRAY [0..5] OF CHAR;
 VAR MakeDef : BOOLEAN;
 
