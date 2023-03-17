@@ -1,8 +1,11 @@
 (* $Id: Errors.md,v 2.1 1992/08/07 15:28:42 grosch rel $ *)
 
-DEFINITION MODULE Errors;
+(* Modified from Errors.md, to be in Modula-3.
+   Rodney M. Bates, rodney.m.bates@acm.org.
+*) 
 
-FROM SYSTEM	IMPORT ADDRESS;
+INTERFACE Errors;
+
 FROM Positions	IMPORT tPosition;
 
 CONST
@@ -35,7 +38,7 @@ CONST
    Set			= 9	;
    Ident		= 10	;
 
-VAR Exit	: PROC;
+VAR Exit	: PROCEDURE ( );
 
 PROCEDURE ErrorMessage	(ErrorCode, ErrorClass: CARDINAL; Position: tPosition);
 PROCEDURE ErrorMessageI	(ErrorCode, ErrorClass: CARDINAL; Position: tPosition;
