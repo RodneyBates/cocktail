@@ -6,7 +6,6 @@
     Further changes in https://github.com/RodneyBates/cocktail
 *) 
 
-
 (* Parser.m3. *) 
 
 $@ INTERFACE @;
@@ -131,7 +130,7 @@ $@    yyRepairAttribute : $.tScanAttribute;
 $@ BEGIN (* @ *) 
 $@    Begin@;
       yyState           := yyStartState;
-$@    yyTerminal        := VAL ( yySymbolRange,$.GetToken ());
+$@    yyTerminal        := $.GetToken ();
       yyStateStackSize  := yyInitStackSize;
       yyAttrStackSize   := yyInitStackSize;
       yyStateStack := NEW ( yStateStackType , yyStateStackSize )
@@ -166,11 +165,9 @@ $@    yyTerminal        := VAL ( yySymbolRange,$.GetToken ());
                  after that. This loop also goes through the default state
                  computations. *) 
             (* SPEC State := Next (State, Terminal); terminal transition *)
-            yyTCombPtr := yyTCombTypePtr 
-                            ( LONGCARD ( yyTBasePtr [yyState] ) 
-                              + VAL ( LONGCARD , yyTerminal ) 
-                                * BYTESIZE (yyTCombType)
-                            );
+            yyTCombPtr
+              := yyTCombTypePtr 
+                   ( yyTBasePtr [yyState] + yyTerminal * BYTESIZE (yyTCombType);
             IF yyTCombPtr^.Check = yyState 
             THEN
                yyState := yyTCombPtr^.Next;
@@ -188,7 +185,7 @@ $@    yyTerminal        := VAL ( yySymbolRange,$.GetToken ());
                   IF yyState <= yyLastReadTermState 
                   THEN (* read or read terminal reduce ? *)
 $@                   $.ErrorAttribute 
-                       (VAL(INTEGER,yyRepairToken), yyRepairAttribute);
+                       (yyRepairToken, yyRepairAttribute);
                      TokenName (yyRepairToken, yyTokenString);
                      Errors.ErrorMessageI 
                        (Errors.TokenInserted, Errors.Repair,
@@ -223,7 +220,7 @@ $@                      $.Attribute.Position, Errors.Array,
             THEN (* read terminal reduce ? *)
                INC (yyStackPtr);
 $@             yyAttributeStack^ [yyStackPtr].Scan := $.Attribute;
-$@             yyTerminal := VAL( yySymbolRange , $.GetToken () );
+$@             yyTerminal := $.GetToken ();
                yyIsRepairing := FALSE;
 $X             yyState := yyFinalToProd [yyState]; (* reducing case label ct. *)
             END (* IF *) ;
@@ -234,9 +231,8 @@ $R            (* Code for Reductions is inserted here *)
                    := Next (Top (), Nonterminal); nonterminal transition *)
                yyNCombPtr 
                  := yyNCombTypePtr 
-                      ( LONGCARD (yyNBasePtr [yyStateStack^ [yyStackPtr]])
-                        + VAL ( LONGCARD, yyNonterminal )
-                          * BYTESIZE (yyNCombType)
+                      ( yyNBasePtr [yyStateStack^ [yyStackPtr]]
+                        + LONGCARD, yyNonterminal * BYTESIZE (yyNCombType)
                       );
                yyState := yyNCombPtr^;
                INC (yyStackPtr);
@@ -251,7 +247,7 @@ $X             yyState := yyFinalToProd [yyState]; (* reducing case label ct. *)
          ELSE (* read *)
             INC (yyStackPtr);
 $@          yyAttributeStack^ [yyStackPtr].Scan := $.Attribute;
-$@          yyTerminal := VAL(yySymbolRange,$.GetToken ());
+$@          yyTerminal := $.GetToken ();
             yyIsRepairing := FALSE;
          END (* IF *);
       END (* LOOP *) ;
@@ -282,7 +278,7 @@ $@          $.Attribute.Position, Errors.String, ADR(TokenString) );
       ComputeContinuation (StateStack, StackSize, StackPtr, ContinueSet);
       Strings.AssignEmpty (ContinueString);
       FOR Token := IntSets.Minimum (ContinueSet) TO IntSets.Maximum (ContinueSet) DO
-         IF IntSets.IsElement (VAL(Sets.tElement,Token), ContinueSet) THEN
+         IF IntSets.IsElement (Token, ContinueSet) THEN
             TokenName (Token, TokenArray);
             Strings.ArrayToString (TokenArray, TokenString);
             IF (Strings.Length (ContinueString) + Strings.Length (TokenString) + 1 <= Strings.cMaxStrLength) THEN
@@ -301,8 +297,8 @@ $@       $.Attribute.Position, Errors.String, ADR (ContinueString));
 
    (* 4. skip terminal symbols until a restart point is reached *)
       TokensSkipped := FALSE;
-      WHILE NOT IntSets.IsElement (VAL(Sets.tElement,Terminal), RestartSet) DO
-$@       Terminal := VAL(yySymbolRange,$.GetToken ());
+      WHILE NOT IntSets.IsElement (Terminal, RestartSet) DO
+$@       Terminal := $.GetToken ();
          TokensSkipped := TRUE;
       END;
       RestartSet := NIL;
@@ -463,9 +459,8 @@ PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange =
          LOOP
             TCombPtr 
               := yyTCombTypePtr 
-                   ( LONGCARD (yyTBasePtr [State]) 
-                     + VAL ( LONGCARD , Symbol )
-                       * BYTESIZE (yyTCombType)
+                   ( yyTBasePtr [State] 
+                     + Symbol * BYTESIZE (yyTCombType)
                    );
             IF TCombPtr^.Check # State THEN
                State := yyDefault [State];
@@ -478,8 +473,7 @@ PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange =
         NCombPtr 
           := yyNCombTypePtr 
                ( LONGCARD (yyNBasePtr [State]) 
-                 + VAL ( LONGCARD , Symbol )
-                   * BYTESIZE (yyNCombType)
+                 + Symbol * BYTESIZE (yyNCombType)
                );
         RETURN NCombPtr^;
       END;
@@ -518,7 +512,7 @@ PROCEDURE yyGetTables ( ) =
       n := 0;
       j := 0;
       WHILE j <= yyTableMax DO
-         INC (n, yyGetTable (ADR (yyTComb [VAL(yyStateRange,j)])) DIV BYTESIZE (yyTCombType));
+         INC (n, yyGetTable (ADR (yyTComb [yyStateRange,j])) DIV BYTESIZE (yyTCombType));
          INC (j, BlockSize);
       END;
       IF n # yyTableMax + 1 THEN 
@@ -542,7 +536,7 @@ PROCEDURE yyGetTable (Address: SYSTEM.ADDRESS): CARDINAL =
    BEGIN
       N := System.Read (yyTableFile, ADR (Length), BYTESIZE (yyTableElmt));
       yyErrorCheck (Errors.ReadParseTable, N);
-      LongLength := VAL ( CARDINAL , Length );
+      LongLength := Length;
       N := System.Read (yyTableFile, Address, LongLength);
       yyErrorCheck (Errors.ReadParseTable, N);
       RETURN LongLength;
