@@ -26,14 +26,15 @@ $T (* Table Constants are inserted here *)
 
 TYPE
    yyTableElmt          = SHORTCARD;
-   yyTCombRange         = yyTableElmt [0 .. yyTableMax];
-   yyNCombRange         = yyTableElmt [yyLastTerminal + 1 .. yyNTableMax];
-   yyStateRange         = yyTableElmt [0 .. yyLastState];
-   yyReadRange          = yyTableElmt [yyFirstReadState .. yyLastReadState];
+   yyTCombRange         = yyTableElmt (*[0 .. yyTableMax]*);
+   yyNCombRange         = yyTableElmt (*[yyLastTerminal + 1 .. yyNTableMax]*);
+   yyStateRange         = yyTableElmt (*[0 .. yyLastState]*);
+   yyReadRange          = yyTableElmt (*[yyFirstReadState .. yyLastReadState]*);
    yyReadReduceRange    = yyTableElmt 
-                            [yyFirstReadTermState ..yyLastReadNontermState];
-   yyReduceRange        = yyTableElmt [yyFirstReduceState .. yyLastReduceState];
-   yySymbolRange        = yyTableElmt [yyFirstSymbol .. yyLastSymbol];
+                            (*[yyFirstReadTermState ..yyLastReadNontermState]*);
+   yyReduceRange        = yyTableElmt
+                            (*[yyFirstReduceState .. yyLastReduceState]*);
+   yySymbolRange        = yyTableElmt (*[yyFirstSymbol .. yyLastSymbol]*);
    yyTCombType          = RECORD Check, Next: yyStateRange; END;
    yyNCombType          = yyStateRange;
    yyTCombTypePtr       = REF yyTCombType;
@@ -43,17 +44,17 @@ TYPE
    yyAttributeStackType = REF ARRAY OF tParsAttribute 
 
 VAR
-   yyTBasePtr           : ARRAY yyTableElmt [0 .. yyLastReadState] 
+   yyTBasePtr           : ARRAY (*yyTableElmt*) [0 .. yyLastReadState] 
                           OF yyTCombTypePtr;
-   yyNBasePtr           : ARRAY yyTableElmt [0 .. yyLastReadState]      
+   yyNBasePtr           : ARRAY (*yyTableElmt*) [0 .. yyLastReadState]      
                           OF yyNCombTypePtr;
-   yyDefault            : ARRAY yyTableElmt [0 .. yyLastReadState]      
+   yyDefault            : ARRAY (*yyTableElmt*) [0 .. yyLastReadState]      
                           OF yyReadRange  ;
    yyTComb              : ARRAY yyTCombRange            OF yyTCombType  ;
    yyNComb              : ARRAY yyNCombRange            OF yyNCombType  ;
    yyLength             : ARRAY yyReduceRange           OF yyTableElmt  ;
    yyLeftHandSide       : ARRAY yyReduceRange           OF yySymbolRange;
-   yyContinuation       : ARRAY yyTableElmt [0 .. yyLastReadState]      
+   yyContinuation       : ARRAY (*yyTableElmt*) [0 .. yyLastReadState]      
                           OF yySymbolRange;
    yyFinalToProd        : ARRAY yyReadReduceRange       OF yyReduceRange;
    yyIsInitialized      : BOOLEAN;
@@ -61,7 +62,7 @@ VAR
 
 PROCEDURE TokenName (Token: SHORTCARD; VAR Name: ARRAY OF CHAR) =
    PROCEDURE Copy (Source: ARRAY OF CHAR; VAR Target: ARRAY OF CHAR)=
-      VAR i, j: CARDINAL;
+      VAR i, j: INTEGER;
       BEGIN
          IF LAST (Source) < LAST (Target)
          THEN j := LAST (Source); ELSE j := LAST (Target); END;
@@ -165,9 +166,13 @@ $@    yyTerminal        := $.GetToken ();
                  after that. This loop also goes through the default state
                  computations. *) 
             (* SPEC State := Next (State, Terminal); terminal transition *)
-            yyTCombPtr
-              := yyTCombTypePtr 
-                   ( yyTBasePtr [yyState] + yyTerminal * BYTESIZE (yyTCombType);
+
+            yyTCombPtr := LOOPHOLE 
+                            ( LOOPHOLE ( yyTBasePtr [yyState] ,M2LONGCARD) 
+                              + (VAL (   yyTerminal,M2LONGCARD ) 
+                                * BYTESIZE (yyTCombType))
+                            ,yyTCombTypePtr);
+
             IF yyTCombPtr^.Check = yyState 
             THEN
                yyState := yyTCombPtr^.Next;
@@ -229,11 +234,14 @@ $X             yyState := yyFinalToProd [yyState]; (* reducing case label ct. *)
 $R            (* Code for Reductions is inserted here *)
               (* SPEC State 
                    := Next (Top (), Nonterminal); nonterminal transition *)
+
                yyNCombPtr 
-                 := yyNCombTypePtr 
-                      ( yyNBasePtr [yyStateStack^ [yyStackPtr]]
-                        + LONGCARD, yyNonterminal * BYTESIZE (yyNCombType)
-                      );
+                 := LOOPHOLE 
+                      ( LOOPHOLE (yyNBasePtr [yyStateStack^ [yyStackPtr]],M2LONGCARD)
+                        + (VAL (  yyNonterminal,M2LONGCARD )
+                          * BYTESIZE (yyNCombType))
+                      ,yyNCombTypePtr);
+
                yyState := yyNCombPtr^;
                INC (yyStackPtr);
                yyAttributeStack^ [yyStackPtr] := yySynAttribute;
@@ -256,7 +264,7 @@ $@    END @;
 PROCEDURE ErrorRecovery (
       VAR Terminal      : yySymbolRange ;
           StateStack    : yyStackType   ;
-          StackSize     : LONGINT       ;
+          StackSize     : INTEGER       ;
           StackPtr      : yyStackPtrType) =
    VAR
       TokensSkipped     : BOOLEAN;
@@ -316,7 +324,7 @@ $@       Errors.ErrorMessage (Errors.RestartPoint, Errors.Information, $.Attribu
 
 PROCEDURE ComputeContinuation (
           Stack         : yyStackType   ;
-          StackSize     : LONGINT       ;
+          StackSize     : INTEGER       ;
           StackPtr      : yyStackPtrType;
       VAR ContinueSet   : IntSets . T     ) =
    VAR Terminal         : yySymbolRange;
@@ -394,7 +402,7 @@ PROCEDURE IsContinuation (
 
 PROCEDURE ComputeRestartPoints (
           ParseStack    : yyStackType   ;
-          StackSize     : LONGINT       ;
+          StackSize     : INTEGER       ;
           StackPtr      : yyStackPtrType;
       VAR RestartSet    : IntSets . T     ) =
    VAR
@@ -457,11 +465,14 @@ PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange =
    BEGIN
       IF Symbol <= yyLastTerminal THEN
          LOOP
+         
             TCombPtr 
-              := yyTCombTypePtr 
-                   ( yyTBasePtr [State] 
-                     + Symbol * BYTESIZE (yyTCombType)
-                   );
+              := LOOPHOLE 
+                   ( LOOPHOLE (yyTBasePtr [State],M2LONGCARD) 
+                     + (VAL (   Symbol,M2LONGCARD )
+                       * BYTESIZE (yyTCombType))
+                   ,yyTCombTypePtr);
+
             IF TCombPtr^.Check # State THEN
                State := yyDefault [State];
                IF State = yyNoState THEN RETURN yyNoState; END;
@@ -470,11 +481,14 @@ PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange =
             END;
          END;
       ELSE
+      
         NCombPtr 
-          := yyNCombTypePtr 
-               ( LONGCARD (yyNBasePtr [State]) 
-                 + Symbol * BYTESIZE (yyNCombType)
-               );
+          := LOOPHOLE 
+               ( LOOPHOLE (yyNBasePtr [State],M2LONGCARD)
+                 + (VAL (   Symbol,M2LONGCARD )
+                   * BYTESIZE (yyNCombType))
+               ,yyNCombTypePtr);
+
         RETURN NCombPtr^;
       END;
    END Next;
@@ -483,8 +497,8 @@ PROCEDURE yyGetTables ( ) =
    VAR
       BlockSize, j, n   : CARDINAL;
       State     : yyStateRange;
-      TBase     : ARRAY yyTableElmt[0 .. yyLastReadState] OF yyTCombRange;
-      NBase     : ARRAY yyTableElmt[0 .. yyLastReadState] OF yyNCombRange;
+      TBase     : ARRAY (*yyTableElmt*) [0 .. yyLastReadState] OF yyTCombRange;
+      NBase     : ARRAY (*yyTableElmt*) [0 .. yyLastReadState] OF yyNCombRange;
    BEGIN
       BlockSize := 64000 DIV BYTESIZE (yyTCombType);
       yyTableFile := System.OpenInput (ParsTabName);
