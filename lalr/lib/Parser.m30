@@ -586,8 +586,7 @@ PROCEDURE yyGetTables() =
       n := 0;
       j := 0;
       WHILE j <= yyTableMax DO
-         INC (n, yyGetTable (ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1037
- $$ *) (yyTComb [VAL(j,yyStateRange)])) DIV BYTESIZE (yyTCombType));
+         INC (n, yyGetTable (ADR (yyTComb [VAL(j,yyStateRange)])) DIV BYTESIZE (yyTCombType));
          INC (j, BlockSize);
       END;
       IF n # (yyTableMax + 1) THEN 
@@ -596,12 +595,10 @@ PROCEDURE yyGetTables() =
       System.Close (yyTableFile);
 
       FOR StateF := 1 TO yyLastReadState DO
-         yyTBasePtr [StateF] := ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1046
- $$ *) (yyTComb [TBase [StateF]]);
+         yyTBasePtr [StateF] := ADR (yyTComb [TBase [StateF]]);
       END;
       FOR StateF := 1 TO yyLastReadState DO
-         yyNBasePtr [StateF] := ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1049
- $$ *) (yyNComb [NBase [StateF]]);
+         yyNBasePtr [StateF] := ADR (yyNComb [NBase [StateF]]);
       END;
    END yyGetTables;
 
