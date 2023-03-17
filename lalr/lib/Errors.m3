@@ -3,9 +3,11 @@
 (* R.M.B. WriteI will accept INTEGER, but not SHORTINT or LONGINT.
    Changed WriteInfo to comply. *)
 
-IMPLEMENTATION MODULE Errors;
+(* Modified from Errors.mi, to be in Modula-3.
+   Rodney M. Bates, rodney.m.bates@acm.org.
+*) 
+MODULE Errors;
 
-FROM SYSTEM	IMPORT ADDRESS;
 FROM IO		IMPORT tFile, StdError, WriteC, WriteNl, WriteS, WriteI,
 		       WriteB, WriteR, CloseIO;
 FROM Sets	IMPORT tSet, IsElement, Size;
@@ -72,7 +74,7 @@ PROCEDURE WriteCode (ErrorCode: CARDINAL);
    BEGIN
       CASE ErrorCode OF
       |  NoText		 :
-      |  SyntaxError	 : WriteS (StdError, "syntax error"		);
+       |  SyntaxError	 : WriteS (StdError, "syntax error"		);
       |  ExpectedTokens	 : WriteS (StdError, "expected tokens"		);
       |  RestartPoint	 : WriteS (StdError, "restart point"		);
       |  TokenInserted	 : WriteS (StdError, "token inserted "		);
@@ -85,15 +87,15 @@ PROCEDURE WriteCode (ErrorCode: CARDINAL);
 
 PROCEDURE WriteInfo	(InfoClass: CARDINAL; Info: ADDRESS);
    VAR
-      PtrToInteger	: POINTER TO INTEGER;
-      PtrToShort	: POINTER TO SHORTCARD;
-      PtrToLong		: POINTER TO LONGINT;
-      PtrToReal		: POINTER TO REAL;
-      PtrToBoolean	: POINTER TO BOOLEAN;
-      PtrToCharacter	: POINTER TO CHAR;
-      PtrToString	: POINTER TO Strings.tString;
-      PtrToArray	: POINTER TO ARRAY [0..1023] OF CHAR;
-      PtrToIdent	: POINTER TO tIdent;
+      PtrToInteger	: REF INTEGER;
+      PtrToShort	: REF [0 .. 65535]
+      PtrToLong		: REF INTEGER;
+      PtrToReal		: REF REAL;
+      PtrToBoolean	: REF BOOLEAN;
+      PtrToCharacter	: REF CHAR;
+      PtrToString	: REF Strings.tString;
+      PtrToArray	: REF ARRAY [0..1023] OF CHAR;
+      PtrToIdent	: REF tIdent;
       Int               : INTEGER;
    BEGIN
       WriteS (StdError, ": ");

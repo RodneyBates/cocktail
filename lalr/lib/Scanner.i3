@@ -1,6 +1,10 @@
 (* $Id: Scanner.md,v 2.2 1992/08/07 15:28:42 grosch rel $ *)
 
-$@ DEFINITION MODULE $;
+(* Modified from Scanner.md, to be in Modula-3.
+   Rodney M. Bates, rodney.m.bates@acm.org.
+*) 
+
+$@ INTERFACE $;
 
 FROM Positions	IMPORT tPosition;
 
