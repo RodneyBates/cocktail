@@ -69,7 +69,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
 
   PROCEDURE WriteConstants (f: tFile); (* Ausgabe der Konstanten *)
     BEGIN
-      IF Language = Modula2 THEN
+      IF Language = Modula3 OR Language = Modula2 THEN
         WriteS (f, '   yyFirstTerminal          = ');
         WriteI (f, FirstTerminal, 0); WriteC (f, ';'); WriteNl(f);
         WriteS (f, '   yyLastTerminal           = ');
@@ -156,7 +156,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
       IF CaseLabels > 0 THEN
         INC (label, CaseLabels);
         OpenCase (f, label);
-      ELSIF Language = Modula2 THEN
+      ELSIF Language = Modula3 OR Language = Modula2 THEN
         WriteS  (f, 'CASE yyState OF');
         WriteNl (f);
       ELSE (* Language = C *)
@@ -182,7 +182,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
         (* States ausgeben *)
 
         WITH prod^.Reduce DO
-          IF Language = Modula2 THEN
+          IF Language = Modula3 OR Language = Modula2 THEN
             WriteS (f, '  | ');
             WriteI (f, Array^[1], 0);
           ELSE (* Language = C *)
@@ -192,7 +192,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
           END;
           IF NOT CaseFlag THEN
             FOR u := 2 TO Used DO
-              IF Language = Modula2 THEN
+              IF Language = Modula3 OR Language = Modula2 THEN
                 WriteC (f, ',');
                 WriteI (f, Array^[u], 0);
               ELSE (* Language = C *)
@@ -203,7 +203,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
               END;
             END;
           END;
-          IF Language = Modula2 THEN WriteC (f, ':'); END;
+          IF Language = Modula3 OR Language = Modula2 THEN WriteC (f, ':'); END;
           
           WriteProdComment (f, prod);
 
@@ -272,7 +272,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
 
       IF CaseLabels > 0 THEN
         CloseCase (f, cases);
-      ELSIF Language = Modula2 THEN
+      ELSIF Language = Modula3 OR Language = Modula2 THEN
         WriteS  (f, 'END;');
         WriteNl (f);
       ELSE (* Language = C *)
@@ -283,7 +283,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
   
   PROCEDURE OpenCase (f: tFile; label: tStateIndex);
     BEGIN
-      IF Language = Modula2 THEN
+      IF Language = Modula3 OR Language = Modula2 THEN
         WriteS  (f, 'CASE yyState OF');
         WriteNl (f);
       ELSE (* Language = C *)
@@ -299,7 +299,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
 
   PROCEDURE NextCase (f: tFile; label: tStateIndex);
     BEGIN
-      IF Language = Modula2 THEN
+      IF Language = Modula3 OR Language = Modula2 THEN
         WriteS  (f, 'ELSE CASE yyState OF');
         WriteNl (f);
       ELSE (* Language = C *)
@@ -316,7 +316,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
 
   PROCEDURE CloseCase (f: tFile; cases: INTEGER);
     BEGIN
-      IF Language = Modula2 THEN
+      IF Language = Modula3 OR Language = Modula2 THEN
         WHILE cases > 0 DO
           WriteS  (f, 'END; (* additional CASE *)');
           WriteNl (f);
@@ -339,7 +339,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
       Delimiter : CHAR;
     BEGIN
       IF pos.Line # 0 THEN
-        IF Language = Modula2 THEN
+        IF Language = Modula3 OR Language = Modula2 THEN
           WriteS (f, '(* line ');
           WriteI (f, pos.Line, 0);
           WriteS (f, ' "');
@@ -371,7 +371,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
         i2 := Length (s);
         Tail (a);
         IF IsEmpty (a) THEN DEC (i2); END;
-        IF Language = Modula2 THEN WriteS (f, '  '); END;
+        IF Language = Modula3 OR Language = Modula2 THEN WriteS (f, '  '); END;
         i := i1;
         WHILE i <= i2 DO
           c := Char (s, i); INC (i);
@@ -404,7 +404,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
                 INC (i);
               END;
               IF negative OR (AttrIndex <= len) THEN
-                IF Language = Modula2 THEN
+                IF Language = Modula3 OR Language = Modula2 THEN
                   WriteS (f, 'yyAttributeStack^[yyStackPtr');
                   IF negative THEN WriteS (f, '-'); ELSE WriteS (f, '+'); END;
                   WriteI (f, AttrIndex, 0);
@@ -431,7 +431,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
   PROCEDURE WriteProdComment (f: tFile; prod: tProduction);
     VAR i: tIndex;
     BEGIN
-      IF Language = Modula2 THEN
+      IF Language = Modula3 OR Language = Modula2 THEN
         WriteS (f, ' (* ');
       ELSE (* Language = C *)
         WriteS (f, ' /* ');
@@ -446,7 +446,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
         WriteC (f, '.');
       END;
 
-      IF Language = Modula2 THEN
+      IF Language = Modula3 OR Language = Modula2 THEN
         WriteS (f, '*)');
         WriteNl (f);
       ELSE (* Language = C *)
@@ -465,7 +465,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
       sym := TokenToSymbol (t, error);
       GetString (sym, s);
       WriteC (f, Char (s, 1));
-      IF Language = Modula2 THEN
+      IF Language = Modula3 OR Language = Modula2 THEN
         FOR i := 2 TO Length (s) DO
           IF Char (s, i) = ')' THEN
             IF Char (s, i-1) = '*' THEN
