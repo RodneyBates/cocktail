@@ -1,0 +1,1 @@
+-elf -g ./IODrv ./_M2ROOT.o ./Arguments.o ./System.o ./General.o ./Memory.o ./IO.o ./IODrv.o

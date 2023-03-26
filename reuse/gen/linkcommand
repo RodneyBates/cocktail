@@ -1,0 +1,1 @@
+/usr/bin/ld -m elf_i386 -rpath /lib/elf -o IODrv /usr/local/mocka/bin/M2RTS-elf.o ./_M2ROOT.o ./Arguments.o ./System.o ./General.o ./Memory.o ./IO.o ./IODrv.o

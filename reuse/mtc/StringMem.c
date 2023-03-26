@@ -19,7 +19,7 @@
 
 #define InitialMemorySize   (1024 * 16)
 typedef struct S_1 {
-    CHAR A[100000000 + 1];
+    CHAR A[65535 + 1];
 } Memory;
 static Memory *MemoryPtr;
 static LONGINT MemorySize;

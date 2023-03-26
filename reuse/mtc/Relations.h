@@ -8,7 +8,7 @@
 #include "Sets.h"
 #endif
 
-#define Relations_Bound   10000000
+#define Relations_Bound   65535
 typedef INTEGER Relations_Bounds;
 typedef struct Relations_1 {
     Sets_tSet A[Relations_Bound + 1];

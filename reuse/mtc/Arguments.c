@@ -20,16 +20,17 @@ typedef struct Arguments_1 {
     } *A[999 + 1];
 } *Arguments_ArgTable;
 
-/*
-extern void GetArgs ARGS((INTEGER *argc, Arguments_ArgTable *argv));
-extern void GetEnv ARGS((Arguments_ArgTable *env));
+/**/
+extern void GetArgs (INTEGER *argc, Arguments_ArgTable *argv);
+extern void GetEnv (Arguments_ArgTable *env);
 extern void Arguments__init(); 
-*/
+/**/
 
 extern INTEGER parameters_argc;
 extern Arguments_ArgTable parameters_argv;
 extern Arguments_ArgTable parameters_envp;
 
+/*
 void GetArgs
 # ifdef __STDC__
 (INTEGER *argc, Arguments_ArgTable *argv)
@@ -53,7 +54,7 @@ Arguments_ArgTable *env;
 }
  
 void Arguments__init () { }
-
+*/
 
 
 

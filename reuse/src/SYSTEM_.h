@@ -23,6 +23,14 @@
 # endif
 
 /*
+ *	Some headers needed that aren't translations of Modula-2 code. 
+ */
+
+/* #include <stdlib.h> */
+#include <string.h>
+#include <stdlib.h>
+
+/*
  *	Definition of standard constants
  */
 
@@ -215,7 +223,7 @@ extern void ReturnError ARGS((char file[], int line));
 extern char *alloca();
 #else
 /* #include "malloc.h"	*/
-extern char *malloc();
+/*extern char *malloc(); */ 
 extern void free();
 #endif
 

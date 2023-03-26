@@ -48,6 +48,8 @@ TYPE
 
 PROCEDURE ReadOpen	(READONLY (*VAR*) FileName: ARRAY OF CHAR): tFile;
 						(* open  input file	*)
+PROCEDURE ReadOpenT     (FileNameT: TEXT): tFile;
+                                                (* open  input file     *)
 PROCEDURE ReadClose	(f: tFile);		(* close input file	*)
 PROCEDURE Read		(f: tFile; Buffer: ADDRESS; Size: Word.T): INTEGER;
 						(* binary		*)
@@ -71,6 +73,8 @@ PROCEDURE EndOfFile	(f: tFile): BOOLEAN ;	(* end of file ?	*)
 
 PROCEDURE WriteOpen	(READONLY FileName: ARRAY OF CHAR): tFile;
 						(* open  output file	*)
+PROCEDURE WriteOpenT    (FileNameT: TEXT): tFile;
+                                                (* open  output file    *)
 PROCEDURE WriteClose	(f: tFile);		(* close output file	*)
 PROCEDURE WriteFlush	(f: tFile);		(* flush output buffer	*)
 PROCEDURE Write		(f: tFile; Buffer: ADDRESS; Size: INTEGER): INTEGER;

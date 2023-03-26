@@ -1,15 +1,21 @@
 #     RMB Aug 2000 (WSU) rework for movable install directories. 
 
+INBSTALLGMD = /usr/local/reuse
 
-INSTALLARCHIVE     = $(INSTALLGMD)/lib/reuse
-INSTALLHEADERS     = $(INSTALLGMD)/lib/reuse/include
+INSTALLARCHIVE     = $(INSTALLGMD)/lib
+INSTALLHEADERS     = $(INSTALLGMD)/lib/include
 OPT	= -O0 -g
-UNIX	= UNIX
+#UNIX	= NOUNIX
+UNIX	= UNIX #Use Unix system calls instead of cocktail module System.
 CFLAGS	= $(OPT) -D$(UNIX) 
 CC	= gcc
 
 BIN = ../../bintobuildwith
-MTC = $(BIN)/mtc
+showbintobuildwith:
+	echo $(BIN)
+	ls -l $(BIN)
+
+MTC = $(BIN)/mtc -l$(BIN)
 
 EXE     = libreuse.a Main DynArrDrv IODrv MemoryDrv RelDrv SetsDrv SysIODrv
 #M2FLAGS	= -c -d/usr/local/lib/mocka/lib
@@ -458,13 +464,13 @@ SysIODrv	: $(SYSTEM)	\
 
 # TAIL
 
-clean	:
+cleanobj	:
 	rm -f core *.o
 
 CLEAN	: clean
 	rm -f libreuse.a
 
-cleanc	:
+cleanexe	:
 	rm -f Main.o DynArrDrv IODrv Main MemoryDrv RelDrv SetsDrv SysIODrv
 
 .SUFFIXES: .md .mi .h .c .o

@@ -1,0 +1,310 @@
+     1 #include "SYSTEM_.h"                                                          *
+     2 
+     3 #ifndef DEFINITION_General                                                    *     *
+     4 #include "General.h"                                                          1
+     5 #endif                                                                        *
+     6 
+     7 #ifndef DEFINITION_System                                                     3     *
+     8 #include "System.h"                                                           4
+     9 #endif                                                                        5
+    10 
+    11 #ifndef DEFINITION_Memory                                                     7     *
+    12 #include "Memory.h"                                                           8
+    13 #endif                                                                        9
+    14 
+    15 LONGCARD Memory_MemoryUsed;                                                   *     *
+    16 
+    17 #define MinSizeSmallBlock   4                                                 *     *
+    18 #define MaxSizeSmallBlock   62                                               17     *
+    19 #define MinSizeLargeBlockLog   6                                             18     *
+    20 #define MaxSizeLargeBlockLog   24                                            19     *
+    21 #define PoolSize   10240                                                     20     *
+    22 typedef struct S_1 *tBlockPtr;                                                *     *     *     *
+    23 typedef struct S_1 {                                                         22    22    22
+    24     tBlockPtr Successor;                                                     22     *
+    25     LONGINT Size;                                                             *     *
+    26 } tBlock;                                                                     *
+    27 typedef LONGCARD tSmallBlockRange;                                           23    15     *
+    28 typedef LONGCARD tLargeBlockRange;                                           27    27     *
+    29 static struct S_2 {                                                           *    23     *
+    30     ADDRESS A[MaxSizeSmallBlock - MinSizeSmallBlock + 1];                     *     *    18    17
+    31 } SmallChain;                                                                 *
+    32 static struct S_3 {                                                          29    29     *
+    33     ADDRESS A[MaxSizeLargeBlockLog - MinSizeLargeBlockLog + 1];              30    30    20    19
+    34 } LargeChain;                                                                 *
+    35 static ADDRESS PoolFreePtr;                                                  32    33     *
+    36 static ADDRESS PoolEndPtr;                                                   35    35     *
+    37 static tSmallBlockRange i;                                                   36    27     *
+    38 static tLargeBlockRange j;                                                   37    28     *
+    39 
+    40 
+    41 ADDRESS Memory_Alloc                                                         36     *
+    42 # ifdef __STDC__                                                              *     *
+    43 (LONGINT ByteCount)                                                          25     *
+    44 # else                                                                        *
+    45 (ByteCount)                                                                  43
+    46 LONGINT ByteCount;                                                           43    45
+    47 # endif                                                                      13
+    48 {
+    49   tBlockPtr BlockPtr, CurrentBlock, PreviousBlock, BestBlock, PredecessorBlock;    24     *     *     *     *     *
+    50   CARDINAL ChainNumber;                                                       *     *
+    51   LONGINT CurrentBlockSize, BestBlockSize;                                   46     *     *
+    52   tLargeBlockRange j;                                                        38    38
+    53 
+    54   ByteCount = (LONGINT)((BITSET)(ByteCount + VAL(LONGINT, General_MaxAlign) - 1) & G\    46    51     *     *     *     *
+                                                                                     *
+      \eneral_AlignMasks.A[General_MaxAlign]);                                       *    33     *
+    55   if (ByteCount <= MaxSizeSmallBlock) {                                       *    54    30
+    56     if (ByteCount < MinSizeSmallBlock) {                                     55    55    30
+    57       ByteCount = MinSizeSmallBlock;                                         56    56
+    58     }
+    59     if (SmallChain.A[VAL(tSmallBlockRange, ByteCount) - 4] != NIL) {         56    31    54    54    37    57     *
+    60       BlockPtr = (tBlockPtr)SmallChain.A[VAL(tSmallBlockRange, ByteCount) - 4];    49    49    59    59    59    59    59
+    61       SmallChain.A[VAL(tSmallBlockRange, ByteCount) - 4] = (ADDRESS)BlockPtr->Succes\    60    60    60    60    60    41
+                                                                                    60
+      \sor;                                                                         24
+    62       return (ADDRESS)BlockPtr;                                               *    61    61
+    63     } else {                                                                 44
+    64       if ((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr) < ByteCount) {       59    54    36    28    35    61
+    65         if ((LONGCARD)(PoolEndPtr - (LONGCARD)PoolFreePtr) >= MinSizeSmallBlock) {       64    64    64     *    64    57
+    66           Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr), PoolFreePtr);        *    64    65    65    65     *
+    67         }
+    68         PoolFreePtr = Memory_Alloc(PoolSize);                                66    41    21
+    69         PoolEndPtr = (ADDRESS)(PoolFreePtr + PoolSize);                      66    62    68    68
+    70       }
+    71       INC1(PoolFreePtr, (LONGCARD)(ADDRESS)ByteCount);                        *    69    66    69    64
+    72       return PoolFreePtr - (LONGCARD)(ADDRESS)ByteCount;                     62    71    71    71    71
+    73     }
+    74   } else {                                                                   63
+    75     ChainNumber = General_Log2(ByteCount);                                   50     *    72
+    76     CurrentBlock = (tBlockPtr)LargeChain.A[ChainNumber - 6];                 49    60    34    61    75
+    77     PreviousBlock = (tBlockPtr)ADR(LargeChain.A[ChainNumber - 6]);           49    76     *    76    76    76
+    78     BestBlock = NIL;                                                         49    59
+    79     BestBlockSize = 1000000000;                                              51
+    80     while (CurrentBlock != NIL) {                                             *    76    78
+    81       CurrentBlockSize = CurrentBlock->Size;                                 51    80    25
+    82       if (CurrentBlockSize >= ByteCount) {                                   65    81    75
+    83         if (CurrentBlockSize == ByteCount) {                                 82    82    82
+    84           PreviousBlock->Successor = CurrentBlock->Successor;                77    61    81     *
+    85           return (ADDRESS)CurrentBlock;                                      72    72    84
+    86         }
+    87         if (CurrentBlockSize < BestBlockSize) {                              83    83    79
+    88           BestBlock = CurrentBlock;                                          78    85
+    89           BestBlockSize = CurrentBlockSize;                                  87    87
+    90           PredecessorBlock = PreviousBlock;                                  49    84
+    91         }
+    92       }
+    93       PreviousBlock = CurrentBlock;                                          90    88
+    94       CurrentBlock = CurrentBlock->Successor;                                93     *    84
+    95     }
+    96     if (BestBlock != NIL) {                                                  87    88    80
+    97       PredecessorBlock->Successor = BestBlock->Successor;                    90    94    96     *
+    98       if (BestBlockSize - ByteCount >= MinSizeSmallBlock) {                  96    89    83    65
+    99         Memory_Free(BestBlockSize - ByteCount, (ADDRESS)BestBlock + (LONGCARD)(ADDRE\    66    98    98    85    97    72
+      \SS)ByteCount);                                                                *     *
+   100       }
+   101       return (ADDRESS)BestBlock;                                             85    99    99
+   102     }
+   103     for (j = ChainNumber + 1; j <= MaxSizeLargeBlockLog; j += 1) {            *    52    77     *    33     *
+   104       CurrentBlock = (tBlockPtr)LargeChain.A[j - 6];                         94    77    77    77   103
+   105       if (CurrentBlock != NIL) {                                             98   104    96
+   106         LargeChain.A[j - 6] = (ADDRESS)CurrentBlock->Successor;             104   104   104   101   105    97
+   107         if (CurrentBlock->Size - ByteCount >= MinSizeSmallBlock) {          105   106    81    99    98
+   108           Memory_Free(CurrentBlock->Size - ByteCount, (ADDRESS)CurrentBlock + (LONGC\    99   107   107   107   106     *
+      \ARD)(ADDRESS)ByteCount);                                                     99     *     *
+   109         }
+   110         return (ADDRESS)CurrentBlock;                                       101   108   108
+   111       }
+   112     }
+   113     if (ByteCount < PoolSize) {                                             107   108    69
+   114       if ((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr) < ByteCount) {      113    66    69   108    72   113
+   115         if ((LONGCARD)(PoolEndPtr - (LONGCARD)PoolFreePtr) >= MinSizeSmallBlock) {      114   114   114     *   114   107
+   116           Memory_Free((LONGINT)(PoolEndPtr - (LONGCARD)PoolFreePtr), PoolFreePtr);      108   114   115   115   115     *
+   117         }
+   118         PoolFreePtr = Memory_Alloc(PoolSize);                               116    68   113
+   119         PoolEndPtr = (ADDRESS)(PoolFreePtr + PoolSize);                     116   110   118   118
+   120       }
+   121       INC1(PoolFreePtr, (LONGCARD)(ADDRESS)ByteCount);                       71   119   116   119   114
+   122       return PoolFreePtr - (LONGCARD)(ADDRESS)ByteCount;                    110   121   121   121   121
+   123     } else {                                                                 74
+   124       BlockPtr = (tBlockPtr)SysAlloc(ByteCount);                             62   104     *   122
+   125       INC1(Memory_MemoryUsed, VAL(LONGCARD, ByteCount));                    121    15    61   122   124
+   126       return (ADDRESS)BlockPtr;                                             122   122   124
+   127     }
+   128   }
+   129 }
+   130 
+   131 void Memory_Free                                                              *   116
+   132 # ifdef __STDC__                                                             42    42
+   133 (LONGINT ByteCount, ADDRESS a)                                              116   125   126     *
+   134 # else                                                                      123
+   135 (ByteCount, a)                                                              133   133
+   136 LONGINT ByteCount;                                                          133   135
+   137 ADDRESS a;                                                                  133   135
+   138 # endif                                                                      47
+   139 {
+   140   tBlockPtr BlockPtr;                                                       124   126
+   141   tLargeBlockRange ChainNumber;                                              52   103
+   142 
+   143   ByteCount = (LONGINT)((BITSET)(ByteCount + VAL(LONGINT, General_MaxAlign) - 1) & G\   136   136    54     *   125     *
+                                                                                    54
+      \eneral_AlignMasks.A[General_MaxAlign]);                                      54   106     *
+   144   BlockPtr = (tBlockPtr)a;                                                  140   140   137
+   145   if (ByteCount <= MaxSizeSmallBlock) {                                     115   143    55
+   146     if (ByteCount < MinSizeSmallBlock) {                                    145   145   115
+   147       ByteCount = MinSizeSmallBlock;                                        146   146
+   148     }
+   149     BlockPtr->Successor = (tBlockPtr)SmallChain.A[VAL(tSmallBlockRange, ByteCount) -\   144   106   144    61   143   143
+                                                                                    61   147
+      \ 4];
+   150     SmallChain.A[VAL(tSmallBlockRange, ByteCount) - 4] = (ADDRESS)BlockPtr;       149   149   149   149   149   137   149
+   151   } else {                                                                  134
+   152     ChainNumber = General_Log2(ByteCount);                                  141    75   150
+   153     BlockPtr->Successor = (tBlockPtr)LargeChain.A[ChainNumber - 6];         150   149   149   106   150   152
+   154     BlockPtr->Size = ByteCount;                                             153   108   152
+   155     LargeChain.A[ChainNumber - 6] = (ADDRESS)BlockPtr;                      153   153   153   150   154
+   156   }
+   157 }
+   158 
+   159 void Memory__init()                                                         131     *
+   160 {
+   161   static BOOLEAN has_been_called = FALSE;                                    38     *     *     *
+   162 
+   163   if (!has_been_called) {                                                   146   161
+   164     has_been_called = TRUE;                                                 163     *
+   165 
+   166     General__init();                                                          *
+   167     System__init();                                                           *
+   168 
+   169     for (i = MinSizeSmallBlock; i <= MaxSizeSmallBlock; i += 2) {           103    37   147     *   145     *
+   170       SmallChain.A[i - 4] = (ADDRESS)NIL;                                   150   155   169   155   105
+   171     }
+   172     for (j = MinSizeLargeBlockLog; j <= MaxSizeLargeBlockLog; j += 1) {     169   106    33     *   103     *
+   173       LargeChain.A[j - 6] = (ADDRESS)NIL;                                   155   170   172   170   170
+   174     }
+   175     PoolFreePtr = (ADDRESS)NIL;                                             122   173   173
+   176     PoolEndPtr = (ADDRESS)NIL;                                              119   175   175
+   177     Memory_MemoryUsed = 0;                                                  125
+   178   }
+   179 }
+Cross reference: 
+
+-A-
+ A                               30    33    54    59    60    61    76    77   104   106   143   149   150   153   155   170   173 
+ a                              133   135   137   144 
+ ADDRESS                         30    33    35    36    41    61    62    69    71    72    85    99    99   101   106   108   108 
+                                110   119   121   122   126   133   137   150   155   170   173   175   176 
+ ADR                             77 
+
+-B-
+ BestBlock                       49    78    88    96    97    99   101 
+ BestBlockSize                   51    79    87    89    98    99 
+ BITSET                          54   143 
+ BlockPtr                        49    60    61    62   124   126   140   144   149   150   153   154   155 
+ BOOLEAN                        161 
+ ByteCount                       43    45    46    54    54    55    56    57    59    60    61    64    71    72    75    82    83 
+                                 98    99    99   107   108   108   113   114   121   122   124   125   133   135   136   143   143 
+                                145   146   147   149   150   152   154 
+
+-C-
+ CARDINAL                        50 
+ ChainNumber                     50    75    76    77   103   141   152   153   155 
+ CurrentBlock                    49    76    80    81    84    85    88    93    94    94   104   105   106   107   108   108   110 
+ CurrentBlockSize                51    81    82    83    87    89 
+
+-D-
+ define                          17    18    19    20    21 
+ DEFINITION_General               3 
+ DEFINITION_Memory               11 
+ DEFINITION_System                7 
+
+-E-
+ else                            44    63    74   123   134   151 
+ endif                            5     9    13    47   138 
+
+-F-
+ FALSE                          161 
+ for                            103   169   172 
+
+-G-
+ General_AlignMasks              54   143 
+ General_Log2                    75   152 
+ General_MaxAlign                54    54   143   143 
+ General__init                  166 
+
+-H-
+ has_been_called                161   163   164 
+
+-I-
+ i                               37   169   169   169   170 
+ if                              55    56    59    64    65    82    83    87    96    98   105   107   113   114   115   145   146 
+                                163 
+ ifdef                           42   132 
+ ifndef                           3     7    11 
+ INC1                            71   121   125 
+ include                          1     4     8    12 
+
+-J-
+ j                               38    52   103   103   103   104   106   172   172   172   173 
+
+-L-
+ LargeChain                      34    76    77   104   106   153   155   173 
+ LONGCARD                        15    27    28    64    65    65    66    71    72    99   108   114   115   115   116   121   122 
+                                125 
+ LONGINT                         25    43    46    51    54    54    64    66   114   116   133   136   143   143 
+
+-M-
+ MaxSizeLargeBlockLog            20    33   103   172 
+ MaxSizeSmallBlock               18    30    55   145   169 
+ Memory_Alloc                    41    68   118 
+ Memory_Free                     66    99   108   116   131 
+ Memory_MemoryUsed               15   125   177 
+ Memory__init                   159 
+ MinSizeLargeBlockLog            19    33   172 
+ MinSizeSmallBlock               17    30    56    57    65    98   107   115   146   147   169 
+
+-N-
+ NIL                             59    78    80    96   105   170   173   175   176 
+
+-P-
+ PoolEndPtr                      36    64    65    66    69   114   115   116   119   176 
+ PoolFreePtr                     35    64    65    66    66    68    69    71    72   114   115   116   116   118   119   121   122 
+                                175 
+ PoolSize                        21    68    69   113   118   119 
+ PredecessorBlock                49    90    97 
+ PreviousBlock                   49    77    84    90    93 
+
+-R-
+ return                          62    72    85   101   110   122   126 
+
+-S-
+ Size                            25    81   107   108   154 
+ SmallChain                      31    59    60    61   149   150   170 
+ static                          29    32    35    36    37    38   161 
+ struct                          22    23    29    32 
+ Successor                       24    61    84    84    94    97    97   106   149   153 
+ SysAlloc                       124 
+ System__init                   167 
+ S_1                             22    23 
+ S_2                             29 
+ S_3                             32 
+
+-T-
+ tBlock                          26 
+ tBlockPtr                       22    24    49    60    76    77   104   124   140   144   149   153 
+ tLargeBlockRange                28    38    52   141 
+ TRUE                           164 
+ tSmallBlockRange                27    37    59    60    61   149   150 
+ typedef                         22    23    27    28 
+
+-V-
+ VAL                             54    59    60    61   125   143   149   150 
+ void                           131   159 
+
+-W-
+ while                           80 
+
+-_-
+ __STDC__                        42   132 
+
+end cross reference, 450 occurrences of 72 identifiers.

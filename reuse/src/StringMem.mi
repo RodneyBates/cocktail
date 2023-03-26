@@ -33,7 +33,8 @@ FROM IO		IMPORT tFile, StdOutput, WriteC, WriteI, WriteNl, WriteS;
 
 CONST InitialMemorySize	= 1024 * 16;
 
-TYPE Memory		= ARRAY LONGINT [0 .. 100000000] OF CHAR;
+TYPE Memory		= ARRAY LONGINT [0 .. 65535] OF CHAR;
+(* By experiment, this is exactly the maximum ^ mocka1807 will accept. *) 
 
 VAR
    MemoryPtr		: POINTER TO Memory;

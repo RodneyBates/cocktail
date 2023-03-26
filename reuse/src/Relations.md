@@ -29,8 +29,9 @@ DEFINITION MODULE Relations;
 
 FROM IO		IMPORT tFile;
 FROM Sets	IMPORT tSet;
-CONST Bound = 10000000 ; 
-      (* ^mtc and/or cc get crabby if you make this too large. *)
+CONST Bound = 65535;
+      (*      ^By experiment, this is exactly the maximum, mocka1807 will accept. *) 
+      (*       ^mtc and/or cc and/or mocka1807 get crabby if you make this too large. *)
 
 TYPE
    Bounds = INTEGER [ 0 .. Bound ];

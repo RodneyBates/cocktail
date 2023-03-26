@@ -12,7 +12,7 @@ ifndef INSTALLGMD
 endif
 export INSTALLGMD
 
-TARGET	= SUN
+#TARGET	= SUN
 MC      = mocka_mtc
 OPT	= -O
 UNIX	= UNIX
@@ -22,16 +22,19 @@ CC	= gcc
 INSTALLMOCKASYM    = $(INSTALLGMD)/lib/reuse/mockasym
 INSTALLDEFS    = $(INSTALLGMD)/lib/reuse/m2def
 
-MODULADEFS = Arguments.md Checks.md \
+# This must satisfy the IMPORT partial ordering: 
+MODULADEFS = System.md IO.md \
+	  Strings.md StringMem.md \
+          Arguments.md Checks.md \
           DynArray.md \
-          Errors.md General.md Heap.md \
-          IO.md Idents.md Layout.md \
+          General.md Heap.md \
+          Idents.md Layout.md \
           Lists.md Memory.md \
-          Positions.md Relations.md \
-          Sets.md SetsC.md Sort.md \
-          Source.md StdIO.md StringMem.md \
-          Strings.md System.md Texts.md \
-          Times.md  
+          Positions.md Sets.md Relations.md \
+          SetsC.md Sort.md \
+          Source.md StdIO.md \
+          Texts.md \
+          Times.md Errors.md   
 MODULAIMPS = Checks.mi \
           DynArray.mi \
           Errors.mi General.mi Heap.mi \
@@ -59,11 +62,36 @@ MODULAGENS    =
 GENS    = 
 EXE     = Main
 MAKEINCLUDE = .
-MOCKAFLAGS = -index -range -noS -g -blip
+MOCKAFLAGS = -elf -index -range -noS -g -gc -ge -blip
 include $(MAKEINCLUDE)/make.include
 
-#DEFS :
-#	for file in `ls *.md`; do mocka -s `basename $$file .md` $(MOCKAFLAGS); done
+# Library DEFINITION MODULES, by mocka1807: 
+
+defmods : deflinks compiledefs
+compiledefs :
+	for file in $(MODULADEFS); do echo $$file; mocka $(MOCKAFLAGS) -s `basename $$file .md`; done
+
+deflinks :
+	for file in $(MODULADEFS); do ln -sf $$file `basename $$file .md`.def; done
+
+# IMPLEMENTATION MODULES, by mocka1807L
+
+impmods : implinks compileimps
+compileimps :
+	for file in $(MODULAIMPS); do echo $$file; mocka $(MOCKAFLAGS) -c `basename $$file .mi`; done
+
+implinks :
+	for file in $(MODULAIMPS); do ln -sf $$file `basename $$file .mi`.mod; done
+
+# Main program  MODULES, by mocka1807
+
+drvmods : drvlinks compiledrvs
+compiledrvs :
+	for file in $(MODULADRIVERS); do echo $$file; mocka $(MOCKAFLAGS) -c `basename $$file .mi`; done
+	for file in $(MODULADRIVERS); do echo $$file; mocka $(MOCKAFLAGS) -p `basename $$file .mi`; done
+
+drvlinks :
+	for file in $(MODULADRIVERS); do ln -sf $$file `basename $$file .mi`.mod; done
 
 test : test_$(MC)
 
@@ -106,6 +134,13 @@ clean:
 
 .c.o:
 	$(CC) $(CFLAGS) -c $*.c;
+
+.md.def:
+	ln -s $*.md $*.def
+
+.mi.mod:
+	ln -s $*.mi $*.mod
+        
 
 
 

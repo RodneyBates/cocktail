@@ -59,7 +59,8 @@ UNSAFE MODULE System
     ; InMap [ LResult ] := RdT 
     ; RETURN LResult  
     END OpenInputT
-  
+    
+(* TODO: Rename this OpenInputA. *)  
 (*EXPORTED*)
 ; PROCEDURE OpenInput ( READONLY FileName : ARRAY OF CHAR ) : tFile
     RAISES { OSError . E , FileNoError (*No available tFile value.*) } 
@@ -80,6 +81,7 @@ UNSAFE MODULE System
     ; RETURN LResult  
     END OpenOutputT
 
+(* TODO: Rename this OpenOutputA. *)  
 (*EXPORTED*)
 ; PROCEDURE OpenOutput ( READONLY FileName : ARRAY OF CHAR ) : tFile
     RAISES { OSError . E , FileNoError (*No available tFile value.*)} 
