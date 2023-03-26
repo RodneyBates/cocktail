@@ -1,0 +1,41 @@
+# Makefile for some steps in converting Cocktail front to Modula-3.
+
+
+M2MDS = \
+    Actions.md \
+    Character.md \
+    Checks.md \
+    Errors.md \
+    Limits.md \
+    Listing.md \
+    Oper.md \
+    Path.md \
+    Rules.md \
+    SysError.md \
+    Tokens.md \
+    TokenTab.md \
+    WriteTok.md 
+
+M2MIS = \
+    Actions.mi \
+    Character.mi \
+    Checks.mi \
+    Errors.mi \
+    Id.mi \
+    Limits.mi \
+    Listing.mi \
+    Oper.mi \
+    Pars.mi \
+    Path.mi \
+    Rules.mi \
+    SysError.mi \
+    Tokens.mi \
+    TokenTab.mi \
+    WriteTok.mi 
+
+m2tom3ints:
+	 for file in $(M2MDS) ; do cd m2src; m2tom3 -f -s -r -v -O ../m2tom3src -I ../reuselocal -I ../../../../reuse/src $$file; done        
+
+m2tom3mods:
+	 for file in $(M2MIS) ; do cd m2src; m2tom3 -f -s -r -v -O ../m2tom3src -I ../reuselocal -I ../../../../reuse/src $$file; done        
+

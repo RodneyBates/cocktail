@@ -1,0 +1,23 @@
+% m3makefile for Cocktail front, converted to Modula3. 
+
+import("libm3")
+import("m2libs")
+import("reusem3")
+
+module("Actions")
+module("Character")
+module("FrontChecks") % There is a Checks.[im]3 in reusem3!! 
+module("FrontErrors") % There is a Errors.[im]3 in reusem3!! 
+module("Limits")
+module("Listing")
+module("Oper")
+module("FrontPath") % There is a Path.[im]3 in libm,3.
+module("Rules")
+module("SysError")
+module("Tokens")
+module("TokenTab")
+module("WriteTok")
+
+%implementation("Pars") %A main program to test.  But this is a library.
+
+library("cocktailfront")

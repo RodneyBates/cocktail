@@ -1,0 +1,330 @@
+(* handle oper section *)
+
+(* $Id: Oper.mi,v 2.2 1992/08/07 15:13:51 grosch rel $ *)
+
+(* $Log: Oper.mi,v $
+ * Revision 2.2  1992/08/07  15:13:51  grosch
+ * allow several scanner and parsers; extend module Errors
+ *
+ * Revision 2.1  1991/11/21  14:47:50  grosch
+ * new version of RCS on SPARC
+ *
+ * Revision 2.0  91/03/08  18:26:19  grosch
+ * turned tables into initialized arrays (in C)
+ * moved mapping tokens -> strings from Errors to Parser
+ * changed interface for source position
+ * 
+ * Revision 1.1  90/06/11  18:45:05  grosch
+ * layout improvements
+ * 
+ * Revision 1.0  88/10/04  14:26:55  vielsack
+ * Initial revision
+ * 
+ *)
+
+ UNSAFE MODULE Oper;
+
+FROM Lists      IMPORT MakeList, tList;
+FROM Strings    IMPORT tString, ArrayToString, TextToString;
+FROM Idents     IMPORT tIdent;
+FROM Memory     IMPORT Alloc;
+
+FROM Positions  IMPORT NoPosition;
+
+FROM TokenTab   IMPORT MAXTerm, cMAXTerm, Terminal, Vocabulary, PosType,
+                        GetPrio, PutPrio, Prio, TokenError, GetTokenType,
+                        TokenType, SymbolToToken, MakeTerm;
+ 
+FROM FrontErrors        IMPORT  eFatal, eRestriction, eError, eIdent, eString, eInternal,
+                        ErrorMessage, ErrorMessageI;
+
+
+  CONST
+    eNoIntCode = 25;    eTokenOverflow = 26;    eNoTerm = 40;
+    eTokenInPrio = 35;
+
+  TYPE
+    Priorities = UNTRACED BRANDED REF  Priority;
+    Operators = UNTRACED BRANDED REF  Operator;
+
+    Priority = RECORD
+        Kind   : OperKind;
+        KindPos: PosType;    (* Position von 'LEFT' bzw 'RIGHT' *)
+        List   : Operators;
+        Comment: tList;
+        CommPos: PosType;
+        Next   : Priorities;
+      END;
+    
+    Operator = 
+      RECORD
+        Token    : Vocabulary;
+        TokenPos : PosType;   (* Position des einzelnen Zeichens *)
+        List     : Operators;
+      END;
+
+  VAR
+    OperVars:
+      RECORD
+        OPERPos : PosType;    (* Position von 'OPER' *)
+        Comment : tList;
+        CommPos : PosType;
+      END;
+
+    ReadyForOperator: (*TRUE : MakeOperator,MakePriority und
+                               CompletePriority zulaessig *)
+      BOOLEAN;        (*FALSE : MakePriority zulaessig *)
+       
+    WPrio:        (* Zeigt auf die zuletzt mit MakePriority eingetragene *)
+      Priorities; (* Prioritaet *)
+
+    StartPrio:    (* Zeigt auf die zuerst mit MakePriority eingetragene  *)
+      Priorities; (* Prioritaet *)
+       
+    RPrio:        (* Zeigt auf die beim naechsten Mal zu lesende *)
+      Priorities; (* Prioritaet *)
+
+    INTOPERExists : BOOLEAN;
+    CurrentPrio: Prio;
+
+    WOp,           (* Schreibzeiger innerhalb der Operanden einer Prioritaet *)
+    ROp:           (* Lesezeiger      "        "    "         "        "     *)
+      Operators;
+
+    GetOperatorAllowed: BOOLEAN;(* ueberprueft, ob GetOperator nach       *)
+                                (* gueltigem GetPriority aufgerufen wurde *)
+
+    OpenForReading    : BOOLEAN;(* Wird beim Aufruf von InitPrioReading   *)
+                                (* TRUE, somit Lesen und kein weiteres    *)
+                                (* Schreiben erlaubt.                     *)
+
+  PROCEDURE MakePriority (Kind: OperKind; Pos: PosType) = 
+  
+  (* Festlegen einer neuen Assoziativitaet (LEFT/RIGHT) und damit einer
+     neuen, d.h. um eins erniedrigten Prioritaet . *)
+  
+  VAR  HPrio :
+       Priorities;
+
+  BEGIN
+    IF OpenForReading THEN
+       ErrorT ("MakePriority : Do not write now ");
+    END;
+    ReadyForOperator := TRUE; 
+    HPrio := Alloc(BYTESIZE(Priority));
+    IF HPrio = NIL THEN
+      ErrorT ("MakePriority : Heap overflow");
+    END;
+    HPrio^.Kind    := Kind;
+    HPrio^.KindPos := Pos;
+    HPrio^.List   := NIL;
+    WOp           := NIL;
+    HPrio^.Next   := NIL;
+    (* Comment wird initialisiert,falls CompletePrio nicht ayfgerufen
+       wird *)
+    MakeList (HPrio^.Comment);
+    HPrio^.CommPos.Line := 0;
+    HPrio^.CommPos.Column:= 0;
+
+    (* WPrio ist nur dann NIL, wenn noch keine Prioritaet eingetragen 
+       wurde *)
+    IF WPrio # NIL THEN
+      WPrio^.Next  := HPrio
+    ELSE
+      StartPrio := HPrio;
+    END;
+    (* Fortschalten des Schreibzeigers *)
+    WPrio          := HPrio;
+    (* Heraufsetzen der Prioritaet *)
+    INC(CurrentPrio);
+  END MakePriority;
+
+  PROCEDURE CompletePriority (Comment: tList; CommPos: PosType) =
+      
+  (* Eintragen des zu einer Prioritaet gehoerigen Kommentars,  
+     gleichzeitig Abschluss dieser Prioritaet *)
+
+  BEGIN
+    IF NOT ReadyForOperator THEN  
+      ErrorT ("CompletePriority : Wrong use of procedure");
+    END;
+    IF OpenForReading THEN
+      ErrorT ("CompletePriority : Do not write now");
+    END;
+    WPrio^.Comment := Comment;
+    WPrio^.CommPos := CommPos;
+    ReadyForOperator := FALSE;
+  END CompletePriority;
+
+  PROCEDURE MakeOperator (Token: tIdent; TokenPos: PosType) =
+
+  (* Eintragen des naechsten Operators mit der aktuellen Prioritaet.
+     Nur zulaessig nach MakePriority und vor CompletePriority. *)
+
+  VAR HOper    :  Operators;
+      HToken   :  Vocabulary;
+      Error    :  TokenError;
+      ter      :  Terminal;
+  BEGIN
+    IF NOT ReadyForOperator THEN  
+      ErrorT ("makeOperator : Wrong use of procedure");
+    END;
+    HToken := SymbolToToken(Token,Error);
+    IF Error = TokenError.NotExists THEN
+      HToken := MAXTerm+1;
+      IF HToken > cMAXTerm THEN
+        ErrorMessage (eTokenOverflow,eRestriction, TokenPos);
+      END;
+      ter := HToken;
+      MakeTerm (Token,ter,Error,TokenPos);
+      IF Error = TokenError.OutOfRange THEN
+        ErrorMessage (eTokenOverflow,eRestriction, TokenPos);
+      END;
+    ELSIF Error = TokenError.NoIntCode THEN
+      ErrorMessageI(eNoIntCode,eFatal,NoPosition,eIdent,ADR(Token));
+    END; 
+       
+    IF GetTokenType(HToken) # TokenType.Term THEN
+      ErrorMessageI(eNoTerm,eError,TokenPos,eIdent,ADR(Token));
+    ELSIF GetPrio(HToken) # 0 THEN
+      ErrorMessageI (eTokenInPrio,eError, TokenPos,eIdent, ADR(Token));
+    ELSE
+      PutPrio (SymbolToToken(Token,Error),CurrentPrio);
+      HOper := Alloc(BYTESIZE(Operator));
+      IF HOper = NIL THEN
+        ErrorT ("MakeOperator : Heap Overflow");
+      END;
+      HOper^.Token    := SymbolToToken(Token,Error) ;
+      HOper^.TokenPos := TokenPos;
+      HOper^.List     := NIL;
+      IF WOp # NIL THEN
+        (* Schon Operator eingetragen *)
+        WOp^.List      := HOper;
+      ELSE
+        (* erster Operator *)
+        WPrio^.List    := HOper;
+      END;
+      (* weiterschalten fuer naechsten Eintrag *)
+      WOp            := HOper;
+    END;
+  END MakeOperator;
+
+  PROCEDURE MakeOperHeader
+    (OPERPos    : PosType;
+     Comment    : tList;
+     CommPos     : PosType) =
+
+  (* Eintragen des Anfangskommentars des Abschnitts OPER sowie der
+     Position des Schluesselwortes OPER. *)
+
+  BEGIN
+      OperVars.OPERPos  := OPERPos;
+      OperVars.Comment  := Comment;
+      OperVars.CommPos  := CommPos;
+      INTOPERExists := TRUE;
+  END MakeOperHeader;
+ 
+  PROCEDURE InitPrioReading() =
+    
+    (* Initialisiert das Lesen mit GetPriority *)
+
+    BEGIN
+      OpenForReading := TRUE;
+      RPrio := StartPrio;
+    END InitPrioReading;
+
+  PROCEDURE GetOperHeader
+    (VAR OPERPos  : PosType;
+     VAR Comment  : tList;
+     VAR CommPos   : PosType): BOOLEAN =
+      
+  (* Lesen der mit MakeOperHeader abgelegten Information .
+     Ist kein OPER- Abschnitt vorhanden, liefert die Prozedur
+     als Ergebnis FALSE, sonst TRUE. *)
+
+  BEGIN
+    IF INTOPERExists THEN
+      OPERPos  := OperVars.OPERPos;
+      Comment  := OperVars.Comment;
+      CommPos  := OperVars.CommPos;
+    ELSE
+      (* Keine Operheaderinformation vorhanden *)
+      OPERPos.Line   := 0;
+      OPERPos.Column := 0;
+      MakeList (Comment);
+      CommPos.Line   := 0;
+      CommPos.Column := 0;
+    END;
+    RETURN INTOPERExists;
+  END GetOperHeader;
+
+  PROCEDURE GetPriority
+    (VAR Kind    : OperKind;
+     VAR Pos     : PosType;
+     VAR Comment : tList;
+     VAR CommPos : PosType): BOOLEAN =
+      
+  (* Lesen der mit MakePriority und CompletePriority abgelegten
+     Information. (FIFO). Ist das Lesen erfolgreich, wird TRUE
+     zurueckgeliefert, sonst (Listenende erreicht) FALSE. *)
+
+  BEGIN
+    IF NOT OpenForReading THEN
+      ErrorT ("GetPriority : You must not read now");
+    END;
+    IF RPrio = NIL THEN
+      GetOperatorAllowed := FALSE;
+      RETURN FALSE;
+    ELSE
+      Kind        := RPrio^.Kind;
+      Pos         := RPrio^.KindPos;
+      Comment     := RPrio^.Comment;
+      CommPos     := RPrio^.CommPos;
+      ROp         := RPrio^.List;
+      RPrio       := RPrio^.Next;
+      GetOperatorAllowed := TRUE;
+      RETURN TRUE;
+    END;
+  END GetPriority;
+
+  PROCEDURE GetOperator (VAR Token: Vocabulary; VAR TokenPos: PosType): BOOLEAN =
+
+  (* Lesen der naechsten mit MakeOperator unter der aktuellen 
+     Prioritaet abgelegten Information. Ist das Lesen erfolgreich, 
+     wird TRUE zurueckgeliefert, sonst (Listenende erreicht) FALSE.
+     Nur erlaubt nach erfolgreichem GetPriority *)
+
+  BEGIN
+    IF NOT GetOperatorAllowed THEN
+     ErrorT ("GetOperator : Wrong use of procedure");
+    END;
+    IF ROp = NIL THEN
+      RETURN FALSE
+    ELSE
+      Token       := ROp^.Token;
+      TokenPos    := ROp^.TokenPos;
+      ROp         := ROp^.List;
+      RETURN TRUE;
+    END
+  END GetOperator;
+
+  PROCEDURE ErrorT (Msg: TEXT) =
+  VAR s : tString;
+  BEGIN
+    TextToString (Msg, s);
+    ErrorMessageI (eInternal, eFatal, NoPosition, eString, ADR (s));
+  END ErrorT;
+
+BEGIN
+  StartPrio        := NIL;
+  WPrio            := NIL;    (* Schreibzeiger fuer Priority             *)
+  RPrio            := NIL;    (* Lesezeiger fuer Priority                *)
+  INTOPERExists    := FALSE;  (* von vorneherein gibt es keinen OPER-Teil*)
+  ReadyForOperator := FALSE;  (* Darf Operator geschrieben werden ?      *)
+  WOp              := NIL;    (* Lesezeiger fuer Operator                *)
+  ROp              := NIL;    (* Schreibzeiger fuer Operator             *)
+  OpenForReading   := FALSE;  (* Lesen der Prioritaet gesperrt           *)
+  GetOperatorAllowed := FALSE;(* Darf Operator gelesen werden ?          *)
+  CurrentPrio      := 0       (* Initialisierung fuer Prioritaet         *)
+END Oper.
+

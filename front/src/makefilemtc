@@ -3,7 +3,11 @@ OPT	= -O0 -g
 CC	= cc
 
 BIN = ../../bintobuildwith
-MTC = $(BIN)/mtc
+showbintobuildwith:
+	echo $(BIN)
+	ls -l $(BIN)
+
+MTC = $(BIN)/mtc -l$(BIN)
 
                 # C library (reuse)
 REUSE	= ../../reuse/mtc

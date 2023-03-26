@@ -4,8 +4,9 @@
 #include "IO.h"
 #endif
 
-#define WriteTok_Modula2        0
-#define WriteTok_C        1
+#define WriteTok_Modula3        0
+#define WriteTok_Modula2        1
+#define WriteTok_C        2
 typedef unsigned char WriteTok_tLanguage;
 extern WriteTok_tLanguage WriteTok_Language;
 extern struct WriteTok_1 {

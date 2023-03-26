@@ -8,6 +8,10 @@
 #include "Strings.h"
 #endif
 
+#ifndef DEFINITION_Strings
+#include "Strings.h"
+#endif
+
 #ifndef DEFINITION_Idents
 #include "Idents.h"
 #endif
@@ -35,7 +39,7 @@ IO_tFile f;
 {
   TokenTab_Terminal t;
   Idents_tIdent sym;
-  Strings_tString s;
+  Strings_tString s, s2;
   TokenTab_TokenError error;
   CARDINAL l;
   CHAR del;
@@ -48,7 +52,26 @@ IO_tFile f;
         if (TokenTab_GetTokenType(t) == TokenTab_Term) {
           sym = TokenTab_TokenToSymbol(t, &error);
           Idents_GetString(sym, &s);
-          if (WriteTok_Language == WriteTok_Modula2) {
+          if (WriteTok_Language == WriteTok_Modula3) {
+            IO_WriteS(f, (STRING)"      | ", 8L);
+            IO_WriteI(f, (LONGINT)t, 0L);
+            IO_WriteS(f, (STRING)" => Name := ", 12L);
+            del = Strings_Char(&s, 1);
+            if (del == '\'') {
+              IO_WriteC(f, '"');
+              Strings_SubString(&s, 2, (Strings_tStringIndex)(Strings_Length(&s) - 1), &s2);
+              Strings_WriteS(f, &s2);
+              IO_WriteC(f, '"');
+            } else if (del == '"') {
+              Idents_WriteIdent(f, sym);
+            } else {
+              IO_WriteC(f, '"');
+              Idents_WriteIdent(f, sym);
+              IO_WriteC(f, '"');
+            }
+            IO_WriteS(f, (STRING)";", 1L);
+            IO_WriteNl(f);
+          } else if (WriteTok_Language == WriteTok_Modula2) {
             IO_WriteS(f, (STRING)"      | ", 8L);
             IO_WriteI(f, (LONGINT)t, 0L);
             IO_WriteS(f, (STRING)": Copy (", 8L);
@@ -112,6 +135,7 @@ void WriteTok__init()
 
     IO__init();
     IO__init();
+    Strings__init();
     Strings__init();
     Idents__init();
     TokenTab__init();

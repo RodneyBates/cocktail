@@ -148,7 +148,7 @@ BOOLEAN Line;
 # endif
 {
   if (Action.A[kind].ActPos.Line != 0) {
-    if (WriteTok_Language == WriteTok_Modula2) {
+    if (WriteTok_Language == WriteTok_Modula3 || WriteTok_Language == WriteTok_Modula2) {
       IO_WriteS(f, (STRING)"(* line ", 8L);
       IO_WriteI(f, (LONGINT)Action.A[kind].ActPos.Line, 0L);
       IO_WriteS(f, (STRING)" \"", 2L);

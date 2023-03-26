@@ -17,15 +17,15 @@ MC	= mocka_mtc
 MOCKAFLAGS	= -noindex -norange
 MOCKALIBS = -d $(MLIB)
 
-DEFSMC	= Actions.md Character.md Checks.md Errors.md \
+MODULADEFS	= Actions.md Character.md Checks.md Errors.md \
 	  Limits.md Listing.md Oper.md Path.md Rules.md \
 	  SysError.md TokenTab.md Tokens.md WriteTok.md
 
-MODSMC	= Actions.mi Character.mi Checks.mi Errors.mi Id.mi \
+MODULAIMPS	= Actions.mi Character.mi Checks.mi Errors.mi Id.mi \
 	  Limits.mi Listing.mi Oper.mi Pars.mi Path.mi Rules.mi \
 	  SysError.mi TokenTab.mi Tokens.mi WriteTok.mi
 
-MODULASOURCES = $(DEFSMC) $(MODSMC) 
+MODULASOURCES = $(MODULADEFS) $(MODULAIMPS) 
 OTHERSOURCES = 
 SOURCES = $(MODULASOURCES) $(OTHERSOURCES)
 
@@ -41,6 +41,19 @@ GENS    = $(MODULAGENS) $(GENTABS)
 EXE     = Pars
 
 include $(MAKEINCLUDE)/make.include
+
+compiledefs :
+	for file in $(MODULADEFS); do echo $$file; mocka $(MOCKAFLAGS) -s `basename $$file .md`; done
+
+deflinks :
+	for file in $(MODULADEFS); do ln -sf $$file `basename $$file .md`.def; done
+
+impmods : implinks compileimps
+compileimps :
+	for file in $(MODULAIMPS); do echo $$file; mocka $(MOCKAFLAGS) -c `basename $$file .mi`; done
+
+implinks :
+	for file in $(MODULAIMPS); do ln -sf $$file `basename $$file .mi`.mod; done
 
 Scanner.md Scanner.mi Scanner.Tab:	../src/input.rex
 	$(REX) -d ../src/input.rex;

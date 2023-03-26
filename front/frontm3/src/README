@@ -1,0 +1,15 @@
+Converted to Modula-3:
+
+Common Front-End for Lalr, Ell, and Bnf
+=======================================
+
+The front-end (front) makes use of a library of reusable Modula-3 modules.
+This library must have been compiled before.
+When moving from little-endian to big-endian machines or vice versa
+(like e. g. VAX and MC 68000) the binary files Scan.Tab and Pars.Tab
+have to be converted:
+
+   make bin.conv
+
+To generate the front-end use:
+

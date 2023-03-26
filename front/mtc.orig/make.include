@@ -1,0 +1,99 @@
+#
+# makefile include file for ./src directories of GMD.
+# RMB 04-1999
+# RMB 2023-03-19
+#
+
+all:	build
+
+links : linksgen linksmtc
+cleanlinks : cleanlinksgen cleanlinksmtc
+
+build:	generate compile
+
+forcebuild:	forcegenerate forcecompile
+
+# symbolic links: 
+
+linksmtc:
+#	for file in `ls *.md`; do ln -f -s ../src/$$file ../mtc/$$file; done
+#	for file in `ls *.mi`; do ln -f -s ../src/$$file ../mtc/$$file; done
+	ln -sf ../src/makefilemtc ../mtc/makefile
+	rm -f ../mtc/IgnoreThisLink
+	for file in $(MODULASOURCES) IgnoreThisLink; do ln -f -s ../src/$$file ../mtc/$$file; done
+	for file in $(MODULAGENS) IgnoreThisLink; do ln -f -s ../gen/$$file ../mtc/$$file; done
+	for file in $(OTHERMTCSOURCES) IgnoreThisLink; do ln -f -s ../src/$$file ../mtc/$$file; done
+	rm -f ../mtc/IgnoreThisLink
+
+cleanlinksmtc:
+	for file in `ls *.md`; do rm -f ../mtc/$$file; done
+	for file in `ls *.mi`; do rm -f ../mtc/$$file; done
+
+# links from gen to src 
+
+linksgen: 
+	for File in $(MODULASOURCES) ; do ln -f -s ../src/$$File ../gen ; done
+	ln -f -s ../src/makefilegen ../gen/makefile
+
+cleanlinksgen:
+	for File in $(MODULASOURCES) ; do rm -f ../gen/$$File ; done
+	rm -f ../gen/makefile
+
+# source code generations: 
+
+generate: $(GENS)
+
+cleangenerate: 
+	rm -f $(GENS)
+
+forcegenerate: cleangenerate generate
+
+# comparing generated code of different views:
+
+listofgens : 
+	@echo $(GENS)
+
+# compilation: 
+
+compile : compile_$(MC)
+
+compile_WRL:
+	make compile -f MakefileWRL
+
+compile_mocka_mtc : compile_mocka compile_mtc
+
+compile_mocka:	
+	echo p $(EXE) | mocka $(MOCKAFLAGS) $(MOCKALIBS)
+
+compile_mtc:
+	cd ../mtc; make compile
+
+cleancompile : cleancompile_$(MC)
+
+#cleancompile_mocka cleancompile_mtc cleancompileWRL:
+#	rm -f *.o $(EXE)
+
+cleancompile_mtc:
+	cd ../mtc; make cleancompile
+
+forcecompile : cleancompile compile
+
+cleanmtc:
+	for file in `ls *.md`; do rm -f ../mtc/`basename $$file .md`.h; done
+	for file in `ls *.mi`; do rm -f ../mtc/`basename $$file .mi`.c; done
+
+forcemtc: cleanmtc mtc
+
+install: install_$(MC)
+
+install_mocka_mtc: install_mocka install_mtc
+
+install_mocka install_mtc install_WRL: install_modula
+
+install_mtc:
+	cd ../mtc; make install
+
+
+
+
+
