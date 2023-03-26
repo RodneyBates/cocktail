@@ -1,0 +1,198 @@
+
+
+
+LALR(1)                  USER COMMANDS                    LALR(1)
+
+
+
+NAME
+     lalr - LALR(1) parser generator
+
+SYNOPSIS
+     lalr [-c|-m]  [-b][-d][-e][-h][-l][-p][-s][-g][-v]  [-cs][n]
+     <file>
+
+DESCRIPTION
+     _L_a_l_r is a parser  generator  for  highly  efficient  parsers
+     which  processes the class of LALR(1) grammar.  The grammars
+     may be written using EBNF constructs. Each grammar rule  may
+     be associated with a semantic action consisting of arbitrary
+     statements written in the target language. Whenever a  gram-
+     mar  rule  is recognized by the generated parser the associ-
+     ated  semantic  action  is  executed.  A  mechanism  for  S-
+     attribution  (only  synthesized  attributes)  is provided to
+     allow communication between the semantic  actions.  Ambigui-
+     ties  in  the grammar may be solved by specifying precedence
+     and associativity for tokens and grammar rules.
+
+     In case of LR-conflicts a derivation tree is printed to ease
+     the location of the problem. The conflict can be resolved by
+     specifying precedence and associativity  for  terminals  and
+     rules.  Syntactic  errors are handled fully automatically by
+     the generated parsers including error  reporting,  recovery,
+     and repair. The generated parsers are table-driven.
+
+     The generated parser needs a scanner, an error handler,  and
+     a  few modules from a library of reusable modules.  A primi-
+     tive scanner can be  requested  with  the  option  -s.   The
+     option  -e  produces  a  prototype  error  handler.   Errors
+     detected during the analysis of the grammar are reported  on
+     standard  error.  If  the  generator  finds LR-conflicts and
+     option -v is given the file _Debug will be  produced.   This
+     file  will  give  detailed informations about the conflicts.
+     If any conflict has been repaired using precedence and asso-
+     ciativity  a  conflict  description  is  written to the file
+     _Debug, too.
+
+OPTIONS
+     c    generate C source code
+
+     m    generate Modula-2 source code (default)
+
+     a    generate all = -d -e -p -s
+
+     b    run the preprocessor bnf and feed its output into lalr
+
+     d    generate definition module
+
+     e    generate module for error handling
+
+
+
+
+GMD                       Last change:                          1
+
+
+
+
+
+
+LALR(1)                  USER COMMANDS                    LALR(1)
+
+
+
+     p    generate parser driver
+
+     s    generate mini scanner
+
+     g    generate # line directives
+
+     v    verbose: produce debugging information in  file  _Debug
+          (long and slow)
+
+     f    fast   : produce debugging information in  file  _Debug
+          (short and fast)
+
+     cs   reduce the number of case  labels  in  switch  or  case
+          statements  by  mapping so-called read-reduce to reduce
+          states (increases run time a little bit  but  decreases
+          code  size, might be necessary due to compiler restric-
+          tions)
+
+     <n>  generate switch or case statements with at most n  case
+          labels  (might  be  necessary  due to compiler restric-
+          tions)
+
+     t    print statistics about the generated parser
+
+     h    print further help information
+
+     l    print complete (error) listing
+
+FILES
+     _Debug         file containing the debug information if grammar is not
+                    LALR(1) and option -v is given
+
+     if output is in C:
+     <Parser>.h     specification of the generated parser
+     <Parser>.c     body of the generated parser
+     <Parser>Drv.c  body of the parser driver
+     Errors.h       specification of error handler
+     Errors.c       body of error handler
+     <Scanner>.h    specification of scanner
+     <Scanner>.c    body of scanner
+
+     if output is in Modula-2:
+     <Parser>.md    definition module of the generated parser
+     <Parser>.mi    implementation module of the generated parser
+     <Parser>Drv.mi implementation module of the parser driver
+     <Parser>.Tab   tables to control the generated parser
+     Errors.md      definition module of error handler
+     Errors.mi      implementation module of error handler
+     <Scanner>.md   definition module of scanner
+     <Scanner>.mi   implementation module of scanner
+
+
+
+
+
+GMD                       Last change:                          2
+
+
+
+
+
+
+LALR(1)                  USER COMMANDS                    LALR(1)
+
+
+
+SEE ALSO
+     J. Grosch, B. Vielsack:  "The  Parser  Generators  Lalr  and
+     Ell",  GMD  Forschungsstelle  an der Universitaet Karlsruhe,
+     Compiler Generation Report No. 8, 1991
+
+     J. Grosch: "Lalr  -  a  Generator  for  Efficient  Parsers",
+     Software  -  Practice & Experience, 20 (11), 1115-1135, Nov.
+     1990
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+GMD                       Last change:                          3
+
+
+

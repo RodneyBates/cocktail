@@ -21,12 +21,19 @@ PLIB	= ParserDrv.mi Parser.md Parser.mi Errors.md Errors.mi \
           lalr.cat lalr.syn
 PLIBD = $(patsubst %,../lib/%,$(PLIB)) 
 
-MODULASOURCES = ArgCheck.md ArgCheck.mi Automaton.md Automaton.mi \
-                Check.md Check.mi Compress.md Compress.mi \
-                Continue.md Continue.mi Debug.md Debug.mi \
-                Default.md Default.mi Final.md Final.mi Gen.md Gen.mi \
-                GenLang.md GenLang.mi Infos.md Infos.mi LR.md LR.mi \
-                Lookahead.md Lookahead.mi Reduce.md Reduce.mi lalr.mi
+MODULADEFS = ArgCheck.md Automaton.md  \
+                Check.md Compress.md  \
+                Continue.md Debug.md \
+                Default.md Final.md Gen.md \
+                GenLang.md Infos.md LR.md \
+                Lookahead.md Reduce.md 
+
+MODULAIMPS = ArgCheck.mi Automaton.mi \
+                Check.mi Compress.mi \
+                Continue.mi Debug.mi \
+                Default.mi Final.mi Gen.mi \
+                GenLang.mi Infos.mi LR.mi \
+                Lookahead.mi Reduce.mi lalr.mi
 
 OTHERSOURCES = 
 SOURCES = $(MODULASOURCES) $(OTHERSOURCES)
@@ -38,6 +45,21 @@ GENS    = $(MODULAGENS) $(OTHERGENS)
 EXE     = lalr
 
 include $(MAKEINCLUDE)/make.include
+
+compiledefs :
+	for file in $(MODULADEFS); do echo $$file; mocka $(MOCKAFLAGS) -s `basename $$file .md`; done
+
+deflinks :
+	for file in $(MODULADEFS); do ln -sf $$file `basename $$file .md`.def; done
+
+impmods : implinks compileimps
+compileimps :
+	for file in $(MODULAIMPS); do echo $$file; mocka $(MOCKAFLAGS) -c `basename $$file .mi`; done
+
+implinks :
+	for file in $(MODULAIMPS); do ln -sf $$file `basename $$file .mi`.mod; done
+
+
 
 install_modula:
 

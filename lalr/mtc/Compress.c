@@ -156,6 +156,7 @@ Gen_tTableLine *TableLine;
       INC(b);
       if (b + Gen_LastTerminal > Compress_TableMax) {
         OldTableMax = Compress_TableMax;
+        Compress_ControlCount = b + Gen_LastTerminal + 1;
         DynArray_ExtendArray((ADDRESS *)&Compress_Control, &Compress_ControlCount, (LONGINT)sizeof(Compress_ControlType));
         Compress_TableMax = Compress_ControlCount - 1;
         {
@@ -290,6 +291,7 @@ Gen_tTableLine *TableLine;
       INC(b);
       if (b + Gen_LastSymbol > Compress_NTableMax) {
         OldTableMax = Compress_NTableMax;
+        Compress_NNextCount = b + Gen_LastSymbol + 1;
         DynArray_ExtendArray((ADDRESS *)&Compress_NNext, &Compress_NNextCount, (LONGINT)sizeof(Compress_TableElmt));
         Compress_NTableMax = Compress_NNextCount - 1;
         {

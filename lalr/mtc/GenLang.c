@@ -74,7 +74,7 @@ void GenLang_WriteConstants
 IO_tFile f;
 # endif
 {
-  if (WriteTok_Language == WriteTok_Modula2) {
+  if (WriteTok_Language == WriteTok_Modula3 || WriteTok_Language == WriteTok_Modula2) {
     IO_WriteS(f, (STRING)"   yyFirstTerminal          = ", 30L);
     IO_WriteI(f, (LONGINT)Gen_FirstTerminal, 0L);
     IO_WriteC(f, ';');
@@ -201,7 +201,7 @@ IO_tFile f;
   if (Gen_CaseLabels > 0) {
     INC1(label, Gen_CaseLabels);
     OpenCase(f, label);
-  } else if (WriteTok_Language == WriteTok_Modula2) {
+  } else if (WriteTok_Language == WriteTok_Modula3 || WriteTok_Language == WriteTok_Modula2) {
     IO_WriteS(f, (STRING)"CASE yyState OF", 15L);
     IO_WriteNl(f);
   } else {
@@ -223,7 +223,7 @@ IO_tFile f;
     {
       register Automaton_tIndexList *W_1 = &prod->Reduce;
 
-      if (WriteTok_Language == WriteTok_Modula2) {
+      if (WriteTok_Language == WriteTok_Modula3 || WriteTok_Language == WriteTok_Modula2) {
         IO_WriteS(f, (STRING)"  | ", 4L);
         IO_WriteI(f, (LONGINT)W_1->Array->A[1 - 1], 0L);
       } else {
@@ -237,7 +237,7 @@ IO_tFile f;
 
           if (B_1 <= B_2)
             for (u = B_1;; u += 1) {
-              if (WriteTok_Language == WriteTok_Modula2) {
+              if (WriteTok_Language == WriteTok_Modula3 || WriteTok_Language == WriteTok_Modula2) {
                 IO_WriteC(f, ',');
                 IO_WriteI(f, (LONGINT)W_1->Array->A[u - 1], 0L);
               } else {
@@ -250,12 +250,19 @@ IO_tFile f;
             }
         }
       }
-      if (WriteTok_Language == WriteTok_Modula2) {
+      if (WriteTok_Language == WriteTok_Modula3 || WriteTok_Language == WriteTok_Modula2) {
         IO_WriteC(f, ':');
       }
       WriteProdComment(f, prod);
       if (index == 0) {
-        if (WriteTok_Language == WriteTok_Modula2) {
+        if (WriteTok_Language == WriteTok_Modula3) {
+          IO_WriteS(f, (STRING)"  yyStateStack := NIL;", 22L);
+          IO_WriteNl(f);
+          IO_WriteS(f, (STRING)"  yyAttributeStack := NIL;", 26L);
+          IO_WriteNl(f);
+          IO_WriteS(f, (STRING)"  RETURN yyErrorCount;", 22L);
+          IO_WriteNl(f);
+        } else if (WriteTok_Language == WriteTok_Modula2) {
           IO_WriteS(f, (STRING)"  DynArray.ReleaseArray (yyStateStack, yyStateStackSize, SYSTEM.TSIZE (yyTableElmt));", 85L);
           IO_WriteNl(f);
           IO_WriteS(f, (STRING)"  DynArray.ReleaseArray (yyAttributeStack, yyAttrStackSize, SYSTEM.TSIZE (tParsAttribute));", 91L);
@@ -271,7 +278,7 @@ IO_tFile f;
           IO_WriteNl(f);
         }
       } else {
-        if (WriteTok_Language == WriteTok_Modula2) {
+        if (WriteTok_Language == WriteTok_Modula3 || WriteTok_Language == WriteTok_Modula2) {
           if (prod->Len != 0) {
             IO_WriteS(f, (STRING)"  DEC (yyStackPtr, ", 19L);
             IO_WriteI(f, (LONGINT)prod->Len, 0L);
@@ -306,7 +313,7 @@ IO_tFile f;
   }
   if (Gen_CaseLabels > 0) {
     CloseCase(f, cases);
-  } else if (WriteTok_Language == WriteTok_Modula2) {
+  } else if (WriteTok_Language == WriteTok_Modula3 || WriteTok_Language == WriteTok_Modula2) {
     IO_WriteS(f, (STRING)"END;", 4L);
     IO_WriteNl(f);
   } else {
@@ -324,7 +331,7 @@ IO_tFile f;
 Automaton_tStateIndex label;
 # endif
 {
-  if (WriteTok_Language == WriteTok_Modula2) {
+  if (WriteTok_Language == WriteTok_Modula3 || WriteTok_Language == WriteTok_Modula2) {
     IO_WriteS(f, (STRING)"CASE yyState OF", 15L);
     IO_WriteNl(f);
   } else {
@@ -347,7 +354,7 @@ IO_tFile f;
 Automaton_tStateIndex label;
 # endif
 {
-  if (WriteTok_Language == WriteTok_Modula2) {
+  if (WriteTok_Language == WriteTok_Modula3 || WriteTok_Language == WriteTok_Modula2) {
     IO_WriteS(f, (STRING)"ELSE CASE yyState OF", 20L);
     IO_WriteNl(f);
   } else {
@@ -371,7 +378,7 @@ IO_tFile f;
 INTEGER cases;
 # endif
 {
-  if (WriteTok_Language == WriteTok_Modula2) {
+  if (WriteTok_Language == WriteTok_Modula3 || WriteTok_Language == WriteTok_Modula2) {
     while (cases > 0) {
       IO_WriteS(f, (STRING)"END; (* additional CASE *)", 26L);
       IO_WriteNl(f);
@@ -403,7 +410,7 @@ TokenTab_PosType pos;
   CHAR Delimiter;
 
   if (pos.Line != 0) {
-    if (WriteTok_Language == WriteTok_Modula2) {
+    if (WriteTok_Language == WriteTok_Modula3 || WriteTok_Language == WriteTok_Modula2) {
       IO_WriteS(f, (STRING)"(* line ", 8L);
       IO_WriteI(f, (LONGINT)pos.Line, 0L);
       IO_WriteS(f, (STRING)" \"", 2L);
@@ -436,7 +443,7 @@ TokenTab_PosType pos;
     if (Lists_IsEmpty(a)) {
       DEC(i2);
     }
-    if (WriteTok_Language == WriteTok_Modula2) {
+    if (WriteTok_Language == WriteTok_Modula3 || WriteTok_Language == WriteTok_Modula2) {
       IO_WriteS(f, (STRING)"  ", 2L);
     }
     i = i1;
@@ -475,7 +482,7 @@ TokenTab_PosType pos;
             INC(i);
           }
           if (negative || AttrIndex <= len) {
-            if (WriteTok_Language == WriteTok_Modula2) {
+            if (WriteTok_Language == WriteTok_Modula3 || WriteTok_Language == WriteTok_Modula2) {
               IO_WriteS(f, (STRING)"yyAttributeStack^[yyStackPtr", 28L);
               if (negative) {
                 IO_WriteS(f, (STRING)"-", 1L);
@@ -516,7 +523,7 @@ Automaton_tProduction prod;
 {
   Automaton_tIndex i;
 
-  if (WriteTok_Language == WriteTok_Modula2) {
+  if (WriteTok_Language == WriteTok_Modula3 || WriteTok_Language == WriteTok_Modula2) {
     IO_WriteS(f, (STRING)" (* ", 4L);
   } else {
     IO_WriteS(f, (STRING)" /* ", 4L);
@@ -537,7 +544,7 @@ Automaton_tProduction prod;
     }
     IO_WriteC(f, '.');
   }
-  if (WriteTok_Language == WriteTok_Modula2) {
+  if (WriteTok_Language == WriteTok_Modula3 || WriteTok_Language == WriteTok_Modula2) {
     IO_WriteS(f, (STRING)"*)", 2L);
     IO_WriteNl(f);
   } else {
@@ -563,7 +570,7 @@ TokenTab_Vocabulary t;
   sym = TokenTab_TokenToSymbol(t, &error);
   Idents_GetString(sym, &s);
   IO_WriteC(f, Strings_Char(&s, 1));
-  if (WriteTok_Language == WriteTok_Modula2) {
+  if (WriteTok_Language == WriteTok_Modula3 || WriteTok_Language == WriteTok_Modula2) {
     {
       LONGCARD B_5 = 2, B_6 = Strings_Length(&s);
 

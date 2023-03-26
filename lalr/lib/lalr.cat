@@ -9,7 +9,7 @@ NAME
      lalr - LALR(1) parser generator
 
 SYNOPSIS
-     lalr [-c|-m]  [-b][-d][-e][-h][-l][-p][-s][-g][-v]  [-cs][n]
+     lalr [-c|-m|-M]  [-b][-d][-e][-h][-l][-p][-s][-g][-v]  [-cs][n]
      [-i] [ItemSets] <file>
 
 DESCRIPTION
@@ -49,6 +49,8 @@ OPTIONS
 
      m    generate Modula-2 source code (default)
 
+     M    generate Modula-3 source code
+
      a    generate all = -d -e -p -s
 
      b    run the preprocessor bnf and feed its output into lalr
@@ -60,7 +62,7 @@ OPTIONS
 
 
 
-GMD                       Last change: 2002-02-15               1
+GMD                       Last change: 2023-03-17               1
 
 
 
@@ -126,7 +128,7 @@ FILES
 
 
 
-GMD                       Last change: 2002-02-15               2
+GMD                       Last change: 2023-03-17               2
 
 
 
@@ -144,6 +146,16 @@ LALR(1)                  USER COMMANDS                    LALR(1)
      Errors.mi      implementation module of error handler
      <Scanner>.md   definition module of scanner
      <Scanner>.mi   implementation module of scanner
+
+     if output is in Modula-3:
+     <Parser>.i3    INTERFACE file of the generated parser
+     <Parser>.m3    MODULE file of the generated parser
+     <Parser>Drv.m3 (Main) MODULE file of the parser driver
+     <Parser>.Tab   tables to control the generated parser
+     Errors.i3      INTERFACE file of error handler
+     Errors.m3      MODULE file of error handler
+     <Scanner>.i3   INTERFACE file of scanner
+     <Scanner>.m3   MODULE file of scanner
 
 
 
@@ -192,4 +204,4 @@ SEE ALSO
 
 
 
-GMD                       Last change: 2002-02-15                3
+GMD                       Last change: 2023-03-17                3

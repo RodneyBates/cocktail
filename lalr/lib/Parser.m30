@@ -1,0 +1,695 @@
+(* Derived from: ** $Id: Parser.mi,v 2.8 1992/08/12 06:54:05 grosch rel $ *)
+(* Skeleton parser for Cocktail lalr. *)
+(* Modified Rodney M. Bates. Various times. rodney.m.bates@acm.org*)
+(* Beginning 3-2023: 
+    3-2023 Add generation of Module-3 code. 
+    Further changes in https://github.com/RodneyBates/cocktail
+*) 
+
+(* Parser.m3. *) 
+
+$@ INTERFACE @;
+
+$@ IMPORT SYSTEM, $, Positions, Errors, Strings, IntSets, System;
+   IJMPORT Word;
+$G (* GLOBAL section is inserted here *)
+
+CONST
+   yyInitStackSize      = 100;
+   yyStackExpansionFactor = 2.0 
+   yyNoState            = 0;
+
+$T (* Table Constants are inserted here *)
+
+   yyFirstFinalState    = yyFirstReadTermState;
+   yyLastState          = yyLastReduceState;
+
+TYPE
+   yyTableElmt          = SHORTCARD;
+   yyTCombRange         = yyTableElmt (*[0 .. yyTableMax]*);
+   yyNCombRange         = yyTableElmt (*[yyLastTerminal + 1 .. yyNTableMax]*);
+   yyStateRange         = yyTableElmt (*[0 .. yyLastState]*);
+   yyReadRange          = yyTableElmt (*[yyFirstReadState .. yyLastReadState]*);
+   yyReadReduceRange    = yyTableElmt 
+                            (*[yyFirstReadTermState ..yyLastReadNontermState]*);
+   yyReduceRange        = yyTableElmt
+                            (*[yyFirstReduceState .. yyLastReduceState]*);
+   yySymbolRange        = yyTableElmt (*[yyFirstSymbol .. yyLastSymbol]*);
+   yyTCombType          = RECORD Check, Next: yyStateRange; END;
+   yyNCombType          = yyStateRange;
+   yyTCombTypePtr       = REF yyTCombType;
+   yyNCombTypePtr       = REF yyNCombType;
+   yyStackPtrType       = INTEGER 
+   yyStackType          = REF ARRAY OF yyStateRange;
+   yyAttributeStackType = REF ARRAY OF tParsAttribute 
+
+VAR
+   yyTBasePtr           : ARRAY (*yyTableElmt*) [0 .. yyLastReadState] 
+                          OF yyTCombTypePtr;
+   yyNBasePtr           : ARRAY (*yyTableElmt*) [0 .. yyLastReadState]      
+                          OF yyNCombTypePtr;
+   yyDefault            : ARRAY (*yyTableElmt*) [0 .. yyLastReadState]      
+                          OF yyReadRange  ;
+   yyTComb              : ARRAY yyTCombRange            OF yyTCombType  ;
+   yyNComb              : ARRAY yyNCombRange            OF yyNCombType  ;
+   yyLength             : ARRAY yyReduceRange           OF yyTableElmt  ;
+   yyLeftHandSide       : ARRAY yyReduceRange           OF yySymbolRange;
+   yyContinuation       : ARRAY (*yyTableElmt*) [0 .. yyLastReadState]      
+                          OF yySymbolRange;
+   yyFinalToProd        : ARRAY yyReadReduceRange       OF yyReduceRange;
+   yyIsInitialized      : BOOLEAN;
+   yyTableFile          : System.tFile;
+
+(*EXPORTED*)
+PROCEDURE TokenName (Token: SHORTCARD; VAR Name: TEXT) =
+   BEGIN
+      CASE Token OF
+$W      (* token names are inserted here *)
+      END;
+   END TokenName;
+
+(*EXPORTED*)
+$@ PROCEDURE @ (): CARDINAL =
+$L (* LOCAL section is inserted here *)
+   VAR
+      yyState           : yyStateRange;
+      yyTerminal        : yySymbolRange;
+      yyNonterminal     : yySymbolRange;        (* left-hand side symbol *)
+      yyStackPtr        : yyStackPtrType;
+      yyStackLAST       : INTEGER;
+      yyStateStackSize  : INTEGER;
+      (* yyStackPtr, yyStackLAST, and yyStateStackSize always apply equally
+         to yyStateStack and yyAttributeStack. *)
+      yyStateStack      : yyStackType;
+      yyAttributeStack  : yyAttributeStackType;
+      yySynAttribute    : tParsAttribute;       (* synthesized attribute *)
+$@    yyRepairAttribute : $.tScanAttribute;
+      yyRepairToken     : yySymbolRange;
+      yyTCombPtr        : yyTCombTypePtr;
+      yyNCombPtr        : yyNCombTypePtr;
+      yyIsRepairing     : BOOLEAN;
+      yyErrorCount      : CARDINAL;
+      yyTokenString     : ARRAY [0..127] OF CHAR;
+      
+    PROCEDURE ExpandStateStack ( VAR Stack : yyStackTyp , ToSize : INTEGER ) =
+
+      VAR LOldStack : yyStackTyp;
+      VAR LStackNumber : INTEGER; 
+      BEGIN
+        LStackNumber := NUMBER ( Stack ^ );
+        IF LStackNumber < ToSize
+        THEN
+          LOldStack := Stack; 
+          Stack := NEW ( yyStackTyp , ToSize );
+          SUBARRAY ( Stack ^ , 0 LStackNumber - 1 ) := LOldStack ^;
+          LOldStack := NIL; 
+        END; 
+      END ExpandStateStack; 
+
+    PROCEDURE ExpandAttributeStack
+      ( VAR Stack : yyAttributeStackTyp , ToSize : INTEGER ) =
+
+      VAR LOldStack : yyAttributeStackTyp;
+      VAR LStackNumber : INTEGER; 
+      BEGIN
+        LStackNumber := NUMBER ( Stack ^ );
+        IF LStackNumber < ToSize
+        THEN
+          LOldStack := Stack; 
+          Stack := NEW ( yyAttributeStackTyp , ToSize );
+          SUBARRAY ( Stack ^ , 0 LStackNumber - 1 ) := LOldStack ^;
+          LOldStack := NIL; 
+        END; 
+      END ExpandAttributeStack; 
+
+$@ BEGIN (* @ *) 
+$@    Begin@;
+      yyState           := yyStartState;
+$@    yyTerminal        := $.GetToken ();
+      yyStateStackSize  := yyInitStackSize;
+      yyAttrStackSize   := yyInitStackSize;
+      yyStateStack := NEW ( yStateStackType , yyStateStackSize )
+      yyAttributeStack := NEW ( yyAttributeStackType , yyStateStackSize ) 
+      yyStackLAST := LAST ( yyStateStack ^ ) (* Of yyAttributeStack too. *);
+      yyStackPtr        := 0;
+      yyErrorCount      := 0;
+      yyIsRepairing     := FALSE;
+
+      LOOP (* Through parsing actions. One iteration does:
+              1) Any token deletions called for by an error.
+              2) Any continuation token insertions called for 
+                 after an error.
+              3) Either: 
+                 a) Possibly one read-reduce followed by 
+                    a sequence of reduces
+              or b) One read
+           *)  
+         (* Push state stack. *) 
+         IF yyStackPtr >= yyStackLAST 
+         THEN
+            yyStateStackSize
+              := MAX ( NUMBER ( yyStateStack ^ ) * 2 , yyStackPtr + 2 ) 
+            ExpandStateStack ( yyStateStack , yyStateStackSize ); 
+            ExpandAttributeStack ( yyAttributeStack , yyStateStackSize );
+            yyStackLAST
+              := LAST ( yyStateStack ^ ) (* Of yyAttributeStack too. *);
+         END (* IF *) ;
+         yyStateStack^ [yyStackPtr] := yyState;
+
+         LOOP (* Through all continuation pushes, plus compute the state
+                 after that. This loop also goes through the default state
+                 computations. *) 
+            (* SPEC State := Next (State, Terminal); terminal transition *)
+
+            yyTCombPtr := LOOPHOLE 
+                            ( LOOPHOLE ( yyTBasePtr [yyState] ,M2LONGCARD) 
+                              + (VAL (   yyTerminal,M2LONGCARD ) 
+                                * BYTESIZE (yyTCombType))
+                            ,yyTCombTypePtr);
+
+            IF yyTCombPtr^.Check = yyState 
+            THEN
+               yyState := yyTCombPtr^.Next;
+               EXIT;
+            END (* IF *) ;
+            yyState := yyDefault [yyState];
+
+            IF yyState = yyNoState 
+            THEN (* syntax error *)
+               yyState := yyStateStack^ [yyStackPtr];
+               IF yyIsRepairing 
+               THEN (* repair *)
+                  yyRepairToken := yyContinuation [yyState];
+                  yyState := Next (yyState, yyRepairToken);
+                  IF yyState <= yyLastReadTermState 
+                  THEN (* read or read terminal reduce ? *)
+$@                   $.ErrorAttribute 
+                       (yyRepairToken, yyRepairAttribute);
+                     TokenName (yyRepairToken, yyTokenString);
+                     Errors.ErrorMessageI 
+                       (Errors.TokenInserted, Errors.Repair,
+$@                      $.Attribute.Position, Errors.Array, 
+                        ADR (yyTokenString)
+                       );
+                     IF yyState >= yyFirstFinalState 
+                     THEN (* avoid second push *)
+                        yyState := yyFinalToProd [yyState];
+                     END (* IF *) ;
+                     INC (yyStackPtr);
+                     yyAttributeStack^ [yyStackPtr].Scan := yyRepairAttribute;
+                     yyStateStack^     [yyStackPtr] := yyState;
+                  END (* IF *) ;
+                  IF yyState >= yyFirstFinalState 
+                  THEN (* final state ? *)
+                    EXIT;
+                  END (* IF *) ;
+               ELSE (* report and recover *)
+                  INC (yyErrorCount);
+                  ErrorRecovery 
+                    (yyTerminal, yyStateStack,
+                     NUMBER ( yyStateStack ^ ), yyStackPtr);
+                  yyIsRepairing := TRUE;
+               END (* IF *) ;
+            END (* IF *) ;
+         END (* LOOP *) ;
+
+         IF yyState >= yyFirstFinalState 
+         THEN (* final state ? *)
+            IF yyState <= yyLastReadTermState 
+            THEN (* read terminal reduce ? *)
+               INC (yyStackPtr);
+$@             yyAttributeStack^ [yyStackPtr].Scan := $.Attribute;
+$@             yyTerminal := $.GetToken ();
+               yyIsRepairing := FALSE;
+$X             yyState := yyFinalToProd [yyState]; (* reducing case label ct. *)
+            END (* IF *) ;
+
+            LOOP (* Through successive reductions *)
+$R            (* Code for Reductions is inserted here *)
+              (* SPEC State 
+                   := Next (Top (), Nonterminal); nonterminal transition *)
+
+               yyNCombPtr 
+                 := LOOPHOLE 
+                      ( LOOPHOLE (yyNBasePtr [yyStateStack^ [yyStackPtr]],M2LONGCARD)
+                        + (VAL (  yyNonterminal,M2LONGCARD )
+                          * BYTESIZE (yyNCombType))
+                      ,yyNCombTypePtr);
+
+               yyState := yyNCombPtr^;
+               INC (yyStackPtr);
+               yyAttributeStack^ [yyStackPtr] := yySynAttribute;
+               IF yyState < yyFirstFinalState 
+               THEN (* read nonterminal ? *)
+                 EXIT 
+               END (* IF *) ; 
+$X             yyState := yyFinalToProd [yyState]; (* reducing case label ct. *)
+            END (* LOOP *) ;
+
+         ELSE (* read *)
+            INC (yyStackPtr);
+$@          yyAttributeStack^ [yyStackPtr].Scan := $.Attribute;
+$@          yyTerminal := $.GetToken ();
+            yyIsRepairing := FALSE;
+         END (* IF *);
+      END (* LOOP *) ;
+$@    END @;
+
+PROCEDURE ErrorRecovery (
+      VAR Terminal      : yySymbolRange ;
+          StateStack    : yyStackType   ;
+          StackSize     : INTEGER       ;
+          StackPtr      : yyStackPtrType) =
+   VAR
+      TokensSkipped     : BOOLEAN;
+      ContinueSet       : IntSets . T;
+      RestartSet        : IntSets . T;
+      Token             : yySymbolRange;
+      TokenArray        : ARRAY [0..127] OF CHAR;
+      TokenString       : Strings.tString;
+      ContinueString    : Strings.tString;
+   BEGIN
+   (* 1. report the error *)
+         TokenName ( Terminal , TokenArray );
+         Strings.ArrayToString (TokenArray, TokenString);
+         Errors.ErrorMessageI (Errors.SyntaxError, Errors.Error, 
+$@          $.Attribute.Position, Errors.String, ADR(TokenString) );
+
+   (* 2. report the set of expected terminal symbols *)
+      ContinueSet:= IntSets . Empty ( ) 
+      ComputeContinuation (StateStack, StackSize, StackPtr, ContinueSet);
+      Strings.AssignEmpty (ContinueString);
+      FOR Token := IntSets.Minimum (ContinueSet) TO IntSets.Maximum (ContinueSet) DO
+         IF IntSets.IsElement (Token, ContinueSet) THEN
+            TokenName (Token, TokenArray);
+            Strings.ArrayToString (TokenArray, TokenString);
+            IF (Strings.Length (ContinueString) + Strings.Length (TokenString) + 1 <= Strings.cMaxStrLength) THEN
+               Strings.Concatenate (ContinueString, TokenString);
+               Strings.Append (ContinueString, ' ');
+            END;
+         END;
+      END;
+      Errors.ErrorMessageI (Errors.ExpectedTokens, Errors.Information,
+$@       $.Attribute.Position, Errors.String, ADR (ContinueString));
+      ContinueSet := NIL;
+
+   (* 3. compute the set of terminal symbols for restart of the parse *)
+      RestartSet := IntSets . Empty ( )
+      ComputeRestartPoints (StateStack, StackSize, StackPtr, RestartSet);
+
+   (* 4. skip terminal symbols until a restart point is reached *)
+      TokensSkipped := FALSE;
+      WHILE NOT IntSets.IsElement (Terminal, RestartSet) DO
+$@       Terminal := $.GetToken ();
+         TokensSkipped := TRUE;
+      END;
+      RestartSet := NIL;
+
+   (* 5. report the restart point *)
+      IF TokensSkipped THEN
+$@       Errors.ErrorMessage (Errors.RestartPoint, Errors.Information, $.Attribute.Position);
+      END;
+   END ErrorRecovery;
+
+(*
+   compute the set of terminal symbols that can be accepted (read)
+   in a given stack configuration (eventually after reduce actions)
+*)
+
+PROCEDURE ComputeContinuation (
+          Stack         : yyStackType   ;
+          StackSize     : INTEGER       ;
+          StackPtr      : yyStackPtrType;
+      VAR ContinueSet   : IntSets . T     ) =
+   VAR Terminal         : yySymbolRange;
+   BEGIN
+      ContinueSet:= IntSets . Empty ( );
+      FOR Terminal := yyFirstTerminal TO yyLastTerminal DO
+         IF IsContinuation (Terminal, Stack, StackSize, StackPtr) THEN
+            ContinueSet := IntSets . Include ( ContinueSet , Terminal )
+         END;
+      END;
+   END ComputeContinuation;
+
+(*
+   check whether a given terminal symbol can be accepted (read)
+   in a certain stack configuration (eventually after reduce actions)
+*)
+
+PROCEDURE IsContinuation (
+      Terminal          : yySymbolRange ;
+      ParseStack        : yyStackType   ;
+      StackSize         : INTEGER       ;
+      StackPtr          : yyStackPtrType): BOOLEAN = 
+   VAR
+      State             : yyStackPtrType;
+      Nonterminal       : yySymbolRange;
+      Stack             : yyStackType;
+   BEGIN
+      Stack := NEW (yyStackTyp , StackSize);
+      FOR State := 0 TO StackPtr DO
+         Stack^ [State] := ParseStack^ [State];
+      END;
+      State := Stack^ [StackPtr];
+      LOOP
+         Stack^ [StackPtr] := State;
+         State := Next (State, Terminal);
+         IF State = yyNoState THEN
+            Stack := NIL; 
+            RETURN FALSE;
+         END;
+         IF State <= yyLastReadTermState (* read or read terminal reduce ? *)
+         THEN
+            Stack := NIL; 
+            RETURN TRUE;
+         END;
+
+         LOOP                                           (* reduce *)
+            IF State =  yyStopState THEN
+               Stack := NIL; 
+               RETURN TRUE;
+            ELSE 
+               DEC (StackPtr, yyLength [State]);
+               Nonterminal := yyLeftHandSide [State];
+            END;
+
+            State := Next (Stack^ [StackPtr], Nonterminal);
+            IF StackPtr >= StackSize THEN
+              ExpandStateStack
+                (Stack, MAX (NUMBER ( Stack ^ ) * 2 , StackPtr + 2 ) )
+              StackSize := NUMBER (Stack^); 
+            END;
+            INC (StackPtr);
+            IF State < yyFirstFinalState THEN EXIT; END; (* read nonterminal ? *)
+            State := yyFinalToProd [State];             (* read nonterminal reduce *)
+         END;
+      END;
+   END IsContinuation;
+
+(*
+   compute a set of terminal symbols that can be used to restart
+   parsing in a given stack configuration. we simulate parsing until
+   end of file using a suffix program synthesized by the function
+   Continuation. All symbols acceptable in the states reached during
+   the simulation can be used to restart parsing.
+*)
+
+PROCEDURE ComputeRestartPoints (
+          ParseStack    : yyStackType   ;
+          StackSize     : INTEGER       ;
+          StackPtr      : yyStackPtrType;
+      VAR RestartSet    : IntSets . T     ) =
+   VAR
+      Stack             : yyStackType;
+      State             : yyStackPtrType;
+      Nonterminal       : yySymbolRange;
+      ContinueSet       : IntSets . T;
+   BEGIN
+      Stack := NEW (yyStackTyp, StackSize); 
+      FOR State := 0 TO StackPtr DO
+         Stack^ [State] := ParseStack^ [State];
+      END;
+      ContinueSet := IntSets . Empty ( )
+      State := Stack^ [StackPtr];
+
+      LOOP
+         IF StackPtr >= StackSize THEN
+            ExpandStateStack
+              (Stack, MAX (NUMBER (Stack ^) * 2 , StackPtr + 2 ) )
+            StackSize := NUMBER (Stack^); 
+         END;
+         Stack^ [StackPtr] := State;
+         ComputeContinuation (Stack, StackSize, StackPtr, ContinueSet);
+         RestartSet := IntSets.Union (RestartSet, ContinueSet);
+         State := Next (State, yyContinuation [State]);
+
+         IF State >= yyFirstFinalState THEN             (* final state ? *)
+            IF State <= yyLastReadTermState THEN        (* read terminal reduce ? *)
+               INC (StackPtr);
+               State := yyFinalToProd [State];
+            END;
+
+            LOOP                                        (* reduce *)
+               IF State = yyStopState THEN
+                  Stack := NIL; 
+                  ContinueSet := NIL;
+                  RETURN;
+               ELSE 
+                  DEC (StackPtr, yyLength [State]);
+                  Nonterminal := yyLeftHandSide [State];
+               END;
+
+               State := Next (Stack^ [StackPtr], Nonterminal);
+               INC (StackPtr);
+               IF State < yyFirstFinalState THEN EXIT; END; (* read nonterminal ? *)
+               State := yyFinalToProd [State];          (* read nonterminal reduce *)
+            END;
+         ELSE                                           (* read *)
+            INC (StackPtr);
+         END;
+      END;
+   END ComputeRestartPoints;
+
+(* access the parse table:   Next : State x Symbol -> State *)
+
+PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange =
+   VAR
+      TCombPtr          : yyTCombTypePtr;
+      NCombPtr          : yyNCombTypePtr;
+   BEGIN
+      IF Symbol <= yyLastTerminal THEN
+         LOOP
+         
+            TCombPtr 
+              := LOOPHOLE 
+                   ( LOOPHOLE (yyTBasePtr [State],M2LONGCARD) 
+                     + (VAL (   Symbol,M2LONGCARD )
+                       * BYTESIZE (yyTCombType))
+                   ,yyTCombTypePtr);
+
+            IF TCombPtr^.Check # State THEN
+               State := yyDefault [State];
+               IF State = yyNoState THEN RETURN yyNoState; END;
+            ELSE
+               RETURN TCombPtr^.Next;
+            END;
+         END;
+      ELSE
+      
+        NCombPtr 
+          := LOOPHOLE 
+               ( LOOPHOLE (yyNBasePtr [State],M2LONGCARD)
+                 + (VAL (   Symbol,M2LONGCARD )
+                   * BYTESIZE (yyNCombType))
+               ,yyNCombTypePtr);
+
+        RETURN NCombPtr^;
+      END;
+   END Next;
+
+(* -------------- From rexm3's Parser.m3: -------------------------------*)
+
+PROCEDURE yyGetTables() =
+   VAR
+      BlockSize, j, n   : Word.T;
+      ReadVal: INTEGER;
+      OK: BOOLEAN;
+      TBase     : ARRAY (*yyTableElmt*)[0 .. yyLastReadState] OF yyTCombRange;
+      NBase     : ARRAY (*yyTableElmt*)[0 .. yyLastReadState] OF yyNCombRange;
+   BEGIN
+      BlockSize := 64000 DIV BYTESIZE (yyTCombType);
+      OK := TRUE;
+      TRY
+        yyTableFile := System.OpenInputT (ParsTabName);
+      EXCEPT
+        OSError.E (code)
+        => Errors.ErrLine
+             ("Error: Can't open parse table file " & ParsTabName); 
+        OK := FALSE;
+      END;
+      IF OK THEN
+        ReadVal := yyGetTable (ADR (TBase[FIRST(TBase)])) DIV BYTESIZE (yyTCombRange ) - 1;
+        IF ReadVal # yyLastReadState THEN
+           Errors.ErrLine
+             ("Error reading " & ParsTabName & ", TBase size = " & Fmt.Int (ReadVal) & ", expected "
+              & Fmt.Int (yyLastReadState) );
+           OK := FALSE;
+        ELSE
+          ReadVal := yyGetTable (ADR (NBase[FIRST(NBase)])) DIV BYTESIZE (yyNCombRange ) - 1;
+          IF ReadVal # yyLastReadState THEN
+             Errors.ErrLine
+               ("Error reading " & ParsTabName & ", NBase size = " & Fmt.Int (ReadVal) & ", expected "
+                & Fmt.Int (yyLastReadState) );
+             OK := FALSE;
+          ELSE
+            ReadVal := yyGetTable (ADR (yyDefault[FIRST(yyDefault)])) DIV BYTESIZE (yyReadRange) - 1;
+            IF ReadVal # yyLastReadState THEN
+               Errors.ErrLine
+                 ("Error reading " & ParsTabName & ", yyDefault size = " & Fmt.Int (ReadVal) & ", expected "
+                  & Fmt.Int (yyLastReadState) );
+               OK := FALSE;
+            ELSE
+              ReadVal := yyGetTable (ADR (yyNComb[FIRST(yyNComb)])) DIV BYTESIZE (yyNCombType);
+              IF ReadVal # (yyNTableMax - yyLastTerminal) THEN
+                 Errors.ErrLine
+                   ("Error reading " & ParsTabName & ", yyNComb size = " & Fmt.Int (ReadVal) & ", expected "
+                    & Fmt.Int (yyNTableMax - yyLastTerminal) );
+                 OK := FALSE;
+              ELSE
+                ReadVal := yyGetTable (ADR (yyLength[FIRST(yyLength)])) DIV BYTESIZE (yyTableElmt  ) - 1;
+                IF ReadVal # (yyLastReduceState - yyFirstReduceState) THEN
+                   Errors.ErrLine
+                     ("Error reading " & ParsTabName & ", yylength size = " & Fmt.Int (ReadVal) & ", expected "
+                      & Fmt.Int (yyLastReduceState - yyFirstReduceState) );
+                   OK := FALSE;
+                ELSE
+                  ReadVal := yyGetTable (ADR (yyLeftHandSide[FIRST(yyLeftHandSide)])) DIV BYTESIZE (yySymbolRange) - 1;
+                  IF ReadVal # (yyLastReduceState - yyFirstReduceState) THEN
+                     Errors.ErrLine
+                       ("Error reading " & ParsTabName & ", yy LeftHandSide size= " & Fmt.Int (ReadVal) & ", expected "
+                        & Fmt.Int (yyLastReduceState - yyFirstReduceState) );
+                     OK := FALSE;
+                  ELSE
+                    ReadVal := yyGetTable (ADR (yyContinuation[FIRST(yyContinuation)])) DIV BYTESIZE (yySymbolRange) - 1;
+                    IF ReadVal # yyLastReadState THEN
+                       Errors.ErrLine
+                         ("Error reading " & ParsTabName & ", yyContinuation size= " & Fmt.Int (ReadVal) & ", expected "
+                          & Fmt.Int (yyLastReadState) );
+                       OK := FALSE;
+                    ELSE
+                      ReadVal := yyGetTable (ADR (yyFinalToProd[FIRST(yyFinalToProd)] )) DIV BYTESIZE (yyReduceRange) - 1;
+                      IF ReadVal # (yyLastReadNontermState - yyFirstReadTermState)
+                      THEN
+                         Errors.ErrLine
+                           ("Error reading " & ParsTabName & ", yyFinalToProd size = " & Fmt.Int (ReadVal) & ", expected "
+                            & Fmt.Int (yyLastReadNontermState - yyFirstReadTermState) );
+                         OK := FALSE;
+                      END;
+                    END;
+                  END;
+                END;
+              END;
+            END;
+          END;
+        END;
+      END;
+      IF NOT OK THEN
+        Errors.ErrorMessage 
+        (Errors.WrongParseTable, Errors.Fatal, Positions.NoPosition)
+      END;
+      n := 0;
+      j := 0;
+      WHILE j <= yyTableMax DO
+         INC (n, yyGetTable (ADR (yyTComb [VAL(j,yyStateRange)])) DIV BYTESIZE (yyTCombType));
+         INC (j, BlockSize);
+      END;
+      IF n # (yyTableMax + 1) THEN 
+         Errors.ErrorMessage (Errors.WrongParseTable, Errors.Fatal, Positions.NoPosition);
+      END;
+      System.Close (yyTableFile);
+
+      FOR StateF := 1 TO yyLastReadState DO
+         yyTBasePtr [StateF] := ADR (yyTComb [TBase [StateF]]);
+      END;
+      FOR StateF := 1 TO yyLastReadState DO
+         yyNBasePtr [StateF] := ADR (yyNComb [NBase [StateF]]);
+      END;
+   END yyGetTables;
+
+(* --------------------------------------------------------------------- *) 
+
+
+(* -------------- from lalr's (nearly) original lib/Parser.mi -----------** 
+PROCEDURE yyGetTables ( ) = 
+   VAR
+      BlockSize, j, n   : CARDINAL;
+      State     : yyStateRange;
+      TBase     : ARRAY (*yyTableElmt*) [0 .. yyLastReadState] OF yyTCombRange;
+      NBase     : ARRAY (*yyTableElmt*) [0 .. yyLastReadState] OF yyNCombRange;
+   BEGIN
+      BlockSize := 64000 DIV BYTESIZE (yyTCombType);
+      yyTableFile := System.OpenInput (ParsTabName);
+      yyErrorCheck (Errors.OpenParseTable, yyTableFile);
+      IF 
+         (yyGetTable (ADR (TBase         )) DIV BYTESIZE (yyTCombRange ) - 1
+            # yyLastReadState) OR
+         (yyGetTable (ADR (NBase         )) DIV BYTESIZE (yyNCombRange ) - 1
+            # yyLastReadState) OR
+         (yyGetTable (ADR (yyDefault     )) DIV BYTESIZE (yyReadRange  ) - 1
+            # yyLastReadState) OR
+         (yyGetTable (ADR (yyNComb       )) DIV BYTESIZE (yyNCombType  )
+            # yyNTableMax - yyLastTerminal) OR
+         (yyGetTable (ADR (yyLength      )) DIV BYTESIZE (yyTableElmt  ) - 1
+            # yyLastReduceState - yyFirstReduceState) OR
+         (yyGetTable (ADR (yyLeftHandSide)) DIV BYTESIZE (yySymbolRange) - 1
+            # yyLastReduceState - yyFirstReduceState) OR
+         (yyGetTable (ADR (yyContinuation)) DIV BYTESIZE (yySymbolRange) - 1
+            # yyLastReadState) OR
+         (yyGetTable (ADR (yyFinalToProd )) DIV BYTESIZE (yyReduceRange) - 1
+            # yyLastReadNontermState - yyFirstReadTermState)
+      THEN
+         Errors.ErrorMessage (Errors.WrongParseTable, Errors.Fatal, Positions.NoPosition);
+      END;
+      n := 0;
+      j := 0;
+      WHILE j <= yyTableMax DO
+         INC (n, yyGetTable (ADR (yyTComb [yyStateRange,j])) DIV BYTESIZE (yyTCombType));
+         INC (j, BlockSize);
+      END;
+      IF n # yyTableMax + 1 THEN 
+         Errors.ErrorMessage (Errors.WrongParseTable, Errors.Fatal, Positions.NoPosition);
+      END;
+      System.Close (yyTableFile);
+
+      FOR State := 1 TO yyLastReadState DO
+         yyTBasePtr [State] := ADR (yyTComb [TBase [State]]);
+      END;
+      FOR State := 1 TO yyLastReadState DO
+         yyNBasePtr [State] := ADR (yyNComb [NBase [State]]);
+      END;
+   END yyGetTables;
+**---------------------------------------------------------------------- *) 
+
+PROCEDURE yyGetTable (Address: ADDRESS): Word . T =
+   VAR
+      N         : INTEGER;
+      Length    : yyTableElmt;
+      LongLength : Word . T;
+   BEGIN
+      N := System.Read (yyTableFile, ADR (Length), BYTESIZE (yyTableElmt));
+      yyErrorCheck (Errors.ReadParseTable, N);
+      LongLength := Length;
+      N := System.Read (yyTableFile, Address, LongLength);
+      yyErrorCheck (Errors.ReadParseTable, N);
+      RETURN LongLength;
+   END yyGetTable;
+
+PROCEDURE yyErrorCheck (ErrorCode: INTEGER; Info: INTEGER) =
+   VAR ErrNo: INTEGER;
+   BEGIN
+     IF Info < 0 THEN
+        ErrNo := System.ErrNum ();
+        Errors.ErrorMessageI (ErrorCode, Errors.Fatal, Positions.NoPosition,
+           Errors.Integer, ADR (ErrNo));
+     END;
+   END yyErrorCheck;
+
+$@ PROCEDURE Begin@ =
+   BEGIN
+$B      (* BEGIN section is inserted here *)
+      IF NOT yyIsInitialized THEN
+         yyIsInitialized := TRUE;
+         yyGetTables;
+      END;
+$@    END Begin@;
+
+(*EXPORTED*)
+$@ PROCEDURE Close@ =
+   BEGIN
+$C      (* CLOSE section is inserted here *)
+$@    END Close@;
+
+BEGIN
+    yyIsInitialized := FALSE;
+$@     ParsTabName := '@.Tab';
+$@ END @.

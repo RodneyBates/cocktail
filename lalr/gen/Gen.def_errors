@@ -1,0 +1,4 @@
+27,6 Cannot find symbol file for module 'IO'
+28,6 Cannot find symbol file for module 'TokenTab'
+75,26 'tFile' not declared
+75,38 'tFile' not declared

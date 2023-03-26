@@ -1,4 +1,4 @@
-usage: lalr [-c|-m] [-b][-d][-e][-h][-l][-p][-s][-g][-v] [-cs][n] 
+usage: lalr [-c|-m|-M] [-b][-d][-e][-h][-l][-p][-s][-g][-v] [-cs][n] 
             [-i] [-k] <file>
 
 
@@ -14,6 +14,7 @@ usage: lalr [-c|-m] [-b][-d][-e][-h][-l][-p][-s][-g][-v] [-cs][n]
  k  write item sets in file _Debug
  l  print complete (error) listing
  m  generate Modula-2 source code (default)
+ M  generate Modula-3 source code
  p  generate parser driver
  s  generate mini scanner
  t  print statistics about the generated parser

@@ -91,14 +91,23 @@ BOOLEAN ArgCheck_MakeDef;
 #define eToManyArgs   21
 #define eNoOption   20
 static CHAR Drv [] = "Drv";
+static CHAR ExtDefM3 [] = ".i3";
+static CHAR ExtImpM3 [] = ".m3";
 static CHAR ExtDefM [] = ".md";
 static CHAR ExtImpM [] = ".mi";
 static CHAR ExtDefC [] = ".h";
 static CHAR ExtImpC [] = ".c";
+static CHAR ScanDefM3 [] = "Scanner.i3";
+static CHAR ScanImpM3 [] = "Scanner.m3";
 static CHAR ScanDefM [] = "Scanner.md";
 static CHAR ScanImpM [] = "Scanner.mi";
+static CHAR ErrDefM3 [] = "Errors.i3";
+static CHAR ErrImpM3 [] = "Errors.m3";
 static CHAR ErrDefM [] = "Errors.md";
 static CHAR ErrImpM [] = "Errors.mi";
+static CHAR ParsDefM3 [] = "Parser.i3";
+static CHAR ParsImpM3 [] = "Parser.m3";
+static CHAR ParsDrvM3 [] = "ParserDrv.m3";
 static CHAR ParsDefM [] = "Parser.md";
 static CHAR ParsImpM [] = "Parser.mi";
 static CHAR ParsDrvM [] = "ParserDrv.mi";
@@ -113,7 +122,8 @@ static CHAR HelpFile [] = "lalr.cat";
 static CHAR ShortHelpFile [] = "lalr.syn";
 static CHAR cHelp [] = "-h";
 static CHAR cC [] = "-c";
-static CHAR cModula [] = "-m";
+static CHAR cModula3 [] = "-M";
+static CHAR cModula2 [] = "-m";
 static CHAR cDefinition [] = "-d";
 static CHAR cErrors [] = "-e";
 static CHAR cLong [] = "-l";
@@ -197,7 +207,9 @@ void ArgCheck_ArgCheck
           }
         } else if (Character_IsEqual(Argument.A, 256L, cC, 2L)) {
           WriteTok_Language = WriteTok_C;
-        } else if (Character_IsEqual(Argument.A, 256L, cModula, 2L)) {
+        } else if (Character_IsEqual(Argument.A, 256L, cModula3, 2L)) {
+          WriteTok_Language = WriteTok_Modula3;
+        } else if (Character_IsEqual(Argument.A, 256L, cModula2, 2L)) {
           WriteTok_Language = WriteTok_Modula2;
         } else if (Character_IsEqual(Argument.A, 256L, cDefinition, 2L)) {
           ArgCheck_MakeDef = TRUE;
@@ -280,7 +292,17 @@ void ArgCheck_GenerateSupport
   IO_tFile in, out;
   Strings_tString String1, String2;
 
-  if (WriteTok_Language == WriteTok_Modula2) {
+  if (WriteTok_Language == WriteTok_Modula3) {
+    (void)strncpy((char *)ParsDrv.A, (char *)ParsDrvM3, sizeof(ParsDrv.A));
+    (void)strncpy((char *)ParsDef.A, (char *)ParsDefM3, sizeof(ParsDef.A));
+    (void)strncpy((char *)ParsImp.A, (char *)ParsImpM3, sizeof(ParsImp.A));
+    (void)strncpy((char *)ScanDef.A, (char *)ScanDefM3, sizeof(ScanDef.A));
+    (void)strncpy((char *)ScanImp.A, (char *)ScanImpM3, sizeof(ScanImp.A));
+    (void)strncpy((char *)ErrDef.A, (char *)ErrDefM3, sizeof(ErrDef.A));
+    (void)strncpy((char *)ErrImp.A, (char *)ErrImpM3, sizeof(ErrImp.A));
+    (void)strncpy((char *)ArgCheck_ExtDef.A, (char *)ExtDefM3, sizeof(ArgCheck_ExtDef.A));
+    (void)strncpy((char *)ArgCheck_ExtImp.A, (char *)ExtImpM3, sizeof(ArgCheck_ExtImp.A));
+  } else if (WriteTok_Language == WriteTok_Modula2) {
     (void)strncpy((char *)ParsDrv.A, (char *)ParsDrvM, sizeof(ParsDrv.A));
     (void)strncpy((char *)ParsDef.A, (char *)ParsDefM, sizeof(ParsDef.A));
     (void)strncpy((char *)ParsImp.A, (char *)ParsImpM, sizeof(ParsImp.A));

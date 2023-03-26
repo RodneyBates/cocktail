@@ -1,0 +1,17 @@
+25,6 Cannot find symbol file for module 'Lists'
+27,6 Cannot find symbol file for module 'Sets'
+28,6 Cannot find symbol file for module 'TokenTab'
+65,19 'Prio' not declared
+82,19 'tList' not declared
+83,19 'PosType' not declared
+85,19 'Prio' not declared
+87,19 'NonTerminal' not declared
+88,56 'cMAXNonTerm' not declared
+111,19 'tSet' not declared
+112,19 'tSet' not declared
+114,19 'Vocabulary' not declared
+139,22 'NonTerminal' not declared
+141,25 'Terminal' not declared
+142,19 'NonTerminal' not declared
+158,43 'tSet' not declared
+163,36 'Vocabulary' not declared

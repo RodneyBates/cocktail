@@ -1,0 +1,8 @@
+25,9 Cannot find symbol file for module 'IO'
+26,9 Cannot find symbol file for module 'Strings'
+27,9 Cannot find symbol file for module 'Idents'
+36,19 'tFile' not declared
+43,31 'tIdent' not declared
+44,28 'tFile' not declared
+44,41 'tString' not declared
+45,30 'tFile' not declared

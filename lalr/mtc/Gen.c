@@ -184,7 +184,7 @@ void Gen_GenDefaultActions
   Lists_MakeList(&com);
   cpos.Line = 0;
   cpos.Column = 0;
-  if (WriteTok_Language == WriteTok_Modula2) {
+  if ((WriteTok_Language == WriteTok_Modula3 || WriteTok_Language) == WriteTok_Modula2) {
     Strings_ArrayToString((STRING)"{", 1L, &s);
     Strings_Append(&s, EOL);
     Lists_Append(&act, (ADDRESS)StringMem_PutString(&s));
@@ -247,7 +247,7 @@ System_tFile Def;
   }
   INC1(Compress_TableSize, Gen_LastTerminal);
   INC1(Compress_NTableSize, Gen_LastSymbol);
-  if (WriteTok_Language == WriteTok_Modula2) {
+  if (WriteTok_Language == WriteTok_Modula3 || WriteTok_Language == WriteTok_Modula2) {
     ArgCheck_MakeFileName(Actions_ParserName, ArgCheck_Parser, 6L, (STRING)".Tab", 4L, FileName.A, 129L);
     out = OpenOutput(FileName.A, 129L);
     if (SysError_StatIsBad(out)) {
