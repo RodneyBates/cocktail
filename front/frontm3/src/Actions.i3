@@ -15,7 +15,7 @@
  * Revision 1.1  90/06/11  18:44:35  grosch
  * layout improvements
  * 
- * Revision 1.0	 88/10/04  14:26:32  vielsack
+ * Revision 1.0  88/10/04  14:26:32  vielsack
  * Initial revision
  * 
  *)
@@ -23,17 +23,17 @@
 UNSAFE INTERFACE  Actions;
 
 IMPORT Word;
-FROM TokenTab	IMPORT PosType;
-FROM StringMem	IMPORT tStringRef;
-FROM Strings	IMPORT tString;
-FROM Idents	IMPORT tIdent;
-FROM ReuseIO		IMPORT tFile;
-FROM Lists	IMPORT tList;
+FROM TokenTab   IMPORT PosType;
+FROM StringMem  IMPORT tStringRef;
+FROM Strings    IMPORT tString;
+FROM Idents     IMPORT tIdent;
+FROM ReuseIO            IMPORT tFile;
+FROM Lists      IMPORT tList;
 
 TYPE tActionMode = {Export, Global, Local, Begin, Close};
 
-VAR ScannerName	: tIdent;
-VAR ParserName	: tIdent;
+VAR ScannerName : tIdent;
+VAR ParserName  : tIdent;
 
 PROCEDURE PutComment (kind: tActionMode; kp: PosType; c: tList; cp: PosType);
 
