@@ -94,14 +94,14 @@ PROCEDURE ErrorAttribute (Token: INTEGER; VAR Attr: tScanAttribute) =
     END;
   END ErrorAttribute;
 
-PROCEDURE GetNumber (VAR Word: tString): Word.T =
+PROCEDURE GetNumber (VAR AsChars: tString): Word.T =
   VAR i, n, d : Word.T;
    BEGIN
       i := 0;
       n := 0;
-      WHILE i < Length (Word) DO
+      WHILE i < Length (AsChars) DO
         i := i+1;
-        d := (ORD(Char (Word, i))-ORD('0'));
+        d := (ORD(Char (AsChars, i))-ORD('0'));
         IF (n > (MaxShortCard DIV 10)) OR ((n*10) > (MaxShortCard - d)) THEN
           RETURN MaxShortCard;
         END;
@@ -114,7 +114,7 @@ PROCEDURE GetNumber (VAR Word: tString): Word.T =
 CONST
    yyTabSpace           = 8;
    yyDNoState           = 0;
-   yyFileStackSize      = 16;
+   yyFileStackSize      = 32;
    yyInitBufferSize     = (1024 * 8) + 256;
 yyFirstCh       = '\000';
 yyLastCh        = '\177';
@@ -141,7 +141,8 @@ TYPE
    yyTableRange         = (*yyTableElmt*) [0 .. yyTableSize];
    yyCombType           = RECORD Check, Next: yyStateRange; END;
    yyCombTypePtr        = UNTRACED BRANDED REF  yyCombType;
-   yytChBufferPtr       = UNTRACED BRANDED REF  ARRAY [0 .. 1000000] OF CHAR;
+   yytChOpenBufferPtr   = REF ARRAY OF CHAR;
+   yytChBufferPtr       = UNTRACED REF ARRAY [ 0 .. 16_7FFFFFF0 ] OF CHAR; 
    yyChRange            = [yyFirstCh .. yyLastCh];
    yyFileStackPtrTyp    = SHORTCARD;
    yyFileStackSubscript = (*yyFileStackPtrTyp*) [1 .. yyFileStackSize];
@@ -153,17 +154,18 @@ VAR
    yyEobTrans           : ARRAY yyStateRange    OF yyStateRange ;
    yyToLower, yyToUpper : ARRAY yyChRange       OF CHAR         ;
 
-   yyStateStack         : UNTRACED BRANDED REF  ARRAY [0 .. 1000000] OF yyStateRange;
-   yyStateStackSize     : LONGINT;
+   yyStateStack         : REF  ARRAY OF yyStateRange;
+   yyStateStackSize     : INTEGER;
    yyStartState         : yyStateRange;
    yyPreviousStart      : yyStateRange;
    yyCh                 : CHAR;
  
    yySourceFile         : System.tFile;
    yyEof                : BOOLEAN;
+   yyChOpenBufferPtr    : yytChOpenBufferPtr;
    yyChBufferPtr        : yytChBufferPtr;
    yyChBufferStart      : INTEGER;
-   yyChBufferSize       : LONGINT;
+   yyChBufferSize       : INTEGER;
    yyChBufferIndex      : INTEGER;
    yyBytesRead          : INTEGER;
    yyLineCount          : SHORTCARD; (* Number of the current line,
@@ -176,14 +178,35 @@ VAR
    yyFileStack          : ARRAY yyFileStackSubscript OF RECORD
                              SourceFile         : System.tFile;
                              Eof                : BOOLEAN;
+                             ChOpenBufferPtr    : yytChOpenBufferPtr;
                              ChBufferPtr        : yytChBufferPtr;
                              ChBufferStart      : INTEGER;
-                             ChBufferSize       : LONGINT;
+                             ChBufferSize       : INTEGER;
                              ChBufferIndex      : INTEGER;
                              BytesRead          : INTEGER;
                              LineCount          : SHORTCARD;
                              LineStart          : INTEGER;
-                          END;
+                          END; 
+
+PROCEDURE ExtendChArray ( VAR ArrRef: REF ARRAY OF CHAR ) =
+  VAR LOldArrRef : REF ARRAY OF CHAR;
+  VAR LNumber: INTEGER; 
+BEGIN
+  LOldArrRef := ArrRef;
+  LNumber := NUMBER (ArrRef ^); 
+  ArrRef := NEW ( REF ARRAY OF CHAR , LNumber * 2 );
+  SUBARRAY ( ArrRef ^, 0 , LNumber) := LOldArrRef ^;
+END ExtendChArray; 
+
+PROCEDURE ExtendStateArray ( VAR ArrRef: REF ARRAY OF yyStateRange ) =
+  VAR LOldArrRef : REF ARRAY OF yyStateRange;
+  VAR LNumber: INTEGER; 
+BEGIN
+  LOldArrRef := ArrRef;
+  LNumber := NUMBER (ArrRef ^); 
+  ArrRef := NEW ( REF ARRAY OF yyStateRange , LNumber * 2 );
+  SUBARRAY ( ArrRef ^, 0 , LNumber) := LOldArrRef ^;
+END ExtendStateArray; 
 
 PROCEDURE GetToken (): INTEGER =
    VAR
@@ -191,7 +214,7 @@ PROCEDURE GetToken (): INTEGER =
       yyTablePtr        : yyCombTypePtr;
       yyRestartFlag     : BOOLEAN;
       yyi, yySource, yyTarget : INTEGER;
-      yyChBufferFree    : LONGINT;
+      yyChBufferFree    : INTEGER;
 
 (* line 184 "../src/input.rex" *)
  VAR Word, String, LastWord: tString; c: CHAR; PrevState: SHORTCARD; 
@@ -951,25 +974,47 @@ ReuseIO.WriteC (ReuseIO.StdOutput, yyChBufferPtr^ [yyChBufferIndex-1]);
                      END;
 
                      IF NOT yyEof THEN          (* read buffer and restart *)
+
+
                         yyChBufferFree 
+                          := General.Exp2 
+                                  (General.Log2 
+                                     (yyChBufferSize - 4 - General.MaxAlign - TokenLength)
+                                  );
+
+(* WAS:                 yyChBufferFree 
                           := VAL(  
                                  General.Exp2 
                                   (General.Log2 
-                                     (yyChBufferSize - 4 - VAL(General.MaxAlign,LONGINT) -VAL( TokenLength,LONGINT))
+                                     (yyChBufferSize - 4 - VAL(General.MaxAlign,INTEGER) -VAL( TokenLength,LONGINT))
                                   ),LONGINT
                                 );
+*)
+
                         IF yyChBufferFree < (yyChBufferSize DIV 8) THEN
-                           DynArray.ExtendArray (yyChBufferPtr, yyChBufferSize, BYTESIZE (CHAR));
-                           IF yyChBufferPtr = NIL THEN yyErrorMessage (1); END;
+                           ExtendChArray (yyChOpenBufferPtr); 
+                           yyChBufferPtr := LOOPHOLE(ADR (yyChOpenBufferPtr ^ [0]), yytChBufferPtr);
+(* WAS:                    DynArray.ExtendArray (yyChBufferPtr, yyChBufferSize, BYTESIZE (CHAR)); *) 
+                           IF yyChOpenBufferPtr = NIL THEN yyErrorMessage (1); END;
+
                            yyChBufferFree 
+                             := General.Exp2 
+                                  (General.Log2 
+                                     (yyChBufferSize - 4 - General.MaxAlign - TokenLength)
+                                  );
+
+(* WAS:                    yyChBufferFree 
                              := VAL ( 
                                      General.Exp2 
                                         (General.Log2 
-                                           (yyChBufferSize - 4 - VAL(General.MaxAlign,LONGINT) - VAL(TokenLength,LONGINT))
+                                           (yyChBufferSize - 4 - VAL(General.MaxAlign,INTEGER) - VAL(TokenLength,LONGINT))
                                         ),LONGINT
                                     );
+*)
+
                            IF yyStateStackSize < yyChBufferSize THEN
-                              DynArray.ExtendArray (yyStateStack, yyStateStackSize, BYTESIZE (yyStateRange));
+                              ExtendStateArray (yyStateStack); 
+(* WAS:                       DynArray.ExtendArray (yyStateStack, yyStateStackSize, BYTESIZE (yyStateRange));*)
                               IF yyStateStack = NIL THEN yyErrorMessage (1); END;
                            END;
                         END;
@@ -1042,6 +1087,7 @@ PROCEDURE yyInitialize() =
       WITH m2tom3_with_1=yyFileStack [yyFileStackPtr] DO
          m2tom3_with_1.SourceFile       := yySourceFile         ;
          m2tom3_with_1.Eof              := yyEof                ;
+         m2tom3_with_1.ChOpenBufferPtr  := yyChOpenBufferPtr        ;
          m2tom3_with_1.ChBufferPtr      := yyChBufferPtr        ;
          m2tom3_with_1.ChBufferStart    := yyChBufferStart      ;
          m2tom3_with_1.ChBufferSize     := yyChBufferSize       ;
@@ -1052,8 +1098,10 @@ PROCEDURE yyInitialize() =
       END;
                                                 (* initialize file state *)
       yyChBufferSize    := yyInitBufferSize;
-      DynArray.MakeArray (yyChBufferPtr, yyChBufferSize, BYTESIZE (CHAR));
-      IF yyChBufferPtr = NIL THEN yyErrorMessage (1); END;
+      yyChOpenBufferPtr := NEW ( REF ARRAY OF CHAR, yyChBufferSize); 
+      yyChBufferPtr := LOOPHOLE(ADR (yyChOpenBufferPtr ^ [0]), yytChBufferPtr);
+(* WAS:DynArray.MakeArray (yyChBufferPtr, yyChBufferSize, BYTESIZE (CHAR));*)
+      IF yyChOpenBufferPtr = NIL THEN yyErrorMessage (1); END;
       yyChBufferStart   := General.MaxAlign;
       yyChBufferPtr^ [yyChBufferStart - 1] := yyEolCh; (* begin of line indicator *)
       yyChBufferPtr^ [yyChBufferStart    ] := yyEobCh; (* end of buffer sentinel *)
@@ -1070,10 +1118,13 @@ PROCEDURE CloseFile() =
    BEGIN
       IF yyFileStackPtr = 0 THEN yyErrorMessage (4); END;
       Source.CloseSource (yySourceFile);
-      DynArray.ReleaseArray (yyChBufferPtr, yyChBufferSize, BYTESIZE (CHAR));
+      yyChBufferPtr := NIL;
+      yyChOpenBufferPtr := NIL;
+(*WAS:DynArray.ReleaseArray (yyChBufferPtr, yyChBufferSize, BYTESIZE (CHAR));*) 
       WITH m2tom3_with_2=yyFileStack [yyFileStackPtr] DO        (* pop file *)
          yySourceFile   := m2tom3_with_2.SourceFile             ;
          yyEof          := m2tom3_with_2.Eof                    ;
+         yyChOpenBufferPtr := m2tom3_with_2.ChOpenBufferPtr            ;
          yyChBufferPtr  := m2tom3_with_2.ChBufferPtr            ;
          yyChBufferStart:= m2tom3_with_2.ChBufferStart  ;
          yyChBufferSize := m2tom3_with_2.ChBufferSize           ;
@@ -1091,7 +1142,7 @@ PROCEDURE GetWord (VAR Word: Strings.tString) =
       WordStart := yyChBufferIndex - TokenLength - 1;
       FOR i := 1 TO TokenLength DO
          Word.Chars [VAL(i,Strings.tStringIndex)] 
-           := yyChBufferPtr^ [WordStart + i];
+           := yyChOpenBufferPtr^ [WordStart + i];
       END;
       Word.Length := VAL(TokenLength,SHORTCARD);
    END GetWord;
@@ -1102,7 +1153,7 @@ PROCEDURE GetLower (VAR Word: Strings.tString) =
       WordStart := yyChBufferIndex - TokenLength - 1;
       FOR i := 1 TO TokenLength DO
          Word.Chars [VAL(i,Strings.tStringIndex)] 
-           := yyToLower [yyChBufferPtr^ [WordStart + i]];
+           := yyToLower [yyChOpenBufferPtr^ [WordStart + i]];
       END;
       Word.Length := VAL(TokenLength,SHORTCARD);
    END GetLower;
@@ -1113,7 +1164,7 @@ PROCEDURE GetUpper (VAR Word: Strings.tString) =
       WordStart := yyChBufferIndex - TokenLength - 1;
       FOR i := 1 TO TokenLength DO
          Word.Chars [VAL(i,Strings.tStringIndex)] 
-           := yyToUpper [yyChBufferPtr^ [WordStart + i]];
+           := yyToUpper [yyChOpenBufferPtr^ [WordStart + i]];
       END;
       Word.Length := VAL(TokenLength,SHORTCARD);
    END GetUpper;
@@ -1136,7 +1187,7 @@ PROCEDURE yyEcho() =
    VAR i        : INTEGER;
    BEGIN
       FOR i := yyChBufferIndex - TokenLength TO yyChBufferIndex - 1 DO
-         ReuseIO.WriteC (ReuseIO.StdOutput, yyChBufferPtr^ [i]);
+         ReuseIO.WriteC (ReuseIO.StdOutput, yyChOpenBufferPtr^ [i]);
       END;
    END yyEcho;
  
@@ -1176,7 +1227,7 @@ PROCEDURE output (c: CHAR) =
 PROCEDURE unput (c: CHAR) =
    BEGIN
       DEC (yyChBufferIndex);
-      yyChBufferPtr^ [yyChBufferIndex] := c;
+      yyChOpenBufferPtr^ [yyChBufferIndex] := c;
    END unput;
 
 PROCEDURE input (): CHAR =
@@ -1200,15 +1251,15 @@ PROCEDURE input (): CHAR =
 *)
 
             IF yyBytesRead <= 0 THEN yyBytesRead := 0; yyEof := TRUE; END;
-            yyChBufferPtr^ [yyBytesRead    ] := yyEobCh;
-            yyChBufferPtr^ [yyBytesRead + 1] := '\000';
+            yyChOpenBufferPtr^ [yyBytesRead    ] := yyEobCh;
+            yyChOpenBufferPtr^ [yyBytesRead + 1] := '\000';
          END;
       END;
       IF yyChBufferIndex = (yyChBufferStart + yyBytesRead) THEN
          RETURN '\000';
       ELSE
          INC (yyChBufferIndex);
-         RETURN yyChBufferPtr^ [yyChBufferIndex - 1];
+         RETURN yyChOpenBufferPtr^ [yyChBufferIndex - 1];
       END
    END input;
 
@@ -1250,8 +1301,8 @@ PROCEDURE yyGetTables() =
       Base      : ARRAY yyStateRange OF yyTableRange;
    BEGIN
       BlockSize := 64000 DIV BYTESIZE (yyCombType);
-      TableFile := System.OpenInput (ScanTabName);
-      FrontChecks.ErrorCheck ("yyGetTables.OpenInput", TableFile);
+      TableFile := System.OpenInputT (ScanTabName);
+      FrontChecks.ErrorCheckT ("yyGetTables.OpenInput", TableFile);
       IF ((yyGetTable (TableFile, ADR (Base[FIRST(Base)]      )) DIV BYTESIZE (yyTableElmt) - 1) 
          # yyDStateCount) OR
          ((yyGetTable (TableFile, ADR (yyDefault[FIRST(yyDefault)] )) DIV BYTESIZE (yyTableElmt) - 1) 
@@ -1281,9 +1332,9 @@ PROCEDURE yyGetTable (TableFile: System.tFile; Address: ADDRESS): Word.T =
       Length    : yyTableElmt;
    BEGIN
       N := System.Read (TableFile, ADR (Length), BYTESIZE (yyTableElmt));
-      FrontChecks.ErrorCheck ("yyGetTable.Read1", N);
+      FrontChecks.ErrorCheckT ("yyGetTable.Read1", N);
       N := System.Read (TableFile, Address, VAL(Length,INTEGER));
-      FrontChecks.ErrorCheck ("yyGetTable.Read2", N);
+      FrontChecks.ErrorCheckT ("yyGetTable.Read2", N);
       RETURN Length;
    END yyGetTable;
  
@@ -1315,10 +1366,11 @@ BEGIN
    yyBasePtr [yyStartState] := LOOPHOLE (ADR (yyComb [0]),LONGCARD);
    yyDefault [yyStartState] := yyDNoState;
    yyComb [0].Check     := yyDNoState;
-   yyChBufferPtr        := ADR (yyComb [0]);     (* dirty trick *)
-   yyChBufferIndex      := 1;                           (* dirty trick *)
+   yyChBufferPtr        := LOOPHOLE(ADR (yyComb [0]), yytChBufferPtr); (* dirty trick *)
+   yyChBufferIndex      := 1; 
    yyStateStackSize     := yyInitBufferSize;
-   DynArray.MakeArray (yyStateStack, yyStateStackSize, BYTESIZE (yyStateRange));
+   yyStateStack := NEW ( REF ARRAY OF yyStateRange, yyChBufferSize); 
+(* WAS: DynArray.MakeArray (yyStateStack, yyStateStackSize, BYTESIZE (yyStateRange)); *)
    yyStateStack^ [0]    := yyDNoState;
    
    FOR yyCh := yyFirstCh TO yyLastCh DO yyToLower [yyCh] := yyCh; END;
@@ -1329,5 +1381,6 @@ BEGIN
    FOR yyCh := 'a' TO 'z' DO
       yyToUpper [yyCh] := VAL (ORD (yyCh) - ORD ('a') + ORD ('A'),CHAR);
    END;
+   yyStateStack := NIL;
 END Scanner.
 

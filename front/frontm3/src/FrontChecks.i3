@@ -19,6 +19,7 @@ UNSAFE INTERFACE  FrontChecks;
 FROM    ReuseIO              IMPORT  tFile;
 
 PROCEDURE ErrorCheck     (READONLY s: ARRAY OF CHAR; n: INTEGER);
+PROCEDURE ErrorCheckT    (a: TEXT; n: INTEGER);
 PROCEDURE CheckReadOpen  (VAR f: tFile;READONLY  s: ARRAY OF CHAR);
 PROCEDURE CheckWriteOpen (VAR f: tFile;READONLY  s: ARRAY OF CHAR);
 

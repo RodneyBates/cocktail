@@ -42,6 +42,15 @@ PROCEDURE ErrorCheck (READONLY a: ARRAY OF CHAR; n: INTEGER) =
     END;
   END ErrorCheck;
 
+PROCEDURE ErrorCheckT (a: TEXT; n: INTEGER) =
+  VAR s : tString;
+  BEGIN
+    IF StatIsBad (n) THEN 
+      TextToString (a, s);
+      SysErrorMessageI (n, eFatal, eString, ADR (s));
+    END;
+  END ErrorCheckT;
+
 PROCEDURE CheckReadOpen (VAR file: tFile;READONLY  a: ARRAY OF CHAR) =
   VAR s: tString;
   BEGIN

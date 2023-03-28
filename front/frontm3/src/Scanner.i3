@@ -74,7 +74,7 @@ CONST EofToken	= 0;
 
 VAR TokenLength	: INTEGER;
 VAR Attribute	: tScanAttribute;
-VAR ScanTabName	: ARRAY [0 .. 127] OF CHAR;
+VAR ScanTabName	: TEXT;
 VAR Exit	: PROCEDURE ();
 
 PROCEDURE BeginScanner()	;
