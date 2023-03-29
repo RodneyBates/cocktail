@@ -1296,7 +1296,7 @@ PROCEDURE CloseScanner() =
  
 PROCEDURE yyGetTables() =
    VAR
-      BlockSize, j, n   : Word.T;
+      BlockSize, j, n   : CARDINAL;
       TableFile : System.tFile;
       Base      : ARRAY yyStateRange OF yyTableRange;
    BEGIN
