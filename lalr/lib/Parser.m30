@@ -8,10 +8,10 @@
 
 (* Parser.m3. *) 
 
-$@ INTERFACE @;
+$@ MODULE @;
 
 $@ IMPORT SYSTEM, $, Positions, Errors, Strings, IntSets, System;
-   IJMPORT Word;
+   IMPORT Fmt, OSError, Text, Word;
 $G (* GLOBAL section is inserted here *)
 
 CONST
