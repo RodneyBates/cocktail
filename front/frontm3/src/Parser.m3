@@ -6,7 +6,9 @@
 
 FROM SYSTEM IMPORT SHORTCARD, M2LONGCARD;
 IMPORT Word, SYSTEM, Scanner, Positions, FrontErrors, Strings, DynArray, Sets, System;
-IMPORT Text;
+IMPORT Fmt, OSError, Text;
+
+IMPORT Errors (* From Reusem3. *);
 
 (* line 2 "/tmp/lalr1305" *)
 (* line 26 ../src/input.lalr *)
@@ -1033,6 +1035,117 @@ PROCEDURE Next (State: yyStateRange; Symbol: yySymbolRange): yyStateRange =
       END;
    END Next;
 
+(* -------------- From rexm3's Parser.m3: -------------------------------*)
+
+PROCEDURE yyGetTables() =
+   VAR
+      BlockSize, j, n   : Word.T;
+      ReadVal: INTEGER;
+      OK: BOOLEAN;
+      TBase     : ARRAY (*yyTableElmt*)[0 .. yyLastReadState] OF yyTCombRange;
+      NBase     : ARRAY (*yyTableElmt*)[0 .. yyLastReadState] OF yyNCombRange;
+   BEGIN
+      BlockSize := 64000 DIV BYTESIZE (yyTCombType);
+      OK := TRUE;
+      TRY
+        yyTableFile := System.OpenInputT (ParsTabName);
+      EXCEPT
+        OSError.E (code)
+        => Errors.ErrLine
+             ("Error: Can't open parse table file " & ParsTabName); 
+        OK := FALSE;
+      END;
+      IF OK THEN
+        ReadVal := yyGetTable (ADR (TBase[FIRST(TBase)])) DIV BYTESIZE (yyTCombRange ) - 1;
+        IF ReadVal # yyLastReadState THEN
+           Errors.ErrLine
+             ("Error reading " & ParsTabName & ", TBase size = " & Fmt.Int (ReadVal) & ", expected "
+              & Fmt.Int (yyLastReadState) );
+           OK := FALSE;
+        ELSE
+          ReadVal := yyGetTable (ADR (NBase[FIRST(NBase)])) DIV BYTESIZE (yyNCombRange ) - 1;
+          IF ReadVal # yyLastReadState THEN
+             Errors.ErrLine
+               ("Error reading " & ParsTabName & ", NBase size = " & Fmt.Int (ReadVal) & ", expected "
+                & Fmt.Int (yyLastReadState) );
+             OK := FALSE;
+          ELSE
+            ReadVal := yyGetTable (ADR (yyDefault[FIRST(yyDefault)])) DIV BYTESIZE (yyReadRange) - 1;
+            IF ReadVal # yyLastReadState THEN
+               Errors.ErrLine
+                 ("Error reading " & ParsTabName & ", yyDefault size = " & Fmt.Int (ReadVal) & ", expected "
+                  & Fmt.Int (yyLastReadState) );
+               OK := FALSE;
+            ELSE
+              ReadVal := yyGetTable (ADR (yyNComb[FIRST(yyNComb)])) DIV BYTESIZE (yyNCombType);
+              IF ReadVal # (yyNTableMax - yyLastTerminal) THEN
+                 Errors.ErrLine
+                   ("Error reading " & ParsTabName & ", yyNComb size = " & Fmt.Int (ReadVal) & ", expected "
+                    & Fmt.Int (yyNTableMax - yyLastTerminal) );
+                 OK := FALSE;
+              ELSE
+                ReadVal := yyGetTable (ADR (yyLength[FIRST(yyLength)])) DIV BYTESIZE (yyTableElmt  ) - 1;
+                IF ReadVal # (yyLastReduceState - yyFirstReduceState) THEN
+                   Errors.ErrLine
+                     ("Error reading " & ParsTabName & ", yylength size = " & Fmt.Int (ReadVal) & ", expected "
+                      & Fmt.Int (yyLastReduceState - yyFirstReduceState) );
+                   OK := FALSE;
+                ELSE
+                  ReadVal := yyGetTable (ADR (yyLeftHandSide[FIRST(yyLeftHandSide)])) DIV BYTESIZE (yySymbolRange) - 1;
+                  IF ReadVal # (yyLastReduceState - yyFirstReduceState) THEN
+                     Errors.ErrLine
+                       ("Error reading " & ParsTabName & ", yy LeftHandSide size= " & Fmt.Int (ReadVal) & ", expected "
+                        & Fmt.Int (yyLastReduceState - yyFirstReduceState) );
+                     OK := FALSE;
+                  ELSE
+                    ReadVal := yyGetTable (ADR (yyContinuation[FIRST(yyContinuation)])) DIV BYTESIZE (yySymbolRange) - 1;
+                    IF ReadVal # yyLastReadState THEN
+                       Errors.ErrLine
+                         ("Error reading " & ParsTabName & ", yyContinuation size= " & Fmt.Int (ReadVal) & ", expected "
+                          & Fmt.Int (yyLastReadState) );
+                       OK := FALSE;
+                    ELSE
+                      ReadVal := yyGetTable (ADR (yyFinalToProd[FIRST(yyFinalToProd)] )) DIV BYTESIZE (yyReduceRange) - 1;
+                      IF ReadVal # (yyLastReadNontermState - yyFirstReadTermState)
+                      THEN
+                         Errors.ErrLine
+                           ("Error reading " & ParsTabName & ", yyFinalToProd size = " & Fmt.Int (ReadVal) & ", expected "
+                            & Fmt.Int (yyLastReadNontermState - yyFirstReadTermState) );
+                         OK := FALSE;
+                      END;
+                    END;
+                  END;
+                END;
+              END;
+            END;
+          END;
+        END;
+      END;
+      IF NOT OK THEN
+        Errors.ErrorMessage 
+        (Errors.WrongParseTable, Errors.Fatal, Positions.NoPosition)
+      END;
+      n := 0;
+      j := 0;
+      WHILE j <= yyTableMax DO
+         INC (n, yyGetTable (ADR (yyTComb [VAL(j,yyStateRange)])) DIV BYTESIZE (yyTCombType));
+         INC (j, BlockSize);
+      END;
+      IF n # (yyTableMax + 1) THEN 
+         Errors.ErrorMessage (Errors.WrongParseTable, Errors.Fatal, Positions.NoPosition);
+      END;
+      System.Close (yyTableFile);
+
+      FOR StateF := 1 TO yyLastReadState DO
+         yyTBasePtr [StateF] := ADR (yyTComb [TBase [StateF]]);
+      END;
+      FOR StateF := 1 TO yyLastReadState DO
+         yyNBasePtr [StateF] := ADR (yyNComb [NBase [StateF]]);
+      END;
+   END yyGetTables;
+(* End from rexm3's Parser.m30 ----------------------------------------------------------*)
+
+(* From front, m2tom3, plus editing: 
 PROCEDURE yyGetTables() =
    VAR
       BlockSize, j, n   : Word.T;
@@ -1081,6 +1194,8 @@ PROCEDURE yyGetTables() =
          yyNBasePtr [State] := ADR (yyNComb [NBase [State]]);
       END;
    END yyGetTables;
+
+--------------------------------------------------------*)
 
 PROCEDURE yyGetTable (Address: ADDRESS): Word.T =
    VAR

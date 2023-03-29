@@ -11,8 +11,9 @@
 
  UNSAFE MODULE Scanner;
  
-FROM SYSTEM IMPORT SHORTCARD;
+FROM SYSTEM IMPORT M2LONGCARD, SHORTCARD;
 IMPORT Word, SYSTEM, FrontChecks, System, General, Positions, ReuseIO, DynArray, Strings, Source;
+IMPORT Checks, Errors, Fmt, OSError, Text;
 (* line 86 "../src/input.rex" *)
 
 
@@ -148,7 +149,7 @@ TYPE
    yyFileStackSubscript = (*yyFileStackPtrTyp*) [1 .. yyFileStackSize];
 
 VAR
-   yyBasePtr            : ARRAY yyStateRange    OF LONGCARD     ;
+   yyBasePtr            : ARRAY yyStateRange    OF M2LONGCARD     ;
    yyDefault            : ARRAY yyStateRange    OF yyStateRange ;
    yyComb               : ARRAY yyTableRange    OF yyCombType   ;
    yyEobTrans           : ARRAY yyStateRange    OF yyStateRange ;
@@ -230,8 +231,8 @@ BEGIN
          LOOP           (* execute as many state transitions as possible *)
                                                 (* determine next state *)
             yyTablePtr := LOOPHOLE (yyBasePtr [yyState] +
-               (VAL(ORD (yyChBufferPtr^ [yyChBufferIndex]),LONGCARD )
-               * VAL( BYTESIZE (yyCombType),LONGCARD)) ,yyCombTypePtr);
+               (VAL(ORD (yyChBufferPtr^ [yyChBufferIndex]),M2LONGCARD )
+               * VAL( BYTESIZE (yyCombType),M2LONGCARD)) ,yyCombTypePtr);
             IF yyTablePtr^.Check # yyState THEN
                yyState := yyDefault [yyState];
                IF yyState = yyDNoState THEN EXIT; END;
@@ -1297,6 +1298,46 @@ PROCEDURE yyGetTables() =
    VAR
       BlockSize, j, n   : Word.T;
       TableFile : System.tFile;
+      Base      : ARRAY yyStateRange OF yyTableRange;
+   BEGIN
+      BlockSize := 64000 DIV BYTESIZE (yyCombType);
+
+      TRY
+        TableFile := System.OpenInputT (ScanTabName);
+      EXCEPT
+        OSError.E (code)
+        => Errors.ErrLine ("Unable to open scanner table file " & ScanTabName );
+      END;
+
+      Checks.ErrorCheckT ("yyGetTables.OpenInput", TableFile);
+      IF ((yyGetTable (TableFile, ADR (Base[FIRST(Base)]      )) DIV BYTESIZE (yyTableElmt) - 1) 
+         # yyDStateCount) OR
+         ((yyGetTable (TableFile, ADR (yyDefault[FIRST(yyDefault)] )) DIV BYTESIZE (yyTableElmt) - 1) 
+         # yyDStateCount) OR
+         ((yyGetTable (TableFile, ADR (yyEobTrans[FIRST(yyEobTrans)])) DIV BYTESIZE (yyTableElmt) - 1) 
+         # yyDStateCount)
+         THEN
+         yyErrorMessage (2);
+      END;
+      n := 0;
+      j := 0;
+      WHILE j <= yyTableSize DO
+         INC (n, yyGetTable (TableFile, ADR (yyComb [VAL(j,SHORTCARD)])) DIV BYTESIZE (yyCombType));
+         INC (j, BlockSize);
+      END;
+      IF n # (yyTableSize + 1) THEN yyErrorMessage (2); END;
+      System.Close (TableFile);
+
+      FOR i := 0 TO yyDStateCount DO
+         yyBasePtr [i] := LOOPHOLE (ADR (yyComb [Base [i]]),M2LONGCARD);
+      END;
+   END yyGetTables;
+
+(*As once was: ------------------------------------------------------------------**
+PROCEDURE yyGetTables() =
+   VAR
+      BlockSize, j, n   : Word.T;
+      TableFile : System.tFile;
       i         : yyStateRange;
       Base      : ARRAY yyStateRange OF yyTableRange;
    BEGIN
@@ -1325,6 +1366,7 @@ PROCEDURE yyGetTables() =
          yyBasePtr [i] := LOOPHOLE (ADR (yyComb [Base [i]]),LONGCARD);
       END;
    END yyGetTables;
+** -----------------------------------------------------------------------------*)
  
 PROCEDURE yyGetTable (TableFile: System.tFile; Address: ADDRESS): Word.T =
    VAR
@@ -1363,7 +1405,7 @@ BEGIN
    yyFileStackPtr       := 0;
    yyStartState         := 1;                   (* set up for auto init *)
    yyPreviousStart      := 1;
-   yyBasePtr [yyStartState] := LOOPHOLE (ADR (yyComb [0]),LONGCARD);
+   yyBasePtr [yyStartState] := LOOPHOLE (ADR (yyComb [0]),M2LONGCARD);
    yyDefault [yyStartState] := yyDNoState;
    yyComb [0].Check     := yyDNoState;
    yyChBufferPtr        := LOOPHOLE(ADR (yyComb [0]), yytChBufferPtr); (* dirty trick *)
