@@ -57,24 +57,27 @@
 
 UNSAFE MODULE ArgCheck;
 
+IMPORT Params;
+IMPORT Text;
 IMPORT Word;
 FROM Actions    IMPORT  ScannerName,    ParserName;
 FROM Character  IMPORT  IsEqual,        Assign;
 FROM Check      IMPORT  Verbose;
-FROM Checks     IMPORT  CheckReadOpen,  CheckWriteOpen;
+FROM FrontChecks     IMPORT  CheckReadOpen,  CheckWriteOpen;
+FROM FrontChecks     IMPORT  CheckReadOpenT,  CheckWriteOpenT;
 FROM Debug      IMPORT  NoTrace, Fast, ItemSets;
 FROM Default    IMPORT  NoDefault;
 FROM FrontErrors     IMPORT  eError,         eString,
                         ErrorMessageI,  tReportMode,    SetReportMode,
                         CloseErrors;
 FROM Gen        IMPORT  CaseFlag,       CaseLabels;
-FROM Idents     IMPORT  tIdent, NoIdent, WriteIdent, GetString;
+FROM Idents     IMPORT  tIdent, NoIdent, WriteIdent, GetString, GetText;
 FROM ReuseIO         IMPORT  tFile,          StdInput,       StdOutput,
-                        ReadOpen,       WriteOpen,      ReadClose,
+                        ReadOpen, ReadOpenT, WriteOpen, WriteOpenT, ReadClose,
                         WriteClose,     EndOfFile,      CloseIO,
                         WriteT,         WriteC,         WriteNl;
 FROM Listing    IMPORT  SourceFile;
-FROM FrontPath       IMPORT  InsertPath;
+FROM FrontPath       IMPORT  InsertPathT;
 FROM Parser     IMPORT  ParsTabName;
 FROM Scanner    IMPORT  ScanTabName,    BeginFile;
 FROM Positions  IMPORT  NoPosition;
@@ -147,20 +150,23 @@ CONST
   cItemSets     = "-k";
 
 VAR (* MakeDef, *) MakeErr, MakeScan, MakeParsDrv: BOOLEAN;
-VAR DevNull : ARRAY [ 0 .. 15 ] OF CHAR; 
+VAR DevNullT : TEXT;
 
 PROCEDURE ArgCheck() =
   VAR
     ArgNo               : Word.T;
-    Argument            : ARRAY [0..255] OF CHAR;
+    ArgumentT           : TEXT;
+    ArgumentA           : ARRAY [0..255] OF CHAR;
     ArgString           : tString;
     file                : tFile;
+    FileNameT           : TEXT;
     FileName            : ARRAY [0..255] OF CHAR;
+    Ch                  : CHAR;
     SourceFileIsOpen    : BOOLEAN;
   BEGIN
     SourceFileIsOpen := FALSE;
-    InsertPath (ScanTabName);
-    InsertPath (ParsTabName);
+    InsertPathT (ScanTabName);
+    InsertPathT (ParsTabName);
 
     MakeDef := FALSE;
     MakeErr := FALSE;
@@ -169,75 +175,76 @@ PROCEDURE ArgCheck() =
     ItemSets := FALSE;
 
     FOR ArgNo := 1 TO GetArgCount () - 1 DO
-      GetArgument (ArgNo, Argument);
-      IF (Argument [0] >= '0') AND (Argument [0] <= '9') THEN
-        ArrayToString (Argument, ArgString);
+      ArgumentT := Params.Get(ArgNo);
+      IF ArgumentT = NIL THEN ArgumentT := "" END;
+      TextToString (ArgumentT, ArgString);
+      Ch := Text.GetChar (ArgumentT, 0);
+      IF Ch>= '0' AND Ch <= '9' THEN
         CaseLabels := StringToInt (ArgString);
         CaseFlag := TRUE;
-      ELSIF Argument [0] # '-' THEN
+      ELSIF Ch # '-' THEN
         IF SourceFileIsOpen THEN
-          ArrayToString (Argument, ArgString);
           ErrorMessageI (eToManyArgs, eError, NoPosition, eString, ADR (ArgString));
         ELSE
-          Assign (SourceFileName, Argument);
-          SourceFile := ReadOpen (Argument);
+          SourceFileName := ArgumentT;
+          SourceFile := ReadOpenT (ArgumentT);
           IF StatIsBad (SourceFile) THEN
-            ArrayToString (Argument, ArgString);
             SysErrorMessageI (SourceFile, eError, eString, ADR(ArgString));
             SourceFile := StdInput;
           ELSE
             SourceFileIsOpen := TRUE;
-            BeginFile (Argument);
+            StringToArray(ArgString, ArgumentA);
+            BeginFile (ArgumentA);
           END;
         END;
           
-      ELSIF IsEqual (Argument, cC) THEN
+      ELSIF Text.Equal (ArgumentT, cC) THEN
         Language := tLanguage.C;
-      ELSIF IsEqual (Argument, cModula3) THEN
+      ELSIF Text.Equal (ArgumentT, cModula3) THEN
         Language := tLanguage.Modula3;
-      ELSIF IsEqual (Argument, cModula2) THEN
+      ELSIF Text.Equal (ArgumentT, cModula2) THEN
         Language := tLanguage.Modula2;
-      ELSIF IsEqual (Argument, cDefinition) THEN
+      ELSIF Text.Equal (ArgumentT, cDefinition) THEN
         MakeDef := TRUE;
-      ELSIF IsEqual (Argument, cErrors) THEN
+      ELSIF Text.Equal (ArgumentT, cErrors) THEN
         MakeErr := TRUE;
-      ELSIF IsEqual (Argument, cLong) THEN
+      ELSIF Text.Equal (ArgumentT, cLong) THEN
         SetReportMode (tReportMode.eListing);
-      ELSIF IsEqual (Argument, cImmediate) THEN
+      ELSIF Text.Equal (ArgumentT, cImmediate) THEN
         SetReportMode (tReportMode.eImmediate);
-      ELSIF IsEqual (Argument, cScan) THEN
+      ELSIF Text.Equal (ArgumentT, cScan) THEN
         MakeScan := TRUE;
-      ELSIF IsEqual (Argument, cParsDrv) THEN
+      ELSIF Text.Equal (ArgumentT, cParsDrv) THEN
         MakeParsDrv := TRUE;
-      ELSIF IsEqual (Argument, cAll) THEN
+      ELSIF Text.Equal (ArgumentT, cAll) THEN
         MakeErr := TRUE;
         MakeDef := TRUE;
         MakeParsDrv := TRUE;
         MakeScan := TRUE;
-      ELSIF IsEqual (Argument, cCase) THEN
+      ELSIF Text.Equal (ArgumentT, cCase) THEN
         CaseFlag := TRUE;
-      ELSIF IsEqual (Argument, cTest) THEN
+      ELSIF Text.Equal (ArgumentT, cTest) THEN
         TEST := TRUE;
-      ELSIF IsEqual (Argument, cVerbose) THEN
+      ELSIF Text.Equal (ArgumentT, cVerbose) THEN
         Verbose := TRUE;
-      ELSIF IsEqual (Argument, cFast) THEN
+      ELSIF Text.Equal (ArgumentT, cFast) THEN
         Verbose := TRUE;
         Fast := TRUE;
-      ELSIF IsEqual (Argument, cItemSets) THEN
+      ELSIF Text.Equal (ArgumentT, cItemSets) THEN
         Verbose := TRUE;
         ItemSets := TRUE;
-      ELSIF IsEqual (Argument, cLine) THEN
+      ELSIF Text.Equal (ArgumentT, cLine) THEN
         LineFlag := TRUE;
-      ELSIF IsEqual (Argument, cNoTrace) THEN
+      ELSIF Text.Equal (ArgumentT, cNoTrace) THEN
         NoTrace := TRUE;
-      ELSIF IsEqual (Argument, cNoDefault) THEN
+      ELSIF Text.Equal (ArgumentT, cNoDefault) THEN
         NoDefault := TRUE;
-      ELSIF IsEqual (Argument, cHelp) THEN
-        FileName := HelpFile;
-        InsertPath (FileName);
-        file := ReadOpen (FileName);
+      ELSIF Text.Equal (ArgumentT, cHelp) THEN
+        FileNameT := HelpFile;
+        InsertPathT (FileNameT);
+        file := ReadOpenT (FileNameT);
         IF StatIsBad (file) THEN
-          ArrayToString (FileName, ArgString);
+          TextToString (FileNameT, ArgString);
           SysErrorMessageI (file, eError, eString, ADR (ArgString));
         ELSE
           CopyFile (file, StdOutput);
@@ -245,17 +252,16 @@ PROCEDURE ArgCheck() =
         Generate := FALSE;
         RETURN;
       ELSE
-        ArrayToString (Argument, ArgString);
         ErrorMessageI (eNoOption, eError, NoPosition, eString, ADR (ArgString));
       END;
     END;
 
     IF SourceFile = StdInput THEN
-      FileName := ShortHelpFile;
-      InsertPath (FileName);
-      file := ReadOpen (FileName);
+      FileNameT := ShortHelpFile;
+      InsertPathT (FileNameT);
+      file := ReadOpenT (FileNameT);
       IF StatIsBad (file) THEN
-        ArrayToString (FileName, ArgString);
+        TextToString (FileNameT, ArgString);
         SysErrorMessageI (file, eError, eString, ADR (ArgString));
       ELSE
         CopyFile (file, StdOutput);
@@ -267,16 +273,17 @@ PROCEDURE ArgCheck() =
 
 PROCEDURE GenerateSupport() =
   VAR
-    FileName            : ARRAY [0..255] OF CHAR;
-    ParsDrv,
+    FileName             : ARRAY [0..255] OF CHAR;
+    BaseNameT, FileNameT : TEXT;
+    ParsDrvT,
     ParsDef, ParsImp,
     ScanDef, ScanImp,
-    ErrDef,  ErrImp     : ARRAY [0..255] OF CHAR;
+    ErrDef,  ErrImp     : TEXT;
     in, out             : tFile;
     String1, String2    : tString;
   BEGIN
     IF Language = tLanguage.Modula3 THEN
-      ParsDrv   := ParsDrvM3;
+      ParsDrvT  := ParsDrvM3;
       ParsDef   := ParsDefM3;
       ParsImp   := ParsImpM3;
       ScanDef   := ScanDefM3;
@@ -288,7 +295,7 @@ PROCEDURE GenerateSupport() =
 
 
 ELSIF Language = tLanguage.Modula2 THEN
-      ParsDrv   := ParsDrvM;
+      ParsDrvT  := ParsDrvM;
       ParsDef   := ParsDefM;
       ParsImp   := ParsImpM;
       ScanDef   := ScanDefM;
@@ -298,7 +305,7 @@ ELSIF Language = tLanguage.Modula2 THEN
       ExtDef    := ExtDefM;
       ExtImp    := ExtImpM;
     ELSE
-      ParsDrv   := ParsDrvC;
+      ParsDrvT  := ParsDrvC;
       ParsDef   := ParsDefC;
       ParsImp   := ParsImpC;
       ScanDef   := ScanDefC;
@@ -310,34 +317,34 @@ ELSIF Language = tLanguage.Modula2 THEN
     END;
 
     IF MakeScan THEN
-      MakeFileName (ScannerName, Scanner, ExtDef, FileName);
-      out := WriteOpen (FileName);      CheckWriteOpen (out, FileName);
-      InsertPath (ScanDef);
-      in := ReadOpen (ScanDef);         CheckReadOpen (in, ScanDef);
+      FileNameT := MakeFileNameT (ScannerName, ScannerT, ExtDef);
+      out := WriteOpenT (FileNameT);      CheckWriteOpenT (out, FileNameT);
+      InsertPathT (ScanDef);
+      in := ReadOpenT (ScanDef);         CheckReadOpenT (in, ScanDef);
       CopyFile (in, out);
       WriteClose (out);
       ReadClose (in);
 
-      MakeFileName (ScannerName, Scanner, ExtImp, FileName);
-      out := WriteOpen (FileName);      CheckWriteOpen (out, FileName);
-      InsertPath (ScanImp);
-      in := ReadOpen (ScanImp);         CheckReadOpen (in, ScanImp);
+      FileNameT := MakeFileNameT (ScannerName, ScannerT, ExtImp);
+      out := WriteOpenT (FileNameT);      CheckWriteOpenT (out, FileNameT);
+      InsertPathT (ScanImp);
+      in := ReadOpenT (ScanImp);         CheckReadOpenT (in, ScanImp);
       CopyFile (in, out);
       WriteClose (out);
       ReadClose (in);
     END;
 
     IF MakeErr THEN
-      out := WriteOpen (ErrDef);        CheckWriteOpen (out, ErrDef);
-      InsertPath (ErrDef);
-      in := ReadOpen (ErrDef);          CheckReadOpen (in, ErrDef);
+      out := WriteOpenT (ErrDef);        CheckWriteOpenT (out, ErrDef);
+      InsertPathT (ErrDef);
+      in := ReadOpenT (ErrDef);          CheckReadOpenT (in, ErrDef);
       CopyFile (in, out);
       WriteClose (out);
       ReadClose (in);
 
-      out := WriteOpen (ErrImp);        CheckWriteOpen (out, ErrImp);
-      InsertPath (ErrImp);
-      in := ReadOpen (ErrImp);          CheckReadOpen (in, ErrImp);
+      out := WriteOpenT (ErrImp);        CheckWriteOpenT (out, ErrImp);
+      InsertPathT (ErrImp);
+      in := ReadOpenT (ErrImp);          CheckReadOpenT (in, ErrImp);
       CopyFile (in, out);
       WriteClose (out);
       ReadClose (in);
@@ -345,35 +352,42 @@ ELSIF Language = tLanguage.Modula2 THEN
 
     IF MakeParsDrv THEN
       IF ParserName = NoIdent THEN
-         TextToString  (Parser, String1);
+         BaseNameT := ParserT; 
       ELSE
-         GetString      (ParserName, String1);
+         BaseNameT := GetText (ParserName);
       END;
-      TextToString     (Drv, String2);
-      Concatenate       (String1, String2);
-      TextToString     (ExtImp, String2);
-      Concatenate       (String1, String2);
-      Append            (String1, '\000');
-      StringToArray     (String1, FileName);
-      out := WriteOpen (FileName);      CheckWriteOpen (out, FileName);
-      InsertPath (ParsDrv);
-      in := ReadOpen (ParsDrv);         CheckReadOpen (in, ParsDrv);
+      FileNameT := BaseNameT & Drv & ExtImp;
+      out := WriteOpenT (FileNameT);      CheckWriteOpenT (out, FileNameT);
+      InsertPathT (ParsDrvT);
+      in := ReadOpenT (ParsDrvT);         CheckReadOpenT (in, ParsDrvT);
       CopyFile (in, out);
       WriteClose (out);
       ReadClose (in);
     END;
 
-    InsertPath (ParsImp);
-    Pars := ReadOpen (ParsImp);         CheckReadOpen (Pars, ParsImp);
+    InsertPathT (ParsImp);
+    Pars := ReadOpenT (ParsImp);         CheckReadOpenT (Pars, ParsImp);
 
     IF MakeDef THEN
-      InsertPath (ParsDef);
-      Def := ReadOpen (ParsDef);        CheckReadOpen (Def, ParsDef);
+      InsertPathT (ParsDef);
+      Def := ReadOpenT (ParsDef);        CheckReadOpenT (Def, ParsDef);
  (* ELSE
-      Def := ReadOpen (DevNull);     CheckReadOpen (Def, DevNull); *) 
+      Def := ReadOpenT (DevNullT);     CheckReadOpenT (Def, DevNullT); *) 
     END;
   END GenerateSupport;
 
+PROCEDURE MakeFileNameT (Name: tIdent; DefaultT, ExtT: TEXT): TEXT =
+   VAR BaseNameT: TEXT; 
+   BEGIN
+      IF ParserName = NoIdent THEN
+         BaseNameT := ParserT; 
+      ELSE
+         BaseNameT := GetText (ParserName);
+      END;
+      RETURN BaseNameT & ExtT;
+   END MakeFileNameT;
+
+(* WAS:
 PROCEDURE MakeFileName (Name: tIdent;READONLY  Default, Ext: ARRAY OF CHAR; VAR FileName: ARRAY OF CHAR) =
    VAR String1, String2 : tString;
    BEGIN
@@ -387,8 +401,8 @@ PROCEDURE MakeFileName (Name: tIdent;READONLY  Default, Ext: ARRAY OF CHAR; VAR 
       Append            (String1, '\000');
       StringToArray     (String1, FileName);
    END MakeFileName;
-
-PROCEDURE ExpandLine (Out: tFile; Line: tString) =
+*)
+PROCEDURE ExpandLine (Out: tFile; READONLY Line: tString) =
    VAR
       Ch        : CHAR;
       i         : Word.T;
@@ -400,12 +414,12 @@ PROCEDURE ExpandLine (Out: tFile; Line: tString) =
          Ch := Char (Line, i);
          CASE Ch OF
          | '@' => IF ParserName = NoIdent
-                 THEN WriteT (Out, Parser); 
+                 THEN WriteT (Out, ParserT); 
                  ELSE WriteIdent (Out, ParserName); END;
          | '$' => IF ScannerName = NoIdent THEN
                     IF Char (Line, i + 1) = '_'
                     THEN INC (i);
-                    ELSE WriteT (Out, Scanner);
+                    ELSE WriteT (Out, ScannerT);
                     END;
                  ELSE WriteIdent (Out, ScannerName); END;
          ELSE    WriteC (Out, Ch);
@@ -430,6 +444,6 @@ BEGIN
   LineFlag      := FALSE;
   TEST          := FALSE;
   Generate      := TRUE;
-  DevNull       := "/dev/null"; 
+  DevNullT       := "/dev/null"; 
 END ArgCheck.
 

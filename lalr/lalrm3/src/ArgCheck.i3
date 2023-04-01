@@ -30,21 +30,21 @@ FROM    Strings IMPORT  tString;
 FROM    Idents  IMPORT  tIdent;
 
 CONST
-  Scanner       = "Scanner";
-  Parser        = "Parser";
+  ScannerT       = "Scanner";
+  ParserT        = "Parser";
 
 VAR
   LineFlag      ,
   Generate      : BOOLEAN;
   Pars, Def     : tFile;
   TEST          : BOOLEAN;
-  ExtDef, ExtImp: ARRAY [0..5] OF CHAR;
+  ExtDef, ExtImp: TEXT;
 VAR MakeDef : BOOLEAN;
 
 PROCEDURE ArgCheck();
 PROCEDURE GenerateSupport();
 PROCEDURE MakeFileName (Name: tIdent;READONLY  Default, Ext: ARRAY OF CHAR; VAR array: ARRAY OF CHAR);
-PROCEDURE ExpandLine (Out: tFile; Line: tString);
+PROCEDURE ExpandLine (Out: tFile; READONLY Line: tString);
 PROCEDURE CopyFile (In, Out: tFile);
 
 END ArgCheck.
