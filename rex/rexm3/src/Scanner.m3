@@ -1287,7 +1287,7 @@ PROCEDURE CloseScanner() =
  
 PROCEDURE yyGetTables() =
    VAR
-      BlockSize, j, n   : Word.T;
+      BlockSize, j, n   : CARDINAL;
       TableFile : System.tFile;
       Base      : ARRAY yyStateRange OF yyTableRange;
    BEGIN
@@ -1313,16 +1313,14 @@ PROCEDURE yyGetTables() =
       n := 0;
       j := 0;
       WHILE j <= yyTableSize DO
-         INC (n, yyGetTable (TableFile, ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1284
- $$ *) (yyComb [VAL(j,SHORTCARD)])) DIV BYTESIZE (yyCombType));
+         INC (n, yyGetTable (TableFile, ADR (yyComb [VAL(j,SHORTCARD)])) DIV BYTESIZE (yyCombType));
          INC (j, BlockSize);
       END;
       IF n # (yyTableSize + 1) THEN yyErrorMessage (2); END;
       System.Close (TableFile);
 
       FOR i := 0 TO yyDStateCount DO
-         yyBasePtr [i] := LOOPHOLE (ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1291
- $$ *) (yyComb [Base [i]]),M2LONGCARD);
+         yyBasePtr [i] := LOOPHOLE (ADR (yyComb [Base [i]]),M2LONGCARD);
       END;
    END yyGetTables;
  
@@ -1341,8 +1339,7 @@ PROCEDURE yyGetTable (TableFile: System.tFile; Address: ADDRESS): Word.T =
    END yyGetTable;
  
 PROCEDURE yyErrorMessage (ErrorCode: SHORTCARD) =
-   BEGIN
-      Positions.WritePosition (ReuseIO.StdError, Attribute.Position);
+   BEGIN      Positions.WritePosition (ReuseIO.StdError, Attribute.Position);
       CASE ErrorCode OF
    | 0=> ReuseIO.WriteT (ReuseIO.StdError, ": Scanner: internal error");
    | 1=> ReuseIO.WriteT (ReuseIO.StdError, ": Scanner: out of memory");
@@ -1365,12 +1362,10 @@ BEGIN
    yyFileStackPtr       := 0;
    yyStartState         := 1;                   (* set up for auto init *)
    yyPreviousStart      := 1;
-   yyBasePtr [yyStartState] := LOOPHOLE (ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1332
- $$ *) (yyComb [0]),M2LONGCARD);
+   yyBasePtr [yyStartState] := LOOPHOLE (ADR (yyComb [0]),M2LONGCARD);
    yyDefault [yyStartState] := yyDNoState;
    yyComb [0].Check     := yyDNoState;
-   yyChBufferPtr        := ADR(* $$ m2tom3 warning: unhandled ADR parameter 'ADR' in line 1335
- $$ *) (yyComb [0]);    (* dirty trick *)
+   yyChBufferPtr        := ADR (yyComb [0]);    (* dirty trick *)
    yyChBufferIndex      := 1;                           (* dirty trick *)
    yyStateStackSize     := yyInitBufferSize;
    DynArray.MakeArray (LOOPHOLE(yyStateStack,ADDRESS),
