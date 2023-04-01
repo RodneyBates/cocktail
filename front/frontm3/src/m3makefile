@@ -20,6 +20,6 @@ module("WriteTok")
 module("Scanner")
 module("Parser")
 
-implementation("Pars") %A main program to test.  But this is a library.
-program("cocktailfrontrun")
-%library("cocktailfront")
+%implementation("Pars") %A main program to test.  But this is a library.
+%program("cocktailfrontrun")
+library("frontm3")

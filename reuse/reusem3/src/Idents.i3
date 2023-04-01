@@ -56,6 +56,9 @@ PROCEDURE LookupIdent	(READONLY s: tString)		: tIdent;
 PROCEDURE GetString	(i: tIdent; VAR s: tString);
 			(* Returns the string 's' whose number is 'i'.	*)
 
+PROCEDURE GetText       (i: tIdent): TEXT;
+			(* Returns the TEXT whose number is 'i'.	*)
+
 PROCEDURE GetStringRef	(i: tIdent)			: tStringRef;
 			(* Returns a reference to the string whose	*)
 			(* number is 'i'.				*)

@@ -136,6 +136,15 @@ PROCEDURE GetString (i: tIdent; VAR s: tString) =
       END;
    END GetString;
 
+PROCEDURE GetText (i: tIdent): TEXT =
+   VAR s: tString;
+   BEGIN
+      WITH m2tom3_with_7=TablePtr^[i] DO 
+	 StringMem.GetString (m2tom3_with_7.String, s);
+      END;
+      RETURN Strings.StringToText (s);
+   END GetText;
+
 PROCEDURE GetStringRef (i: tIdent): tStringRef =
    BEGIN
       RETURN TablePtr^[i].String;

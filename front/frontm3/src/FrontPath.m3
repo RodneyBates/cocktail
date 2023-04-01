@@ -22,17 +22,45 @@
 
  UNSAFE MODULE FrontPath;
 
+IMPORT Text;
+
 FROM	Strings		IMPORT	tString,	tStringIndex,	SubString,
 				Char,		Append,		Length,
-				Concatenate,	ArrayToString,	StringToArray;
+				Concatenate,	ArrayToString,	StringToArray,
+                                StringToText;
 
 FROM	System		IMPORT	GetArgument;
 
+PROCEDURE InsertPathT (VAR T:TEXT) =
+  VAR
+    ArgT, path: TEXT; 
+    pos : INTEGER;
+    ArgA : ARRAY [0..255] OF CHAR;
+    ArgS : tString;
+  BEGIN
+    
+    (* get program name *)
+    GetArgument (0, ArgA);
+    ArrayToString (ArgA, ArgS);
+    ArgT := StringToText (ArgS);
+
+    (* Find rightmost '/' or '\\' in program name *)
+    pos := Text.Length (ArgT)-1;
+    WHILE pos >= 0
+          AND NOT Text.GetChar (ArgT, pos) IN SET OF CHAR { '/' , '\\' }
+    DO DEC (pos);
+    END;
+
+    (* If the path is not empty insert it left of T. *)
+    IF pos >= 0 THEN
+      path := Text.Sub (ArgT, 0 , pos+1);
+      T := path & T;
+    END;
+  END InsertPathT;
 
 PROCEDURE InsertPath (VAR a: ARRAY OF CHAR) =
   VAR
     s1,s2 : tString;
-    l : tString;
     Arg : ARRAY [0..255] OF CHAR;
     pos : tStringIndex;
   BEGIN

@@ -51,6 +51,20 @@ PROCEDURE ErrorCheckT (a: TEXT; n: INTEGER) =
     END;
   END ErrorCheckT;
 
+PROCEDURE CheckReadOpenT  (VAR file: tFile; Name: TEXT) = 
+  VAR s: tString;
+  BEGIN
+    IF StatIsBad (file) THEN
+      TextToString (Name, s);
+      SysErrorMessageI (file, eError, eString, ADR(s));
+      file := ReadOpenT (DevNull);
+      IF StatIsBad (file) THEN
+        TextToString (DevNullT, s);
+        SysErrorMessageI (file, eFatal, eString, ADR(s));
+      END;
+    END;
+  END CheckReadOpenT;
+
 PROCEDURE CheckReadOpen (VAR file: tFile;READONLY  a: ARRAY OF CHAR) =
   VAR s: tString;
   BEGIN
@@ -65,6 +79,20 @@ PROCEDURE CheckReadOpen (VAR file: tFile;READONLY  a: ARRAY OF CHAR) =
     END;
   END CheckReadOpen;
 
+PROCEDURE CheckWriteOpenT (VAR file: tFile; Name: TEXT) =
+  VAR s: tString;
+  BEGIN
+    IF StatIsBad (file) THEN
+      TextToString (Name, s);
+      SysErrorMessageI (file, eError, eString, ADR(s));
+      file := WriteOpenT (DevNullT);
+      IF StatIsBad (file) THEN
+        TextToString (DevNullT, s);
+        SysErrorMessageI (file, eFatal, eString, ADR(s));
+      END;
+    END;
+  END CheckWriteOpenT;
+
 PROCEDURE CheckWriteOpen (VAR file: tFile;READONLY  a: ARRAY OF CHAR) =
   VAR s: tString;
   BEGIN
@@ -78,7 +106,6 @@ PROCEDURE CheckWriteOpen (VAR file: tFile;READONLY  a: ARRAY OF CHAR) =
       END;
     END;
   END CheckWriteOpen;
-
 
 CONST DevNullT = "/dev/null";
 
