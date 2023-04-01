@@ -17,6 +17,7 @@
  UNSAFE MODULE Default;
 
 FROM SYSTEM IMPORT M2LONGINT, SHORTCARD;
+IMPORT IntSets;
 FROM Automaton	IMPORT tStateIndex;
 FROM DynArray	IMPORT MakeArray;
 FROM Gen	IMPORT tTableLine, FirstTerminal, LastTerminal, FirstSymbol, LastSymbol, LastReadState;

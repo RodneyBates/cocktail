@@ -24,7 +24,7 @@
 
  UNSAFE MODULE Reduce;
 
-  
+  IMPORT IntSets;
 
   IMPORT Word;
   FROM FrontErrors IMPORT

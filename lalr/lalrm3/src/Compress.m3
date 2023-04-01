@@ -56,7 +56,7 @@ PROCEDURE InitCompressTable() =
 (*WAS:MakeArray (Default,DefaultCount,ElmtSize);*)
 
       ControlCount := LastSymbol+InitTableMax;
-      Control := NEW (REF ARRAY OF ControlType, ControlCount,);
+      Control := NEW (REF ARRAY OF ControlType, ControlCount);
 (*WAS:MakeArray (Control,ControlCount,BYTESIZE(ControlType));*)
 
       TableMax := ControlCount - 1;

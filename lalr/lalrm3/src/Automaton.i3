@@ -36,21 +36,21 @@ CONST Infinite  = 65535;
 CONST Infinite2 = 1000000;
 
 TYPE
-    tStateIndex = SHORTCARD [0..Infinite];
-    tItemIndex  = LONGCARD;
-    tProdIndex  = SHORTCARD [0..Infinite];
-    tIndex      = LONGCARD;
+    tStateIndex = (*SHORTCARD*) [0..Infinite];
+    tItemIndex  = CARDINAL;
+    tProdIndex  = (*SHORTCARD*) [0..Infinite];
+    tIndex      = CARDINAL;
 
     tIndexList = RECORD
-        Used    : LONGINT;
-        Array   : UNTRACED BRANDED REF  ARRAY [1..Infinite] OF tIndex;
-        Count   : LONGINT;
+        Used    : INTEGER;
+        Array   : REF  ARRAY OF tIndex;
+        Count   : INTEGER;
       END;
 
     tItemIndexList = RECORD
-        Used    : LONGINT;
-        Array   : UNTRACED BRANDED REF  ARRAY [1..Infinite] OF tItemIndex;
-        Count   : LONGINT;
+        Used    : INTEGER;
+        Array   : REF  ARRAY OF tItemIndex;
+        Count   : INTEGER;
       END;
 
     tProdListElmt = RECORD
@@ -59,9 +59,9 @@ TYPE
       END;
 
     tProdIndexList = RECORD
-        Used    : LONGINT;
-        Array   : UNTRACED BRANDED REF  ARRAY [1..Infinite] OF tProdListElmt;
-        Count   : LONGINT;
+        Used    : INTEGER;
+        Array   : REF ARRAY OF tProdListElmt;
+        Count   : INTEGER;
       END;
 
     tAss = {right,left,none,nonassoc};
@@ -81,7 +81,7 @@ TYPE
     (*****************************)
 
     tProduction =
-      UNTRACED BRANDED REF  RECORD
+      UNTRACED REF  RECORD
         ProdNo  : tIndex;
         Reduce  : tIndexList;
         Act     : tList;
@@ -90,7 +90,7 @@ TYPE
         Pri     : Prio;
         Len     : tIndex;
         Left    : NonTerminal;
-        Right   : ARRAY [1..Infinite] OF SHORTCARD [0..cMAXNonTerm];
+        Right   : REF ARRAY OF (*SHORTCARD*) [0..cMAXNonTerm];
       END;
 
     tRep  = 
@@ -130,16 +130,15 @@ TYPE
     
 VAR
     IsBnf       : BOOLEAN;
-    ProdArrayPtr: UNTRACED BRANDED REF  ARRAY    (* alle Produktionen *)
-                     tProdIndex OF WORD;
-    ProdIndex   : LONGINT;            (* Index akt. bzw naechste P. *)
+    ProdArrayPtr: REF  ARRAY    (* alle Produktionen *)
+                     (*tProdIndex*) OF WORD;
+    ProdIndex   : INTEGER;            (* Index akt. bzw naechste P. *)
     ProdCount   : Word.T;             (* Anzahl Produktionen *)
-    ItemArrayPtr: UNTRACED BRANDED REF  ARRAY    (* alle Items *)
-                     [1..Infinite2] OF tItem;
-    ItemIndex   : LONGINT;            (* Index akt. bzw. naechstes I *)
-    StateArrayPtr: UNTRACED BRANDED REF  ARRAY    (* alle States *)
-                     [1..Infinite] OF tState;
-    StateIndex  : LONGINT;            (* Index akt. bzw. naechste S. *)
+    ItemArrayPtr: REF  ARRAY    (* alle Items *) OF tItem;
+    ItemIndex   : INTEGER;            (* Index akt. bzw. naechstes I *)
+    StateArrayPtr: REF  ARRAY    (* alle States *)
+                     OF tState;
+    StateIndex  : INTEGER;            (* Index akt. bzw. naechste S. *)
     ProdList    : ARRAY               (* enthaelt Liste von Produk- *)
                      NonTerminal OF      (* tionen mit gleicher linken *)
                      tProdIndexList;         (* Seite *)

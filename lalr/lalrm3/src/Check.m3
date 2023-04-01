@@ -227,7 +227,7 @@ PROCEDURE RepairConflict (state: tStateIndex; VAR ConflictSet: IntSets.T) =
 
       WITH m2tom3_with_7=StateArrayPtr^[state] DO
         WHILE NOT IntSets.IsEmpty (todo) DO
-          LookAhead := IntSets.ExtractArbitraryMember ((*VAR*)7odo);
+          LookAhead := IntSets.ExtractArbitraryMember ((*VAR*)todo);
 
           OnlyOpers := TRUE;
           ReduceCount := 0;
@@ -310,7 +310,8 @@ PROCEDURE RepairConflict (state: tStateIndex; VAR ConflictSet: IntSets.T) =
                   ELSIF (ShiftPri = Priority) AND       (* max. priority        *)
                      ((Associativity = tAss.left) OR            (* left associative     *)
                      (Associativity = tAss.nonassoc)) AND       (* not associative      *)
-                     (ReducePri = Priority) THEN        (* same priority        *)
+                     (ReducePri = Priority)
+                  THEN        (* same priority        *)
                     IF Verbose THEN
                       InformLeftAss (item, LookAhead);  (* ignore read          *)
                     END;

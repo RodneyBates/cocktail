@@ -54,7 +54,7 @@
 
 UNSAFE MODULE Gen;
 
-  FROM SYSTEM IMPORT LONGINT SHORTINT;
+  FROM SYSTEM IMPORT M2LONGINT, SHORTINT;
 FROM Actions IMPORT tActionMode, PutAction, WriteActions, ScannerName, ParserName;
   FROM ArgCheck IMPORT ExpandLine, MakeFileName, Scanner, Parser, ExtDef, ExtImp, LineFlag;
   FROM ArgCheck IMPORT MakeDef; 
@@ -90,7 +90,7 @@ FROM Actions IMPORT tActionMode, PutAction, WriteActions, ScannerName, ParserNam
     Default;
 
   FROM Continue IMPORT MakeContinuation;
-  FROM Checks   IMPORT CheckWriteOpen;
+  FROM FrontChecks   IMPORT CheckWriteOpen;
 
   FROM Default  IMPORT
     CreateDefaultList,
@@ -102,7 +102,7 @@ FROM Actions IMPORT tActionMode, PutAction, WriteActions, ScannerName, ParserNam
     GetDefaultTableLine;
 
   FROM DynArray IMPORT MakeArray, ExtendArray, ReleaseArray;
-  FROM Errors   IMPORT eString, eError;
+  FROM FrontErrors   IMPORT eString, eError;
   FROM Final    IMPORT MakeFinalToProd;
   FROM General  IMPORT Min;
   FROM GenLang  IMPORT WriteConstants, WriteReduceCode;

@@ -116,7 +116,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
 
         IF localsuccess THEN
           Nullables := IntSets.Include (Nullables, nt);
-          todo = IntSets.Exclude (todo, nt);
+          todo := IntSets.Exclude (todo, nt);
           success := TRUE;
         END;
       END IsYetNullable;
@@ -129,7 +129,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
 
       FOR nt := MINNonTerm TO MAXNonTerm DO
         IF GetTokenType (nt) = TokenType.NonTerm THEN
-          todo = IntSets.Include (todo,nt);
+          todo := IntSets.Include (todo,nt);
         END;
       END;
 
@@ -621,10 +621,10 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
         (* eventuell Speicher beschaffen *)
 
         IF m2tom3_with_26.Used = 0 THEN
-          m2tom3_with_26.Array NEW (REF ARRAY OF tIndex, m2tom3_with_26.Count);
+          m2tom3_with_26.Array := NEW (REF ARRAY OF tIndex, m2tom3_with_26.Count);
 (*WAS:    MakeArray (m2tom3_with_26.Array,m2tom3_with_26.Count,BYTESIZE(tIndex));*)
         ELSIF m2tom3_with_26.Used >= m2tom3_with_26.Count THEN
-          (*ExtendArray (m2tom3_with_26.Array,m2tom3_with_26.Count,BYTESIZE(tIndex));*()
+          (*ExtendArray (m2tom3_with_26.Array,m2tom3_with_26.Count,BYTESIZE(tIndex));*)
         END;
         INC (m2tom3_with_26.Used);
         m2tom3_with_26.Array^[m2tom3_with_26.Used] := NT; 

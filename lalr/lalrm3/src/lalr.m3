@@ -37,7 +37,7 @@ UNSAFE MODULE lalr EXPORTS Main;
 FROM ArgCheck   IMPORT Generate, ArgCheck, GenerateSupport, Pars, Def, TEST;
 FROM Automaton  IMPORT IsBnf, InitAutomaton;
 FROM Check      IMPORT CheckForConflicts;
-FROM FrontErrors        IMPORT eError, ErrorCount, ErrorTable, ErrorMessage, BeginErrors, CloseErrors;
+FROM FrontErrors        IMPORT eError, ErrorCount, ErrorTableT, ErrorMessage, BeginErrors, CloseErrors;
 FROM Gen        IMPORT GenDefaultActions, GenCode;
 FROM Infos      IMPORT WriteInfo;
 FROM ReuseIO         IMPORT tFile, StdOutput, WriteNl, CloseIO;

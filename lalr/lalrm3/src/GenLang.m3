@@ -51,7 +51,7 @@
 
 UNSAFE MODULE GenLang; (* Erzeugung von Modula2- oder C-Quelltexten *)
 
-FROM SYSTEM IMPORT M2LONGINT
+FROM SYSTEM IMPORT M2LONGINT;
 FROM Automaton  IMPORT tIndex, tStateIndex, tProdIndex, tProduction, ProdIndex, ProdArrayPtr, NextProdIndex;
 FROM Compress   IMPORT NTableSize, TableSize;
 FROM DynArray   IMPORT ReleaseArray;
@@ -347,24 +347,24 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
         IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
           WriteT (f, "(* line ");
           WriteI (f, pos.Line, 0);
-          WriteT (f, " \");
+          WriteT (f, " of \"");
           WriteT (f, SourceFileName);
-          WriteT (f, "\ *)");
+          WriteT (f, "\" *)");
           WriteNl (f);
         ELSE (* Language = C *)
           IF LineFlag THEN
              WriteT (f, "# line ");
              WriteI (f, pos.Line, 0);
-             WriteT (f, " \");
+             WriteT (f, " of \"");
              WriteT (f, SourceFileName);
              WriteC (f, '"');
              WriteNl (f);
           ELSE
              WriteT (f, "/* line ");
              WriteI (f, pos.Line, 0);
-             WriteT (f, " \");
+             WriteT (f, " of \"");
              WriteT (f, SourceFileName);
-             WriteT (f, "\ */");
+             WriteT (f, "\" */");
              WriteNl (f);
           END;
         END;
@@ -380,9 +380,9 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
         i := i1;
         WHILE i <= i2 DO
           c := Char (s, i); INC (i);
-          IF c = '\' THEN
+          IF c = '\\' THEN
             WriteC (f, Char (s, i)); INC (i);
-          ELSIF (c = '"') OR (c = '\'') THEN
+          ELSIF (c = '\"') OR (c = '\'') THEN
             Delimiter := c;
             WriteC (f, c);
             REPEAT

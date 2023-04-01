@@ -40,14 +40,14 @@ FROM Gen IMPORT tTableLine;
     Default     : UNTRACED BRANDED REF  ARRAY [0..Infinite] OF TableElmt;
     ControlCount,
     BaseCount   ,
-    DefaultCount: LONGINT;
+    DefaultCount: INTEGER;
     TableMax    : tIndex;
     TableSize   : tIndex;
 
     NNext       : UNTRACED BRANDED REF  ARRAY [0..Infinite] OF TableElmt;
     NBase       : UNTRACED BRANDED REF  ARRAY [0..Infinite] OF TableElmt;
-    NNextCount  : LONGINT;
-    NBaseCount  : LONGINT;
+    NNextCount  : M2LONGINT;
+    NBaseCount  : M2LONGINT;
     NTableMax   : tIndex;
     NTableSize  : tIndex;
 

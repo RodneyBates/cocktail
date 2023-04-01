@@ -29,7 +29,7 @@ FROM Gen	IMPORT FirstReadState, LastReadState, LastTerminal,
 			FirstReduceState, LastReduceState,
 			FirstReadNonTermState, LastReadNonTermState,
 			FirstReadTermState, LastReadTermState;
-FROM ReuseIO		IMPORT WriteT, WriteI, WriteNl, tFile;
+FROM ReuseIO		IMPORT WriteC, WriteT, WriteI, WriteNl, tFile;
 FROM Memory	IMPORT MemoryUsed;
 FROM SYSTEM	IMPORT  WORD;
 FROM Times	IMPORT CpuTime;

@@ -16,6 +16,8 @@
 
 UNSAFE MODULE LR;
 
+  IMPORT IntSets;
+
   FROM Automaton IMPORT
     tStateIndex,
     MakeFirstState,

@@ -36,7 +36,7 @@
 
  UNSAFE MODULE Automaton;
 
-FROM SYSTEM IMPORT M2LONGINT
+FROM SYSTEM IMPORT M2LONGINT;
 IMPORT Word;
 FROM Continue   IMPORT Value, ValueNonterms;
 FROM DynArray   IMPORT MakeArray, ExtendArray;
@@ -86,7 +86,7 @@ FROM TokenTab   IMPORT EndOfToken, MAXTerm, MINNonTerm, MAXNonTerm, cMAXNonTerm,
         Left    : NonTerminal;
       END;
     
-    tDummyRight4 = ARRAY [1..4] OF SHORTCARD [0..cMAXNonTerm];
+    tDummyRight4 = ARRAY [1..4] OF (*SHORTCARD*) [0..cMAXNonTerm];
     
     tStackElmt = RECORD
         Act     : tList;
@@ -101,8 +101,8 @@ FROM TokenTab   IMPORT EndOfToken, MAXTerm, MINNonTerm, MAXNonTerm, cMAXNonTerm,
     StateElmtCount : M2LONGINT;            (* aktuelle Feldgroesse fuer S. *)
     StateHashList  : ARRAY               (* Hashtabelle fuer States     *)
                      HashIndex OF tIndexList;
-    StackArrayPtr  : UNTRACED BRANDED REF  ARRAY         (* Stack fuer nichtbearbeitete *)
-                     [1..Infinite] OF tStackElmt; (* NonTerminale, Aktionen *)
+    StackArrayPtr  : REF ARRAY         (* Stack fuer nichtbearbeitete *)
+                     OF tStackElmt; (* NonTerminale, Aktionen *)
     StackElmtCount : M2LONGINT;            (* Stackgroesse *)
     StackIndex     : M2LONGINT;            (* Index Top of Stack *)
     
@@ -167,7 +167,7 @@ PROCEDURE GotoSet (Index: tStateIndex; VAR Set: IntSets.T) =
     po : tIndex;
     p : tProduction;
   BEGIN
-    Set := IntSets . Emptuy();
+    Set := IntSets . Empty();
     WITH m2tom3_with_1=StateArrayPtr^[Index] DO   (* State *)
       FOR i:= m2tom3_with_1.Items TO m2tom3_with_1.Items + m2tom3_with_1.Size - 1 DO
 
@@ -211,7 +211,7 @@ PROCEDURE Goto (Index: tStateIndex; Symbol: Vocabulary; VAR new: BOOLEAN): tStat
 
           pr := ItemArrayPtr^[i].Prod;
           po := ItemArrayPtr^[i].Pos;
-          p  := ADR(ProdArrayPtr^[pr]);
+          p := ADR(ProdArrayPtr^[pr]);
 
           (* erweitere den Zustand *)
           IF ((po+1) < p^.Len) THEN
@@ -277,7 +277,7 @@ PROCEDURE Closure (Symbol: NonTerminal) =
             pr := m2tom3_with_5.Array^[i].Index;
             p := ADR (ProdArrayPtr^[pr]);
 
-            IF NOT IsElement (p^.ProdNo, ProdSet) THEN
+            IF NOT IntSets.IsElement (p^.ProdNo, ProdSet) THEN
               ProdSet := IntSets.Include (ProdSet, p^.ProdNo);
               INC(m2tom3_with_4.Size);
 
@@ -342,7 +342,7 @@ PROCEDURE UniqueState (VAR new: BOOLEAN): tStateIndex =
 
       IF m2tom3_with_13.Used = 0 THEN
         m2tom3_with_13.Count := InitHashListCount;
-        (m2tom3_with_13.Array := NEW ( REF ARRAY OF tIndex, m2tom3_with_13.Count );
+        m2tom3_with_13.Array := NEW ( REF ARRAY OF tIndex, m2tom3_with_13.Count );
 (*WAS: MakeArray (m2tom3_with_13.Array,m2tom3_with_13.Count,BYTESIZE(tIndex));*)
       ELSIF m2tom3_with_13.Used >= m2tom3_with_13.Count THEN
         (*ExtendArray (m2tom3_with_13.Array,m2tom3_with_13.Count,BYTESIZE(tIndex));*)
@@ -804,11 +804,11 @@ PROCEDURE ERROR (READONLY a: ARRAY OF CHAR) =
 
 BEGIN
   ProdElmtCount := InitProdCount;
-  ProdArrayPtr := NEW (REF ARAY OF WORD, ProdElmtCount);
+  ProdArrayPtr := NEW (REF ARRAY OF WORD, ProdElmtCount);
 (*WAS:  MakeArray (ProdArrayPtr, ProdElmtCount, BYTESIZE(WORD));*)
 
   ItemElmtCount := InitItemCount;
-  ItemArrayPtr := NEW(ARRAY OF tItem, ItemElmtCount);
+  ItemArrayPtr := NEW(REF ARRAY OF tItem, ItemElmtCount);
 (*WAS:  MakeArray (ItemArrayPtr, ItemElmtCount, BYTESIZE(tItem));*)
 
   StateElmtCount := InitStateCount;

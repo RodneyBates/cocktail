@@ -36,7 +36,7 @@
 UNSAFE MODULE Debug;
 
 IMPORT Word;
-FROM SYSTEM IMPORT M3LONGINT SHORTCARD;
+FROM SYSTEM IMPORT M2LONGINT, SHORTCARD;
 FROM Automaton  IMPORT tAss, tRep, tItem, tState, tIndex, tProduction, Infinite,
                         StartSymbol, ProdList, StateArrayPtr, tStateIndex, StateIndex,
                         ItemArrayPtr, tItemIndex, ItemIndex, ProdArrayPtr, tProdIndex;
@@ -134,7 +134,7 @@ PROCEDURE InformConflict (kind: tConflict) =
         tConflict.ShRed  => WriteT (dFile, "there is a read reduce conflict");
       | tConflict.RedRed         => WriteT (dFile, "there is a reduce reduce conflict");
       | tConflict.ShRedRed => WriteT (dFile, "there is a read-reduce-reduce conflict");
-      ELSE;
+      ELSE
       END;
       WriteNl (dFile);
     END InformConflict;
