@@ -62,8 +62,8 @@ VAR
   GoOn   : BOOLEAN;
 
 BEGIN
-  ErrorTable := ErrorTab;
-  InsertPath (ErrorTable);
+  ErrorTableT := ErrorTab;
+  InsertPath (ErrorTableT);
   InitStringMemory();
   InitIdents();
   BeginErrors();

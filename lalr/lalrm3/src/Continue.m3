@@ -26,7 +26,7 @@ FROM Automaton  IMPORT tIndex, Infinite, tProduction, tProdIndex, ProdArrayPtr,
                         ProdIndex, NextProdIndex, tStateKind, tStateIndex,
                         StateArrayPtr, StateIndex, tRep, tItemIndex, ItemArrayPtr, ItemIndex;
 FROM DynArray   IMPORT MakeArray;
-FROM Gen        IMPORT ElmtSize, Continuation, ContinuationCount, LastReadState;
+FROM Gen        IMPORT ElmtSize, Continuation, ContinuationCount, LastReadState, TableElmt;
 FROM Sets       IMPORT Select;
 IMPORT IntSets; 
 
@@ -41,7 +41,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Non
       prod : tProduction;
     BEGIN
       ContinuationCount := LastReadState+1;
-      Continuation := NEW (ARRAY OF TableElmt, ContinuationCount);
+      Continuation := NEW (REF ARRAY OF TableElmt, ContinuationCount);
 (*WAS:MakeArray (Continuation,ContinuationCount,ElmtSize);*)
       Continuation^[0] := 0;
 
@@ -89,6 +89,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Non
   PROCEDURE ValueNonterms() =
     VAR
       voc : Vocabulary;
+      prodADR : (*tProduction*) ADDRESS;
       prod : tProduction;
       index,maxIndex : tProdIndex;
       success : BOOLEAN;
@@ -107,7 +108,8 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Non
         success := FALSE;
         index := 0;
         WHILE index < maxIndex DO
-          prod := ADR(ProdArrayPtr^[index]);
+          prodADR := ADR(ProdArrayPtr^[index]);
+          prod := LOOPHOLE (prodADR, tProduction);
           value := 0;
           WITH m2tom3_with_9=prod^ DO
             FOR i := 1 TO m2tom3_with_9.Len DO

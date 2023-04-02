@@ -50,7 +50,7 @@ FROM Rules      IMPORT Operation, Expression, InitRulesReading, GetNodeOperation
 FROM Sets       IMPORT MakeSet, ReleaseSet, AssignEmpty, Include, Extract,
                         IsEmpty, IsElement, ForallDo, tSet;
 IMPORT IntSets;
-FROM Strings    IMPORT tString, ArrayToString;
+FROM Strings    IMPORT tString, TextToString, ArrayToString;
 FROM Idents     IMPORT tIdent, MakeIdent;
 FROM SYSTEM     IMPORT HALT, SHORTCARD, WORD  ;
 FROM General    IMPORT MaxAlign;
@@ -96,6 +96,7 @@ FROM TokenTab   IMPORT EndOfToken, MAXTerm, MINNonTerm, MAXNonTerm, cMAXNonTerm,
 
   VAR
     ProdElmtCount  : M2LONGINT;            (* aktuelle Feldgroesse *)
+    ProductionADR  : (*tProduction*) ADDRESS;
     Production     : tProduction;        (* Index akt. bzw. naechsten P.*)
     ItemElmtCount  : M2LONGINT;            (* aktuelle Feldgroesse fuer I. *)
     StateElmtCount : M2LONGINT;            (* aktuelle Feldgroesse fuer S. *)
@@ -183,6 +184,7 @@ PROCEDURE GotoSet (Index: tStateIndex; VAR Set: IntSets.T) =
 
 PROCEDURE Goto (Index: tStateIndex; Symbol: Vocabulary; VAR new: BOOLEAN): tStateIndex =
   VAR
+    pADR : (*tProduction*) ADDRESS;
     p : tProduction;
     i : tItemIndex;
     pr: tProdIndex;
@@ -211,7 +213,8 @@ PROCEDURE Goto (Index: tStateIndex; Symbol: Vocabulary; VAR new: BOOLEAN): tStat
 
           pr := ItemArrayPtr^[i].Prod;
           po := ItemArrayPtr^[i].Pos;
-          p := ADR(ProdArrayPtr^[pr]);
+          pADR := ADR(ProdArrayPtr^[pr]);
+          p := LOOPHOLE (pADR, tProduction);
 
           (* erweitere den Zustand *)
           IF ((po+1) < p^.Len) THEN
@@ -399,6 +402,7 @@ PROCEDURE InsertProductions() =
     index : tProdIndex;
     maxIndex : tProdIndex;
     value : SHORTCARD;
+    prodADR      : (*tProduction*) ADDRESS;
     prod  : tProduction;
     i     : SHORTCARD;
   BEGIN
@@ -407,7 +411,7 @@ PROCEDURE InsertProductions() =
 
     InitRulesReading();
     IF NOT GetRule (left,lfp,clp,right,cm, cmp,pnp,hpr,prp,prs,prsp) THEN
-      ERROR ("Automaton.InsertProduction");
+      ErrorT ("Automaton.InsertProduction");
     END;
 
     (* Fuehre ein neues Startsymbol ein *)
@@ -476,7 +480,8 @@ PROCEDURE InsertProductions() =
     maxIndex := ProdIndex;
     index := 0;
     WHILE index < maxIndex DO
-      prod := ADR(ProdArrayPtr^[index]);
+      prodADR := ADR(ProdArrayPtr^[index]);
+      prod := LOOPHOLE (prodADR, tProduction);
       value := 0;
       WITH m2tom3_with_20=prod^ DO
         FOR i := 1 TO m2tom3_with_20.Len DO
@@ -630,7 +635,8 @@ PROCEDURE NextProduction() =
     IF (ProdIndex + ((BYTESIZE(tDummyProduction) + MaxAlign - 1) DIV MaxAlign * MaxAlign)) >= ProdElmtCount THEN
       (*ExtendArray (ProdArrayPtr, ProdElmtCount, BYTESIZE(WORD));*)
     END;
-    Production := ADR(ProdArrayPtr^[ProdIndex]);
+    ProductionADR := ADR(ProdArrayPtr^[ProdIndex]);
+    Production := LOOPHOLE (ProductionADR, tProduction);
   END NextProduction;
 
 PROCEDURE NextProdIndex (Index: tProdIndex): tProdIndex =
@@ -659,7 +665,8 @@ PROCEDURE EnsureProdArray() =
             + ((((Production^.Len+1)+3) DIV 4) * BYTESIZE(tDummyRight4));
     IF (ProdIndex + ((diff-1) DIV BYTESIZE(WORD)) + 1) >= ProdElmtCount THEN
       (*ExtendArray (ProdArrayPtr, ProdElmtCount, BYTESIZE(WORD));*)
-      Production := ADR(ProdArrayPtr^[ProdIndex]);
+      ProductionADR := ADR(ProdArrayPtr^[ProdIndex]);
+      Production := LOOPHOLE (ProductionADR, tProduction);
     END;
   END EnsureProdArray;
 
@@ -795,6 +802,13 @@ PROCEDURE PopAction (VAR act: tList; VAR voc: Vocabulary; VAR actpos: PosType): 
     RETURN TRUE;
   END PopAction;
 
+PROCEDURE ErrorT (a: TEXT) =
+  VAR s: tString;
+  BEGIN
+    TextToString (a, s);
+    ErrorMessageI (eInternal, eFatal, NoPosition, eString, ADR (s));
+  END ErrorT;
+
 PROCEDURE ERROR (READONLY a: ARRAY OF CHAR) =
   VAR s: tString;
   BEGIN
@@ -832,7 +846,8 @@ BEGIN
 
   ProdCount := 0;
   ProdIndex := 0;
-  Production := ADR(ProdArrayPtr^[ProdIndex]);
+  ProductionADR := ADR(ProdArrayPtr^[ProdIndex]);
+  Production := LOOPHOLE (ProductionADR, tProduction);
   ItemIndex := 0;
   StateIndex := 0;
   StackElmtCount := 0;

@@ -31,6 +31,7 @@
 
 UNSAFE MODULE Compress;
 
+FROM SYSTEM IMPORT M2LONGINT;
 FROM Automaton  IMPORT tIndex, tStateIndex;
 FROM DynArray   IMPORT MakeArray, ExtendArray;
 FROM Gen        IMPORT tTableLine, NoState, LastReadState, FirstTerminal, LastTerminal, FirstSymbol, LastSymbol;

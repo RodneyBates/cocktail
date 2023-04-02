@@ -27,6 +27,7 @@ UNSAFE INTERFACE  Compress;
 
 IMPORT Word;
 FROM SYSTEM IMPORT SHORTCARD;
+FROM SYSTEM IMPORT M2LONGINT;
 FROM Automaton IMPORT tIndex, tStateIndex, Infinite, Infinite2;
 FROM Gen IMPORT tTableLine;
 

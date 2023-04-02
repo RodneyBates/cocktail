@@ -388,7 +388,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
             REPEAT
               c := Char (s, i); INC (i);
               WriteC (f, c);
-              IF (Language = tLanguage.C) AND (c = '\') THEN
+              IF (Language = tLanguage.C) AND (c = '\\') THEN
                 WriteC (f, Char (s, i)); INC (i);
               END;
             UNTIL c = Delimiter;

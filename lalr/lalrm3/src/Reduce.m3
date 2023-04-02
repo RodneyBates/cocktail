@@ -97,6 +97,7 @@
       done     : IntSets.T;           (* bereits bearbeitet *)
       u, i     : tIndex;
       pn       : tProdIndex;
+      prodADR : (*tProduction*) ADDRESS;
       prod     : tProduction;
       ri,voc   : Vocabulary;
       error    : TokenError;
@@ -125,7 +126,7 @@
 
         (* waehle ein Nichtterminal zur Bearbeitung aus *)
 
-        nt := IntiSets.Extract ((*VAR*)todo);
+        nt := IntSets.Extract ((*VAR*)todo);
         done := IntSets.Include (done, nt);
 
         WITH m2tom3_with_1=ProdList[nt] DO
@@ -137,7 +138,8 @@
 
             (* waehle aktuelle Produktion aus *)
 
-            prod := ADR(ProdArrayPtr^[m2tom3_with_1.Array^[pn].Index]);
+            prodADR := ADR(ProdArrayPtr^[m2tom3_with_1.Array^[pn].Index]);
+            prod := LOOPHOLE (prodADR, tProduction);
             WITH m2tom3_with_2=prod^ DO
 
               (* alle Vocabularzeichen auf der rechten Seite werden *)
@@ -165,7 +167,7 @@
       (* gebe ggf. eine Fehlermeldung aus *)
 
       FOR voc := MINTerm TO MAXTerm DO
-        IF (GetTokenType (voc) # None) AND
+        IF (GetTokenType (voc) # TokenType.None) AND
            (NOT IntSets.IsElement (voc, reached)) THEN
           GetTokenPos   (voc,pos);
           sym := TokenToSymbol (voc,error);
@@ -174,7 +176,7 @@
       END;
 
       FOR voc := MINNonTerm TO MAXNonTerm DO
-        IF (GetTokenType (voc) # None) AND
+        IF (GetTokenType (voc) # TokenType.None) AND
            (NOT IntSets.IsElement (voc, reached)) THEN
           GetTokenPos   (voc,pos);
           sym := TokenToSymbol (voc,error);
@@ -214,6 +216,7 @@
       VAR
         u, i : tIndex;
         pn   : tProdIndex;
+        prodADR : (*tProduction*) ADDRESS;
         prod : tProduction;
         ri   : Vocabulary;
         t : Terminal;
@@ -231,7 +234,8 @@
 
             (* Auswahl der einzelnen Produktion *)
 
-            prod := ADR(ProdArrayPtr^[m2tom3_with_4.Array^[pn].Index]);
+            prodADR := ADR(ProdArrayPtr^[m2tom3_with_4.Array^[pn].Index]);
+            prod := LOOPHOLE (prodADR, tProduction);
             WITH m2tom3_with_5=prod^ DO
 
               (* Pruefe ob rechte Seite in todo* liegt *)
@@ -295,7 +299,7 @@
       term := TRUE;
       IF NOT IntSets.IsEmpty (todo) THEN
         REPEAT 
-          nt := Extract (todo);
+          nt := IntSets.Extract (todo);
 
           (* Ein ereichbares Nichtterminal, das nicht terminalisiserbar
              ist, fuehrt zum Abbruch *)

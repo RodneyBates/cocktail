@@ -131,7 +131,7 @@ TYPE
 VAR
     IsBnf       : BOOLEAN;
     ProdArrayPtr: REF  ARRAY    (* alle Produktionen *)
-                     (*tProdIndex*) OF WORD;
+                     (*tProdIndex*) OF WORD; 
     ProdIndex   : INTEGER;            (* Index akt. bzw naechste P. *)
     ProdCount   : Word.T;             (* Anzahl Produktionen *)
     ItemArrayPtr: REF  ARRAY    (* alle Items *) OF tItem;

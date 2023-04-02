@@ -80,6 +80,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
       VAR
         u, i    : tIndex;
         pn      : tProdIndex;
+        prodADR : (*tProduction*) ADDRESS;
         prod    : tProduction;
         ri      : Vocabulary;
         t       : Terminal;
@@ -96,7 +97,8 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
 
             (* Auswahl der einzelnen Produktion *)
 
-            prod := ADR(ProdArrayPtr^[m2tom3_with_1.Array^[pn].Index]);
+            prodADR := ADR(ProdArrayPtr^[m2tom3_with_1.Array^[pn].Index]);
+            prod := LOOPHOLE (prodADR, tProduction);
             WITH m2tom3_with_2=prod^ DO
 
               (* Pruefe ob rechte Seite in Nullables* liegt *)
@@ -156,6 +158,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
 
     VAR 
       si,s      : tStateIndex;
+      pADR      : (*tProduction*) ADDRESS;
       p         : tProduction;
       reps      : IntSets.T;
       i         : tItemIndex;
@@ -169,7 +172,8 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
         WITH m2tom3_with_4=StateArrayPtr^[s] DO
           FOR i := m2tom3_with_4.Items TO m2tom3_with_4.Items + m2tom3_with_4.Size - 1 DO
             WITH m2tom3_with_5=ItemArrayPtr^[i] DO 
-              p := ADR(ProdArrayPtr^[m2tom3_with_5.Prod]);
+              pADR := ADR(ProdArrayPtr^[m2tom3_with_5.Prod]);
+              p := LOOPHOLE (pADR, tProduction);
               IF m2tom3_with_5.Pos >= p^.Len THEN
                 m2tom3_with_5.RepNo := i;
                 m2tom3_with_5.Rep := tRep.RedRep;
@@ -216,7 +220,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
       maxItem   : tItemIndex;
       pAIndex   : tItemIndex;
       pA        : tItem;
-      pAProd    : tProduction;
+      pAProdADR : (*tProduction*) ADDRESS;
       r         : tStateIndex;
       ir        : tItemIndex;
     BEGIN
@@ -229,7 +233,8 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
 
         (* pruefe ob pA einen Nichtterminaluebergang  repraesentiert *)
 
-        pAProd := ADR(ProdArrayPtr^[pA.Prod]);  (* zugh. Produktion *)
+        pAProdADR := ADR(ProdArrayPtr^[pA.Prod]);  (* zugh. Produktion *)
+(* CHECK ^ of what use? *) 
 
         IF (pA.Rep = tRep.NonTermRep) THEN
         
@@ -424,6 +429,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
       State, maxState   : tStateIndex;
       Transition, Item, RepItem : tItemIndex;
       TransItem         : tItem;
+      ProductionADR     : (*tProduction*) ADDRESS;
       Production        : tProduction;
       nullable          : BOOLEAN;
     BEGIN
@@ -448,7 +454,8 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
 
               FOR Item := m2tom3_with_15.Items TO m2tom3_with_15.Items + m2tom3_with_15.Size - 1 DO
                 WITH m2tom3_with_16=ItemArrayPtr^[Item] DO
-                  Production := ADR(ProdArrayPtr^[m2tom3_with_16.Prod]);
+                  ProductionADR := ADR(ProdArrayPtr^[m2tom3_with_16.Prod]);
+                  Production := LOOPHOLE (ProductionADR, tProduction);
                   IF (m2tom3_with_16.Pos = 0) AND (Production^.Left = TransItem.Read) THEN
                     IF m2tom3_with_16.Pos < Production^.Len THEN
                       WindThrough (m2tom3_with_16.Next,m2tom3_with_16.Prod,m2tom3_with_16.Pos+1,Transition,nullable);
@@ -479,6 +486,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
   PROCEDURE WindThrough (MyState: tStateIndex; MyProd: tProdIndex; MyPos: tIndex; Trans: tItemIndex; VAR nullable: BOOLEAN) =
     VAR
       Item              : tItemIndex;
+      ProductionADR     : (*tProduction*) ADDRESS;
       Production        : tProduction;
     BEGIN
       WITH m2tom3_with_18=StateArrayPtr^[MyState] DO
@@ -504,7 +512,8 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
 
           (* zugehoerige Production beschaffen *)
 
-          Production := ADR(ProdArrayPtr^[m2tom3_with_20.Prod]);
+          ProductionADR := ADR(ProdArrayPtr^[m2tom3_with_20.Prod]);
+          Production := LOOPHOLE (ProductionADR, tProduction);
           IF m2tom3_with_20.Pos < Production^.Len THEN 
 
             (* Ende noch nicht ereicht *)
@@ -653,7 +662,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
           IF Used > Count THEN
             IF Count = 0 THEN
               Count := InitItemStackCount;
-              Array NEW (REF ARRAY OF tItemIndex, Count);
+              Array := NEW (REF ARRAY OF tItemIndex, Count);
 (*WAS:        MakeArray (Array,Count,BYTESIZE(tItemIndex));*)
             ELSE
               (*ExtendArray (Array,Count,BYTESIZE(tItemIndex));*)

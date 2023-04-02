@@ -204,6 +204,7 @@ PROCEDURE RepairConflict (state: tStateIndex; VAR ConflictSet: IntSets.T) =
       OnlyOpers                                         : BOOLEAN;
       ReduceCount, ShiftCount, ReduceRest, ShiftRest    : Word.T;
       item                                              : tItemIndex;
+      prodADR                                           : (*tProduction*) ADDRESS;
       prod                                              : tProduction;
       ConflictFree                                      : BOOLEAN;
     BEGIN
@@ -244,7 +245,8 @@ PROCEDURE RepairConflict (state: tStateIndex; VAR ConflictSet: IntSets.T) =
             WITH m2tom3_with_8=ItemArrayPtr^[item] DO
               IF (m2tom3_with_8.Rep = tRep.RedRep) AND IntSets.IsElement (LookAhead, m2tom3_with_8.Set) THEN
                 INC (ReduceCount);
-                prod := ADR(ProdArrayPtr^[m2tom3_with_8.Prod]);
+                prodADR := ADR(ProdArrayPtr^[m2tom3_with_8.Prod]);
+                prod := LOOPHOLE (prodADR, tProduction);
                 IF prod^.Pri = 0 THEN
                   OnlyOpers := FALSE;
                 ELSIF prod^.Pri > ReducePri THEN
@@ -318,7 +320,7 @@ PROCEDURE RepairConflict (state: tStateIndex; VAR ConflictSet: IntSets.T) =
                     m2tom3_with_9.Rep := tRep.NoRep;
                   ELSE
                     IF Verbose THEN
-                      InformKept (item, LookAhead);     (* keep read            *);
+                      InformKept (item, LookAhead);     (* keep read            *)
                     END;
                     INC (ShiftRest);
                   END;
@@ -373,7 +375,24 @@ PROCEDURE RepairConflict (state: tStateIndex; VAR ConflictSet: IntSets.T) =
 
           ConflictFree := FALSE;
 
-          ReadRedSet := IntSets.Include (ReadRedSet, LookAhead);
+          IF ReduceRest > 1 THEN
+            IF ShiftRest > 0 THEN
+              IF Verbose THEN
+                InformConflict (tConflict.ShRedRed);
+              END;
+              ReadRedRedSet := IntSets.Include (ReadRedRedSet, LookAhead);
+            ELSE
+              IF Verbose THEN
+                InformConflict (tConflict.RedRed);
+              END;
+              RedRedSet := IntSets.Include (RedRedSet, LookAhead);
+            END;
+          ELSIF ReduceRest = 1 THEN
+            IF ShiftRest > 0 THEN
+              IF Verbose THEN
+                InformConflict (tConflict.ShRed);
+              END;
+              ReadRedSet := IntSets.Include (ReadRedSet, LookAhead);
             ELSE (* reduce - no conflict *)
               ConflictFree := TRUE;
             END;

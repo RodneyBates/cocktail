@@ -49,14 +49,14 @@ FROM TokenTab	IMPORT Vocabulary;
 	      END;
 
   VAR
-    TablePtr : UNTRACED BRANDED REF  ARRAY tStateIndex OF tLine;
+    TablePtr : REF  ARRAY (* tStateIndex*) OF tLine;
 	       (* TablePtr^[NoState] bildet den Anker *)
     TableSize : M2LONGINT;
 
-    TSorting  : UNTRACED BRANDED REF  ARRAY tStateIndex OF tStateIndex;
+    TSorting  : REF  ARRAY tStateIndex OF tStateIndex;
     TSortingSize : M2LONGINT;
 
-    NSorting  : UNTRACED BRANDED REF  ARRAY tStateIndex OF tStateIndex;
+    NSorting  : REF  ARRAY tStateIndex OF tStateIndex;
     NSortingSize : M2LONGINT;
 
   PROCEDURE CreateDefaultList() =

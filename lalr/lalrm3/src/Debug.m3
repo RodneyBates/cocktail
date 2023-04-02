@@ -674,6 +674,7 @@ PROCEDURE WritePartB (VAR d: Word.T; I: tItemIndex) =
       length : Word.T;
       i,j : Word.T;
       d1 : Word.T;
+      prodADR : (*tProduction*) ADDRESS;
       prod : tProduction;
     BEGIN
       p := ItemArrayPtr^[I].Prod;
@@ -682,7 +683,8 @@ PROCEDURE WritePartB (VAR d: Word.T; I: tItemIndex) =
       d1 := 0;
       WriteTab (d);
 
-      prod := ADR(ProdArrayPtr^[p]);
+      prodADR := ADR(ProdArrayPtr^[p]);
+      prod := LOOPHOLE (prodADR, tProduction);
       WITH m2tom3_with_35=prod^ DO
         FOR i:=1 TO m2tom3_with_35.Len DO
           WriteVoc (m2tom3_with_35.Right[i],length);
@@ -821,7 +823,7 @@ PROCEDURE WritePartD
       FOR Item := m2tom3_with_39.Items TO m2tom3_with_39.Items+m2tom3_with_39.Size-1 DO
         WITH m2tom3_with_40=ItemArrayPtr^[Item] DO
           IF (m2tom3_with_40.Read = t) AND (NOT IsElement (Item-m2tom3_with_39.Items, EI)) THEN
-            EI = IntSets.Include (EI, Item-m2tom3_with_39.Items);
+            EI := IntSets.Include (EI, Item-m2tom3_with_39.Items);
             d := InitTab;
 
             prod := ADR (ProdArrayPtr^[m2tom3_with_40.Prod]);
@@ -1023,7 +1025,7 @@ PROCEDURE FindPathD (NT: NonTerminal; EndState: tStateIndex) =
       MakeChainD();
     END;
 
-    WITH m2tom3_with_56=ChainD DO;
+    WITH m2tom3_with_56=ChainD DO
 
       (* Item suchen *)
 
@@ -1071,11 +1073,13 @@ PROCEDURE FindPathD (NT: NonTerminal; EndState: tStateIndex) =
 
 PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: Word.T) =
     VAR
+      prodADR : (*tProduction*) ADDRESS;
       prod : tProduction;
       i : tIndex;
       length  : Word.T;
     BEGIN
-      prod := ADR(ProdArrayPtr^[p]);
+      prodADR := ADR(ProdArrayPtr^[p]);
+      prod := LOOPHOLE (prodADR, tProduction);
       WITH m2tom3_with_59=prod^ DO
         IF m2tom3_with_59.Len = 0 THEN
           WriteT (dFile,"-Epsilon-");

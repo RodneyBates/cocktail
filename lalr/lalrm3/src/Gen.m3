@@ -55,8 +55,8 @@
 UNSAFE MODULE Gen;
 
   FROM SYSTEM IMPORT M2LONGINT, SHORTINT;
-FROM Actions IMPORT tActionMode, PutAction, WriteActions, ScannerName, ParserName;
-  FROM ArgCheck IMPORT ExpandLine, MakeFileName, Scanner, Parser, ExtDef, ExtImp, LineFlag;
+  FROM Actions IMPORT tActionMode, PutAction, WriteActions, ScannerName, ParserName;
+  FROM ArgCheck IMPORT ExpandLine, MakeFileName, ScannerT, ParserT, ExtDef, ExtImp, LineFlag;
   FROM ArgCheck IMPORT MakeDef; 
 
   FROM Automaton IMPORT
@@ -337,6 +337,7 @@ FROM Actions IMPORT tActionMode, PutAction, WriteActions, ScannerName, ParserNam
   PROCEDURE MakeNumbers() =
   VAR
     maxState, state : tStateIndex;
+    prodADR : (*tProduction*) ADDRESS;
     prod : tProduction;
     remember : tStateIndex;
   BEGIN
@@ -397,7 +398,8 @@ FROM Actions IMPORT tActionMode, PutAction, WriteActions, ScannerName, ParserNam
 
       ReduceOffset := StateCnt;
       WITH m2tom3_with_12=StateArrayPtr^[remember] DO
-        prod := ADR(ProdArrayPtr^[ItemArrayPtr^[m2tom3_with_12.Items].Prod]);
+        prodADR := ADR(ProdArrayPtr^[ItemArrayPtr^[m2tom3_with_12.Items].Prod]);
+        prod := LOOPHOLE (prodADR, tProduction);
         m2tom3_with_12.NewNumber := prod^.ProdNo + ReduceOffset;
       END;
 
@@ -488,6 +490,7 @@ FROM Actions IMPORT tActionMode, PutAction, WriteActions, ScannerName, ParserNam
       RedState : tStateIndex;
       maxState : tStateIndex;
       item : tItemIndex;
+      prodADR : (*tProduction*) ADDRESS;
       prod : tProduction;
       Look : IntSets.T;
       t : Terminal;
@@ -512,7 +515,8 @@ FROM Actions IMPORT tActionMode, PutAction, WriteActions, ScannerName, ParserNam
             | tRep.NonTermRep=>
                 TableLine[m2tom3_with_14.Read-NonTermOffset] := StateArrayPtr^[m2tom3_with_14.Next].NewNumber;
             | tRep.RedRep=>
-                prod := ADR(ProdArrayPtr^[m2tom3_with_14.Prod]);
+                prodADR := ADR(ProdArrayPtr^[m2tom3_with_14.Prod]);
+                prod := LOOPHOLE (prodADR, tProduction);
                 RedState := ReduceOffset + prod^.ProdNo;
                 Look := m2tom3_with_14.Set;
                 Assign (Look,m2tom3_with_14.Set);
@@ -533,6 +537,7 @@ FROM Actions IMPORT tActionMode, PutAction, WriteActions, ScannerName, ParserNam
 
   PROCEDURE MakeLength() =
     VAR
+      prodADR : (*tProduction*) ADDRESS;
       prod : tProduction;
       index,prodno: tProdIndex;
     BEGIN
@@ -541,7 +546,8 @@ FROM Actions IMPORT tActionMode, PutAction, WriteActions, ScannerName, ParserNam
 (*WAS:MakeArray (Length,LengthCount,ElmtSize);*)
       index := 0;
       FOR prodno := 1 TO ProdCount DO
-        prod := ADR(ProdArrayPtr^[index]);
+        prodADR := ADR(ProdArrayPtr^[index]);
+        prod := LOOPHOLE (prodADR, tProduction);
         Length^[prodno] := prod^.Len;
         index := NextProdIndex(index);
       END;
@@ -549,6 +555,7 @@ FROM Actions IMPORT tActionMode, PutAction, WriteActions, ScannerName, ParserNam
 
   PROCEDURE MakeLeftHandSide() =
     VAR
+      prodADR : (*tProduction*) ADDRESS;
       prod : tProduction;
       index,prodno: tProdIndex;
     BEGIN
@@ -557,7 +564,8 @@ FROM Actions IMPORT tActionMode, PutAction, WriteActions, ScannerName, ParserNam
 (*WAS:MakeArray (LeftHandSide,LeftHandSideCount,TableElmt);*)
       index := 0;
       FOR prodno := 1 TO ProdCount DO
-        prod := ADR(ProdArrayPtr^[index]);
+        prodADR := ADR(ProdArrayPtr^[index]);
+        prod := LOOPHOLE (prodADR, tProduction);
         LeftHandSide^[prodno] := prod^.Left - NonTermOffset;
         index := NextProdIndex(index);
       END;
