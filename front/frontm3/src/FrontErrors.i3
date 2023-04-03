@@ -95,11 +95,12 @@ VAR ErrorCount  : ARRAY [0..MaxErrorClass] OF SHORTCARD;
 PROCEDURE ErrorMessage  (ErrorCode, ErrorClass: Word.T; Position: tPosition);
 PROCEDURE ErrorMessageI (ErrorCode, ErrorClass: Word.T; Position: tPosition;
                          InfoClass: Word.T; Info: ADDRESS);
+PROCEDURE CrashT (a: TEXT);
 PROCEDURE BeginErrors   ();
 PROCEDURE SetReportMode (mode: tReportMode);
 PROCEDURE CloseErrors   ();
 
-CONST ErrorTableT = "Error.Tab";
+VAR ErrorTableT := "Error.Tab";
 
 VAR
   ReportClass : ErrorClassSet;

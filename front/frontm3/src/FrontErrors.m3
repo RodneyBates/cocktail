@@ -43,7 +43,7 @@ FROM    Sets            IMPORT  tSet,           MakeSet,        IsElement,
                                 Assign;
 FROM    Strings         IMPORT  tString,        AssignEmpty,    SubString,
                                 Char,           ReadL,          Length,
-                                StringToInt;
+                                StringToInt,    TextToString;
 FROM    StringMem       IMPORT  tStringRef,     PutString,
                                 WriteString;
 FROM    Idents          IMPORT  tIdent,         WriteIdent;
@@ -421,6 +421,13 @@ PROCEDURE SplitLine (READONLY line: tString; VAR i: Word.T; VAR s1: tString) =
     END;
 
   END SplitLine;
+
+PROCEDURE CrashT (a: TEXT) =
+  VAR s: tString;
+  BEGIN
+    TextToString (a, s);
+    ErrorMessageI (eInternal, eFatal, NoPosition, eString, ADR (s));
+  END CrashT;
 
 PROCEDURE Finish() =
   BEGIN
