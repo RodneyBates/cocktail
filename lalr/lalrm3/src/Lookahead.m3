@@ -30,8 +30,11 @@
 UNSAFE MODULE Lookahead;
 
 IMPORT Word;
+IMPORT IntSets;
+
 FROM Limits     IMPORT MaxShortCard;
-FROM FrontErrors     IMPORT eFatal, eInformation, eString, eInternal, ErrorMessage, ErrorMessageI;
+FROM FrontErrors
+  IMPORT eFatal, eInformation, eString, eInternal, ErrorMessage, ErrorMessageI, CrashT;
 FROM DynArray   IMPORT MakeArray, ExtendArray;
 FROM Sets       IMPORT tSet, MakeSet, ReleaseSet, AssignEmpty, Include, Exclude,
                         Extract, Union, Assign, IsElement, IsEmpty, ForallDo;
@@ -658,17 +661,17 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
     PROCEDURE PushItem (Item: tItemIndex) =
       BEGIN
         WITH m2tom3_with_27=Stack DO
-          INC (Used);
-          IF Used > Count THEN
-            IF Count = 0 THEN
-              Count := InitItemStackCount;
-              Array := NEW (REF ARRAY OF tItemIndex, Count);
+          INC (Stack.Used);
+          IF Stack.Used > Stack.Count THEN
+            IF Stack.Count = 0 THEN
+              Stack.Count := InitItemStackCount;
+              Stack.Array := NEW (REF ARRAY OF tItemIndex, Stack.Count);
 (*WAS:        MakeArray (Array,Count,BYTESIZE(tItemIndex));*)
             ELSE
               (*ExtendArray (Array,Count,BYTESIZE(tItemIndex));*)
             END;
           END;
-          Array^[Used] := Item;
+          Stack.Array^[Stack.Used] := Item;
         END;
       END PushItem;
 
@@ -676,11 +679,11 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
       VAR Item  : tItemIndex;
       BEGIN
         WITH m2tom3_with_28=Stack DO
-          IF Used < 1 THEN
-            ERROR ("PopItem on empty Stack");
+          IF Stack.Used < 1 THEN
+            CrashT ("PopItem on empty Stack");
           END;
-          Item := Array^[Used];
-          DEC (Used);
+          Item := Stack.Array^[Stack.Used];
+          DEC (Stack.Used);
           RETURN Item;
         END;
       END PopItem;
@@ -688,7 +691,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
     PROCEDURE TopItem ():tItemIndex =
       BEGIN
         WITH m2tom3_with_29=Stack DO
-          RETURN Array^[Used];
+          RETURN Stack.Array^[Stack.Used];
         END;
       END TopItem;
 
@@ -719,13 +722,6 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
       END;
     END ClearNumbers;
   
-  PROCEDURE ERROR (READONLY a: ARRAY OF CHAR) =
-  VAR s : tString;
-  BEGIN
-    ArrayToString (a, s);
-    ErrorMessageI (eInternal, eFatal, NoPosition, eString, ADR (s));
-  END ERROR;
-
 BEGIN 
   reportedError := FALSE;
   Stack.Used := 0;
