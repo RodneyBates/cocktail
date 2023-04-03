@@ -126,7 +126,7 @@
 
         (* waehle ein Nichtterminal zur Bearbeitung aus *)
 
-        nt := IntSets.Extract ((*VAR*)todo);
+        nt := IntSets.ExtractArbitraryMember ((*VAR*)todo);
         done := IntSets.Include (done, nt);
 
         WITH m2tom3_with_1=ProdList[nt] DO
@@ -299,7 +299,7 @@
       term := TRUE;
       IF NOT IntSets.IsEmpty (todo) THEN
         REPEAT 
-          nt := IntSets.Extract (todo);
+          nt := IntSets.ExtractArbitraryMember (todo);
 
           (* Ein ereichbares Nichtterminal, das nicht terminalisiserbar
              ist, fuehrt zum Abbruch *)
