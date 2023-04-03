@@ -43,8 +43,9 @@ FROM Automaton  IMPORT tAss, tRep, tItem, tState, tIndex, tProduction, Infinite,
 FROM Continue   IMPORT Value;
 FROM DynArray   IMPORT ExtendArray, MakeArray, ReleaseArray;
 FROM ReuseIO         IMPORT tFile, WriteC, WriteT, WriteI, WriteNl;
-FROM Sets       IMPORT tSet, Extract, Include, Exclude, MakeSet, ReleaseSet,
+(*FROM Sets       IMPORT tSet, Extract, Include, Exclude, MakeSet, ReleaseSet,
                         Assign, Intersection, IsElement, IsEmpty;
+                        *)
 IMPORT IntSets;
 FROM Strings    IMPORT Length, Char, tString;
 FROM Idents     IMPORT tIdent, GetString;
@@ -64,7 +65,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Terminal,
     tItemPath = RECORD
         count  : SHORTCARD;
         max    : M2LONGINT;
-        path   : UNTRACED BRANDED REF  ARRAY [1..Infinite] OF tItemIndex;
+        path   : REF  ARRAY OF tItemIndex;
       END;
     
     tProdPathElmt = RECORD
@@ -75,7 +76,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Terminal,
     tProdPath = RECORD
         count : SHORTCARD;
         max   : M2LONGINT;
-        path  : UNTRACED BRANDED REF  ARRAY [1..Infinite] OF tProdPathElmt;
+        path  : REF ARRAY OF tProdPathElmt;
       END;
 
     tItemChainElmt = RECORD
@@ -88,7 +89,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Terminal,
         level   : M2LONGINT;
         count   : M2LONGINT;
         max     : M2LONGINT;
-        chain   : UNTRACED BRANDED REF  ARRAY [1..Infinite] OF tItemChainElmt;
+        chain   : REF  ARRAY OF tItemChainElmt;
       END;
 
   VAR
@@ -241,9 +242,9 @@ PROCEDURE DebugEnd() =
         FOR Item := m2tom3_with_4.Items TO m2tom3_with_4.Items+m2tom3_with_4.Size-1 DO
         WITH m2tom3_with_5=ItemArrayPtr^[Item] DO
           IF m2tom3_with_5.Rep = tRep.RedRep THEN
-            Assign (s,CS);
-            Intersection (s,m2tom3_with_5.Set);
-            IF NOT IsEmpty (s) THEN
+
+            s := IntSets.Intersection (CS, m2tom3_with_5.Set);
+            IF NOT IntSets.IsEmpty (s) THEN
 
               (* Bearbeite konfliktbeladene Reduktion *)
 
@@ -272,14 +273,13 @@ PROCEDURE DebugEnd() =
       t : Terminal;
       prod : tProduction;
     BEGIN
-      cs := IntSets.Empty();
-      Assign (cs,CS);
+      cs := CS; 
       FindPathC (cs,Item);    (* fuer Part C *)
       UnRepPathC();
       T := IntSets.Empty();
 
       i := PathC.path^[PathC.count];
-      WHILE NOT IsEmpty (cs) DO
+      WHILE NOT IntSets.IsEmpty (cs) DO
         t := IntSets.ExtractArbitraryMember((*VAR*)cs);
         WITH m2tom3_with_7=ItemArrayPtr^[i] DO
           WITH m2tom3_with_8=StateArrayPtr^[m2tom3_with_7.Next] DO
@@ -358,7 +358,7 @@ PROCEDURE Possible (Item: tItemIndex; t: Terminal) : BOOLEAN =
           END;
         END;
 
-        IF IsElement (Item,reached) THEN RETURN triaer.no; END;
+        IF IntSets.IsElement (Item,reached) THEN RETURN triaer.no; END;
 
         reached := IntSets.Include (reached, Item);
 
@@ -486,12 +486,12 @@ PROCEDURE SearchPathC (VAR cs      : IntSets.T; maxdepth : Word.T; depth        
         INC (depth);
         s := IntSets.Empty();
         IF NOT m2tom3_with_24.EmptyReadSet THEN
-          Assign (s,m2tom3_with_24.ReadSet);
+          s := m2tom3_with_24.ReadSet;
         END;
-        Intersection (s,cs);
-        found := NOT IsEmpty (s);
+        s := IntSets.Intersection (s,cs);
+        found := NOT IntSets.IsEmpty (s);
         IF found THEN
-          Assign (cs,s);
+          cs := s;
         END;
         s  := NIL;
         IF found THEN
@@ -638,7 +638,7 @@ PROCEDURE FindPathA (N: NonTerminal) =
 
                   (* Nichtterminale auf der rechten Seite weiterverfolgen *)
 
-                  IF NOT IsElement (m2tom3_with_33.Right[pos],rNTs) THEN
+                  IF NOT IntSets.IsElement (m2tom3_with_33.Right[pos],rNTs) THEN
 
                     rNTs := IntSets.Include (rNTs,m2tom3_with_33.Right[pos]);
                     SearchPathA (m2tom3_with_33.Right[pos],To,maxdepth,depth+1,found,rNTs);
@@ -822,7 +822,8 @@ PROCEDURE WritePartD
     WITH m2tom3_with_39=StateArrayPtr^[State] DO
       FOR Item := m2tom3_with_39.Items TO m2tom3_with_39.Items+m2tom3_with_39.Size-1 DO
         WITH m2tom3_with_40=ItemArrayPtr^[Item] DO
-          IF (m2tom3_with_40.Read = t) AND (NOT IsElement (Item-m2tom3_with_39.Items, EI)) THEN
+          IF (m2tom3_with_40.Read = t)
+             AND (NOT IntSets.IsElement (Item-m2tom3_with_39.Items, EI)) THEN
             EI := IntSets.Include (EI, Item-m2tom3_with_39.Items);
             d := InitTab;
 
@@ -932,7 +933,7 @@ PROCEDURE MakeChainD() =
       (* Betrachte alle zur Produktion gehoerigen Items *)
 
       WHILE (ItemArrayPtr^[Item].Pos < prod^.Len) AND
-            (NOT IsElement (Item, ChainD.reached)) DO
+            (NOT IntSets.IsElement (Item, ChainD.reached)) DO
 
         (* Item in Kette eintragen *)
 
