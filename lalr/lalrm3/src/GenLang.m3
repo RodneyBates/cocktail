@@ -372,11 +372,14 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
       (* gib die semantische Aktion zeilenweise aus *)
       i1 := 2;
       WHILE NOT IsEmpty (a) DO
-        StringMem.GetString (tStringRef (Head (a)), s);
+        StringMem.GetString (LOOPHOLE(Head (a),tStringRef), s);
+(*WAS:  StringMem.GetString (tStringRef (Head (a)), s);*)
         i2 := Length (s);
         Tail (a);
         IF IsEmpty (a) THEN DEC (i2); END;
-        IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN WriteT (f, "  "); END;
+        IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) 
+        THEN WriteT (f, "  "); 
+        END;
         i := i1;
         WHILE i <= i2 DO
           c := Char (s, i); INC (i);
