@@ -43,7 +43,7 @@ VAR MakeDef : BOOLEAN;
 
 PROCEDURE ArgCheck();
 PROCEDURE GenerateSupport();
-PROCEDURE MakeFileName (Name: tIdent;READONLY  Default, Ext: ARRAY OF CHAR; VAR array: ARRAY OF CHAR);
+PROCEDURE MakeFileNameT (Name: tIdent; DefaultT, ExtT: TEXT): TEXT;
 PROCEDURE ExpandLine (Out: tFile; READONLY Line: tString);
 PROCEDURE CopyFile (In, Out: tFile);
 

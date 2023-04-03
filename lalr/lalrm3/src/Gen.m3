@@ -56,7 +56,7 @@ UNSAFE MODULE Gen;
 
   FROM SYSTEM IMPORT M2LONGINT, SHORTINT;
   FROM Actions IMPORT tActionMode, PutAction, WriteActions, ScannerName, ParserName;
-  FROM ArgCheck IMPORT ExpandLine, MakeFileName, ScannerT, ParserT, ExtDef, ExtImp, LineFlag;
+  FROM ArgCheck IMPORT ExpandLine, MakeFileNameT, ScannerT, ParserT, ExtDef, ExtImp, LineFlag;
   FROM ArgCheck IMPORT MakeDef; 
 
   FROM Automaton IMPORT
@@ -143,7 +143,7 @@ UNSAFE MODULE Gen;
 
   VAR TableLine : tTableLine;
   VAR StateCnt  : tStateIndex;
-  VAR FileName  : ARRAY [0..128] OF CHAR;
+  VAR FileNameT  : TEXT;
 
   PROCEDURE GenDefaultActions() =
   VAR
@@ -212,10 +212,10 @@ UNSAFE MODULE Gen;
       INC (TableSize, LastTerminal);
       INC (NTableSize, LastSymbol);
       IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
-         MakeFileName (ParserName, Parser, ".Tab", FileName);
-         out := OpenOutput (FileName);
+         MakeFileNameT (ParserName, ParserT, ".Tab", FileNameT);
+         out := OpenOutput (FileNameT);
          IF StatIsBad (out) THEN
-           TextToString (FileName, String1);
+           TextToString (FileNameT, String1);
            SysErrorMessageI (out, eError, eString, ADR (String1));
          ELSE
            PutTables (out);
@@ -225,9 +225,9 @@ UNSAFE MODULE Gen;
 
       (* Mische den generierten Text in den Rahmen *)
 
-      MakeFileName (ParserName, Parser, ExtImp, FileName);
-      out := WriteOpen (FileName);
-      CheckWriteOpen (out, FileName);
+      MakeFileNameT (ParserName, ParserT ExtImp, FileNameT);
+      out := WriteOpen (FileNameT);
+      CheckWriteOpen (out, FileNameT);
         
       WHILE NOT EndOfFile (Pars) DO
         ReadL (Pars, line);
@@ -265,9 +265,9 @@ UNSAFE MODULE Gen;
       (* Mische Abschnitt EXPORT in Rahmen *)
 
       IF MakeDef AND (NOT EndOfFile (Def)) THEN
-         MakeFileName (ParserName, Parser, ExtDef, FileName);
-         out := WriteOpen (FileName);
-         CheckWriteOpen (out, FileName);
+         MakeFileNameT (ParserName, ParserT, ExtDef, FileNameT);
+         out := WriteOpenT (FileNameT);
+         CheckWriteOpenT (out, FileNameT);
          WHILE NOT EndOfFile (Def) DO
             ReadL (Def, line);
             IF (Strings.Length (line) >= 2) AND (Char (line, 1) = '$') THEN
@@ -677,14 +677,14 @@ PROCEDURE PutTables (TableFile: tFile) =
        BEGIN
           N := Write (TableFile, ADR (Length), ElmtSize);
           IF StatIsBad (N) THEN
-            TextToString (FileName, string);
+            TextToString (FileNameT, string);
             SysErrorMessageI (N, eError, eString, ADR (string));
             InError := TRUE;
             RETURN;
           END;
           N := Write (TableFile, Address, Length);
           IF StatIsBad (N) THEN
-            TextToString (FileName, string);
+            TextToString (FileNameT, string);
             SysErrorMessageI (N, eError, eString, ADR (string));
             InError := TRUE;
             RETURN;

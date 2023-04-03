@@ -67,7 +67,7 @@ FROM Debug      IMPORT ItemSets, PrintItemSets;
 FROM FrontErrors     IMPORT eInternal, eInformation, eWarning, eError, eFatal, eString,
                         eShort, eTermSet, ErrorMessageI;
 FROM Idents     IMPORT tIdent;
-FROM ReuseIO         IMPORT WriteOpen, WriteClose;
+FROM ReuseIO         IMPORT WriteOpenT, WriteClose;
 FROM Sets       IMPORT tSet, IsElement, IsEmpty, Include, Exclude, Extract, Union,
                         Intersection, Assign,  AssignEmpty, MakeSet, ReleaseSet;
 IMPORT IntSets;
@@ -92,7 +92,7 @@ FROM TokenTab   IMPORT MAXTerm, Terminal, Prio, TokenToSymbol, TokenError;
     DevNull     = "/dev/null";
     DEBUG       = "_Debug";
 
-  VAR FileName : ARRAY [ 0 .. 128 ] OF CHAR ; 
+  VAR FileNameT: TEXT;
 
   PROCEDURE CheckForConflicts (VAR ok: BOOLEAN) =
 
@@ -114,21 +114,20 @@ FROM TokenTab   IMPORT MAXTerm, Terminal, Prio, TokenToSymbol, TokenError;
       string   : tString;
     BEGIN
       Error := FALSE;
-      MakeSet (SymbolSet,MAXTerm);
-      MakeSet (ConflictSet,MAXTerm);
-      MakeSet (TempSet,MAXTerm);
+      SymbolSet := IntSets . Empty ( );
+      ConflictSet := IntSets . Empty ( );
+      TempSet := IntSets . Empty ( );
 
       IF Verbose THEN
-        ArgCheck . MakeFileName 
-          ( Idents . NoIdent , "_Debug" , "" , FileName ) ;
-        dFile := WriteOpen (FileName);  
+        FileNameT := ArgCheck . MakeFileNameT ( Idents . NoIdent , "_Debug" , "");
+        dFile := WriteOpenT (FileNameT);  
         (* dFile := WriteOpen (DEBUG); *) 
         IF StatIsBad (dFile) THEN
           TextToString (DEBUG, string);
           SysErrorMessageI (dFile, eError, eString, ADR (string));
-          ArgCheck . MakeFileName 
-            ( Idents . NoIdent , "/dev/null" , "" , FileName ) ;
-          dFile := WriteOpen (FileName);
+          FileNameT
+            := ArgCheck . MakeFileNameT ( Idents . NoIdent , "/dev/null" , "");
+          dFile := WriteOpenT (FileNameT);
           IF StatIsBad (dFile) THEN
             TextToString (DevNull, string);
             SysErrorMessageI (dFile, eFatal, eString, ADR (string));
@@ -152,8 +151,8 @@ FROM TokenTab   IMPORT MAXTerm, Terminal, Prio, TokenToSymbol, TokenError;
       FOR state := 1 TO maxState DO
         WITH m2tom3_with_4=StateArrayPtr^[state] DO
 
-          AssignEmpty (ConflictSet);
-          AssignEmpty (SymbolSet);
+          ConflictSet := IntSets.Empty ();
+          SymbolSet := IntSets.Empty ();
 
           FOR item := m2tom3_with_4.Items TO m2tom3_with_4.Items + m2tom3_with_4.Size - 1 DO
             WITH m2tom3_with_5=ItemArrayPtr^[item] DO
@@ -165,8 +164,8 @@ FROM TokenTab   IMPORT MAXTerm, Terminal, Prio, TokenToSymbol, TokenError;
                     SymbolSet  := IntSets.Include (SymbolSet,m2tom3_with_5.Read);
                   END;
               | tRep.RedRep =>
-                  Assign (TempSet,m2tom3_with_5.Set);
-                  Intersection (TempSet,SymbolSet);
+                  TempSet := m2tom3_with_5.Set;
+                  TempSet := IntSets.Intersection (TempSet,SymbolSet);
                   ConflictSet := IntSets.Union (ConflictSet,TempSet);
                   SymbolSet := IntSets.Union (SymbolSet,m2tom3_with_5.Set);
               ELSE
@@ -181,9 +180,9 @@ FROM TokenTab   IMPORT MAXTerm, Terminal, Prio, TokenToSymbol, TokenError;
         END;
       END;
 
-      ReleaseSet (TempSet);
-      ReleaseSet (ConflictSet);
-      ReleaseSet (SymbolSet);
+      TempSet := NIL;
+      ConflictSet := NIL;
+      SymbolSet := NIL;
       IF ItemSets THEN PrintItemSets ( ) END ; 
       ok := NOT Error;
       IF Verbose THEN
@@ -208,23 +207,22 @@ PROCEDURE RepairConflict (state: tStateIndex; VAR ConflictSet: IntSets.T) =
       prod                                              : tProduction;
       ConflictFree                                      : BOOLEAN;
     BEGIN
-      MakeSet (ReadRedSet, MAXTerm);
-      MakeSet (RedRedSet, MAXTerm);
-      MakeSet (ReadRedRedSet, MAXTerm);
-      MakeSet (RepReadRedSet, MAXTerm);
-      MakeSet (RepRedRedSet, MAXTerm);
-      MakeSet (RepReadRedRedSet, MAXTerm);
-      MakeSet (ARepReadRedSet, MAXTerm);
-      MakeSet (ARepRedRedSet, MAXTerm);
-      MakeSet (ARepReadRedRedSet, MAXTerm);
+      ReadRedSet := IntSets.Empty();
+      RedRedSet := IntSets.Empty();
+      ReadRedRedSet := IntSets.Empty();
+      RepReadRedSet := IntSets.Empty();
+      RepRedRedSet := IntSets.Empty();
+      RepReadRedRedSet := IntSets.Empty();
+      ARepReadRedSet := IntSets.Empty();
+      ARepRedRedSet := IntSets.Empty();
+      ARepReadRedRedSet := IntSets.Empty();
 
       IF Verbose THEN
         DebugHead (state);
         DebugState (state, ConflictSet);
       END;
 
-      MakeSet (todo, MAXTerm);
-      Assign (todo, ConflictSet);
+      todo := ConflictSet;
 
       WITH m2tom3_with_7=StateArrayPtr^[state] DO
         WHILE NOT IntSets.IsEmpty (todo) DO
@@ -426,10 +424,10 @@ PROCEDURE RepairConflict (state: tStateIndex; VAR ConflictSet: IntSets.T) =
                   ARepReadRedSet := IntSets.Include (ARepReadRedSet, LookAhead);
                 END;
               ELSE (* ShiftCount = 0 *)
-                ERROR ("Check.RepairConflict: No Conflict (1)");
+                ErrorT ("Check.RepairConflict: No Conflict (1)");
               END;
             ELSE (* ReduceCount = 0 *)
-              ERROR ("Check.RepairConflict: No Conflict (2)");
+              ErrorT ("Check.RepairConflict: No Conflict (2)");
             END;
           END;
         END;
@@ -465,25 +463,25 @@ PROCEDURE RepairConflict (state: tStateIndex; VAR ConflictSet: IntSets.T) =
         ErrorMessageI (eARepReadRedRed, eWarning, NoPosition, eTermSet, ADR(ARepReadRedRedSet));
       END;
 
-      ReleaseSet (ReadRedSet);
-      ReleaseSet (RedRedSet);
-      ReleaseSet (ReadRedRedSet);
-      ReleaseSet (RepReadRedSet);
-      ReleaseSet (RepRedRedSet);
-      ReleaseSet (RepReadRedRedSet);
-      ReleaseSet (ARepReadRedSet);
-      ReleaseSet (ARepRedRedSet);
-      ReleaseSet (ARepReadRedRedSet);
-      ReleaseSet (todo);
+      ReadRedSet := NIL;
+      RedRedSet := NIL;
+      ReadRedRedSet := NIL;
+      RepReadRedSet := NIL;
+      RepRedRedSet := NIL;
+      RepReadRedRedSet := NIL;
+      ARepReadRedSet := NIL;
+      ARepRedRedSet := NIL;
+      ARepReadRedRedSet := NIL;
+      todo := NIL;
       IF Verbose THEN DebugEnd(); END;
     END RepairConflict;
 
-  PROCEDURE ERROR (READONLY a: ARRAY OF CHAR) =
+  PROCEDURE ErrorT (a: TEXT) =
     VAR s: tString;
     BEGIN
-      ArrayToString (a, s);
+      TextToString (a, s);
       ErrorMessageI (eInternal, eFatal, NoPosition, eString, ADR (s));
-    END ERROR;
+    END ErrorT;
 
 BEGIN
   Verbose := FALSE;
