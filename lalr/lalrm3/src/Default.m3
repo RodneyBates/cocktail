@@ -53,10 +53,10 @@ FROM TokenTab	IMPORT Vocabulary;
 	       (* TablePtr^[NoState] bildet den Anker *)
     TableSize : M2LONGINT;
 
-    TSorting  : REF  ARRAY tStateIndex OF tStateIndex;
+    TSorting  : REF  ARRAY OF tStateIndex;
     TSortingSize : M2LONGINT;
 
-    NSorting  : REF  ARRAY tStateIndex OF tStateIndex;
+    NSorting  : REF  ARRAY OF tStateIndex;
     NSortingSize : M2LONGINT;
 
   PROCEDURE CreateDefaultList() =
