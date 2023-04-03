@@ -36,17 +36,17 @@ FROM Gen IMPORT tTableLine;
     ControlType = RECORD Check, Next: TableElmt; END;
 
   VAR
-    Control     : UNTRACED BRANDED REF  ARRAY [0..Infinite2] OF ControlType;
-    Base        : UNTRACED BRANDED REF  ARRAY [0..Infinite] OF TableElmt;
-    Default     : UNTRACED BRANDED REF  ARRAY [0..Infinite] OF TableElmt;
+    Control     : REF ARRAY OF ControlType;
+    Base        : REF ARRAY OF TableElmt;
+    Default     : REF ARRAY  OF TableElmt;
     ControlCount,
     BaseCount   ,
     DefaultCount: INTEGER;
     TableMax    : tIndex;
     TableSize   : tIndex;
 
-    NNext       : UNTRACED BRANDED REF  ARRAY [0..Infinite] OF TableElmt;
-    NBase       : UNTRACED BRANDED REF  ARRAY [0..Infinite] OF TableElmt;
+    NNext       : REF ARRAY OF TableElmt;
+    NBase       : REF ARRAY OF TableElmt;
     NNextCount  : M2LONGINT;
     NBaseCount  : M2LONGINT;
     NTableMax   : tIndex;
