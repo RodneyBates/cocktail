@@ -44,7 +44,7 @@ FROM ReuseIO         IMPORT tFile, StdOutput, WriteNl, CloseIO;
 FROM Lookahead  IMPORT NoConflict, ComputeLALR;
 FROM LR         IMPORT ComputeLR;
 FROM Parser     IMPORT Parser;
-FROM FrontPath       IMPORT InsertPath;
+FROM FrontPath       IMPORT InsertPathT;
 FROM Reduce     IMPORT Reduced, TestReduced;
 FROM Scanner    IMPORT BeginScanner;
 FROM Strings    IMPORT tString, StringToInt;
@@ -63,7 +63,7 @@ VAR
 
 BEGIN
   ErrorTableT := ErrorTab;
-  InsertPath (ErrorTableT);
+  InsertPathT (ErrorTableT);
   InitStringMemory();
   InitIdents();
   BeginErrors();

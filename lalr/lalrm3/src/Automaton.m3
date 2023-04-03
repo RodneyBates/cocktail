@@ -41,7 +41,7 @@ IMPORT Word;
 FROM Continue   IMPORT Value, ValueNonterms;
 FROM DynArray   IMPORT MakeArray, ExtendArray;
 FROM FrontErrors     IMPORT eFatal, eError, eWarning, eInformation, eIdent, eString,
-                        eInternal, ErrorMessage, ErrorMessageI;
+                        eInternal, ErrorMessage, ErrorMessageI, CrashT;
 FROM Lists      IMPORT MakeList, tList;
 FROM Oper       IMPORT OperKind, InitPrioReading, GetPriority, GetOperator;
 FROM Rules      IMPORT Operation, Expression, InitRulesReading, GetNodeOperation,
@@ -411,7 +411,7 @@ PROCEDURE InsertProductions() =
 
     InitRulesReading();
     IF NOT GetRule (left,lfp,clp,right,cm, cmp,pnp,hpr,prp,prs,prsp) THEN
-      ErrorT ("Automaton.InsertProduction");
+      CrashT ("Automaton.InsertProduction");
     END;
 
     (* Fuehre ein neues Startsymbol ein *)
@@ -801,20 +801,6 @@ PROCEDURE PopAction (VAR act: tList; VAR voc: Vocabulary; VAR actpos: PosType): 
     DEC (StackIndex);
     RETURN TRUE;
   END PopAction;
-
-PROCEDURE ErrorT (a: TEXT) =
-  VAR s: tString;
-  BEGIN
-    TextToString (a, s);
-    ErrorMessageI (eInternal, eFatal, NoPosition, eString, ADR (s));
-  END ErrorT;
-
-PROCEDURE ERROR (READONLY a: ARRAY OF CHAR) =
-  VAR s: tString;
-  BEGIN
-    ArrayToString (a, s);
-    ErrorMessageI (eInternal, eFatal, NoPosition, eString, ADR (s));
-  END ERROR;
 
 BEGIN
   ProdElmtCount := InitProdCount;

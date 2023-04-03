@@ -65,7 +65,7 @@ FROM Debug      IMPORT dFile, tConflict, DebugHead, DebugState, DebugEnd, Inform
                         InformConflict, NewLine;
 FROM Debug      IMPORT ItemSets, PrintItemSets;
 FROM FrontErrors     IMPORT eInternal, eInformation, eWarning, eError, eFatal, eString,
-                        eShort, eTermSet, ErrorMessageI;
+                        eShort, eTermSet, ErrorMessageI, CrashT;
 FROM Idents     IMPORT tIdent;
 FROM ReuseIO         IMPORT WriteOpenT, WriteClose;
 FROM Sets       IMPORT tSet, IsElement, IsEmpty, Include, Exclude, Extract, Union,
@@ -424,10 +424,10 @@ PROCEDURE RepairConflict (state: tStateIndex; VAR ConflictSet: IntSets.T) =
                   ARepReadRedSet := IntSets.Include (ARepReadRedSet, LookAhead);
                 END;
               ELSE (* ShiftCount = 0 *)
-                ErrorT ("Check.RepairConflict: No Conflict (1)");
+                CrashT ("Check.RepairConflict: No Conflict (1)");
               END;
             ELSE (* ReduceCount = 0 *)
-              ErrorT ("Check.RepairConflict: No Conflict (2)");
+              CrashT ("Check.RepairConflict: No Conflict (2)");
             END;
           END;
         END;
@@ -475,13 +475,6 @@ PROCEDURE RepairConflict (state: tStateIndex; VAR ConflictSet: IntSets.T) =
       todo := NIL;
       IF Verbose THEN DebugEnd(); END;
     END RepairConflict;
-
-  PROCEDURE ErrorT (a: TEXT) =
-    VAR s: tString;
-    BEGIN
-      TextToString (a, s);
-      ErrorMessageI (eInternal, eFatal, NoPosition, eString, ADR (s));
-    END ErrorT;
 
 BEGIN
   Verbose := FALSE;
