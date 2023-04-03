@@ -55,6 +55,8 @@
 UNSAFE MODULE Gen;
 
   FROM SYSTEM IMPORT M2LONGINT, SHORTINT;
+
+  IMPORT IntSets; 
   FROM Actions IMPORT tActionMode, PutAction, WriteActions, ScannerName, ParserName;
   FROM ArgCheck IMPORT ExpandLine, MakeFileNameT, ScannerT, ParserT, ExtDef, ExtImp, LineFlag;
   FROM ArgCheck IMPORT MakeDef; 
@@ -90,7 +92,7 @@ UNSAFE MODULE Gen;
     Default;
 
   FROM Continue IMPORT MakeContinuation;
-  FROM FrontChecks   IMPORT CheckWriteOpen;
+  FROM FrontChecks   IMPORT CheckWriteOpenT;
 
   FROM Default  IMPORT
     CreateDefaultList,
@@ -106,7 +108,7 @@ UNSAFE MODULE Gen;
   FROM Final    IMPORT MakeFinalToProd;
   FROM General  IMPORT Min;
   FROM GenLang  IMPORT WriteConstants, WriteReduceCode;
-  FROM ReuseIO       IMPORT StdOutput, EndOfFile, WriteOpen, WriteClose, WriteC, WriteT,
+  FROM ReuseIO       IMPORT StdOutput, EndOfFile, WriteOpenT, WriteClose, WriteC, WriteT,
     WriteI, WriteCard, WriteNl;
   
   FROM Lists    IMPORT MakeList, tList;
@@ -119,7 +121,7 @@ UNSAFE MODULE Gen;
   FROM SysError IMPORT StatIsBad, SysErrorMessageI;
   
   IMPORT System; (* Close *)
-  FROM System   IMPORT tFile, OpenOutput, Write;
+  FROM System   IMPORT tFile, OpenOutputT, Write;
   FROM Times    IMPORT StepTime;
 
   FROM TokenTab IMPORT
@@ -156,7 +158,7 @@ UNSAFE MODULE Gen;
     MakeList (act); pos.Line := 0;      pos.Column := 0;
     MakeList (com); cpos.Line := 0;     cpos.Column := 0;
 
-    IF ((Language = tLanguage.Modula3) OR (Language)) = tLanguage.Modula2 THEN
+    IF Language = tLanguage.Modula3 OR Language = tLanguage.Modula2 THEN
       TextToString ("{", s);
         Append (s,EOL); Lists.Append (act, LOOPHOLE (PutString (s),ADDRESS));
       TextToString ("TYPE", s);
@@ -212,8 +214,8 @@ UNSAFE MODULE Gen;
       INC (TableSize, LastTerminal);
       INC (NTableSize, LastSymbol);
       IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
-         MakeFileNameT (ParserName, ParserT, ".Tab", FileNameT);
-         out := OpenOutput (FileNameT);
+         FileNameT := MakeFileNameT (ParserName, ParserT, ".Tab");
+         out := OpenOutputT (FileNameT);
          IF StatIsBad (out) THEN
            TextToString (FileNameT, String1);
            SysErrorMessageI (out, eError, eString, ADR (String1));
@@ -225,9 +227,9 @@ UNSAFE MODULE Gen;
 
       (* Mische den generierten Text in den Rahmen *)
 
-      MakeFileNameT (ParserName, ParserT ExtImp, FileNameT);
-      out := WriteOpen (FileNameT);
-      CheckWriteOpen (out, FileNameT);
+      FileNameT := MakeFileNameT (ParserName, ParserT, ExtImp);
+      out := WriteOpenT (FileNameT);
+      CheckWriteOpenT (out, FileNameT);
         
       WHILE NOT EndOfFile (Pars) DO
         ReadL (Pars, line);
@@ -265,7 +267,7 @@ UNSAFE MODULE Gen;
       (* Mische Abschnitt EXPORT in Rahmen *)
 
       IF MakeDef AND (NOT EndOfFile (Def)) THEN
-         MakeFileNameT (ParserName, ParserT, ExtDef, FileNameT);
+         FileNameT := MakeFileNameT (ParserName, ParserT, ExtDef);
          out := WriteOpenT (FileNameT);
          CheckWriteOpenT (out, FileNameT);
          WHILE NOT EndOfFile (Def) DO
@@ -495,7 +497,7 @@ UNSAFE MODULE Gen;
       Look : IntSets.T;
       t : Terminal;
     BEGIN
-      Look := IntSets.Emptyu();
+      Look := IntSets.Empty();
 
       (* alle States *)
 
@@ -519,9 +521,8 @@ UNSAFE MODULE Gen;
                 prod := LOOPHOLE (prodADR, tProduction);
                 RedState := ReduceOffset + prod^.ProdNo;
                 Look := m2tom3_with_14.Set;
-                Assign (Look,m2tom3_with_14.Set);
                 WHILE NOT IntSets.IsEmpty (Look) DO
-                  t := IntSets.Extract((*VAR*)Look);
+                  t := IntSets.ExtractArbitraryMember((*VAR*)Look);
                   TableLine[t] := RedState;
                 END;
               ELSE
@@ -694,21 +695,21 @@ PROCEDURE PutTables (TableFile: tFile) =
    BEGIN
       BlockSize := 64000 DIV BYTESIZE (ControlType);
       InError := FALSE;
-      PutTable ((LastReadState + 1) * ElmtSize, Base);
+      PutTable ((LastReadState + 1) * ElmtSize, ADR(Base^[0]));
       IF InError THEN RETURN END;
-      PutTable ((LastReadState + 1) * ElmtSize, NBase);
+      PutTable ((LastReadState + 1) * ElmtSize, ADR(NBase^[0]));
       IF InError THEN RETURN END;
-      PutTable ((LastReadState + 1) * ElmtSize, Default);
+      PutTable ((LastReadState + 1) * ElmtSize, ADR(Default^[0]));
       IF InError THEN RETURN END;
       PutTable ((NTableSize - LastTerminal) * BYTESIZE (TableElmt), ADR (NNext^[LastTerminal + 1]));
       IF InError THEN RETURN END;
-      PutTable ((LastReduceState - FirstReduceState + 1) * ElmtSize, Length);
+      PutTable ((LastReduceState - FirstReduceState + 1) * ElmtSize, ADR(Length^[0]));
       IF InError THEN RETURN END;
-      PutTable ((LastReduceState - FirstReduceState + 1) * ElmtSize, LeftHandSide);
+      PutTable ((LastReduceState - FirstReduceState + 1) * ElmtSize, ADR(LeftHandSide^[0]));
       IF InError THEN RETURN END;
-      PutTable ((LastReadState + 1) * ElmtSize, Continuation);
+      PutTable ((LastReadState + 1) * ElmtSize, ADR(Continuation^[0]));
       IF InError THEN RETURN END;
-      PutTable ((LastReadNonTermState - FirstReadTermState + 1) * ElmtSize, FinalToProd);
+      PutTable ((LastReadNonTermState - FirstReadTermState + 1) * ElmtSize, ADR(FinalToProd^[0]));
       IF InError THEN RETURN END;
 
       i := 0;
