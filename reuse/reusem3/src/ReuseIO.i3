@@ -32,6 +32,8 @@
 
 UNSAFE INTERFACE  ReuseIO;				(* buffered IO		*)
 
+IMPORT OSError;
+FROM System IMPORT FileNoError;
 
 
 FROM SYSTEM IMPORT M2LONGINT, M2LONGCARD;
@@ -48,7 +50,8 @@ TYPE
 
 PROCEDURE ReadOpen	(READONLY (*VAR*) FileName: ARRAY OF CHAR): tFile;
 						(* open  input file	*)
-PROCEDURE ReadOpenT     (FileNameT: TEXT): tFile;
+PROCEDURE ReadOpenT     (FileNameT: TEXT): tFile
+  RAISES { OSError . E , FileNoError (*No available tFile value.*) };
                                                 (* open  input file     *)
 PROCEDURE ReadClose	(f: tFile);		(* close input file	*)
 PROCEDURE Read		(f: tFile; Buffer: ADDRESS; Size: Word.T): INTEGER;
@@ -73,7 +76,8 @@ PROCEDURE EndOfFile	(f: tFile): BOOLEAN ;	(* end of file ?	*)
 
 PROCEDURE WriteOpen	(READONLY FileName: ARRAY OF CHAR): tFile;
 						(* open  output file	*)
-PROCEDURE WriteOpenT    (FileNameT: TEXT): tFile;
+PROCEDURE WriteOpenT    (FileNameT: TEXT): tFile
+  RAISES { OSError . E , FileNoError (*No available tFile value.*) };
                                                 (* open  output file    *)
 PROCEDURE WriteClose	(f: tFile);		(* close output file	*)
 PROCEDURE WriteFlush	(f: tFile);		(* flush output buffer	*)

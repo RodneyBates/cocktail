@@ -41,6 +41,8 @@
 
 UNSAFE MODULE ReuseIO;                  (* buffered IO          *)
 
+IMPORT OSError;
+FROM System IMPORT FileNoError;
 IMPORT Text;
 
 FROM SYSTEM IMPORT M2LONGINT, M2LONGCARD;
@@ -92,11 +94,14 @@ PROCEDURE FillBuffer    (f: tFile) =
       END;
    END FillBuffer;
 
-PROCEDURE ReadOpenT (FileNameT: TEXT): tFile =
+PROCEDURE ReadOpenT (FileNameT: TEXT): tFile
+  RAISES { OSError . E , FileNoError (*No available tFile value.*) } 
+=
    VAR                                          (* open  input file     *)
       f         : tFile;
    BEGIN
-      f := System.OpenInputT (FileNameT);
+      TRY f := System.OpenInputT (FileNameT);
+      EXCEPT ELSE RETURN - 1; END; 
       WITH WBuffPool=BufferPool [f] DO
          WBuffPool.Buffer           := Alloc (BufferSize + 1);
          WBuffPool.BufferIndex      := 0;
@@ -372,11 +377,13 @@ PROCEDURE CheckFlushLine (f: tFile) =
       BufferPool [f].FlushLine := System.IsCharacterSpecial (f);
    END CheckFlushLine;
 
-PROCEDURE WriteOpenT (FileNameT: TEXT): tFile =
+PROCEDURE WriteOpenT (FileNameT: TEXT): tFile
+  RAISES { OSError . E , FileNoError (*No available tFile value.*) } =
    (* open  output file    *)
    VAR f: tFile;
    BEGIN
-      f := System.OpenOutputT (FileNameT);
+      TRY f := System.OpenOutputT (FileNameT);
+      EXCEPT ELSE RETURN - 1; END; 
       WITH WBuffPool=BufferPool [f] DO
          WBuffPool.Buffer          := Alloc (BufferSize + 1);
          WBuffPool.BufferIndex     := 0;
