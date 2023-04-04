@@ -35,7 +35,7 @@ CONST
 TYPE
   tErrPtr  =  UNTRACED BRANDED REF  tErrElmt;
   tErrElmt =  RECORD
-                code, class, line, column, infcl   : SHORTCARD;
+                code, class, line, column, infcl   : INTEGER;
                 info    : ADDRESS;
                 next    : tErrPtr;
               END;

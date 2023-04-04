@@ -112,7 +112,13 @@ PROCEDURE BeginErrors() =
     s : tString;
     line : tString;
   BEGIN
-    f := ReadOpenT (ErrorTableT);
+    TRY 
+      f := ReadOpenT (ErrorTableT);
+    EXCEPT (* Expected: OSError . E
+             , FileNoError (*No available tFile value.*) *)
+    ELSE
+     f := -1;
+    END; 
     IF StatIsBad (f) THEN
       WriteT (StdError, "Fatal error: cannot open ");
       WriteT (StdError, ErrorTableT);
