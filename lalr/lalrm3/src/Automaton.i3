@@ -27,7 +27,7 @@ UNSAFE INTERFACE  Automaton;
   
 IMPORT Word;
 FROM Lists      IMPORT tList;
-FROM SYSTEM     IMPORT SHORTCARD, WORD;
+FROM SYSTEM     IMPORT SHORTCARD;
 IMPORT IntSets;
 FROM Sets       IMPORT tSet;
 FROM TokenTab   IMPORT PosType, cMAXNonTerm, Prio, Terminal, NonTerminal, Vocabulary;
@@ -58,9 +58,12 @@ TYPE
         Value   : SHORTCARD;
       END;
 
+    tProdListArrayRef = REF ARRAY OF tProdListElmt;
+
     tProdIndexList = RECORD
         Used    : INTEGER;
-        Array   : REF ARRAY OF tProdListElmt;
+        Array   : tProdListArrayRef;
+(* TODO: replace Count by NUMBER ( Array^) *)
         Count   : INTEGER;
       END;
 
@@ -128,11 +131,12 @@ TYPE
         NewNumber: tIndex;
         Kind    : tStateKind;
       END;
+
+    tWordArrayRef = REF ARRAY OF Word.T;
     
 VAR
     IsBnf       : BOOLEAN;
-    ProdArrayPtr: REF  ARRAY    (* alle Produktionen *)
-                     (*tProdIndex*) OF WORD; 
+    ProdArrayPtr: tWordArrayRef (*tProdIndex*) (* alle Produktionen *);
     ProdIndex   : INTEGER;            (* Index akt. bzw naechste P. *)
     ProdCount   : Word.T;             (* Anzahl Produktionen *)
     ItemArrayPtr: REF  ARRAY    (* alle Items *) OF tItem;

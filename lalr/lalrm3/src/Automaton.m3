@@ -63,7 +63,7 @@ FROM TokenTab   IMPORT EndOfToken, MAXTerm, MINNonTerm, MAXNonTerm, cMAXNonTerm,
     eNoBNF      = 60;
     eActInside  = 61;
 
-    InitProdCount  = 1000;  (* Anfangsplatzgroesse fuer Produktionen in WORD *)
+    InitProdCount  = 1000;  (* Anfangsplatzgroesse fuer Produktionen in Word.T *)
     InitItemCount  = 200;   (* Anfangsplatzgroesse fuer Items *)
     InitStateCount = 50;    (* Anfangsplatzgroesse fuer States *)
     InitListCount  = 4;     (* Anfangsplatzgroesse fuer ProdList *)
@@ -95,9 +95,9 @@ FROM TokenTab   IMPORT EndOfToken, MAXTerm, MINNonTerm, MAXNonTerm, cMAXNonTerm,
       END;
 
   VAR
-    ProdElmtCount  : M2LONGINT;            (* aktuelle Feldgroesse *)
+    Production     : tProduction        (* Index akt. bzw. naechsten P.*);
+    ProdElmtCount  : INTEGER            (* aktuelle Feldgroesse *);
     ProductionADR  : (*tProduction*) ADDRESS;
-    Production     : tProduction;        (* Index akt. bzw. naechsten P.*)
     ItemElmtCount  : M2LONGINT;            (* aktuelle Feldgroesse fuer I. *)
     StateElmtCount : M2LONGINT;            (* aktuelle Feldgroesse fuer S. *)
     StateHashList  : ARRAY               (* Hashtabelle fuer States     *)
@@ -112,6 +112,38 @@ FROM TokenTab   IMPORT EndOfToken, MAXTerm, MINNonTerm, MAXNonTerm, cMAXNonTerm,
                               fuer InsertProductions und InsertRight *)
     NonTermNo : Word.T;
     ProdSet   : IntSets.T;
+
+PROCEDURE ExpandWordArray
+  ( VAR ArrayRef : tWordArrayRef; ToSize : INTEGER ) =
+
+  VAR LOldArrayRef : tWordArrayRef;
+  VAR LArrayNumber : INTEGER; 
+  BEGIN
+    LArrayNumber := NUMBER ( ArrayRef ^ );
+    IF LArrayNumber < ToSize
+    THEN
+      LOldArrayRef := ArrayRef; 
+      ArrayRef := NEW ( tWordArrayRef , ToSize );
+      SUBARRAY ( ArrayRef ^ , 0 , LArrayNumber ) := LOldArrayRef ^;
+      LOldArrayRef := NIL (* GC bait *);
+    END; 
+  END ExpandWordArray;
+
+PROCEDURE ExpandProdListArray
+  ( VAR ArrayRef : tProdListArrayRef; ToSize : INTEGER ) =
+
+  VAR LOldArrayRef : tProdListArrayRef;
+  VAR LArrayNumber : INTEGER; 
+  BEGIN
+    LArrayNumber := NUMBER ( ArrayRef ^ );
+    IF LArrayNumber < ToSize
+    THEN
+      LOldArrayRef := ArrayRef; 
+      ArrayRef := NEW ( tProdListArrayRef , ToSize );
+      SUBARRAY ( ArrayRef ^ , 0 , LArrayNumber ) := LOldArrayRef ^;
+      LOldArrayRef := NIL (* GC bait *);
+    END; 
+  END ExpandProdListArray;
 
 PROCEDURE InitAutomaton() =
 
@@ -588,24 +620,44 @@ PROCEDURE PutInProdList (index: tProdIndex; value: SHORTCARD) =
      zugh. ProdList sortiert eingetragen *)
   
   VAR
+    prodADR: ADDRESS;
     prod : tProduction;
     i    : tIndex;
+debug := 0;
   BEGIN
-    prod := ADR (ProdArrayPtr^[index]);
+    prodADR := ADR (ProdArrayPtr^[index]);
+    prod := LOOPHOLE ( prodADR, tProduction);
     WITH m2tom3_with_24=ProdList[prod^.Left] DO
       IF m2tom3_with_24.Used = 0 THEN
-        m2tom3_with_24.Count := InitListCount;
-        m2tom3_with_24.Array := NEW (REF ARRAY OF tProdListElmt, m2tom3_with_24.Count);
+        m2tom3_with_24.Array := NEW (REF ARRAY OF tProdListElmt, InitListCount);
 (*WAS:  MakeArray (m2tom3_with_24.Array,m2tom3_with_24.Count,BYTESIZE(tProdListElmt));*)
+        m2tom3_with_24.Count := NUMBER(m2tom3_with_24.Array^);
+
         INC (m2tom3_with_24.Used);
+(* CHECK^ This does not put anyting in Array[0].  Is this right? *)  
         m2tom3_with_24.Array^[m2tom3_with_24.Used].Index := index; 
         m2tom3_with_24.Array^[m2tom3_with_24.Used].Value := value; 
       ELSE
+(* Check: this used to say: 
         IF m2tom3_with_24.Used >= m2tom3_with_24.Count THEN
-          (*ExtendArray (m2tom3_with_24.Array,m2tom3_with_24.Count,BYTESIZE(tProdListElmt));*)
+   which gave array bounds errors when Used=3, Count=4, and trying below to
+   insert into Array[4].  Either the change below is needed, or the INC(Used)
+   above needs to happen *after* storing into Array[Used].  My only theory
+   is that, in Modula-2, this array violation happended to be undetected
+   and by luck, harmless.
+
+WAS:
+        IF m2tom3_with_24.Used+1 >= m2tom3_with_24.Count THEN
+          ExtendArray (m2tom3_with_24.Array,m2tom3_with_24.Count,BYTESIZE(tProdListElmt));
         END;
+*)
         (* laengere Produktionen nach hinten verschieben *)
         i := m2tom3_with_24.Used;
+        IF i+1 > LAST (m2tom3_with_24.Array^)
+        THEN 
+          ExpandProdListArray ((*VAR*)m2tom3_with_24.Array,i+4);
+          m2tom3_with_24.Count := NUMBER(m2tom3_with_24.Array^);
+        END;
         WHILE (i > 0) AND (m2tom3_with_24.Array^[i].Value > value) DO
           m2tom3_with_24.Array^[i+1].Index := m2tom3_with_24.Array^[i].Index;
           m2tom3_with_24.Array^[i+1].Value := m2tom3_with_24.Array^[i].Value;
@@ -632,8 +684,12 @@ PROCEDURE NextProduction() =
       m2tom3_with_25.Reduce.Used := 0;
     END;
     ProdIndex := NextProdIndex(ProdIndex);
-    IF (ProdIndex + ((BYTESIZE(tDummyProduction) + MaxAlign - 1) DIV MaxAlign * MaxAlign)) >= ProdElmtCount THEN
-      (*ExtendArray (ProdArrayPtr, ProdElmtCount, BYTESIZE(WORD));*)
+    IF (ProdIndex + ((BYTESIZE(tDummyProduction) + MaxAlign - 1)
+        DIV MaxAlign * MaxAlign))
+       >= ProdElmtCount THEN
+      ExpandWordArray ((*VAR*) ProdArrayPtr, ProdElmtCount * 2);
+      ProdElmtCount := NUMBER (ProdArrayPtr^);
+      (*WAS:ExtendArray (ProdArrayPtr, ProdElmtCount, BYTESIZE(Word.T));*)
     END;
     ProductionADR := ADR(ProdArrayPtr^[ProdIndex]);
     Production := LOOPHOLE (ProductionADR, tProduction);
@@ -649,7 +705,7 @@ PROCEDURE NextProdIndex (Index: tProdIndex): tProdIndex =
     diff := LOOPHOLE ((BYTESIZE(tDummyProduction) + MaxAlign - 1) DIV MaxAlign * MaxAlign,Word.T)
               (* Platzbedarf fuer variabellangen Teil *)
             + (((prod^.Len+3) DIV 4) * BYTESIZE(tDummyRight4));
-    RETURN Index + ((diff-1) DIV BYTESIZE (WORD)) + 1;
+    RETURN Index + ((diff-1) DIV BYTESIZE (Word.T)) + 1;
   END NextProdIndex;
 
 PROCEDURE EnsureProdArray() =
@@ -663,8 +719,10 @@ PROCEDURE EnsureProdArray() =
     diff := LOOPHOLE ((BYTESIZE(tDummyProduction) + MaxAlign - 1) DIV MaxAlign * MaxAlign,Word.T)
               (* Platzbedarf fuer variabellangen Teil *)
             + ((((Production^.Len+1)+3) DIV 4) * BYTESIZE(tDummyRight4));
-    IF (ProdIndex + ((diff-1) DIV BYTESIZE(WORD)) + 1) >= ProdElmtCount THEN
-      (*ExtendArray (ProdArrayPtr, ProdElmtCount, BYTESIZE(WORD));*)
+    IF (ProdIndex + ((diff-1) DIV BYTESIZE(Word.T)) + 1) >= ProdElmtCount THEN
+      ExpandWordArray ((*VAR*) ProdArrayPtr, ProdElmtCount * 2);
+      ProdElmtCount := NUMBER (ProdArrayPtr^);
+      (*WAS:ExtendArray (ProdArrayPtr, ProdElmtCount, BYTESIZE(Word.T));*)
       ProductionADR := ADR(ProdArrayPtr^[ProdIndex]);
       Production := LOOPHOLE (ProductionADR, tProduction);
     END;
@@ -804,8 +862,8 @@ PROCEDURE PopAction (VAR act: tList; VAR voc: Vocabulary; VAR actpos: PosType): 
 
 BEGIN
   ProdElmtCount := InitProdCount;
-  ProdArrayPtr := NEW (REF ARRAY OF WORD, ProdElmtCount);
-(*WAS:  MakeArray (ProdArrayPtr, ProdElmtCount, BYTESIZE(WORD));*)
+  ProdArrayPtr := NEW (REF ARRAY OF Word.T, ProdElmtCount);
+(*WAS:  MakeArray (ProdArrayPtr, ProdElmtCount, BYTESIZE(Word.T));*)
 
   ItemElmtCount := InitItemCount;
   ItemArrayPtr := NEW(REF ARRAY OF tItem, ItemElmtCount);
