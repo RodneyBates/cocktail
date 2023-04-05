@@ -138,9 +138,10 @@ comment2        = 19;
  
 TYPE
    yyTableElmt          = SHORTCARD;
-   yyStateRange         = (*yyTableElmt*) [0 .. yyDStateCount];
+   yyStateRange         = yyTableElmt (*[0 .. yyDStateCount]*);
+   yyStateRangePacked   = BITS BITSIZE(yyTableElmt) FOR  yyStateRange;
    yyTableRange         = (*yyTableElmt*) [0 .. yyTableSize];
-   yyCombType           = RECORD Check, Next: yyStateRange; END;
+   yyCombType           = RECORD Check, Next: BITS 16 FOR yyStateRange; END;
    yyCombTypePtr        = UNTRACED BRANDED REF  yyCombType;
    yytChOpenBufferPtr   = REF ARRAY OF CHAR;
    yytChBufferPtr       = UNTRACED REF ARRAY [ 0 .. 16_7FFFFFF0 ] OF CHAR; 
@@ -150,12 +151,12 @@ TYPE
 
 VAR
    yyBasePtr            : ARRAY yyStateRange    OF M2LONGCARD     ;
-   yyDefault            : ARRAY yyStateRange    OF yyStateRange ;
+   yyDefault            : ARRAY yyStateRange    OF yyStateRangePacked ;
    yyComb               : ARRAY yyTableRange    OF yyCombType   ;
-   yyEobTrans           : ARRAY yyStateRange    OF yyStateRange ;
+   yyEobTrans           : ARRAY yyStateRange    OF yyStateRangePacked ;
    yyToLower, yyToUpper : ARRAY yyChRange       OF CHAR         ;
 
-   yyStateStack         : REF  ARRAY OF yyStateRange;
+   yyStateStack         : REF  ARRAY OF yyStateRangePacked;
    yyStateStackSize     : INTEGER;
    yyStartState         : yyStateRange;
    yyPreviousStart      : yyStateRange;
@@ -199,13 +200,14 @@ BEGIN
   SUBARRAY ( ArrRef ^, 0 , LNumber) := LOldArrRef ^;
 END ExtendChArray; 
 
-PROCEDURE ExtendStateArray ( VAR ArrRef: REF ARRAY OF yyStateRange ) =
-  VAR LOldArrRef : REF ARRAY OF yyStateRange;
+PROCEDURE ExtendStateArray 
+  ( VAR ArrRef: REF ARRAY OF yyStateRangePacked ) =
+  VAR LOldArrRef : REF ARRAY OF yyStateRangePacked;
   VAR LNumber: INTEGER; 
 BEGIN
   LOldArrRef := ArrRef;
   LNumber := NUMBER (ArrRef ^); 
-  ArrRef := NEW ( REF ARRAY OF yyStateRange , LNumber * 2 );
+  ArrRef := NEW ( REF ARRAY OF yyStateRangePacked , LNumber * 2 );
   SUBARRAY ( ArrRef ^, 0 , LNumber) := LOldArrRef ^;
 END ExtendStateArray; 
 
@@ -1292,6 +1294,7 @@ PROCEDURE BeginScanner() =
  
 PROCEDURE CloseScanner() =
    BEGIN
+     yyStateStack := NIL;
    END CloseScanner;
  
 PROCEDURE yyGetTables() =
@@ -1372,12 +1375,14 @@ PROCEDURE yyGetTable (TableFile: System.tFile; Address: ADDRESS): Word.T =
    VAR
       N         : INTEGER;
       Length    : yyTableElmt;
+      LongLength: Word.T;
    BEGIN
       N := System.Read (TableFile, ADR (Length), BYTESIZE (yyTableElmt));
       FrontChecks.ErrorCheckT ("yyGetTable.Read1", N);
-      N := System.Read (TableFile, Address, VAL(Length,INTEGER));
+      LongLength := Length;
+      N := System.Read (TableFile, Address, LongLength);
       FrontChecks.ErrorCheckT ("yyGetTable.Read2", N);
-      RETURN Length;
+      RETURN LongLength;
    END yyGetTable;
  
 PROCEDURE yyErrorMessage (ErrorCode: SHORTCARD) =
@@ -1411,7 +1416,7 @@ BEGIN
    yyChBufferPtr        := LOOPHOLE(ADR (yyComb [0]), yytChBufferPtr); (* dirty trick *)
    yyChBufferIndex      := 1; 
    yyStateStackSize     := yyInitBufferSize;
-   yyStateStack := NEW ( REF ARRAY OF yyStateRange, yyChBufferSize); 
+   yyStateStack := NEW ( REF ARRAY OF yyStateRangePacked, yyStateStackSize); 
 (* WAS: DynArray.MakeArray (yyStateStack, yyStateStackSize, BYTESIZE (yyStateRange)); *)
    yyStateStack^ [0]    := yyDNoState;
    
@@ -1423,6 +1428,5 @@ BEGIN
    FOR yyCh := 'a' TO 'z' DO
       yyToUpper [yyCh] := VAL (ORD (yyCh) - ORD ('a') + ORD ('A'),CHAR);
    END;
-   yyStateStack := NIL;
 END Scanner.
 

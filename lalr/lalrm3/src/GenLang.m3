@@ -249,7 +249,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
             ELSE (* Language = C *)
               IF prod^.Len # 0
               THEN  
-                WriteT (f, "  yyStateStackPtr -=");
+                WriteT (f, "  yyStateStackPtr :=");
                 WriteI (f, prod^.Len, 0);
                 WriteT (f, "; yyAttrStackPtr -=");
                 WriteI (f, prod^.Len, 0);

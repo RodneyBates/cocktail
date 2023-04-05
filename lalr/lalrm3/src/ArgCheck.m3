@@ -187,14 +187,17 @@ PROCEDURE ArgCheck() =
           ErrorMessageI (eToManyArgs, eError, NoPosition, eString, ADR (ArgString));
         ELSE
           SourceFileName := ArgumentT;
-          SourceFile := ReadOpenT (ArgumentT);
+          TRY SourceFile := ReadOpenT (ArgumentT);
+          EXCEPT ELSE SourceFile := - 1; END; 
           IF StatIsBad (SourceFile) THEN
             SysErrorMessageI (SourceFile, eError, eString, ADR(ArgString));
             SourceFile := StdInput;
           ELSE
+            CheckReadOpenT (SourceFile, ArgumentT);
             SourceFileIsOpen := TRUE;
             StringToArray(ArgString, ArgumentA);
             BeginFile (ArgumentA);
+            IF EndOfFile (SourceFile) THEN EXIT END; 
           END;
         END;
           
@@ -242,7 +245,8 @@ PROCEDURE ArgCheck() =
       ELSIF Text.Equal (ArgumentT, cHelp) THEN
         FileNameT := HelpFile;
         InsertPathT (FileNameT);
-        file := ReadOpenT (FileNameT);
+        TRY file := ReadOpenT (FileNameT);
+        EXCEPT ELSE file := - 1; END; 
         IF StatIsBad (file) THEN
           TextToString (FileNameT, ArgString);
           SysErrorMessageI (file, eError, eString, ADR (ArgString));
@@ -259,7 +263,8 @@ PROCEDURE ArgCheck() =
     IF SourceFile = StdInput THEN
       FileNameT := ShortHelpFile;
       InsertPathT (FileNameT);
-      file := ReadOpenT (FileNameT);
+      TRY file := ReadOpenT (FileNameT);
+      EXCEPT ELSE file := -1; END;
       IF StatIsBad (file) THEN
         TextToString (FileNameT, ArgString);
         SysErrorMessageI (file, eError, eString, ADR (ArgString));
@@ -325,13 +330,6 @@ ELSIF Language = tLanguage.Modula2 THEN
       WriteClose (out);
       ReadClose (in);
 
-      FileNameT := MakeFileNameT (ScannerName, ScannerT, ExtImp);
-      out := WriteOpenT (FileNameT);      CheckWriteOpenT (out, FileNameT);
-      InsertPathT (ScanImp);
-      in := ReadOpenT (ScanImp);         CheckReadOpenT (in, ScanImp);
-      CopyFile (in, out);
-      WriteClose (out);
-      ReadClose (in);
     END;
 
     IF MakeErr THEN
@@ -379,10 +377,10 @@ ELSIF Language = tLanguage.Modula2 THEN
 PROCEDURE MakeFileNameT (Name: tIdent; DefaultT, ExtT: TEXT): TEXT =
    VAR BaseNameT: TEXT; 
    BEGIN
-      IF ParserName = NoIdent THEN
-         BaseNameT := ParserT; 
+      IF Name = NoIdent THEN
+         BaseNameT := DefaultT; 
       ELSE
-         BaseNameT := GetText (ParserName);
+         BaseNameT := GetText (Name);
       END;
       RETURN BaseNameT & ExtT;
    END MakeFileNameT;

@@ -90,7 +90,8 @@ TYPE
         Pri     : Prio;
         Len     : tIndex;
         Left    : NonTerminal;
-        Right   : REF ARRAY OF (*SHORTCARD*) [0..cMAXNonTerm];
+        Right   : ARRAY [0 .. Infinite]
+                  OF BITS BITSIZE (SHORTCARD) FOR [0..cMAXNonTerm];
       END;
 
     tRep  = 
