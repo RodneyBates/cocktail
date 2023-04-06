@@ -543,7 +543,7 @@ UNSAFE MODULE Gen;
       index,prodno: tProdIndex;
     BEGIN
       LengthCount := ProdCount;
-      Length := NEW (REF ARRAY OF TableElmt, LengthCount);
+      Length := NEW (REF ARRAY OF TableElmt, LengthCount+1);
 (*WAS:MakeArray (Length,LengthCount,ElmtSize);*)
       index := 0;
       FOR prodno := 1 TO ProdCount DO
@@ -561,7 +561,7 @@ UNSAFE MODULE Gen;
       index,prodno: tProdIndex;
     BEGIN
       LeftHandSideCount := ProdCount;
-      LeftHandSide := NEW (REF ARRAY OF TableElmt, LeftHandSideCount);
+      LeftHandSide := NEW (REF ARRAY OF TableElmt, LeftHandSideCount+1);
 (*WAS:MakeArray (LeftHandSide,LeftHandSideCount,TableElmt);*)
       index := 0;
       FOR prodno := 1 TO ProdCount DO

@@ -31,6 +31,7 @@ UNSAFE MODULE Lookahead;
 
 IMPORT Word;
 IMPORT IntSets;
+IMPORT ExpArrays_tItemIndex;
 
 FROM Limits     IMPORT MaxShortCard;
 FROM FrontErrors
@@ -632,11 +633,17 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
         
         (* eventuell Speicher beschaffen *)
 
-        IF m2tom3_with_26.Used = 0 THEN
-          m2tom3_with_26.Array := NEW (REF ARRAY OF tIndex, m2tom3_with_26.Count);
-(*WAS:    MakeArray (m2tom3_with_26.Array,m2tom3_with_26.Count,BYTESIZE(tIndex));*)
+        i := m2tom3_with_26.Used;
+        IF i = 0 THEN
+          m2tom3_with_26.Array
+            := NEW (REF ARRAY OF tIndex, m2tom3_with_26.Count);
+          m2tom3_with_26.Count := NUMBER (m2tom3_with_26.Array^);
+(*WAS:    MakeArray (m2tom3_with_26.Array,m2tom3_with_26.Count,BYTESIZE(tIndex));
         ELSIF m2tom3_with_26.Used >= m2tom3_with_26.Count THEN
-          (*ExtendArray (m2tom3_with_26.Array,m2tom3_with_26.Count,BYTESIZE(tIndex));*)
+          ExtendArray (m2tom3_with_26.Array,m2tom3_with_26.Count,BYTESIZE(tIndex));*)
+        ELSE
+          ExpArrays_tItemIndex.Expand (m2tom3_with_26.Array, i+2, i+6);
+          m2tom3_with_26.Count := NUMBER (m2tom3_with_26.Array^);
         END;
         INC (m2tom3_with_26.Used);
         m2tom3_with_26.Array^[m2tom3_with_26.Used] := NT; 

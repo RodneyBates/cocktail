@@ -56,8 +56,12 @@ FROM SYSTEM     IMPORT HALT, SHORTCARD, WORD  ;
 FROM General    IMPORT MaxAlign;
 FROM Positions  IMPORT NoPosition;
 FROM TokenTab   IMPORT EndOfToken, MAXTerm, MINNonTerm, MAXNonTerm, cMAXNonTerm,
-                        PosType, TokenError, Prio, Terminal, NonTerminal, Vocabulary,
-                        TokenToSymbol, MakeVoc;
+                       PosType, TokenError, Prio, Terminal, NonTerminal,
+                       Vocabulary, TokenToSymbol, MakeVoc;
+
+IMPORT ExpArrays_tState;
+IMPORT ExpArrays_tItem;
+IMPORT ExpArrays_tIndexList;
 
   CONST
     eNoBNF      = 60;
@@ -100,8 +104,7 @@ FROM TokenTab   IMPORT EndOfToken, MAXTerm, MINNonTerm, MAXNonTerm, cMAXNonTerm,
     ProductionADR  : (*tProduction*) ADDRESS;
     ItemElmtCount  : M2LONGINT;            (* aktuelle Feldgroesse fuer I. *)
     StateElmtCount : M2LONGINT;            (* aktuelle Feldgroesse fuer S. *)
-    StateHashList  : ARRAY               (* Hashtabelle fuer States     *)
-                     HashIndex OF tIndexList;
+    StateHashList  : ARRAY HashIndex OF tIndexList (* Hashtabelle fuer States *);
     StackArrayPtr  : REF ARRAY         (* Stack fuer nichtbearbeitete *)
                      OF tStackElmt; (* NonTerminale, Aktionen *)
     StackElmtCount : M2LONGINT;            (* Stackgroesse *)
@@ -375,13 +378,18 @@ PROCEDURE UniqueState (VAR new: BOOLEAN): tStateIndex =
 
       (* neuen State in Hashtabelle eintragen *)
 
-      IF m2tom3_with_13.Used = 0 THEN
-        m2tom3_with_13.Count := InitHashListCount;
-        m2tom3_with_13.Array := NEW ( REF ARRAY OF tIndex, m2tom3_with_13.Count );
-(*WAS: MakeArray (m2tom3_with_13.Array,m2tom3_with_13.Count,BYTESIZE(tIndex));*)
-      ELSIF m2tom3_with_13.Used >= m2tom3_with_13.Count THEN
-        (*ExtendArray (m2tom3_with_13.Array,m2tom3_with_13.Count,BYTESIZE(tIndex));*)
+      i := m2tom3_with_13.Used;
+      IF i = 0 THEN
+        m2tom3_with_13.Array := NEW ( REF ARRAY OF tIndex, InitHashListCount );
+        m2tom3_with_13.Count := NUMBER(m2tom3_with_13.Array^);
+   (* ELSIF i >= m2tom3_with_13.Count THEN
+        ExtendArray (m2tom3_with_13.Array,m2tom3_with_13.Count,BYTESIZE(tIndex));*)
+      ELSE 
+        ExpArrays_tIndexList.Expand
+          ((*VAR*)m2tom3_with_13.Array, i+2, i+6); 
+        m2tom3_with_13.Count := NUMBER(m2tom3_with_13.Array^);
       END;
+
       INC (m2tom3_with_13.Used);
       m2tom3_with_13.Array^[m2tom3_with_13.Used] := StateIndex;
       new := TRUE;
@@ -655,7 +663,7 @@ WAS:
         i := m2tom3_with_24.Used;
         IF i+1 > LAST (m2tom3_with_24.Array^)
         THEN 
-          ExpandProdListArray ((*VAR*)m2tom3_with_24.Array,i+4);
+          ExpandProdListArray ((*VAR*)m2tom3_with_24.Array,i+5);
           m2tom3_with_24.Count := NUMBER(m2tom3_with_24.Array^);
         END;
         WHILE (i > 0) AND (m2tom3_with_24.Array^[i].Value > value) DO
@@ -731,10 +739,13 @@ PROCEDURE EnsureProdArray() =
 PROCEDURE NextItem (ReadSym: Vocabulary) = (* Beschaffe das naechste Item *)
   BEGIN
     INC (ItemIndex);
-    IF ItemIndex > ItemElmtCount THEN
+    ExpArrays_tItem.Expand ((*VAR*)ItemArrayPtr, ItemIndex+1);
+    ItemElmtCount := NUMBER(ItemArrayPtr^);
+(*WAS:IF ItemIndex > ItemElmtCount THEN
       (*ExtendArray (ItemArrayPtr, ItemElmtCount, BYTESIZE(tItem));*)
       IF ItemArrayPtr = NIL THEN HALT(); END;
     END;
+*)
     WITH m2tom3_with_26=ItemArrayPtr^[ItemIndex] DO
       m2tom3_with_26.EmptyReadSet := TRUE;
       m2tom3_with_26.Relation.Used := 0;
@@ -754,9 +765,12 @@ PROCEDURE NextState () =
 
   BEGIN
     INC (StateIndex);
-    IF StateIndex > StateElmtCount THEN
-      (*ExtendArray (StateArrayPtr, StateElmtCount, BYTESIZE(tState));*)
-    END;
+    ExpArrays_tState.Expand ((*VAR*) StateArrayPtr, StateIndex+1);
+    StateElmtCount := NUMBER (StateArrayPtr^);
+    
+(*WAS:IF StateIndex > StateElmtCount THEN
+       (*ExtendArray (StateArrayPtr, StateElmtCount, BYTESIZE(tState));*)
+      END; *)
     WITH m2tom3_with_27=StateArrayPtr^[StateIndex] DO
       m2tom3_with_27.Size := 0;
       m2tom3_with_27.Items := ItemIndex+1;
@@ -879,6 +893,8 @@ BEGIN
 
   FOR i := FIRST(HashIndex) TO LAST(HashIndex) DO
     StateHashList[i].Used := 0;
+    StateHashList[i].Count := 0;
+    StateHashList[i].Array := NIL;
   END;
 
   FOR i:= FIRST(Terminal) TO LAST (Terminal) DO

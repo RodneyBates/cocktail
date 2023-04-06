@@ -1,0 +1,22 @@
+% m3makefile for lalrm3 instantations
+
+include_dir("../generics")
+
+interface("Instor_tState") % Instantiator for Automaton.tState
+module("ExpArrays_tState")
+
+interface("Instor_tItem") % Instantiator for Automaton.tItem
+module("ExpArrays_tItem")
+
+interface("Instor_tIndexList") % Instantiator for Automaton.tIndexList
+module("ExpArrays_tIndexList")
+
+interface("Instor_tItemIndex") % Instantiator for Automaton.tItemIndex
+module("ExpArrays_tItemIndex")
+
+interface("Instor_tItemIndexList") % Instantiator for Automaton.tItemIndexList
+module("ExpArrays_tItemIndexList")
+
+interface("BitNoTable") %Instantiator for INTEGER, needed by OrdSets.mg. 
+
+% There are some instantiations done via Quake.  Move them in here. 

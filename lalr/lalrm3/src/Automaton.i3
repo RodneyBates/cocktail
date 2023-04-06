@@ -29,7 +29,6 @@ IMPORT Word;
 FROM Lists      IMPORT tList;
 FROM SYSTEM     IMPORT SHORTCARD;
 IMPORT IntSets;
-FROM Sets       IMPORT tSet;
 FROM TokenTab   IMPORT PosType, cMAXNonTerm, Prio, Terminal, NonTerminal, Vocabulary;
 
 CONST Infinite  = 65535;
@@ -37,13 +36,16 @@ CONST Infinite2 = 1000000;
 
 TYPE
     tStateIndex = (*SHORTCARD*) [0..Infinite];
+    (* BEWARE! ^This type is copied into Instor_tItem and must match. *)
     tItemIndex  = CARDINAL;
     tProdIndex  = (*SHORTCARD*) [0..Infinite];
+    (* BEWARE! ^This type is copied into Instor_tItem and must match. *)
     tIndex      = CARDINAL;
 
     tIndexList = RECORD
         Used    : INTEGER;
         Array   : REF  ARRAY OF tIndex;
+(* TODO: replace Count by NUMBER ( Array^) *)
         Count   : INTEGER;
       END;
 
