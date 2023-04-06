@@ -4,9 +4,8 @@
 
  UNSAFE MODULE Parser;
 
-FROM SYSTEM IMPORT SHORTCARD, M2LONGCARD;
-IMPORT Word, SYSTEM, Scanner, Positions, FrontErrors, Strings, DynArray, Sets, System;
-IMPORT Fmt, OSError, Text;
+IMPORT Word, Scanner, Positions, FrontErrors, Strings, Sets, System;
+IMPORT Fmt, OSError, Rd, Thread, Text, Wr;
 
 IMPORT Errors (* From Reusem3. *);
 
@@ -19,8 +18,8 @@ FROM Lists	IMPORT Append, IsEmpty, Head, Tail, MakeList, tList;
 FROM Oper	IMPORT OperKind, MakePriority, CompletePriority, MakeOperator, MakeOperHeader;
 FROM Scanner	IMPORT GetToken, tScanAttribute, Attribute, ErrorAttribute;
 FROM Positions	IMPORT NoPosition;
-FROM Strings	IMPORT AssignEmpty, tString, TextToString, ArrayToString;
-FROM StringMem	IMPORT PutString, tStringRef;
+FROM Strings	IMPORT AssignEmpty, tString, TextToString;
+FROM StringMem	IMPORT PutString;
 FROM Idents	IMPORT NoIdent, MakeIdent;
 
 FROM TokenTab	IMPORT Terminal;
@@ -33,6 +32,7 @@ CONST
   cEol = '\012';	(* eol character *)
   eNumToBig = 9;
 
+TYPE SHORTCARD = [ 0 .. 65535];
 TYPE tParsAttribute = RECORD Scan: tScanAttribute; END;
 
 VAR
@@ -71,12 +71,27 @@ TYPE
 
    (* The conversion to Modula-3 is very fragile, in part due to the
       use of unsafe address arithmetic.
-      
+      On the one hand, some types, in some contexts, need to be
+      subranges (particularly, as fixed array subscript types),
+      and other times, need to have the same size as in Modula-2, to avoid
+      undermining various unsafe address arithmetic.  Modula-3 infers
+      its own sizes from subranges, except for fields and elements when
+      BITS FOR is used.  But assignments involving scalars with BIT FOR
+      types present problems and even CM3 code generator failures.
+
+      So if it is a BITS FOR type, its name ends in "Packed", otherwise
+      not, the relevant ones ending in "Range".
+
+      Additionally, CM3 has code generator failures assigning between two
+      BIT FOR types, at times.  Actual cases where this has happened are
+      replaced by two-step copies with an intermediate, unpacked temporary.
+  
       These BITS FOR types must occupy exactly a SHORTCARD, when used
       as elements or fields, but must their have subrange bounds when
       used as array subscript types. There a few places where a scalar
       of one of these also must occupy exactly a SHORTCARD. 
-   *) 
+   *)
+   
    yyTCombRangePacked         = BITS yyTableElmtBits FOR [0 .. yyTableMax];
    yyNCombRangePacked         = BITS yyTableElmtBits
                           FOR [yyLastTerminal + 1 .. yyNTableMax];
@@ -247,7 +262,7 @@ PROCEDURE Parser (): Word.T =
 (*WAS:      yyTCombPtr := LOOPHOLE 
                             ( LOOPHOLE ( yyTBasePtr [yyState] ,LONGCARD) 
                               + (VAL (   yyTerminal,LONGCARD ) 
-                                * SYSTEM.BYTESIZE (yyTCombType))
+                                * BYTESIZE (yyTCombType))
                             ,yyTCombTypePtr);
 *)
 (*WAS-M2:
@@ -877,7 +892,6 @@ PROCEDURE ComputeContinuation (
           StackSize     : INTEGER       ;
           StackPtr      : yyStackPtrType;
       VAR ContinueSet   : Sets.tSet     ) =
-   VAR Terminal         : yySymbolRange;
    BEGIN
       Sets.AssignEmpty (ContinueSet);
       FOR Terminal := yyFirstTerminal TO yyLastTerminal DO
@@ -1056,7 +1070,11 @@ PROCEDURE Next
 (* -------------- From rexm3's Parser.m3: -------------------------------*)
 (* But further modifiesl *) 
 
-PROCEDURE yyGetTables() =
+PROCEDURE yyGetTables() 
+  = <* FATAL Rd . Failure *> 
+    <* FATAL Wr . Failure *> 
+    <* FATAL System . FileNoError *> 
+    <* FATAL Thread . Alerted *> 
    VAR
       BlockSize, j, n   : Word.T;
       ReadVal: INTEGER;
@@ -1072,7 +1090,7 @@ PROCEDURE yyGetTables() =
       TRY
         yyTableFile := System.OpenInputT (ParsTabName);
       EXCEPT
-        OSError.E (code)
+        OSError.E 
         => Errors.ErrLine
              ("Error: Can't open parse table file " & ParsTabName); 
         OK := FALSE;
@@ -1222,7 +1240,12 @@ PROCEDURE yyGetTables() =
 
 --------------------------------------------------------*)
 
-PROCEDURE yyGetTable (Address: ADDRESS): Word.T =
+PROCEDURE yyGetTable (Address: ADDRESS): Word.T
+
+  = <* FATAL Rd . Failure *> 
+    <* FATAL System . FileNoError *> 
+    <* FATAL Thread . Alerted *> 
+    
    VAR
       N         : INTEGER;
       Length    : RECORD Field : BITS yyTableElmtBits FOR yyTableElmt END;
