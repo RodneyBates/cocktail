@@ -116,6 +116,7 @@ IMPORT ExpArrays_tIndex;
     NonTermNo : Word.T;
     ProdSet   : IntSets.T;
 
+(* TODO: Replace this by an instantiation of ExpArrays: *) 
 PROCEDURE ExpandWordArray
   ( VAR ArrayRef : tWordArrayRef; ToSize : INTEGER ) =
 
@@ -132,6 +133,7 @@ PROCEDURE ExpandWordArray
     END; 
   END ExpandWordArray;
 
+(* TODO: Replace this by an instantiation of ExpArrays: *) 
 PROCEDURE ExpandProdListArray
   ( VAR ArrayRef : tProdListArrayRef; ToSize : INTEGER ) =
 

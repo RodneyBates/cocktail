@@ -36,10 +36,8 @@ CONST Infinite2 = 1000000;
 
 TYPE
     tStateIndex = (*SHORTCARD*) [0..Infinite];
-    (* BEWARE! ^This type is copied into Instor_tItem and must match. *)
     tItemIndex  = CARDINAL;
     tProdIndex  = (*SHORTCARD*) [0..Infinite];
-    (* BEWARE! ^This type is copied into Instor_tItem and must match. *)
     tIndex      = CARDINAL;
 
     tIndexList = RECORD
