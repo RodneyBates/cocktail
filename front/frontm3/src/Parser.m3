@@ -112,9 +112,6 @@ TYPE
    yyStackPtrType       = BITS yyTableElmtBits FOR yyTableElmt;
    yyStackType          = REF  ARRAY OF yyStateRangePacked;
    yyAttributeStackType = REF  ARRAY OF tParsAttribute;
-(*WAS:   yyStackType          = UNTRACED BRANDED REF  ARRAY yyStackPtrType OF yyStateRangePacked;
-   yyAttributeStackType = UNTRACED BRANDED REF  ARRAY yyStackPtrType OF tParsAttribute;
-*)
 
 VAR
    yyTBasePtr           : ARRAY [0 .. yyLastReadState] OF yyTCombTypePtr;
@@ -228,11 +225,6 @@ PROCEDURE Parser (): Word.T =
       yyAttrStackSize   := yyInitStackSize;
       yyStateStack := NEW ( yyStackType, yyStateStackSize);
       yyAttributeStack := NEW ( yyAttributeStackType, yyAttrStackSize);
-(*WAS:DynArray.MakeArray 
-        (yyStateStack, yyStateStackSize, BYTESIZE (yyStateRangePacked));
-      DynArray.MakeArray 
-        (yyAttributeStack, yyAttrStackSize, BYTESIZE (tParsAttribute));
-*)
       yyShortStackSize  := VAL (   yyStateStackSize,yyStackPtrType ) - 1;
       yyStackPtr        := 0;
       yyErrorCount      := 0;
@@ -242,13 +234,6 @@ PROCEDURE Parser (): Word.T =
          IF yyStackPtr >= yyShortStackSize THEN
             ExtendStateArray (yyStateStack); 
             ExtendAttrArray (yyAttributeStack); 
-(*WAS:      DynArray.ExtendArray 
-              (yyStateStack, yyStateStackSize, BYTESIZE (yyStateRangePacked));
-            DynArray.ExtendArray 
-              (yyAttributeStack, yyAttrStackSize, 
-               BYTESIZE (tParsAttribute)
-              );
-*)
             yyShortStackSize := VAL (   yyStateStackSize,yyStackPtrType ) - 1;
          END (* IF *) ;
          yyStateStack^ [yyStackPtr] := yyState;
@@ -258,22 +243,6 @@ PROCEDURE Parser (): Word.T =
                             ( LOOPHOLE ( yyTBasePtr [yyState] ,INTEGER) 
                               + yyTerminal * BYTESIZE (yyTCombType)
                             ,yyTCombTypePtr);
-
-(*WAS:      yyTCombPtr := LOOPHOLE 
-                            ( LOOPHOLE ( yyTBasePtr [yyState] ,LONGCARD) 
-                              + (VAL (   yyTerminal,LONGCARD ) 
-                                * BYTESIZE (yyTCombType))
-                            ,yyTCombTypePtr);
-*)
-(*WAS-M2:
-            yyTCombPtr := yyTCombTypePtr 
-                            ( LONGCARD ( yyTBasePtr [yyState] ) 
-                              + VAL ( LONGCARD , yyTerminal ) 
-                                * SYSTEM.TSIZE (yyTCombType)
-                            );
-*)
-
-
             IF yyTCombPtr^.Check = yyState 
             THEN
                yyState := yyTCombPtr^.Next;
@@ -334,9 +303,7 @@ CASE yyState OF
   | 97=> (* _0000_ : Grammar _EndOfFile .*)
   yyStateStack := NIL;
   yyAttributeStack := NIL;
-(*WAS: DynArray.ReleaseArray (yyStateStack, yyStateStackSize, BYTESIZE (yyTableElmt));
-      DynArray.ReleaseArray (yyAttributeStack, yyAttrStackSize, BYTESIZE (tParsAttribute));
-*)
+
   RETURN yyErrorCount;
 
   | 98,96=> (* Grammar : CommentPart ScannerName ParserName Decl Tokens Oper Rules .*)
@@ -917,15 +884,11 @@ PROCEDURE IsContinuation (
       Stack             : yyStackType;
    BEGIN
       Stack := NEW (yyStackType, StackSize);
-(* WAS: DynArray.MakeArray (Stack, StackSize, BYTESIZE (yyStateRangePacked)); *) 
       FOR RStackPtr := 0 TO StackPtr DO
          (* Making this assignment directly crashes CM3: *)
          State := ParseStack^ [RStackPtr];
          Stack^ [RStackPtr] := State
       END;
-IF Terminal = 22
-THEN Nonterminal := 19
-END; 
       State := StackPtr; 
       State := Stack^ [StackPtr];
       LOOP
@@ -952,7 +915,6 @@ END;
             State := Next (Stack^ [StackPtr], Nonterminal);
             IF StackPtr >= VAL (   StackSize,yyStackPtrType ) THEN
               ExtendStateArray(Stack); 
-(*WAS:        DynArray.ExtendArray (Stack, StackSize, BYTESIZE (yyStateRangePacked));*)
             END;
             INC (StackPtr);
             IF State < yyFirstFinalState THEN EXIT; END; (* read nonterminal ? *)
@@ -981,7 +943,6 @@ PROCEDURE ComputeRestartPoints (
       ContinueSet       : Sets.tSet;
    BEGIN
       Stack := NEW (yyStackType, StackSize);
-(*WAS:DynArray.MakeArray (Stack, StackSize, BYTESIZE (yyStateRangePacked));*)
       FOR RStackPtr := 0 TO StackPtr DO
          (* Making this assignment directly crashes CM3: *)
          State:= ParseStack^ [RStackPtr];
@@ -994,7 +955,6 @@ PROCEDURE ComputeRestartPoints (
       LOOP
          IF StackPtr >= VAL (   StackSize,yyStackPtrType ) THEN
             ExtendStateArray(Stack); 
-(*WAS:      DynArray.ExtendArray (Stack, StackSize, BYTESIZE (yyStateRangePacked));*)
          END;
          Stack^ [StackPtr] := State;
          ComputeContinuation (Stack, StackSize, StackPtr, ContinueSet);
