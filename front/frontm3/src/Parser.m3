@@ -4,62 +4,64 @@
 
  UNSAFE MODULE Parser;
 
-IMPORT Word, Scanner, Positions, FrontErrors, Strings, Sets, System;
-IMPORT Fmt, OSError, Rd, Thread, Text, Wr;
+IMPORT Fmt, OSError, Rd, Thread, Text, Word, Wr;
+
+IMPORT Scanner, Positions, FrontErrors, Strings, Sets, System;
 
 IMPORT Errors (* From Reusem3. *);
 
 (* line 2 "/tmp/lalr1305" *)
 (* line 26 ../src/input.lalr *)
 
-FROM Actions	IMPORT PutAction, PutComment, tActionMode, ScannerName, ParserName;
-FROM FrontErrors	IMPORT eError, eInteger, ErrorMessageI;
-FROM Lists	IMPORT Append, IsEmpty, Head, Tail, MakeList, tList;
-FROM Oper	IMPORT OperKind, MakePriority, CompletePriority, MakeOperator, MakeOperHeader;
-FROM Scanner	IMPORT GetToken, tScanAttribute, Attribute, ErrorAttribute;
-FROM Positions	IMPORT NoPosition;
-FROM Strings	IMPORT AssignEmpty, tString, TextToString;
-FROM StringMem	IMPORT PutString;
-FROM Idents	IMPORT NoIdent, MakeIdent;
+FROM Actions    IMPORT PutAction, PutComment, tActionMode, ScannerName,
+                       ParserName;
+FROM FrontErrors IMPORT eError, eInteger, ErrorMessageI;
+FROM Lists      IMPORT Append, IsEmpty, Head, Tail, MakeList, tList;
+FROM Oper       IMPORT OperKind, MakePriority, CompletePriority, MakeOperator, MakeOperHeader;
+FROM Scanner    IMPORT GetToken, tScanAttribute, Attribute, ErrorAttribute;
+FROM Positions  IMPORT NoPosition;
+FROM Strings    IMPORT AssignEmpty, tString, TextToString;
+FROM StringMem  IMPORT PutString;
+FROM Idents     IMPORT NoIdent, MakeIdent;
 
-FROM TokenTab	IMPORT Terminal;
-FROM Tokens	IMPORT MakeGlobalHeader, MakeTokensHeader, MakeDeclaration, CompleteDeclarations;
-FROM Rules	IMPORT MakeRulesHeader, MakeLeafNode, MakeActionNode, MakeUnaryNode,
-			MakeBracketNode, MakeBinaryNode, MakePrioAlternativeNode,
-			MakeRule, Operation, NoExpression;
+FROM TokenTab   IMPORT Terminal;
+FROM Tokens     IMPORT MakeGlobalHeader, MakeTokensHeader, MakeDeclaration, CompleteDeclarations;
+FROM Rules      IMPORT MakeRulesHeader, MakeLeafNode, MakeActionNode, MakeUnaryNode,
+                        MakeBracketNode, MakeBinaryNode, MakePrioAlternativeNode,
+                        MakeRule, Operation, NoExpression;
 
 CONST
-  cEol = '\012';	(* eol character *)
+  cEol = '\012';        (* eol character *)
   eNumToBig = 9;
 
 TYPE SHORTCARD = [ 0 .. 65535];
 TYPE tParsAttribute = RECORD Scan: tScanAttribute; END;
 
 VAR
-  String		,
-  EndOfLineString	: tString;
-  EndOfLine		: ADDRESS;
+  String                ,
+  EndOfLineString       : tString;
+  EndOfLine             : ADDRESS;
 
 
 CONST
    yyInitStackSize      = 100;
    yyNoState            = 0;
 
-   yyFirstTerminal		= 0;
-   yyLastTerminal		= 30;
-   yyFirstSymbol		= 0;
-   yyLastSymbol		= 62;
-   yyTableMax		= 222;
-   yyNTableMax		= 131;
-   yyFirstReadState		= 1;
-   yyLastReadState		= 62;
-   yyFirstReadTermState		= 63;
-   yyLastReadTermState		= 78;
-   yyLastReadNontermState		= 96;
-   yyFirstReduceState		= 97;
-   yyLastReduceState		= 159;
-   yyStartState		= 1;
-   yyStopState		= 97;
+   yyFirstTerminal              = 0;
+   yyLastTerminal               = 30;
+   yyFirstSymbol                = 0;
+   yyLastSymbol         = 62;
+   yyTableMax           = 222;
+   yyNTableMax          = 131;
+   yyFirstReadState             = 1;
+   yyLastReadState              = 62;
+   yyFirstReadTermState         = 63;
+   yyLastReadTermState          = 78;
+   yyLastReadNontermState               = 96;
+   yyFirstReduceState           = 97;
+   yyLastReduceState            = 159;
+   yyStartState         = 1;
+   yyStopState          = 97;
 
    yyFirstFinalState    = yyFirstReadTermState;
    yyLastState          = yyLastReduceState;
@@ -458,13 +460,13 @@ CASE yyState OF
   yySynAttribute.Scan.Mode := Scanner.AttributeMode.Coding;
   IF (yyAttributeStack^[yyStackPtr+2].Scan.Value > LAST(Terminal)) THEN
     ErrorMessageI (eNumToBig, eError, yyAttributeStack^[yyStackPtr+2].Scan.Position, eInteger, ADR (yyAttributeStack^[yyStackPtr+2].Scan.Value));
-    yySynAttribute.Scan.HasCoding	:= FALSE;
-    yySynAttribute.Scan.CodValue	:= 0; (* Dummywert *)
-    yySynAttribute.Scan.CodNumbPos	:= NoPosition;
+    yySynAttribute.Scan.HasCoding       := FALSE;
+    yySynAttribute.Scan.CodValue        := 0; (* Dummywert *)
+    yySynAttribute.Scan.CodNumbPos      := NoPosition;
   ELSE
-    yySynAttribute.Scan.HasCoding	:= TRUE;
-    yySynAttribute.Scan.CodValue	:= yyAttributeStack^[yyStackPtr+2].Scan.Value;
-    yySynAttribute.Scan.CodNumbPos	:= yyAttributeStack^[yyStackPtr+2].Scan.Position;
+    yySynAttribute.Scan.HasCoding       := TRUE;
+    yySynAttribute.Scan.CodValue        := yyAttributeStack^[yyStackPtr+2].Scan.Value;
+    yySynAttribute.Scan.CodNumbPos      := yyAttributeStack^[yyStackPtr+2].Scan.Position;
   END;
   
   | 123=> (* Coding : .*)
@@ -472,10 +474,10 @@ CASE yyState OF
 (* line 209 "/tmp/lalr1305" *)
   (* line 186 ../src/input.lalr *)
   
-  yySynAttribute.Scan.Mode		:= Scanner.AttributeMode.Coding;
-  yySynAttribute.Scan.HasCoding	:= FALSE;
-  yySynAttribute.Scan.CodValue	:= 0; (* Dummywert *)
-  yySynAttribute.Scan.CodNumbPos	:= NoPosition;
+  yySynAttribute.Scan.Mode              := Scanner.AttributeMode.Coding;
+  yySynAttribute.Scan.HasCoding := FALSE;
+  yySynAttribute.Scan.CodValue  := 0; (* Dummywert *)
+  yySynAttribute.Scan.CodNumbPos        := NoPosition;
   
   | 124,86=> (* Oper : "OPER" CommentPart Priorities .*)
   DEC (yyStackPtr, 3); yyNonterminal := 36;
@@ -533,18 +535,18 @@ CASE yyState OF
 (* line 254 "/tmp/lalr1305" *)
   (* line 220 ../src/input.lalr *)
   
-  yySynAttribute.Scan.Mode		:= Scanner.AttributeMode.Symbol;
-  yySynAttribute.Scan.Sym		:= yyAttributeStack^[yyStackPtr+1].Scan.Sym;
-  yySynAttribute.Scan.Position	:= yyAttributeStack^[yyStackPtr+1].Scan.Position;
+  yySynAttribute.Scan.Mode              := Scanner.AttributeMode.Symbol;
+  yySynAttribute.Scan.Sym               := yyAttributeStack^[yyStackPtr+1].Scan.Sym;
+  yySynAttribute.Scan.Position  := yyAttributeStack^[yyStackPtr+1].Scan.Position;
   
   | 136,67=> (* Terminal : String .*)
   DEC (yyStackPtr, 1); yyNonterminal := 47;
 (* line 262 "/tmp/lalr1305" *)
   (* line 226 ../src/input.lalr *)
   
-  yySynAttribute.Scan.Mode		:= Scanner.AttributeMode.Symbol;
-  yySynAttribute.Scan.Sym		:= yyAttributeStack^[yyStackPtr+1].Scan.Sym;
-  yySynAttribute.Scan.Position	:= yyAttributeStack^[yyStackPtr+1].Scan.Position;
+  yySynAttribute.Scan.Mode              := Scanner.AttributeMode.Symbol;
+  yySynAttribute.Scan.Sym               := yyAttributeStack^[yyStackPtr+1].Scan.Sym;
+  yySynAttribute.Scan.Position  := yyAttributeStack^[yyStackPtr+1].Scan.Position;
   
   | 137=> (* Rules : "RULE" CommentPart Rules_1 .*)
   DEC (yyStackPtr, 3); yyNonterminal := 37;
@@ -581,30 +583,30 @@ CASE yyState OF
 (* line 297 "/tmp/lalr1305" *)
   (* line 253 ../src/input.lalr *)
   
-  yySynAttribute.Scan.Mode		:= Scanner.AttributeMode.PrioPart;
-  yySynAttribute.Scan.HasPrio		:= TRUE;
-  yySynAttribute.Scan.Position	:= yyAttributeStack^[yyStackPtr+1].Scan.Position;
-  yySynAttribute.Scan.PriSym		:= yyAttributeStack^[yyStackPtr+2].Scan.Sym;
-  yySynAttribute.Scan.PriSymPos	:= yyAttributeStack^[yyStackPtr+2].Scan.Position;
+  yySynAttribute.Scan.Mode              := Scanner.AttributeMode.PrioPart;
+  yySynAttribute.Scan.HasPrio           := TRUE;
+  yySynAttribute.Scan.Position  := yyAttributeStack^[yyStackPtr+1].Scan.Position;
+  yySynAttribute.Scan.PriSym            := yyAttributeStack^[yyStackPtr+2].Scan.Sym;
+  yySynAttribute.Scan.PriSymPos := yyAttributeStack^[yyStackPtr+2].Scan.Position;
   
   | 142=> (* PrioPart : .*)
   DEC (yyStackPtr, 0); yyNonterminal := 57;
 (* line 307 "/tmp/lalr1305" *)
   (* line 261 ../src/input.lalr *)
   
-  yySynAttribute.Scan.Mode		:= Scanner.AttributeMode.PrioPart;
-  yySynAttribute.Scan.HasPrio		:= FALSE;
-  yySynAttribute.Scan.PriSymPos	:= NoPosition;
-  yySynAttribute.Scan.PriSym		:= 0;
+  yySynAttribute.Scan.Mode              := Scanner.AttributeMode.PrioPart;
+  yySynAttribute.Scan.HasPrio           := FALSE;
+  yySynAttribute.Scan.PriSymPos := NoPosition;
+  yySynAttribute.Scan.PriSym            := 0;
   
   | 143,94=> (* RightSide : Expressions PrioPart "|" RightSide .*)
   DEC (yyStackPtr, 4); yyNonterminal := 56;
 (* line 317 "/tmp/lalr1305" *)
   (* line 269 ../src/input.lalr *)
   
-  yySynAttribute.Scan		:= yyAttributeStack^[yyStackPtr+4].Scan;  (* PrioPart an Rule zurueckgeben *)
-  yySynAttribute.Scan.Mode	:= Scanner.AttributeMode.RightSide;
-  yySynAttribute.Scan.Expr	:=
+  yySynAttribute.Scan           := yyAttributeStack^[yyStackPtr+4].Scan;  (* PrioPart an Rule zurueckgeben *)
+  yySynAttribute.Scan.Mode      := Scanner.AttributeMode.RightSide;
+  yySynAttribute.Scan.Expr      :=
   MakePrioAlternativeNode (yyAttributeStack^[yyStackPtr+3].Scan.Position,
                            yyAttributeStack^[yyStackPtr+1].Scan.Expr,
                            yyAttributeStack^[yyStackPtr+4].Scan.Expr,
@@ -618,12 +620,12 @@ CASE yyState OF
 (* line 332 "/tmp/lalr1305" *)
   (* line 282 ../src/input.lalr *)
   
-  yySynAttribute.Scan		:= yyAttributeStack^[yyStackPtr+2].Scan;  (* Priopart an Rule zurueckgeben *)
-  yySynAttribute.Scan.Mode	:= Scanner.AttributeMode.RightSide;
+  yySynAttribute.Scan           := yyAttributeStack^[yyStackPtr+2].Scan;  (* Priopart an Rule zurueckgeben *)
+  yySynAttribute.Scan.Mode      := Scanner.AttributeMode.RightSide;
   IF yyAttributeStack^[yyStackPtr+1].Scan.Mode = Scanner.AttributeMode.Empty THEN
-    yySynAttribute.Scan.Expr	:= NoExpression;
+    yySynAttribute.Scan.Expr    := NoExpression;
   ELSE
-    yySynAttribute.Scan.Expr	:= yyAttributeStack^[yyStackPtr+1].Scan.Expr;
+    yySynAttribute.Scan.Expr    := yyAttributeStack^[yyStackPtr+1].Scan.Expr;
   END;
   
   | 145,90=> (* Expressions : Expression Expressions .*)
@@ -633,10 +635,10 @@ CASE yyState OF
   
   IF yyAttributeStack^[yyStackPtr+2].Scan.Mode # Scanner.AttributeMode.Empty
   THEN (* Binary *)
-    yySynAttribute.Scan.Mode	:= Scanner.AttributeMode.RightSide;
-    yySynAttribute.Scan.Expr	:= MakeBinaryNode(Operation.Sequence, NoPosition, yyAttributeStack^[yyStackPtr+1].Scan.Expr, yyAttributeStack^[yyStackPtr+2].Scan.Expr);
+    yySynAttribute.Scan.Mode    := Scanner.AttributeMode.RightSide;
+    yySynAttribute.Scan.Expr    := MakeBinaryNode(Operation.Sequence, NoPosition, yyAttributeStack^[yyStackPtr+1].Scan.Expr, yyAttributeStack^[yyStackPtr+2].Scan.Expr);
   ELSE (* Expressions ist leer - Expression ist weiterzureichen *)
-    yySynAttribute.Scan	:= yyAttributeStack^[yyStackPtr+1].Scan;
+    yySynAttribute.Scan := yyAttributeStack^[yyStackPtr+1].Scan;
   END; 
   
   | 146=> (* Expressions : .*)
@@ -644,99 +646,99 @@ CASE yyState OF
 (* line 357 "/tmp/lalr1305" *)
   (* line 303 ../src/input.lalr *)
   
-  yySynAttribute.Scan.Mode	:= Scanner.AttributeMode.Empty;  (* noetig damit kein "leeres Bein" entsteht *)
-  yySynAttribute.Scan.Expr	:= NoExpression;   (* noetig falls Expr weiterverwendet wird *)
+  yySynAttribute.Scan.Mode      := Scanner.AttributeMode.Empty;  (* noetig damit kein "leeres Bein" entsteht *)
+  yySynAttribute.Scan.Expr      := NoExpression;   (* noetig falls Expr weiterverwendet wird *)
   
   | 147=> (* Expression : Unit .*)
   DEC (yyStackPtr, 1); yyNonterminal := 59;
 (* line 365 "/tmp/lalr1305" *)
   (* line 309 ../src/input.lalr *)
   
-  yySynAttribute.Scan.Mode	:= Scanner.AttributeMode.RightSide;
-  yySynAttribute.Scan.Expr	:= yyAttributeStack^[yyStackPtr+1].Scan.Expr;
+  yySynAttribute.Scan.Mode      := Scanner.AttributeMode.RightSide;
+  yySynAttribute.Scan.Expr      := yyAttributeStack^[yyStackPtr+1].Scan.Expr;
   
   | 148,75=> (* Expression : Unit "*" .*)
   DEC (yyStackPtr, 2); yyNonterminal := 59;
 (* line 372 "/tmp/lalr1305" *)
   (* line 314 ../src/input.lalr *)
   
-  yySynAttribute.Scan.Mode	:= Scanner.AttributeMode.RightSide;
-  yySynAttribute.Scan.Expr	:= MakeUnaryNode(Operation.Star, yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+1].Scan.Expr);
+  yySynAttribute.Scan.Mode      := Scanner.AttributeMode.RightSide;
+  yySynAttribute.Scan.Expr      := MakeUnaryNode(Operation.Star, yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+1].Scan.Expr);
   
   | 149,76=> (* Expression : Unit "+" .*)
   DEC (yyStackPtr, 2); yyNonterminal := 59;
 (* line 379 "/tmp/lalr1305" *)
   (* line 319 ../src/input.lalr *)
   
-  yySynAttribute.Scan.Mode	:= Scanner.AttributeMode.RightSide;
-  yySynAttribute.Scan.Expr	:= MakeUnaryNode(Operation.Plus, yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+1].Scan.Expr);
+  yySynAttribute.Scan.Mode      := Scanner.AttributeMode.RightSide;
+  yySynAttribute.Scan.Expr      := MakeUnaryNode(Operation.Plus, yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+1].Scan.Expr);
   
   | 150,91=> (* Expression : Unit "||" Unit .*)
   DEC (yyStackPtr, 3); yyNonterminal := 59;
 (* line 386 "/tmp/lalr1305" *)
   (* line 324 ../src/input.lalr *)
   
-  yySynAttribute.Scan.Mode	:= Scanner.AttributeMode.RightSide;
-  yySynAttribute.Scan.Expr	:= MakeBinaryNode(Operation.Separator, yyAttributeStack^[yyStackPtr+2].Scan.Position , yyAttributeStack^[yyStackPtr+1].Scan.Expr, yyAttributeStack^[yyStackPtr+3].Scan.Expr);
+  yySynAttribute.Scan.Mode      := Scanner.AttributeMode.RightSide;
+  yySynAttribute.Scan.Expr      := MakeBinaryNode(Operation.Separator, yyAttributeStack^[yyStackPtr+2].Scan.Position , yyAttributeStack^[yyStackPtr+1].Scan.Expr, yyAttributeStack^[yyStackPtr+3].Scan.Expr);
   
   | 151,77=> (* Unit : "[" Alternative "]" .*)
   DEC (yyStackPtr, 3); yyNonterminal := 60;
 (* line 394 "/tmp/lalr1305" *)
   (* line 330 ../src/input.lalr *)
   
-  yySynAttribute.Scan.Mode	:= Scanner.AttributeMode.RightSide;
-  yySynAttribute.Scan.Expr	:= MakeBracketNode(Operation.Optional, yyAttributeStack^[yyStackPtr+1].Scan.Position, yyAttributeStack^[yyStackPtr+3].Scan.Position, yyAttributeStack^[yyStackPtr+2].Scan.Expr);
+  yySynAttribute.Scan.Mode      := Scanner.AttributeMode.RightSide;
+  yySynAttribute.Scan.Expr      := MakeBracketNode(Operation.Optional, yyAttributeStack^[yyStackPtr+1].Scan.Position, yyAttributeStack^[yyStackPtr+3].Scan.Position, yyAttributeStack^[yyStackPtr+2].Scan.Expr);
   
   | 152,78=> (* Unit : "(" Alternative ")" .*)
   DEC (yyStackPtr, 3); yyNonterminal := 60;
 (* line 401 "/tmp/lalr1305" *)
   (* line 335 ../src/input.lalr *)
   
-  yySynAttribute.Scan.Mode	:= Scanner.AttributeMode.RightSide;
-  yySynAttribute.Scan.Expr	:= MakeBracketNode(Operation.Bracket, yyAttributeStack^[yyStackPtr+1].Scan.Position, yyAttributeStack^[yyStackPtr+3].Scan.Position, yyAttributeStack^[yyStackPtr+2].Scan.Expr);
+  yySynAttribute.Scan.Mode      := Scanner.AttributeMode.RightSide;
+  yySynAttribute.Scan.Expr      := MakeBracketNode(Operation.Bracket, yyAttributeStack^[yyStackPtr+1].Scan.Position, yyAttributeStack^[yyStackPtr+3].Scan.Position, yyAttributeStack^[yyStackPtr+2].Scan.Expr);
   
   | 153,73=> (* Unit : Identifier .*)
   DEC (yyStackPtr, 1); yyNonterminal := 60;
 (* line 408 "/tmp/lalr1305" *)
   (* line 340 ../src/input.lalr *)
   
-  yySynAttribute.Scan.Mode	:= Scanner.AttributeMode.RightSide;
-  yySynAttribute.Scan.Expr	:= MakeLeafNode(yyAttributeStack^[yyStackPtr+1].Scan.Sym, yyAttributeStack^[yyStackPtr+1].Scan.Position);
+  yySynAttribute.Scan.Mode      := Scanner.AttributeMode.RightSide;
+  yySynAttribute.Scan.Expr      := MakeLeafNode(yyAttributeStack^[yyStackPtr+1].Scan.Sym, yyAttributeStack^[yyStackPtr+1].Scan.Position);
   
   | 154,74=> (* Unit : String .*)
   DEC (yyStackPtr, 1); yyNonterminal := 60;
 (* line 415 "/tmp/lalr1305" *)
   (* line 345 ../src/input.lalr *)
   
-  yySynAttribute.Scan.Mode	:= Scanner.AttributeMode.RightSide;
-  yySynAttribute.Scan.Expr	:= MakeLeafNode(yyAttributeStack^[yyStackPtr+1].Scan.Sym, yyAttributeStack^[yyStackPtr+1].Scan.Position);
+  yySynAttribute.Scan.Mode      := Scanner.AttributeMode.RightSide;
+  yySynAttribute.Scan.Expr      := MakeLeafNode(yyAttributeStack^[yyStackPtr+1].Scan.Sym, yyAttributeStack^[yyStackPtr+1].Scan.Position);
   
   | 155,72=> (* Unit : Action .*)
   DEC (yyStackPtr, 1); yyNonterminal := 60;
 (* line 422 "/tmp/lalr1305" *)
   (* line 350 ../src/input.lalr *)
   
-  yySynAttribute.Scan.Mode	:= Scanner.AttributeMode.RightSide;
-  yySynAttribute.Scan.Expr	:= MakeActionNode (yyAttributeStack^[yyStackPtr+1].Scan.Act, yyAttributeStack^[yyStackPtr+1].Scan.Position);
+  yySynAttribute.Scan.Mode      := Scanner.AttributeMode.RightSide;
+  yySynAttribute.Scan.Expr      := MakeActionNode (yyAttributeStack^[yyStackPtr+1].Scan.Act, yyAttributeStack^[yyStackPtr+1].Scan.Position);
   
   | 156,92=> (* Alternative : Expressions "|" Alternative .*)
   DEC (yyStackPtr, 3); yyNonterminal := 61;
 (* line 430 "/tmp/lalr1305" *)
   (* line 356 ../src/input.lalr *)
   
-  yySynAttribute.Scan.Mode	:= Scanner.AttributeMode.RightSide;
-  yySynAttribute.Scan.Expr	:= MakeBinaryNode (Operation.Alternative, yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+1].Scan.Expr, yyAttributeStack^[yyStackPtr+3].Scan.Expr);
+  yySynAttribute.Scan.Mode      := Scanner.AttributeMode.RightSide;
+  yySynAttribute.Scan.Expr      := MakeBinaryNode (Operation.Alternative, yyAttributeStack^[yyStackPtr+2].Scan.Position, yyAttributeStack^[yyStackPtr+1].Scan.Expr, yyAttributeStack^[yyStackPtr+3].Scan.Expr);
   
   | 157=> (* Alternative : Expressions .*)
   DEC (yyStackPtr, 1); yyNonterminal := 61;
 (* line 437 "/tmp/lalr1305" *)
   (* line 361 ../src/input.lalr *)
   
-  yySynAttribute.Scan.Mode	:= Scanner.AttributeMode.RightSide;
+  yySynAttribute.Scan.Mode      := Scanner.AttributeMode.RightSide;
   IF yyAttributeStack^[yyStackPtr+1].Scan.Mode = Scanner.AttributeMode.Empty THEN
-    yySynAttribute.Scan.Expr	:= NoExpression;
+    yySynAttribute.Scan.Expr    := NoExpression;
   ELSE
-    yySynAttribute.Scan.Expr	:= yyAttributeStack^[yyStackPtr+1].Scan.Expr;
+    yySynAttribute.Scan.Expr    := yyAttributeStack^[yyStackPtr+1].Scan.Expr;
   END;
   
   | 158,63=> (* CommentPart : CommentPart Comment .*)
@@ -744,18 +746,18 @@ CASE yyState OF
 (* line 449 "/tmp/lalr1305" *)
   (* line 371 ../src/input.lalr *)
   
-  yySynAttribute.Scan.Mode	:= Scanner.AttributeMode.Comment;
+  yySynAttribute.Scan.Mode      := Scanner.AttributeMode.Comment;
   IF IsEmpty (yyAttributeStack^[yyStackPtr+1].Scan.Comm) THEN
-    yySynAttribute.Scan.Position	:= yyAttributeStack^[yyStackPtr+2].Scan.Position;
-    yySynAttribute.Scan.Comm		:= yyAttributeStack^[yyStackPtr+2].Scan.Comm;
+    yySynAttribute.Scan.Position        := yyAttributeStack^[yyStackPtr+2].Scan.Position;
+    yySynAttribute.Scan.Comm            := yyAttributeStack^[yyStackPtr+2].Scan.Comm;
   ELSE
     Append (yyAttributeStack^[yyStackPtr+1].Scan.Comm, EndOfLine);
     WHILE NOT IsEmpty (yyAttributeStack^[yyStackPtr+2].Scan.Comm) DO
       Append (yyAttributeStack^[yyStackPtr+1].Scan.Comm, Head(yyAttributeStack^[yyStackPtr+2].Scan.Comm));
       Tail (yyAttributeStack^[yyStackPtr+2].Scan.Comm);
     END;
-    yySynAttribute.Scan.Position	:= yyAttributeStack^[yyStackPtr+1].Scan.Position;
-    yySynAttribute.Scan.Comm		:= yyAttributeStack^[yyStackPtr+1].Scan.Comm;
+    yySynAttribute.Scan.Position        := yyAttributeStack^[yyStackPtr+1].Scan.Position;
+    yySynAttribute.Scan.Comm            := yyAttributeStack^[yyStackPtr+1].Scan.Comm;
   END;
   
   | 159=> (* CommentPart : .*)
@@ -763,8 +765,8 @@ CASE yyState OF
 (* line 467 "/tmp/lalr1305" *)
   (* line 387 ../src/input.lalr *)
   
-  yySynAttribute.Scan.Mode		:= Scanner.AttributeMode.Comment;
-  yySynAttribute.Scan.Position	:= NoPosition;
+  yySynAttribute.Scan.Mode              := Scanner.AttributeMode.Comment;
+  yySynAttribute.Scan.Position  := NoPosition;
   MakeList (yySynAttribute.Scan.Comm);
   
 END;
