@@ -1,0 +1,5 @@
+% m3makefile for reusem3/src/generics.
+
+generic_module("ExpArray")
+
+
