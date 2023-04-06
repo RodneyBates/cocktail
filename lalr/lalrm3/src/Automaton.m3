@@ -61,7 +61,7 @@ FROM TokenTab   IMPORT EndOfToken, MAXTerm, MINNonTerm, MAXNonTerm, cMAXNonTerm,
 
 IMPORT ExpArrays_tState;
 IMPORT ExpArrays_tItem;
-IMPORT ExpArrays_tIndexList;
+IMPORT ExpArrays_tIndex;
 
   CONST
     eNoBNF      = 60;
@@ -385,7 +385,7 @@ PROCEDURE UniqueState (VAR new: BOOLEAN): tStateIndex =
    (* ELSIF i >= m2tom3_with_13.Count THEN
         ExtendArray (m2tom3_with_13.Array,m2tom3_with_13.Count,BYTESIZE(tIndex));*)
       ELSE 
-        ExpArrays_tIndexList.Expand
+        ExpArrays_tIndex.Expand
           ((*VAR*)m2tom3_with_13.Array, i+2, i+6); 
         m2tom3_with_13.Count := NUMBER(m2tom3_with_13.Array^);
       END;
