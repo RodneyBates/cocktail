@@ -1,5 +1,5 @@
 
-INTERFACE ExpArrays_tState 
+UNSAFE INTERFACE ExpArrays_tState 
   = ExpArrays ( Instor_tState )
 END ExpArrays_tState 
 .

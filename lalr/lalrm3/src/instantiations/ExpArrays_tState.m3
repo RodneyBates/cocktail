@@ -1,5 +1,5 @@
 
-MODULE ExpArrays_tState 
+UNSAFE MODULE ExpArrays_tState 
   = ExpArrays ( ) 
 END ExpArrays_tState 
 .

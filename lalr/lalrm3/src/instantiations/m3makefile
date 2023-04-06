@@ -8,6 +8,9 @@ module("ExpArrays_tState")
 interface("Instor_tItem") % Instantiator for Automaton.tItem
 module("ExpArrays_tItem")
 
+interface("Instor_tIndex") % Instantiator for Automaton.tIndex
+module("ExpArrays_tIndex")
+
 interface("Instor_tIndexList") % Instantiator for Automaton.tIndexList
 module("ExpArrays_tIndexList")
 
