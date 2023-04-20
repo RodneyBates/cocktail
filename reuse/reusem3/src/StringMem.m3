@@ -3,33 +3,37 @@
  UNSAFE MODULE StringMem;
 
 
-FROM SYSTEM IMPORT M2LONGINT;
 IMPORT Word;
-FROM DynArray   IMPORT MakeArray, ExtendArray;
 FROM Strings    IMPORT tStringIndex, tString;
 FROM ReuseIO            IMPORT tFile, StdOutput, WriteC, WriteI, WriteNl, WriteS;
 
-CONST InitialMemorySize = 1024 * 16;
+VAR InitialMemorySize := 1024 * 16;
+VAR MaxMemorySize : INTEGER := 0;
 
-TYPE Memory             = ARRAY [0 .. 100000000] OF CHAR;
+TYPE Memory             = ARRAY OF CHAR;
 
 VAR
-   MemoryPtr            : UNTRACED BRANDED REF  Memory;
-   MemorySize           : M2LONGINT;
-   MemorySpaceLeft      : M2LONGINT;
-   MemoryFreePtr        : M2LONGINT;
+   MemoryPtr            : REF Memory;
+   MemorySpaceLeft      : INTEGER;
+   MemoryFreePtr        : INTEGER;
 
 PROCEDURE PutString (READONLY s: tString): tStringRef =
    VAR
-      NeededSpace       : M2LONGINT;
-      OldMemorySize     : M2LONGINT;
-      StartPtr          : M2LONGINT;
+      NeededSpace       : INTEGER;
+      OldMemorySize     : INTEGER;
+      NewMemorySize     : INTEGER;
+      OldMemoryPtr      : REF Memory; 
+      StartPtr          : INTEGER;
    BEGIN
-      NeededSpace := VAL (   s.Length,M2LONGINT ) + 2;
+      NeededSpace := VAL (   s.Length,INTEGER ) + 2;
       WHILE MemorySpaceLeft < NeededSpace DO
-         OldMemorySize := MemorySize;
-         ExtendArray (LOOPHOLE(MemoryPtr,ADDRESS), MemorySize, BYTESIZE(CHAR));
-         INC (MemorySpaceLeft, MemorySize - OldMemorySize);
+         OldMemorySize := NUMBER ( MemoryPtr ^ ); 
+         OldMemoryPtr := MemoryPtr;
+         MemoryPtr := NEW ( REF Memory , OldMemorySize * 2 );
+         SUBARRAY ( MemoryPtr ^ , 0 , OldMemorySize ) := OldMemoryPtr ^;
+         NewMemorySize := NUMBER ( MemoryPtr ^ ); 
+         INC (MemorySpaceLeft, NewMemorySize - OldMemorySize);
+         MaxMemorySize := MAX ( MaxMemorySize, NewMemorySize );
       END;
       StartPtr := MemoryFreePtr;
       MemoryPtr^[MemoryFreePtr] := VAL (s.Length DIV 256,CHAR);
@@ -78,8 +82,8 @@ PROCEDURE WriteString (f: tFile; r: tStringRef) =
 
 PROCEDURE WriteStringMemory() =
    VAR
-      StringPtr : M2LONGINT;
-      sLength   : M2LONGINT;
+      StringPtr : INTEGER;
+      sLength   : INTEGER;
    BEGIN
       StringPtr := 0;
       WHILE StringPtr < MemoryFreePtr DO
@@ -88,7 +92,7 @@ PROCEDURE WriteStringMemory() =
          WriteString (StdOutput, StringPtr);
          WriteNl (StdOutput);
          sLength 
-           := VAL (   Length (StringPtr) + 2,M2LONGINT ); (* damned MODULA *)
+           := VAL (   Length (StringPtr) + 2,INTEGER ); (* damned MODULA-2 *)
          INC (StringPtr, sLength);
       END;
       WriteNl (StdOutput);
@@ -99,13 +103,14 @@ PROCEDURE WriteStringMemory() =
 
 PROCEDURE InitStringMemory() =
    BEGIN
-      MemorySpaceLeft   := MemorySize;
+      MemorySpaceLeft := NUMBER ( MemoryPtr ^ );
+      MaxMemorySize := MemorySpaceLeft;
       MemoryFreePtr     := 0;
    END InitStringMemory;
 
 BEGIN
-   MemorySize           := InitialMemorySize;
-   MakeArray (LOOPHOLE(MemoryPtr, ADDRESS), MemorySize, BYTESIZE (CHAR));
+   MemoryPtr := NEW ( REF Memory , InitialMemorySize );
+   MaxMemorySize := NUMBER ( MemoryPtr ^ );
    InitStringMemory();
 END StringMem.
 
