@@ -31,8 +31,8 @@ PROCEDURE PutString (READONLY s: tString): tStringRef =
          OldMemoryPtr := MemoryPtr;
          MemoryPtr := NEW ( REF Memory , OldMemorySize * 2 );
          SUBARRAY ( MemoryPtr ^ , 0 , OldMemorySize ) := OldMemoryPtr ^;
-         NewMemorySize := NUMBER ( MemoryPtr ^ ); 
-         INC (MemorySpaceLeft, NewMemorySize - OldMemorySize);
+         NewMemorySize := NUMBER ( MemoryPtr ^ );
+         MemorySpaceLeft := NewMemorySize - MemoryFreePtr;
          MaxMemorySize := MAX ( MaxMemorySize, NewMemorySize );
       END;
       StartPtr := MemoryFreePtr;
