@@ -36,15 +36,18 @@ TYPE
   tErrPtr  =  UNTRACED BRANDED REF  tErrElmt;
   tErrElmt =  RECORD
                 code, class, line, column, infcl   : INTEGER;
-                info    : ADDRESS;
-                next    : tErrPtr;
+                info       : ADDRESS := NIL;
+                infoTraced : REFANY := NIL;
+                next       : tErrPtr;
               END;
 
 VAR
   start, stop, last, read: tErrPtr;
   SourceLine : SHORTCARD;
 
-PROCEDURE PutError (Code,Class,Line,Column,InfoClass: Word.T; Info: ADDRESS) =
+PROCEDURE PutError
+  (Code,Class,Line,Column,InfoClass: Word.T;
+   Info: ADDRESS := NIL; InfoTraced: REFANY := NIL) =
   VAR err : tErrPtr;
   BEGIN
     err := Alloc (BYTESIZE (tErrElmt));
@@ -56,6 +59,7 @@ PROCEDURE PutError (Code,Class,Line,Column,InfoClass: Word.T; Info: ADDRESS) =
       m2tom3_with_1.column  := Column;
       m2tom3_with_1.infcl   := InfoClass;
       m2tom3_with_1.info    := Info;
+      m2tom3_with_1.infoTraced := InfoTraced;
     END;
 
     IF start = NIL THEN
@@ -117,7 +121,9 @@ PROCEDURE HasError (): BOOLEAN =
     RETURN start # NIL;
   END HasError;
 
-PROCEDURE GetError (VAR Code,Class,Line,Column,InfoClass: Word.T; VAR Info: ADDRESS) =
+PROCEDURE GetError
+  (VAR Code,Class,Line,Column,InfoClass: Word.T;
+   VAR Info: ADDRESS; VAR InfoTraced: REFANY) =
   VAR
     Next : tErrPtr;
     col  : SHORTCARD;
@@ -130,6 +136,7 @@ PROCEDURE GetError (VAR Code,Class,Line,Column,InfoClass: Word.T; VAR Info: ADDR
       Column     := m2tom3_with_2.column;
       InfoClass  := m2tom3_with_2.infcl;
       Info       := m2tom3_with_2.info;
+      InfoTraced := m2tom3_with_2.infoTraced;
       Next       := m2tom3_with_2.next;
     END;
 

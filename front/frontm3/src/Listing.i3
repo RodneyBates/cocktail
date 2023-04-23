@@ -17,6 +17,9 @@
 UNSAFE INTERFACE  Listing;
 
 IMPORT Word;
+
+IMPORT IntSets;
+
 FROM    ReuseIO               IMPORT  tFile;
 
 
@@ -27,9 +30,13 @@ VAR
   ListFile   : tFile;
   ListMode   : tListMode;
 
-PROCEDURE PutError (Code,Class,Line,Column,InfoClass: Word.T; Info: ADDRESS);
+PROCEDURE PutError
+  (Code,Class,Line,Column,InfoClass: Word.T;
+   Info: ADDRESS := NIL; InfoTraced: REFANY := NIL);
 PROCEDURE HasError (): BOOLEAN;
-PROCEDURE GetError (VAR Code,Class,Line,Column,InfoClass: Word.T; VAR Info: ADDRESS);
+PROCEDURE GetError
+  (VAR Code,Class,Line,Column,InfoClass: Word.T;
+   VAR Info: ADDRESS; VAR InfoTraced: REFANY);
 
 END Listing.
 

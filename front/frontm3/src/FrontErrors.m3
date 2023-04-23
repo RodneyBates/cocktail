@@ -30,6 +30,9 @@
 
  UNSAFE MODULE FrontErrors;
 
+IMPORT IntSets;
+IMPORT Word;
+
 FROM SYSTEM IMPORT SHORTCARD, M2LONGINT;
 FROM    ReuseIO         IMPORT  tFile,          StdError,       WriteC, 
                                 WriteNl,        WriteS,         WriteI, WriteT,
@@ -53,7 +56,7 @@ FROM    System          IMPORT  Exit;
 FROM    TokenTab        IMPORT  TokenError,     TokenToSymbol,  MAXTerm;
 FROM    Positions       IMPORT  tPosition,      NoPosition;
 
-IMPORT Word, Strings;
+IMPORT Strings;
 
 CONST
   eNone         = 0     ;       (* for internal use     *)
@@ -93,6 +96,28 @@ PROCEDURE ErrorMessageI (ErrorCode, ErrorClass: Word.T; Position: tPosition;
       END;
       IF ErrorClass < 3 THEN Finish() END;
    END ErrorMessageI;
+
+PROCEDURE ErrorMessageTraced
+  (ErrorCode, ErrorClass: Word.T; Position: tPosition;
+                         InfoClass: Word.T; InfoTraced: REFANY) =
+   BEGIN
+      INC (ErrorCount [ErrorClass]);
+      IF ErrorClass IN ReportClass THEN
+        NoReports := FALSE;
+        IF ReportMode = tReportMode.eImmediate THEN
+          WriteErrorMessage
+            (ErrorCode, ErrorClass, Position.Line, Position.Column);
+          WriteInfoTraced (InfoClass, InfoTraced := InfoTraced);
+          WriteNl (StdError);
+        ELSE
+          PutError
+            (ErrorCode, ErrorClass, Position.Line, Position.Column,
+             InfoClass, Info := NIL, InfoTraced := InfoTraced
+            );
+        END;
+      END;
+      IF ErrorClass < 3 THEN Finish() END;
+   END ErrorMessageTraced;
 
 PROCEDURE SetReportMode (mode: tReportMode) =
   BEGIN
@@ -175,13 +200,18 @@ PROCEDURE CloseErrors () =
      r : tStringRef;
      ErrorCode, ErrorClass, Line, Column, InfoClass: Word.T;
      Info : ADDRESS;
+     InfoTraced : REFANY;
    BEGIN
      IF NoReports THEN RETURN END;
 
      WHILE HasError() DO
-        GetError (ErrorCode, ErrorClass, Line, Column, InfoClass, Info);
+        GetError (ErrorCode, ErrorClass, Line, Column, InfoClass, Info, InfoTraced);
         WriteErrorMessage (ErrorCode, ErrorClass, Line, Column);
-        WriteInfo (InfoClass, Info);
+        IF InfoClass =
+        eIntSet 
+        THEN WriteInfoTraced (InfoClass, InfoTraced);
+        ELSE WriteInfo (InfoClass, Info);
+        END;
         WriteNl (StdError);
      END;
 
@@ -317,8 +347,9 @@ PROCEDURE KeepInfo  (InfoClass: Word.T; VAR Info: ADDRESS) =
             InfPtrToSet := Alloc (BYTESIZE (tSet));
             PtrToSet := Info;
             MakeSet (InfPtrToSet^, PtrToSet^.MaxElmt);
-            Assign (InfPtrToSet^, PtrToSet^);
+            Assign (InfPtrToSet^, PtrToSet^); 
             Info := InfPtrToSet;
+      |  eIntSet=> (* No need to copy, GC will protect it. *) 
       ELSE
       END;
    END KeepInfo;
@@ -335,6 +366,7 @@ PROCEDURE WriteInfo (InfoClass: Word.T; Info: ADDRESS) =
       PtrToArray        : UNTRACED BRANDED REF  ARRAY [0..255] OF CHAR;
       PtrToSet          : UNTRACED BRANDED REF  tSet;
       PtrToIdent        : UNTRACED BRANDED REF  tIdent;
+      IntSetsT          : IntSets.T;
    BEGIN
       IF InfoClass = eNone THEN RETURN END;
 
@@ -370,10 +402,29 @@ PROCEDURE WriteInfo (InfoClass: Word.T; Info: ADDRESS) =
       |  eTermSet=>
             PtrToSet := Info;
             WriteTermSet (StdError, PtrToSet^);
+
       ELSE        WriteT (StdError, "Info Class: ");
                   WriteI (StdError, InfoClass, 1);
       END;
    END WriteInfo;
+
+PROCEDURE WriteInfoTraced (InfoClass: Word.T; InfoTraced: REFANY) =
+(* Only InfoClass = eIntSet does anything much. *) 
+   VAR
+      IntSetsT         : IntSets.T;
+   BEGIN
+      IF InfoClass = eNone THEN RETURN END;
+
+      WriteC (StdError, ' ');
+      CASE InfoClass OF
+      | eIntSet=>
+          IntSetsT := InfoTraced; 
+          WriteIntSet (StdError, IntSetsT);
+      ELSE
+        WriteT (StdError, "Info Class: ");
+        WriteI (StdError, InfoClass, 1);
+      END;
+   END WriteInfoTraced;
 
 PROCEDURE WriteTermSet (f: tFile; s:tSet) =
   VAR Error: TokenError;
@@ -385,6 +436,17 @@ PROCEDURE WriteTermSet (f: tFile; s:tSet) =
       END;
     END;
   END WriteTermSet;
+
+PROCEDURE WriteIntSet (f: tFile; s:IntSets.T) =
+  VAR Error: TokenError;
+  BEGIN
+    FOR i := 0 TO MAXTerm DO
+      IF IntSets . IsElement (i, s) THEN
+        WriteC (f, ' ');
+        WriteIdent (f, TokenToSymbol (i, Error));
+      END;
+    END;
+  END WriteIntSet;
 
 PROCEDURE SplitLine (READONLY line: tString; VAR i: Word.T; VAR s1: tString) =
   VAR

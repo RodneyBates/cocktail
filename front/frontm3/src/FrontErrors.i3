@@ -47,6 +47,11 @@ CONST
    Note                 = 6     ;
    Information          = 7     ;
 
+(* CLEANMEUP: Why are these and the e* ones below both called "info classes"?
+   The generated parser uses Array, String, Integer, but uses e* ones too.
+   whereas the e* ones are used in handwritten code of front.
+   Can a single set be used?
+*) 
    None                 = 0     ;
    Integer              = 1     ;       (* info classes         *)
    Short                = 2     ;
@@ -58,9 +63,9 @@ CONST
    Array                = 8     ;
    Set                  = 9     ;
    Ident                = 10    ;
- 
+
 CONST   (* info classes *)
-  eInteger      =       1;
+  eInteger      =       1; (* UNTRACED ... *) 
   eShort        =       2;
   eLong         =       3;
   eReal         =       4;
@@ -71,6 +76,7 @@ CONST   (* info classes *)
   eSet          =       9;
   eIdent        =       10;
   eTermSet      =       11;
+  eIntSet       =       12; (* <: REFANY *) 
 
 CONST   (* error classes *)
   eFatal        =       1;
@@ -95,6 +101,9 @@ VAR ErrorCount  : ARRAY [0..MaxErrorClass] OF SHORTCARD;
 PROCEDURE ErrorMessage  (ErrorCode, ErrorClass: Word.T; Position: tPosition);
 PROCEDURE ErrorMessageI (ErrorCode, ErrorClass: Word.T; Position: tPosition;
                          InfoClass: Word.T; Info: ADDRESS);
+PROCEDURE ErrorMessageTraced
+  (ErrorCode, ErrorClass: Word.T; Position: tPosition;
+                         InfoClass: Word.T; InfoTraced: REFANY);
 PROCEDURE CrashT (a: TEXT);
 PROCEDURE BeginErrors   ();
 PROCEDURE SetReportMode (mode: tReportMode);
