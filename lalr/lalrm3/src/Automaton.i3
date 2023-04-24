@@ -55,7 +55,7 @@ TYPE
 
     tProdListElmt = RECORD
         Index   : tProdIndex;
-        Value   : SHORTCARD;
+        Value   : INTEGER;
       END;
 
     tProdListArrayRef = REF ARRAY OF tProdListElmt;

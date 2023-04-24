@@ -67,7 +67,7 @@ IMPORT ExpArrays_tIndex;
     eNoBNF      = 60;
     eActInside  = 61;
 
-    InitProdCount  = 1000;  (* Anfangsplatzgroesse fuer Produktionen in Word.T *)
+    InitProdCount  = 10000; (* Anfangsplatzgroesse fuer Produktionen in Word.T *)
     InitItemCount  = 200;   (* Anfangsplatzgroesse fuer Items *)
     InitStateCount = 50;    (* Anfangsplatzgroesse fuer States *)
     InitListCount  = 4;     (* Anfangsplatzgroesse fuer ProdList *)
@@ -443,7 +443,7 @@ PROCEDURE InsertProductions() =
     voc   : Vocabulary;
     index : tProdIndex;
     maxIndex : tProdIndex;
-    value : SHORTCARD;
+    value : INTEGER;
     prodADR      : (*tProduction*) ADDRESS;
     prod  : tProduction;
     i     : SHORTCARD;
@@ -624,7 +624,7 @@ PROCEDURE InsertRight (Expr: Expression; Last: BOOLEAN) =
     END;
   END InsertRight;
 
-PROCEDURE PutInProdList (index: tProdIndex; value: SHORTCARD) =
+PROCEDURE PutInProdList (index: tProdIndex; value: INTEGER) =
 
   (* Die angegebene  Produktion wird gem. ihrer linken Seite in die
      zugh. ProdList sortiert eingetragen *)
