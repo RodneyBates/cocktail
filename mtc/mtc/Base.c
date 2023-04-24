@@ -69,7 +69,7 @@ void Base_CheckArguments
 
     if (B_1 <= B_2)
       for (i = B_1;; i += 1) {
-        GetArgument((LONGINT)i, Argument.A, 128L);
+        GetArgument(i, Argument.A, 128L);
         if (Argument.A[0] == '-') {
           if (Argument.A[1] == 'd') {
             j = 2;
@@ -112,12 +112,12 @@ void Base_CheckArguments
                 Sets_Include(&Options, ORD(ch));
                 break;
               default :
-                IO_WriteS((System_tFile)IO_StdError, (STRING)"mtc: illegal option '", 21L);
-                IO_WriteC((System_tFile)IO_StdError, ch);
-                IO_WriteS((System_tFile)IO_StdError, (STRING)"'", 1L);
-                IO_WriteNl((System_tFile)IO_StdError);
+                IO_WriteS(IO_StdError, "mtc: illegal option '", 21L);
+                IO_WriteC(IO_StdError, ch);
+                IO_WriteS(IO_StdError, "'", 1L);
+                IO_WriteNl(IO_StdError);
                 IO_CloseIO();
-                Exit(1L);
+                Exit(1);
                 break;
               }
             } EXIT_3:;
@@ -163,7 +163,7 @@ LONGCARD O_1;
   ALLOC_OPEN_ARRAYS(O_1 * sizeof(CHAR), 1)
   COPY_OPEN_ARRAY(Directory, O_1, CHAR)
   if (TablePtr >= TableSize) {
-    DynArray_ExtendArray((ADDRESS *)&LibraryTable, &TableSize, (LONGINT)sizeof(Strings_tString));
+    DynArray_ExtendArray(&LibraryTable, &TableSize, sizeof(Strings_tString));
   }
   Strings_ArrayToString(Directory, O_1, &LibraryTable->A[TablePtr]);
   Strings_Append(&LibraryTable->A[TablePtr], '/');
@@ -289,11 +289,11 @@ LONGCARD O_4;
   ALLOC_OPEN_ARRAYS(O_4 * sizeof(CHAR), 1)
   COPY_OPEN_ARRAY(FileName, O_4, CHAR)
   if (File < 0) {
-    IO_WriteS((System_tFile)IO_StdError, (STRING)"mtc: cannot open file ", 22L);
-    IO_WriteS((System_tFile)IO_StdError, FileName, O_4);
-    IO_WriteNl((System_tFile)IO_StdError);
+    IO_WriteS(IO_StdError, "mtc: cannot open file ", 22L);
+    IO_WriteS(IO_StdError, FileName, O_4);
+    IO_WriteNl(IO_StdError);
     IO_CloseIO();
-    Exit(1L);
+    Exit(1);
   }
   FREE_OPEN_ARRAYS
 }
@@ -318,6 +318,6 @@ void Base__init()
     Sets_MakeSet(&Options, ORD(MAX_CHAR));
     TablePtr = 0;
     TableSize = InitialSize;
-    DynArray_MakeArray((ADDRESS *)&LibraryTable, &TableSize, (LONGINT)sizeof(Strings_tString));
+    DynArray_MakeArray(&LibraryTable, &TableSize, sizeof(Strings_tString));
   }
 }
