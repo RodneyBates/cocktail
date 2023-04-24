@@ -31,11 +31,14 @@
  UNSAFE MODULE FrontErrors;
 
 IMPORT IntSets;
+IMPORT Thread;
 IMPORT Word;
+IMPORT Wr;
 
 FROM SYSTEM IMPORT SHORTCARD, M2LONGINT;
 FROM    ReuseIO         IMPORT  tFile,          StdError,       WriteC, 
-                                WriteNl,        WriteS,         WriteI, WriteT,
+                                WriteNl,        WriteS,         WriteI,
+                                WriteT,
                                 WriteLong,      WriteB,         WriteR,
                                 ReadOpenT,      ReadClose,      EndOfFile,
                                 CloseIO;
@@ -49,7 +52,7 @@ FROM    Strings         IMPORT  tString,        AssignEmpty,    SubString,
                                 StringToInt,    TextToString;
 FROM    StringMem       IMPORT  tStringRef,     PutString,
                                 WriteString;
-FROM    Idents          IMPORT  tIdent,         WriteIdent;
+FROM    Idents          IMPORT  tIdent,         WriteIdent,     GetText;
 FROM    SysError        IMPORT  StatIsBad;
 FROM    System          IMPORT  Exit;
 
@@ -207,8 +210,7 @@ PROCEDURE CloseErrors () =
      WHILE HasError() DO
         GetError (ErrorCode, ErrorClass, Line, Column, InfoClass, Info, InfoTraced);
         WriteErrorMessage (ErrorCode, ErrorClass, Line, Column);
-        IF InfoClass =
-        eIntSet 
+        IF InfoClass = eTokSet 
         THEN WriteInfoTraced (InfoClass, InfoTraced);
         ELSE WriteInfo (InfoClass, Info);
         END;
@@ -349,7 +351,7 @@ PROCEDURE KeepInfo  (InfoClass: Word.T; VAR Info: ADDRESS) =
             MakeSet (InfPtrToSet^, PtrToSet^.MaxElmt);
             Assign (InfPtrToSet^, PtrToSet^); 
             Info := InfPtrToSet;
-      |  eIntSet=> (* No need to copy, GC will protect it. *) 
+      |  eTokSet=> (* No need to copy, GC will protect it. *) 
       ELSE
       END;
    END KeepInfo;
@@ -366,7 +368,6 @@ PROCEDURE WriteInfo (InfoClass: Word.T; Info: ADDRESS) =
       PtrToArray        : UNTRACED BRANDED REF  ARRAY [0..255] OF CHAR;
       PtrToSet          : UNTRACED BRANDED REF  tSet;
       PtrToIdent        : UNTRACED BRANDED REF  tIdent;
-      IntSetsT          : IntSets.T;
    BEGIN
       IF InfoClass = eNone THEN RETURN END;
 
@@ -409,18 +410,18 @@ PROCEDURE WriteInfo (InfoClass: Word.T; Info: ADDRESS) =
    END WriteInfo;
 
 PROCEDURE WriteInfoTraced (InfoClass: Word.T; InfoTraced: REFANY) =
-(* Only InfoClass = eIntSet does anything much. *) 
+(* Only InfoClass = eTokSet does anything much. *) 
    VAR
       IntSetsT         : IntSets.T;
    BEGIN
       IF InfoClass = eNone THEN RETURN END;
 
-      WriteC (StdError, ' ');
       CASE InfoClass OF
-      | eIntSet=>
+      | eTokSet=>
           IntSetsT := InfoTraced; 
-          WriteIntSet (StdError, IntSetsT);
+          WriteTokSet (StdError, IntSetsT);
       ELSE
+        WriteC (StdError, ' ');
         WriteT (StdError, "Info Class: ");
         WriteI (StdError, InfoClass, 1);
       END;
@@ -437,16 +438,38 @@ PROCEDURE WriteTermSet (f: tFile; s:tSet) =
     END;
   END WriteTermSet;
 
-PROCEDURE WriteIntSet (f: tFile; s:IntSets.T) =
-  VAR Error: TokenError;
+PROCEDURE TokenImage (tok: IntSets.ElemT):TEXT =
+  VAR LError: TokenError;
+  VAR LIdent: tIdent;
+  VAR LResult: TEXT;
   BEGIN
+    LIdent := TokenToSymbol (tok, (*VAR*)LError);
+    LResult := GetText (LIdent);
+    RETURN LResult; 
+  END TokenImage; 
+
+PROCEDURE WriteTokSet (f: tFile; s:IntSets.T) =
+  VAR LImage: TEXT;
+  BEGIN
+    WriteT (f, Wr . EOL);
+    WriteT (f, "  ");
+
+    <*FATAL Thread.Alerted, Wr.Failure *>
+    BEGIN
+      LImage := IntSets . Image (s, TokenImage, "  ");
+    END;
+    WriteT (f, LImage);
+
+(*
+    WriteT (StdError, "  ");
     FOR i := 0 TO MAXTerm DO
       IF IntSets . IsElement (i, s) THEN
         WriteC (f, ' ');
-        WriteIdent (f, TokenToSymbol (i, Error));
+        WriteIdent (f, TokenToSymbol (i, (*VAR*)Error));
       END;
     END;
-  END WriteIntSet;
+*) 
+  END WriteTokSet;
 
 PROCEDURE SplitLine (READONLY line: tString; VAR i: Word.T; VAR s1: tString) =
   VAR
