@@ -77,13 +77,17 @@ VAR
   ErrorCodeRef  : ARRAY [0..MaxCode]  OF tStringRef;
   ErrorCountRef : ARRAY [0..MaxErrorClass] OF tStringRef;
 
+(*EXPORTED:*)
 PROCEDURE ErrorMessage  (ErrorCode, ErrorClass: Word.T; Position: tPosition) =
    BEGIN
       ErrorMessageI (ErrorCode, ErrorClass, Position, eNone, NIL);
    END ErrorMessage;
 
+(*EXPORTED:*)
 PROCEDURE ErrorMessageI (ErrorCode, ErrorClass: Word.T; Position: tPosition;
                          InfoClass: Word.T; Info: ADDRESS) =
+(* ^Useful for InfoClass values that do not correspond to <: REFANY. *)
+
    BEGIN
       INC (ErrorCount [ErrorClass]);
       IF ErrorClass IN ReportClass THEN
@@ -100,9 +104,12 @@ PROCEDURE ErrorMessageI (ErrorCode, ErrorClass: Word.T; Position: tPosition;
       IF ErrorClass < 3 THEN Finish() END;
    END ErrorMessageI;
 
+(*EXPORTED:*)
 PROCEDURE ErrorMessageTraced
   (ErrorCode, ErrorClass: Word.T; Position: tPosition;
                          InfoClass: Word.T; InfoTraced: REFANY) =
+(* ^Useful for InfoClass values that do not correspond to <: REFANY. *)
+
    BEGIN
       INC (ErrorCount [ErrorClass]);
       IF ErrorClass IN ReportClass THEN
@@ -122,6 +129,7 @@ PROCEDURE ErrorMessageTraced
       IF ErrorClass < 3 THEN Finish() END;
    END ErrorMessageTraced;
 
+(*EXPORTED:*)
 PROCEDURE SetReportMode (mode: tReportMode) =
   BEGIN
     ReportMode := mode;
@@ -133,6 +141,7 @@ PROCEDURE SetReportMode (mode: tReportMode) =
     END;
   END SetReportMode;
 
+(*EXPORTED:*)
 PROCEDURE BeginErrors() =
   VAR
     i : Word.T;
@@ -198,6 +207,7 @@ PROCEDURE BeginErrors() =
     ReadClose (f);
   END BeginErrors;
 
+(*EXPORTED:*)
 PROCEDURE CloseErrors () =
    VAR 
      r : tStringRef;
@@ -459,16 +469,6 @@ PROCEDURE WriteTokSet (f: tFile; s:IntSets.T) =
       LImage := IntSets . Image (s, TokenImage, "  ");
     END;
     WriteT (f, LImage);
-
-(*
-    WriteT (StdError, "  ");
-    FOR i := 0 TO MAXTerm DO
-      IF IntSets . IsElement (i, s) THEN
-        WriteC (f, ' ');
-        WriteIdent (f, TokenToSymbol (i, (*VAR*)Error));
-      END;
-    END;
-*) 
   END WriteTokSet;
 
 PROCEDURE SplitLine (READONLY line: tString; VAR i: Word.T; VAR s1: tString) =
@@ -513,6 +513,7 @@ PROCEDURE SplitLine (READONLY line: tString; VAR i: Word.T; VAR s1: tString) =
 
   END SplitLine;
 
+(*EXPORTED:*)
 PROCEDURE CrashT (a: TEXT) =
   VAR s: tString;
   BEGIN

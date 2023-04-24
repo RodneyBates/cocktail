@@ -82,14 +82,22 @@ TYPE ErrorClassSet      = SET OF [0 .. MaxErrorClass];
 VAR ErrorCount  : ARRAY [0..MaxErrorClass] OF SHORTCARD;
 
 PROCEDURE ErrorMessage  (ErrorCode, ErrorClass: Word.T; Position: tPosition);
+
 PROCEDURE ErrorMessageI (ErrorCode, ErrorClass: Word.T; Position: tPosition;
                          InfoClass: Word.T; Info: ADDRESS);
+(* ^Useful for InfoClass values that do not correspond to <: REFANY. *)
+
 PROCEDURE ErrorMessageTraced
   (ErrorCode, ErrorClass: Word.T; Position: tPosition;
                          InfoClass: Word.T; InfoTraced: REFANY);
+(* ^Useful for InfoClass values that correspond to <: REFANY. *)
+
 PROCEDURE CrashT (a: TEXT);
+
 PROCEDURE BeginErrors   ();
+
 PROCEDURE SetReportMode (mode: tReportMode);
+
 PROCEDURE CloseErrors   ();
 
 VAR ErrorTableT := "Error.Tab";
