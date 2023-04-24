@@ -423,13 +423,13 @@ PROCEDURE ComputeRestartPoints (
          RestartSet := IntSets.Union (RestartSet, ContinueSet);
          State := Next (State, yyContinuation [State]);
 
-         IF State >= yyFirstFinalState THEN             (* final state ? *)
-            IF State <= yyLastReadTermState THEN        (* read terminal reduce ? *)
+         IF State >= yyFirstFinalState THEN (* final state ? *)
+            IF State <= yyLastReadTermState THEN (* read terminal reduce ? *)
                INC (StackPtr);
                State := yyFinalToProd [State];
             END;
 
-            LOOP                                        (* reduce *)
+            LOOP (* reduce *)
                IF State = yyStopState THEN
                   Stack := NIL; 
                   ContinueSet := NIL;
@@ -441,10 +441,12 @@ PROCEDURE ComputeRestartPoints (
 
                State := Next (Stack^ [StackPtr], Nonterminal);
                INC (StackPtr);
-               IF State < yyFirstFinalState THEN EXIT; END; (* read nonterminal ? *)
-               State := yyFinalToProd [State];          (* read nonterminal reduce *)
+               IF State < yyFirstFinalState 
+               THEN EXIT;
+               END; (* read nonterminal ? *)
+               State := yyFinalToProd [State];(* read nonterminal reduce *)
             END;
-         ELSE                                           (* read *)
+         ELSE (* read *)
             INC (StackPtr);
          END;
       END;
