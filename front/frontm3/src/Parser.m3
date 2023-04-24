@@ -269,7 +269,7 @@ PROCEDURE Parser (): Word.T =
                      TokenName (yyRepairToken, yyTokenString);
                      FrontErrors.ErrorMessageI 
                        (FrontErrors.TokenInserted, FrontErrors.Repair,
-                     Scanner.Attribute.Position, FrontErrors.Array, 
+                     Scanner.Attribute.Position, FrontErrors.eArray, 
                         ADR (yyTokenString[FIRST(yyTokenString)])
                        );
                      IF yyState >= yyFirstFinalState 
@@ -819,7 +819,7 @@ PROCEDURE ErrorRecovery (
          TokenName ( Terminal , TokenArray );
          Strings.ArrayToString (TokenArray, TokenString);
          FrontErrors.ErrorMessageI (FrontErrors.SyntaxError, FrontErrors.Error, 
-         Scanner.Attribute.Position, FrontErrors.String, ADR(TokenString) );
+         Scanner.Attribute.Position, FrontErrors.eString, ADR(TokenString) );
 
    (* 2. report the set of expected terminal symbols *)
       Sets.MakeSet (ContinueSet, yyLastTerminal);
@@ -842,7 +842,7 @@ PROCEDURE ErrorRecovery (
       END;
       FrontErrors.ErrorMessageI
         (FrontErrors.ExpectedTokens, FrontErrors.Information,
-      Scanner.Attribute.Position, FrontErrors.String, ADR (ContinueString));
+      Scanner.Attribute.Position, FrontErrors.eString, ADR (ContinueString));
       Sets.ReleaseSet (ContinueSet);
 
    (* 3. compute the set of terminal symbols for restart of the parse *)
@@ -1231,7 +1231,7 @@ PROCEDURE yyErrorCheck (ErrorCode: INTEGER; Info: INTEGER) =
         ErrNo := System.ErrNum ();
         FrontErrors.ErrorMessageI
           (ErrorCode, FrontErrors.Fatal, Positions.NoPosition,
-           FrontErrors.Integer, ADR (ErrNo));
+           FrontErrors.eInteger, ADR (ErrNo));
      END;
    END yyErrorCheck;
 

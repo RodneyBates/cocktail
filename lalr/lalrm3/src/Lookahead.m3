@@ -35,7 +35,7 @@ IMPORT ExpArrays_tItemIndex;
 
 FROM Limits     IMPORT MaxShortCard;
 FROM FrontErrors
-  IMPORT eFatal, eInformation, eString, eInternal, ErrorMessage, ErrorMessageI, CrashT;
+  IMPORT eFatal, eInformation, eString, eInternal, ErrorMessage, CrashT;
 FROM DynArray   IMPORT MakeArray, ExtendArray;
 FROM Sets       IMPORT tSet, MakeSet, ReleaseSet, AssignEmpty, Include, Exclude,
                         Extract, Union, Assign, IsElement, IsEmpty, ForallDo;

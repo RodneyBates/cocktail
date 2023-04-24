@@ -47,23 +47,6 @@ CONST
    Note                 = 6     ;
    Information          = 7     ;
 
-(* CLEANMEUP: Why are these and the e* ones below both called "info classes"?
-   The generated parser uses Array, String, Integer, but uses e* ones too.
-   whereas the e* ones are used in handwritten code of front.
-   Can a single set be used?
-*) 
-   None                 = 0     ;
-   Integer              = 1     ;       (* info classes         *)
-   Short                = 2     ;
-   Long                 = 3     ;
-   Real                 = 4     ;
-   Boolean              = 5     ;
-   Character            = 6     ;
-   String               = 7     ;
-   Array                = 8     ;
-   Set                  = 9     ;
-   Ident                = 10    ;
-
 CONST   (* info classes *)
   eInteger      =       1; (* UNTRACED ... *) 
   eShort        =       2;
