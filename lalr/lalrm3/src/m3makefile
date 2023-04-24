@@ -1,15 +1,10 @@
 % m3makefile for Cocktail lalrm3: lalr converted to Modula3. 
 
 import("libm3")
-%import("m2libs")
 import("reusem3")
 import("frontm3")
 
 include_dir("instantiations")
-
-%interface("IntForOrdSets")
-%build_generic_intf("IntSets","OrdSets",["IntForOrdSets"],VISIBLE)
-%build_generic_impl("IntSets","OrdSets",[])
 
 module("ArgCheck")
 module("Automaton")
@@ -25,7 +20,6 @@ module("Infos")
 module("Lookahead")
 module("LR")
 module("Reduce")
-%module("UnsafeUtils")
 
 implementation("lalr")
 program("lalr")
