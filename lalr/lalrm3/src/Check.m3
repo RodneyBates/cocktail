@@ -65,7 +65,7 @@ FROM Debug      IMPORT dFile, tConflict, DebugHead, DebugState, DebugEnd, Inform
                         InformConflict, NewLine;
 FROM Debug      IMPORT ItemSets, PrintItemSets;
 FROM FrontErrors     IMPORT eInternal, eInformation, eWarning, eError, eFatal, eString,
-                        eShort, eTermSet, ErrorMessageI, CrashT;
+                        eShort, eIntSet, ErrorMessageI, CrashT;
 FROM Idents     IMPORT tIdent;
 FROM ReuseIO         IMPORT WriteOpenT, WriteClose;
 FROM Sets       IMPORT tSet, IsElement, IsEmpty, Include, Exclude, Extract, Union,
@@ -436,31 +436,31 @@ PROCEDURE RepairConflict (state: tStateIndex; VAR ConflictSet: IntSets.T) =
       ErrorMessageI (eState, eInformation, NoPosition, eShort, ADR (state));
 
       IF NOT IntSets.IsEmpty (ReadRedSet) THEN
-        ErrorMessageI (eReadRed, eError, NoPosition, eTermSet, ADR (ReadRedSet));
+        ErrorMessageI (eReadRed, eError, NoPosition, eIntSet, ADR (ReadRedSet));
       END;
       IF NOT IntSets.IsEmpty (RedRedSet) THEN
-        ErrorMessageI (eRedRed, eError, NoPosition, eTermSet, ADR (RedRedSet));
+        ErrorMessageI (eRedRed, eError, NoPosition, eIntSet, ADR (RedRedSet));
       END;
       IF NOT IntSets.IsEmpty (ReadRedRedSet) THEN
-        ErrorMessageI (eReadRedRed, eError, NoPosition, eTermSet, ADR (ReadRedRedSet));
+        ErrorMessageI (eReadRedRed, eError, NoPosition, eIntSet, ADR (ReadRedRedSet));
       END;
       IF NOT IntSets.IsEmpty (RepReadRedSet) THEN
-        ErrorMessageI (eRepReadRed, eInformation, NoPosition, eTermSet, ADR (RepReadRedSet));
+        ErrorMessageI (eRepReadRed, eInformation, NoPosition, eIntSet, ADR (RepReadRedSet));
       END;
       IF NOT IntSets.IsEmpty (RepRedRedSet) THEN
-        ErrorMessageI (eRepRedRed, eInformation, NoPosition, eTermSet, ADR(RepRedRedSet));
+        ErrorMessageI (eRepRedRed, eInformation, NoPosition, eIntSet, ADR(RepRedRedSet));
       END;
       IF NOT IntSets.IsEmpty (RepReadRedRedSet) THEN
-        ErrorMessageI (eRepReadRedRed, eInformation, NoPosition, eTermSet, ADR(RepReadRedRedSet));
+        ErrorMessageI (eRepReadRedRed, eInformation, NoPosition, eIntSet, ADR(RepReadRedRedSet));
       END;
       IF NOT IntSets.IsEmpty (ARepReadRedSet) THEN
-        ErrorMessageI (eARepReadRed, eWarning, NoPosition, eTermSet, ADR(ARepReadRedSet));
+        ErrorMessageI (eARepReadRed, eWarning, NoPosition, eIntSet, ADR(ARepReadRedSet));
       END;
       IF NOT IntSets.IsEmpty (ARepRedRedSet) THEN
-        ErrorMessageI (eARepRedRed, eWarning, NoPosition, eTermSet, ADR(ARepRedRedSet));
+        ErrorMessageI (eARepRedRed, eWarning, NoPosition, eIntSet, ADR(ARepRedRedSet));
       END;
       IF NOT IntSets.IsEmpty (ARepReadRedRedSet) THEN
-        ErrorMessageI (eARepReadRedRed, eWarning, NoPosition, eTermSet, ADR(ARepReadRedRedSet));
+        ErrorMessageI (eARepReadRedRed, eWarning, NoPosition, eIntSet, ADR(ARepReadRedRedSet));
       END;
 
       ReadRedSet := NIL;

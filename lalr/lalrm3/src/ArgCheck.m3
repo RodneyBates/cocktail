@@ -69,7 +69,7 @@ FROM Debug      IMPORT  NoTrace, Fast, ItemSets;
 FROM Default    IMPORT  NoDefault;
 FROM FrontErrors     IMPORT  eError,         eString,
                         ErrorMessageI,  tReportMode,    SetReportMode,
-                        CloseErrors;
+                        CloseErrors, ErrorTableT;
 FROM Gen        IMPORT  CaseFlag,       CaseLabels;
 FROM Idents     IMPORT  tIdent, NoIdent, WriteIdent, GetString, GetText;
 FROM ReuseIO         IMPORT  tFile,          StdInput,       StdOutput,
@@ -77,7 +77,7 @@ FROM ReuseIO         IMPORT  tFile,          StdInput,       StdOutput,
                         WriteClose,     EndOfFile,      CloseIO,
                         WriteT,         WriteC,         WriteNl;
 FROM Listing    IMPORT  SourceFile;
-FROM FrontPath       IMPORT  InsertPathT;
+FROM FrontPath  IMPORT  InsertPathT;
 FROM Parser     IMPORT  ParsTabName;
 FROM Scanner    IMPORT  ScanTabName,    BeginFile;
 FROM Positions  IMPORT  NoPosition;
@@ -126,6 +126,7 @@ CONST
   ParsImpC      = "Parser.c";
   ParsDrvC      = "ParserDrv.c";
 
+  ErrorTab      = "ErrorTab";
   HelpFile      = "lalr.cat";
   ShortHelpFile = "lalr.syn";
 
@@ -148,8 +149,12 @@ CONST
   cNoDefault    = "-NoDefault";
   cTest         = "-t";
   cItemSets     = "-k";
+  cLib          = "-L";
+
+VAR cLibLen := Text.Length(cLib);
 
 VAR (* MakeDef, *) MakeErr, MakeScan, MakeParsDrv: BOOLEAN;
+VAR LibDirPath : TEXT := NIL;
 VAR DevNullT : TEXT;
 
 PROCEDURE ArgCheck() =
@@ -161,12 +166,12 @@ PROCEDURE ArgCheck() =
     file                : tFile;
     FileNameT           : TEXT;
     FileName            : ARRAY [0..255] OF CHAR;
+    ArgCt               : INTEGER;
+    ArgLen              : INTEGER;
     Ch                  : CHAR;
     SourceFileIsOpen    : BOOLEAN;
   BEGIN
     SourceFileIsOpen := FALSE;
-    InsertPathT (ScanTabName);
-    InsertPathT (ParsTabName);
 
     MakeDef := FALSE;
     MakeErr := FALSE;
@@ -174,7 +179,9 @@ PROCEDURE ArgCheck() =
     MakeParsDrv := FALSE;
     ItemSets := FALSE;
 
-    FOR ArgNo := 1 TO GetArgCount () - 1 DO
+    ArgCt := GetArgCount ();
+    ArgNo := 1;
+    WHILE ArgNo < ArgCt DO 
       ArgumentT := Params.Get(ArgNo);
       IF ArgumentT = NIL THEN ArgumentT := "" END;
       TextToString (ArgumentT, ArgString);
@@ -244,7 +251,7 @@ PROCEDURE ArgCheck() =
         NoDefault := TRUE;
       ELSIF Text.Equal (ArgumentT, cHelp) THEN
         FileNameT := HelpFile;
-        InsertPathT (FileNameT);
+        InsertLibPathT (FileNameT);
         TRY file := ReadOpenT (FileNameT);
         EXCEPT ELSE file := - 1; END; 
         IF StatIsBad (file) THEN
@@ -255,14 +262,30 @@ PROCEDURE ArgCheck() =
         END;
         Generate := FALSE;
         RETURN;
+      ELSIF Text.Equal (Text.Sub (ArgumentT, 0, cLibLen), cLib) THEN
+        ArgLen := Text.Length (ArgumentT);
+        IF ArgLen > cLibLen THEN (* Path is part of this arg. *) 
+          LibDirPath := Text.Sub (ArgumentT, cLibLen, ArgLen-cLibLen);
+        ELSE (* Path is the following arg. *) 
+          ArgumentT := Params.Get(ArgNo);
+          INC (ArgNo);
+          LibDirPath := ArgumentT;
+        END;
       ELSE
         ErrorMessageI (eNoOption, eError, NoPosition, eString, ADR (ArgString));
       END;
-    END;
+      INC (ArgNo);
+    END (*WHILE*);
 
+    InsertLibPathT (ScanTabName);
+    InsertLibPathT (ParsTabName);
+
+    ErrorTableT := ErrorTab;
+    InsertLibPathT ((*VAR*) ErrorTableT);
+    
     IF SourceFile = StdInput THEN
       FileNameT := ShortHelpFile;
-      InsertPathT (FileNameT);
+      InsertLibPathT (FileNameT);
       TRY file := ReadOpenT (FileNameT);
       EXCEPT ELSE file := -1; END;
       IF StatIsBad (file) THEN
@@ -324,7 +347,7 @@ ELSIF Language = tLanguage.Modula2 THEN
     IF MakeScan THEN
       FileNameT := MakeFileNameT (ScannerName, ScannerT, ExtDef);
       out := WriteOpenT (FileNameT);      CheckWriteOpenT (out, FileNameT);
-      InsertPathT (ScanDef);
+      InsertLibPathT (ScanDef);
       in := ReadOpenT (ScanDef);         CheckReadOpenT (in, ScanDef);
       CopyFile (in, out);
       WriteClose (out);
@@ -334,14 +357,14 @@ ELSIF Language = tLanguage.Modula2 THEN
 
     IF MakeErr THEN
       out := WriteOpenT (ErrDef);        CheckWriteOpenT (out, ErrDef);
-      InsertPathT (ErrDef);
+      InsertLibPathT (ErrDef);
       in := ReadOpenT (ErrDef);          CheckReadOpenT (in, ErrDef);
       CopyFile (in, out);
       WriteClose (out);
       ReadClose (in);
 
       out := WriteOpenT (ErrImp);        CheckWriteOpenT (out, ErrImp);
-      InsertPathT (ErrImp);
+      InsertLibPathT (ErrImp);
       in := ReadOpenT (ErrImp);          CheckReadOpenT (in, ErrImp);
       CopyFile (in, out);
       WriteClose (out);
@@ -356,23 +379,46 @@ ELSIF Language = tLanguage.Modula2 THEN
       END;
       FileNameT := BaseNameT & Drv & ExtImp;
       out := WriteOpenT (FileNameT);      CheckWriteOpenT (out, FileNameT);
-      InsertPathT (ParsDrvT);
+      InsertLibPathT (ParsDrvT);
       in := ReadOpenT (ParsDrvT);         CheckReadOpenT (in, ParsDrvT);
       CopyFile (in, out);
       WriteClose (out);
       ReadClose (in);
     END;
 
-    InsertPathT (ParsImp);
+    InsertLibPathT (ParsImp);
     Pars := ReadOpenT (ParsImp);         CheckReadOpenT (Pars, ParsImp);
 
     IF MakeDef THEN
-      InsertPathT (ParsDef);
+      InsertLibPathT (ParsDef);
       Def := ReadOpenT (ParsDef);        CheckReadOpenT (Def, ParsDef);
  (* ELSE
       Def := ReadOpenT (DevNullT);     CheckReadOpenT (Def, DevNullT); *) 
     END;
   END GenerateSupport;
+
+CONST DirSep = "/"; (* Fix this for windows: "\\".*)
+VAR DirSepLen := Text.Length (DirSep);
+
+PROCEDURE InsertLibPathT (VAR FileNameT: TEXT) =
+  VAR Suffix: TEXT;
+  VAR PathLen: INTEGER; 
+  BEGIN
+    IF LibDirPath = NIL
+    THEN
+      InsertPathT ((*VAR*)FileNameT);
+      (* Which will prefix FileNameT with the directory where the lalr
+         executable was invoked from.*)
+    ELSE
+      PathLen := Text.Length (LibDirPath);
+      IF PathLen >= DirSepLen
+         AND Text.Sub (LibDirPath, PathLen-DirSepLen, DirSepLen) = DirSep
+        THEN Suffix := "";
+        ELSE Suffix := DirSep;
+      END; 
+      FileNameT := LibDirPath & Suffix & FileNameT;
+    END (*IF*) 
+  END InsertLibPathT;
 
 PROCEDURE MakeFileNameT (Name: tIdent; DefaultT, ExtT: TEXT): TEXT =
    VAR BaseNameT: TEXT; 
