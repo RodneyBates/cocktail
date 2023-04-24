@@ -4,6 +4,13 @@ import("libm3")
 import("m2libs")
 import("reusem3")
 
+interface("BitNoTable")
+module("UnsafeUtils")
+interface("IntForOrdSets")
+generic_module("OrdSets")
+build_generic_intf("IntSets","OrdSets",["IntForOrdSets"],VISIBLE)
+build_generic_impl("IntSets","OrdSets",[])
+
 module("Actions")
 module("Character")
 module("FrontChecks") % There is a Checks.[im]3 in reusem3!! 

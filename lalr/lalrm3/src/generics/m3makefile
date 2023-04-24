@@ -9,7 +9,7 @@
 % m3makefile for lalrm3/src/generics.
 
 generic_module("ExpArrays")
-generic_module("OrdSets")
+%generic_module("OrdSets")
 generic_module("Ranges")
 generic_module("VarArray")
 

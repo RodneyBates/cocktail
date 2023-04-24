@@ -20,6 +20,6 @@ module("ExpArrays_tItemIndex")
 interface("Instor_tItemIndexList") % Instantiator for Automaton.tItemIndexList
 module("ExpArrays_tItemIndexList")
 
-interface("BitNoTable") %Instantiator for INTEGER, needed by OrdSets.mg. 
+%interface("BitNoTable") %Instantiator for INTEGER, needed by OrdSets.mg. 
 
 % There are some instantiations done via Quake.  Move them in here. 
