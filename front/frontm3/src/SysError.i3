@@ -14,9 +14,7 @@
  * 
  *)
 
-UNSAFE INTERFACE  SysError;
-
-
+INTERFACE  SysError;
 
 IMPORT Word;
 PROCEDURE StatIsBad		(N: INTEGER): BOOLEAN;

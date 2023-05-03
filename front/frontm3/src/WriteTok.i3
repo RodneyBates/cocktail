@@ -22,7 +22,7 @@
  * 
  *)
 
-UNSAFE INTERFACE  WriteTok;
+INTERFACE  WriteTok;
 
   FROM ReuseIO IMPORT tFile;
 

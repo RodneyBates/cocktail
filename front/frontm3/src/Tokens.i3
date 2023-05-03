@@ -14,7 +14,7 @@
  * 
  *)
 
-UNSAFE INTERFACE  Tokens;
+INTERFACE  Tokens;
  
 FROM Lists	IMPORT tList;
 FROM TokenTab	IMPORT Vocabulary,PosType,Terminal;

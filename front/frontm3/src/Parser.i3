@@ -1,8 +1,6 @@
 (* $Id: Parser.md,v 2.1 1992/08/07 15:28:42 grosch rel $ *)
 
-UNSAFE INTERFACE  Parser;
-
-
+INTERFACE  Parser;
 
 IMPORT Word;
 FROM SYSTEM IMPORT SHORTCARD;

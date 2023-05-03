@@ -11,7 +11,7 @@
  * 
  *)
 
-UNSAFE INTERFACE  Limits;
+INTERFACE  Limits;
 
 CONST
     MaxCard = 4294967295;

@@ -19,7 +19,7 @@
  * 
  *)
 
-UNSAFE INTERFACE  Rules;
+INTERFACE  Rules;
 
   FROM Lists	IMPORT tList;
   FROM TokenTab IMPORT Terminal, NonTerminal, Vocabulary,PosType;

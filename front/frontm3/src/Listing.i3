@@ -14,7 +14,7 @@
  * 
  *)
 
-UNSAFE INTERFACE  Listing;
+INTERFACE  Listing;
 
 IMPORT Word;
 

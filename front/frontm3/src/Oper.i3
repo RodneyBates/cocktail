@@ -14,7 +14,7 @@
  * 
  *)
 
-UNSAFE INTERFACE  Oper;
+INTERFACE  Oper;
 
 FROM Lists	IMPORT tList;
 FROM TokenTab	IMPORT Vocabulary,PosType;

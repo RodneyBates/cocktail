@@ -6,7 +6,7 @@
    Apr 96 to add TotalLineCount 
 *)
 
-UNSAFE INTERFACE  Scanner;
+INTERFACE  Scanner;
 
 IMPORT Word, Strings;
 

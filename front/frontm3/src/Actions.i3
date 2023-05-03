@@ -20,7 +20,7 @@
  * 
  *)
 
-UNSAFE INTERFACE  Actions;
+INTERFACE  Actions;
 
 IMPORT Word;
 FROM TokenTab   IMPORT PosType;

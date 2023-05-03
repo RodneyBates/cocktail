@@ -14,7 +14,7 @@
  * 
  *)
 
-UNSAFE INTERFACE  FrontChecks;
+INTERFACE  FrontChecks;
 
 FROM    ReuseIO              IMPORT  tFile;
 

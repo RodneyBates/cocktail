@@ -17,7 +17,7 @@
  * 
  *)
 
-UNSAFE INTERFACE  Character;
+INTERFACE  Character;
 
 IMPORT Word;
 PROCEDURE IsEqual	(READONLY c1, c2: ARRAY OF CHAR): BOOLEAN;

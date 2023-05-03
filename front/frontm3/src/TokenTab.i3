@@ -23,7 +23,7 @@
  * 
  *)
 
-UNSAFE INTERFACE  TokenTab;
+INTERFACE  TokenTab;
 
 FROM SYSTEM IMPORT SHORTCARD;
 FROM Strings	IMPORT tString;

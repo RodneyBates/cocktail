@@ -22,7 +22,7 @@
  * 
  *)
 
-UNSAFE INTERFACE  FrontErrors;
+INTERFACE  FrontErrors;
 
 
 IMPORT Word;

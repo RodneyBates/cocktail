@@ -11,7 +11,7 @@
  * 
  *)
 
-UNSAFE INTERFACE  FrontPath;
+INTERFACE  FrontPath;
 
 PROCEDURE InsertPathT (VAR T:TEXT);
 PROCEDURE InsertPath (VAR a: ARRAY OF CHAR);
