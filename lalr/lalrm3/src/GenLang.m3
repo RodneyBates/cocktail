@@ -207,7 +207,9 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
               END;
             END;
           END;
-          IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN WriteC (f, ':'); END;
+          IF Language = tLanguage.Modula3 THEN WriteT (f, " => "); 
+          ELSIF Language = tLanguage.Modula2 THEN WriteC (f, ':');
+          END;
           
           WriteProdComment (f, prod);
 
