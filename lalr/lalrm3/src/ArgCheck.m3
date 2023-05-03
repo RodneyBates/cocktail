@@ -451,6 +451,8 @@ PROCEDURE ExpandLine (Out: tFile; READONLY Line: tString) =
       Ch        : CHAR;
       i         : Word.T;
    BEGIN
+      WriteC (Out, ' '); (* Replace the "$@" at beginning of of Line. *) 
+      WriteC (Out, ' ');
       i := 3;
       LOOP
          INC (i);
