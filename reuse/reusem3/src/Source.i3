@@ -8,7 +8,7 @@
 
 (* Ich, Doktor Josef Grosch, Informatiker, Juli 1992 *)
 
-UNSAFE INTERFACE  Source;
+INTERFACE  Source;
 
 
 IMPORT Word;

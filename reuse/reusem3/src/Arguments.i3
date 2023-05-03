@@ -9,7 +9,7 @@
 
 (* This is the mtc syntax version. *)
 
-(*FOREIGN*) UNSAFE INTERFACE  Arguments
+(*FOREIGN*) INTERFACE  Arguments
 ; TYPE ArgTable = UNTRACED BRANDED REF  ARRAY [0 .. 999 ] 
                              OF UNTRACED BRANDED REF  ARRAY [ 0 .. 999 ] OF CHAR
 (*

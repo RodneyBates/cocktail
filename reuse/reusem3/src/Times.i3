@@ -11,7 +11,7 @@
 
 (* Ich, Doktor Josef Grosch, Informatiker, Sept. 1987 *)
 
-UNSAFE INTERFACE  Times;
+INTERFACE  Times;
 
 FROM SYSTEM IMPORT M2LONGINT;
 

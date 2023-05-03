@@ -14,7 +14,7 @@
 
 (* Ich, Doktor Josef Grosch, Informatiker, 31.8.1988 *)
 
-UNSAFE INTERFACE  Texts;
+INTERFACE  Texts;
 
 FROM ReuseIO		IMPORT tFile	;
 FROM Lists	IMPORT tList	;

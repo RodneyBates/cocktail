@@ -17,7 +17,7 @@
 
 (* Ich, Doktor Josef Grosch, Informatiker, Sept. 1987 *)
 
-UNSAFE INTERFACE  StringMem;
+INTERFACE  StringMem;
 
 IMPORT Word;
 

@@ -25,7 +25,7 @@ Initial revision
 
 (* Ich, Doktor Josef Grosch, Informatiker, 8.1.1988 *)
 
-UNSAFE INTERFACE  Relations;
+INTERFACE  Relations;
 
 FROM ReuseIO		IMPORT tFile;
 FROM Sets	IMPORT tSet;

@@ -17,7 +17,7 @@
 
 (* Ich, Doktor Josef Grosch, Informatiker, Sept. 1987 *)
 
-UNSAFE INTERFACE  StdIO;                        (* buffered standard IO *)
+INTERFACE  StdIO;                        (* buffered standard IO *)
 
 FROM SYSTEM IMPORT M2LONGINT, M2LONGCARD;
 

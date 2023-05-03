@@ -30,13 +30,13 @@
 
 (* Ich, Doktor Josef Grosch, Informatiker, Sept. 1987 *)
 
-UNSAFE INTERFACE  ReuseIO;				(* buffered IO		*)
+INTERFACE  ReuseIO;				(* buffered IO		*)
 
 IMPORT OSError;
 FROM System IMPORT FileNoError;
 
 
-FROM SYSTEM IMPORT M2LONGINT, M2LONGCARD;
+FROM SYSTEM IMPORT M2LONGINT;
 FROM SYSTEM IMPORT SHORTINT;
 IMPORT Word, System;
 

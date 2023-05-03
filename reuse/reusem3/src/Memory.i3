@@ -1,7 +1,7 @@
 
 (* Ich, Doktor Josef Grosch, Informatiker, Juli 1986 *)
 
-UNSAFE INTERFACE  Memory;
+INTERFACE  Memory;
 
 VAR       MemoryUsed    : INTEGER;
                         (* Holds the total amount of memory curently    *)

@@ -8,7 +8,7 @@
 
 (* Ich, Doktor Josef Grosch, Informatiker, Juli 1992 *)
 
-UNSAFE INTERFACE  Positions;
+INTERFACE  Positions;
 
 FROM SYSTEM IMPORT SHORTCARD;
 FROM ReuseIO		IMPORT tFile;

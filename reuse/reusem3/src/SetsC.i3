@@ -16,7 +16,7 @@ Initial revision
 
 (* Ich, Doktor Josef Grosch, Informatiker, Feb. 1989 *)
 
-UNSAFE INTERFACE  SetsC;
+INTERFACE  SetsC;
 
 FROM ReuseIO IMPORT tFile;
 

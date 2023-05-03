@@ -8,7 +8,7 @@
 
 (* Ich, Doktor Josef Grosch, Informatiker, Juli 1992 *)
 
-UNSAFE INTERFACE  Sort;
+INTERFACE  Sort;
 
 TYPE tProcIntIntBool	= PROCEDURE (p0: INTEGER; p1: INTEGER): BOOLEAN;
 TYPE tProcIntInt	= PROCEDURE (p0: INTEGER; p1: INTEGER);

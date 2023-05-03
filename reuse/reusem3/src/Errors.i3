@@ -12,7 +12,7 @@
    Aug 1999: Add StringMessage . 
 *) 
 
-UNSAFE INTERFACE  Errors;
+INTERFACE  Errors;
 
 FROM SYSTEM IMPORT PROC;
 

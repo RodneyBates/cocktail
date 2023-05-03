@@ -29,7 +29,7 @@
 
 (* Ich, Doktor Josef Grosch, Informatiker, Sept. 1987 *)
 
-UNSAFE INTERFACE  Sets;
+INTERFACE  Sets;
 
 FROM SYSTEM IMPORT BITSET, SHORTCARD;
 FROM ReuseIO IMPORT tFile;

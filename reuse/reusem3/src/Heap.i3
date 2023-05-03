@@ -14,7 +14,7 @@
 
 (* Ich, Doktor Josef Grosch, Informatiker, 2.9.1988 *)
 
-UNSAFE INTERFACE  Heap;
+INTERFACE  Heap;
 
 FROM SYSTEM IMPORT M2LONGINT, M2LONGCARD;
 

@@ -11,7 +11,7 @@
 
 (* Ich, Doktor Josef Grosch, Informatiker, Sept. 1987 *)
 
-UNSAFE INTERFACE  Checks;
+INTERFACE  Checks;
 
 PROCEDURE ErrorCheckS (READONLY s:ARRAY OF CHAR ; n: INTEGER);
 PROCEDURE ErrorCheckT (s:TEXT ; n: INTEGER);
