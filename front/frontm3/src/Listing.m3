@@ -17,11 +17,11 @@
  * 
  *)
 
- UNSAFE MODULE Listing;
+UNSAFE MODULE Listing;
 
 IMPORT Word;
 FROM SYSTEM IMPORT SHORTCARD;
-FROM    ReuseIO              IMPORT  StdInput,       StdError,       tFile,
+FROM    ReuseIO              IMPORT  StdInput,       StdError,
                                 EndOfFile,      WriteNl,        WriteC;
 FROM    Memory          IMPORT  Alloc,          Free;
 FROM    Strings         IMPORT  tString,        ReadL,          WriteL;
