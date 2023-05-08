@@ -60,6 +60,7 @@ CONST   (* info classes *)
   eIdent        =       10;
   eTermSet      =       11;
   eTokSet       =       12; (* <: REFANY *) 
+  eText         =       13; (* <: REFANY *) 
 
 CONST   (* error classes *)
   eFatal        =       1;

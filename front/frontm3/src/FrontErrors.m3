@@ -420,16 +420,20 @@ PROCEDURE WriteInfo (InfoClass: Word.T; Info: ADDRESS) =
    END WriteInfo;
 
 PROCEDURE WriteInfoTraced (InfoClass: Word.T; InfoTraced: REFANY) =
-(* Only InfoClass = eTokSet does anything much. *) 
+(* Only InfoClass IN {eTokSet, eText} does anything much. *) 
    VAR
       IntSetsT         : IntSets.T;
+      TextT            : TEXT; 
    BEGIN
       IF InfoClass = eNone THEN RETURN END;
 
-      CASE InfoClass OF
+      CASE InfoClass OF 
       | eTokSet=>
           IntSetsT := InfoTraced; 
           WriteTokSet (StdError, IntSetsT);
+      | eText =>
+        TextT := InfoTraced;
+        WriteT (StdError, TextT);
       ELSE
         WriteC (StdError, ' ');
         WriteT (StdError, "Info Class: ");

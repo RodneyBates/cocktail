@@ -158,7 +158,8 @@ $@    yyRepairAttribute : $.tScanAttribute;
       yyNCombPtr        : yyNCombTypePtr;
       yyIsRepairing     : BOOLEAN;
       yyErrorCount      : CARDINAL;
-      yyTokenString     : TEXT (*ARRAY [0..127] OF CHAR*);
+      yyText            : TEXT; 
+      yyTokenStringxxx     : TEXT (*ARRAY [0..127] OF CHAR*);
 
 $@  BEGIN (* @ *) 
 $@    Begin@ ();
@@ -222,11 +223,10 @@ $@    yyTerminal        := $.GetToken ();
                   THEN (* read or read terminal reduce ? *)
 $@                   $.ErrorAttribute 
                        (yyRepairToken, yyRepairAttribute);
-                     TokenName (yyRepairToken, yyTokenString);
-                     FrontErrors.ErrorMessageI 
+                     TokenName (yyRepairToken, yyText);
+                     FrontErrors.ErrorMessageTraced
                        (FrontErrors.TokenInserted, FrontErrors.Repair,
-$@                      $.Attribute.Position, FrontErrors.eArray, 
-                        ADR (yyTokenString[FIRST(yyTokenString)])
+$@                      $.Attribute.Position, FrontErrors.eText, yyText 
                        );
                      IF yyState >= yyFirstFinalState 
                      THEN (* avoid second push *)
@@ -309,9 +309,9 @@ PROCEDURE ErrorRecovery (
    BEGIN
    (* 1. report the error *)
          TokenName ( Terminal , TokenText );
-         Strings.TextToString (TokenArray, TokenText);
-         FrontErrors.ErrorMessageI (FrontErrors.SyntaxError, FrontErrors.Error, 
-$@         $.Attribute.Position, FrontErrors.eString, ADR(TokenString) );
+         FrontErrors.ErrorMessageTraced
+           (FrontErrors.SyntaxError, FrontErrors.Error, 
+$@         $.Attribute.Position, FrontErrors.eText, TokenText);
 
    (* 2. report the set of expected terminal symbols *)
       ContinueSet:= IntSets . Empty ( ); 
