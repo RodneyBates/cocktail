@@ -181,7 +181,8 @@ FROM TokenTab	IMPORT Vocabulary;
     State     := TablePtr^[LastState].Succ;
     
     WHILE State # NoState DO
-      IF NOT IntSets. Equal (TablePtr^[LastState].Terms, TablePtr^[State].Terms) THEN
+      IF NOT IntSets. Equal (TablePtr^[LastState].Terms, TablePtr^[State].Terms)
+      THEN
 	LastState := State;
       END;
 

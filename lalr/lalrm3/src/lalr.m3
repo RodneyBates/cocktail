@@ -64,6 +64,7 @@ BEGIN
   InitIdents();
   BeginErrors();
   ArgCheck();
+  BeginErrors();
   GoOn := Generate;
 
   IF GoOn THEN

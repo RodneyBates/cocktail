@@ -1,4 +1,4 @@
-(* check arguments *)
+
 
 (* $Id: ArgCheck.mi,v 2.5 1992/09/24 13:12:31 grosch rel $ *)
 
@@ -126,7 +126,7 @@ CONST
   ParsImpC      = "Parser.c";
   ParsDrvC      = "ParserDrv.c";
 
-  ErrorTab      = "ErrorTab";
+  ErrorTab      = "Error.Tab";
   HelpFile      = "lalr.cat";
   ShortHelpFile = "lalr.syn";
 
@@ -280,7 +280,7 @@ PROCEDURE ArgCheck() =
     InsertLibPathT (ScanTabName);
     InsertLibPathT (ParsTabName);
 
-    ErrorTableT := ErrorTab;
+    (* ErrorTableT := ErrorTab; *)
     InsertLibPathT ((*VAR*) ErrorTableT);
     
     IF SourceFile = StdInput THEN
