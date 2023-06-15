@@ -39,7 +39,7 @@ FROM Idents     IMPORT GetString, tIdent, WriteIdent;
 FROM TokenTab   IMPORT MAXTerm, MINTerm, Terminal, TokenError, GetTokenType,
                         TokenType, TokenToSymbol;
 
-  PROCEDURE GenWrTo (f : tFile) =
+  PROCEDURE GenTokNameAlts (f : tFile) =
     VAR
       t         : Terminal;
       sym       : tIdent;
@@ -106,7 +106,7 @@ FROM TokenTab   IMPORT MAXTerm, MINTerm, Terminal, TokenError, GetTokenType,
           WriteNl (f);
         END;
       END;
-    END GenWrTo;
+    END GenTokNameAlts;
 
 BEGIN
   Language := tLanguage.Modula2;

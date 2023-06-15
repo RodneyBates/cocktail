@@ -135,8 +135,9 @@ UNSAFE MODULE Gen;
     Terminal,
     GetTokenType,
     TokenToSymbol;
-  
-  FROM WriteTok IMPORT tLanguage, Language, GenWrTo;
+
+  IMPORT WriteTok;
+  FROM WriteTok IMPORT tLanguage, Language;
 
   CONST EOL             = '\012';
   CONST InitReduceCount = 4;
@@ -246,7 +247,7 @@ UNSAFE MODULE Gen;
                     SubString   (line,3,Strings.Length(line),rest);
                     WriteL      (out,rest);
                   END;
-          | 'W' => GenWrTo      (out);
+          | 'W' => WriteTok.GenTokNameAlts (out);
           | 'P' => PutBase      (out);
           | 'Q' => PutNBase     (out);
           | 'D' => PutDefault   (out);

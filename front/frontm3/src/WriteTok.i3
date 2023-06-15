@@ -32,7 +32,7 @@ INTERFACE  WriteTok;
   
   VAR Language  : tLanguage;
   
-  PROCEDURE GenWrTo (f : tFile);
+  PROCEDURE GenTokNameAlts (f : tFile);
 
 END WriteTok.
 
