@@ -545,6 +545,7 @@ UNSAFE MODULE Gen;
     BEGIN
       LengthCount := ProdCount;
       Length := NEW (REF ARRAY OF TableElmt, LengthCount+1);
+(* See note in Debug.SearchPathC about MakeArray. *) 
 (*WAS:MakeArray (Length,LengthCount,ElmtSize);*)
       index := 0;
       FOR prodno := 1 TO ProdCount DO
@@ -563,6 +564,7 @@ UNSAFE MODULE Gen;
     BEGIN
       LeftHandSideCount := ProdCount;
       LeftHandSide := NEW (REF ARRAY OF TableElmt, LeftHandSideCount+1);
+(* See note in Debug.SearchPathC about MakeArray. *) 
 (*WAS:MakeArray (LeftHandSide,LeftHandSideCount,TableElmt);*)
       index := 0;
       FOR prodno := 1 TO ProdCount DO
@@ -622,7 +624,9 @@ UNSAFE MODULE Gen;
         prod := ADR (ProdArrayPtr^[index]);
         WITH m2tom3_with_16=prod^.Reduce DO
           m2tom3_with_16.Count := InitReduceCount;
-          m2tom3_with_16.Array := NEW (REF ARRAY OF tIndex, m2tom3_with_16.Count);
+          m2tom3_with_16.Array
+            := NEW (REF ARRAY OF tIndex, m2tom3_with_16.Count+1);
+(* See note in Debug.SearchPathC about MakeArray. *) 
 (*WAS:    MakeArray (m2tom3_with_16.Array, m2tom3_with_16.Count, BYTESIZE(tIndex));*)
           m2tom3_with_16.Used := 1;
           m2tom3_with_16.Array^[1] := state; (* Reduce State *)

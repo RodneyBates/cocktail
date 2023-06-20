@@ -49,15 +49,16 @@ PROCEDURE InitCompressTable() =
       State     : tStateIndex;
    BEGIN
       BaseCount    := LastReadState+1;
-      Base := NEW (REF ARRAY OF TableElmt, BaseCount);
+      Base := NEW (REF ARRAY OF TableElmt, BaseCount+1);
+(* See note in Debug.SearchPathC about MakeArray. *) 
 (*WAS:MakeArray (Base,BaseCount,ElmtSize);*)
 
       DefaultCount := LastReadState+1;
-      Default := NEW ( REF ARRAY OF TableElmt, DefaultCount);
+      Default := NEW ( REF ARRAY OF TableElmt, DefaultCount+1);
 (*WAS:MakeArray (Default,DefaultCount,ElmtSize);*)
 
       ControlCount := LastSymbol+InitTableMax;
-      Control := NEW (REF ARRAY OF ControlType, ControlCount);
+      Control := NEW (REF ARRAY OF ControlType, ControlCount+1);
 (*WAS:MakeArray (Control,ControlCount,BYTESIZE(ControlType));*)
 
       TableMax := ControlCount - 1;
@@ -173,10 +174,11 @@ PROCEDURE InitCompressNTable() =
       State     : tStateIndex;
    BEGIN
       NBaseCount := LastReadState+1;
-      NBase := NEW (REF ARRAY OF TableElmt, NBaseCount);
+      NBase := NEW (REF ARRAY OF TableElmt, NBaseCount+1);
+(* See note in Debug.SearchPathC about MakeArray. *) 
 (*WAS:MakeArray (NBase,NBaseCount,ElmtSize);*)
       NNextCount := LastSymbol+InitNTableMax;
-      NNext := NEW (REF ARRAY OF TableElmt ,NNextCount);
+      NNext := NEW (REF ARRAY OF TableElmt ,NNextCount+1);
 (*WAS:MakeArray (NNext,NNextCount,BYTESIZE(TableElmt));*)
       NTableMax := NNextCount - 1;
       FOR State := 0 TO LastReadState DO NBase^ [State] := 0; END;

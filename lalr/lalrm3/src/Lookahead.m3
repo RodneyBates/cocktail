@@ -636,8 +636,9 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
         i := m2tom3_with_26.Used;
         IF i = 0 THEN
           m2tom3_with_26.Array
-            := NEW (REF ARRAY OF tIndex, m2tom3_with_26.Count);
+            := NEW (REF ARRAY OF tIndex, m2tom3_with_26.Count+1);
           m2tom3_with_26.Count := NUMBER (m2tom3_with_26.Array^);
+(* See note in Debug.SearchPathC about MakeArray. *) 
 (*WAS:    MakeArray (m2tom3_with_26.Array,m2tom3_with_26.Count,BYTESIZE(tIndex));
         ELSIF m2tom3_with_26.Used >= m2tom3_with_26.Count THEN
           ExtendArray (m2tom3_with_26.Array,m2tom3_with_26.Count,BYTESIZE(tIndex));*)
@@ -650,7 +651,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
       END;
     END PutInRelation;
 
-(*UNSAFE MODULE ItemStack;*)
+(*UNSAFE MODULE ItemStack; Was nested in Modula-2.*)
 
 (* IMPORT tItemIndexList, tItemIndex, BYTESIZE, MakeArray, ExtendArray, eInternal, eFatal, ERROR;*)
 
@@ -672,7 +673,8 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
           IF Stack.Used > Stack.Count THEN
             IF Stack.Count = 0 THEN
               Stack.Count := InitItemStackCount;
-              Stack.Array := NEW (REF ARRAY OF tItemIndex, Stack.Count);
+              Stack.Array := NEW (REF ARRAY OF tItemIndex, Stack.Count+1);
+(* See note in Debug.SearchPathC about MakeArray. *) 
 (*WAS:        MakeArray (Array,Count,BYTESIZE(tItemIndex));*)
             ELSE
               (*ExtendArray (Array,Count,BYTESIZE(tItemIndex));*)

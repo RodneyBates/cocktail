@@ -66,13 +66,14 @@ FROM TokenTab	IMPORT Vocabulary;
   VAR State : tStateIndex;
   BEGIN
     TableSize := LastReadState + 1;
-    TablePtr := NEW (REF ARRAY OF tLine, TableSize);
+    TablePtr := NEW (REF ARRAY OF tLine, TableSize+1);
+(* See note in Debug.SearchPathC about MakeArray. *) 
 (*WAS:    MakeArray (TablePtr, TableSize, BYTESIZE (tLine));*)
     TSortingSize := LastReadState + 1;
-    TSorting := NEW (REF ARRAY OF tStateIndex, TSortingSize);
+    TSorting := NEW (REF ARRAY OF tStateIndex, TSortingSize+1);
 (*WAS:    MakeArray (TSorting, TSortingSize, BYTESIZE (tStateIndex));*)
     NSortingSize := LastReadState + 1;
-    NSorting := NEW (REF ARRAY OF tStateIndex, NSortingSize);
+    NSorting := NEW (REF ARRAY OF tStateIndex, NSortingSize+1);
 (*WAS:    MakeArray (NSorting, NSortingSize, BYTESIZE (tStateIndex));*)
     FOR State := 0 TO LastReadState DO
       WITH m2tom3_with_1=TablePtr^[State] DO

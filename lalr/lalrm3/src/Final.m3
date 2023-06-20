@@ -53,7 +53,8 @@ UNSAFE MODULE Final;
       prod : tProduction;
     BEGIN
       FinalToProdCount := LastReadNonTermState-FirstReadTermState+1;
-      FinalToProd := NEW (REF ARRAY OF TableElmt, FinalToProdCount);
+      FinalToProd := NEW (REF ARRAY OF TableElmt, FinalToProdCount+1);
+(* See note in Debug.SearchPathC about MakeArray. *) 
 (*WAS:MakeArray (FinalToProd,FinalToProdCount,ElmtSize);*)
       FOR state := FirstReadTermState TO LastReadNonTermState DO
         FinalToProd^[state-FirstReadTermState] := NoState;

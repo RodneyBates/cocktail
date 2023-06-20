@@ -62,7 +62,6 @@ VAR
 BEGIN
   InitStringMemory();
   InitIdents();
-  BeginErrors();
   ArgCheck();
   BeginErrors();
   GoOn := Generate;

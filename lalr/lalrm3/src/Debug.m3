@@ -368,7 +368,8 @@ PROCEDURE Possible (Item: tItemIndex; t: Terminal) : BOOLEAN =
               IF t = m2tom3_with_13.Read THEN
                   PathB.count := depth;
                   PathB.max := depth;
-                  PathB.path := NEW (REF ARRAY OF tItemIndex, PathB.max);
+                  PathB.path := NEW (REF ARRAY OF tItemIndex, PathB.max+1);
+(* See note in SearchPathC about MakeArray. *) 
 (*WAS:            MakeArray (PathB.path,PathB.max,BYTESIZE(tItemIndex));*)
                   PathB.path^[depth] := Item;
                 reached := IntSets.Exclude (reached,Item);
@@ -497,7 +498,14 @@ PROCEDURE SearchPathC (VAR cs      : IntSets.T; maxdepth : Word.T; depth        
         IF found THEN
           PathC.count := depth;
           PathC.max := depth;
-          PathC.path := NEW (REF ARRAY OF tItemIndex, PathC.max);
+          PathC.path := NEW (REF ARRAY OF tItemIndex, PathC.max+1);
+(* NOTE: There is some inconsistency about whether MakeArray gets the
+         element count or max element number.  To avoid extensive vetting,
+         I am just increasing the element count by one where MakeArray is
+         replaced by Modula-3' NEW REF ARRAY ...
+         In at least this instance, the original Modula-2 version was
+         one too low, causing RT errors in the Modula-3 version.  It probably
+         originally just went over harmlessly. *) 
 (*WAS:    MakeArray (PathC.path,PathC.max,BYTESIZE(tItemIndex));*)
           PathC.path^[depth] := Item;
         ELSIF depth < maxdepth THEN
@@ -615,7 +623,9 @@ PROCEDURE FindPathA (N: NonTerminal) =
         WITH m2tom3_with_31=PathA DO
           m2tom3_with_31.count := depth;
           m2tom3_with_31.max    := depth;
-          m2tom3_with_31.path := NEW (REF ARRAY OF tProdPathElmt, m2tom3_with_31.max);
+          m2tom3_with_31.path
+            := NEW (REF ARRAY OF tProdPathElmt, m2tom3_with_31.max+1);
+(* See note in SearchPathC about MakeArray. *) 
 (*WAS:    MakeArray (m2tom3_with_31.path,m2tom3_with_31.max,BYTESIZE(tProdPathElmt));*)
           found := TRUE;
         END;
@@ -969,7 +979,9 @@ PROCEDURE MakeChainD() =
       m2tom3_with_50.max := InitChainLength;
       m2tom3_with_50.count := 0;
       m2tom3_with_50.level := 0;
-      m2tom3_with_50.chain := NEW (REF ARRAY OF tItemChainElmt, m2tom3_with_50.max);
+      m2tom3_with_50.chain
+        := NEW (REF ARRAY OF tItemChainElmt, m2tom3_with_50.max+1);
+(* See note in SearchPathC about MakeArray. *) 
 (*WAS:MakeArray (m2tom3_with_50.chain, m2tom3_with_50.max, BYTESIZE (tItemChainElmt));*)
       m2tom3_with_50.reached:= IntSets.Empty();
       PutInChain (1, 0);
@@ -1057,7 +1069,9 @@ PROCEDURE FindPathD (NT: NonTerminal; EndState: tStateIndex) =
       WITH m2tom3_with_57=PathD DO
         m2tom3_with_57.count := Depth;
         m2tom3_with_57.max   := Depth;
-        m2tom3_with_57.path := NEW (REF ARRAY OF tProdPathElmt, m2tom3_with_57.max);
+        m2tom3_with_57.path
+          := NEW (REF ARRAY OF tProdPathElmt, m2tom3_with_57.max+1);
+(* See note in SearchPathC about MakeArray. *) 
 (*WAS:  MakeArray (m2tom3_with_57.path, m2tom3_with_57.max, BYTESIZE (tProdPathElmt));*)
       END;
 

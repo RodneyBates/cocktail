@@ -639,9 +639,11 @@ debug := 0;
     prod := LOOPHOLE ( prodADR, tProduction);
     WITH m2tom3_with_24=ProdList[prod^.Left] DO
       IF m2tom3_with_24.Used = 0 THEN
-        m2tom3_with_24.Array := NEW (REF ARRAY OF tProdListElmt, InitListCount);
+        m2tom3_with_24.Count := InitListCount;        
+        m2tom3_with_24.Array
+          := NEW (REF ARRAY OF tProdListElmt, InitListCount+1);
+(* See note in Debug.SearchPathC about MakeArray. *) 
 (*WAS:  MakeArray (m2tom3_with_24.Array,m2tom3_with_24.Count,BYTESIZE(tProdListElmt));*)
-        m2tom3_with_24.Count := NUMBER(m2tom3_with_24.Array^);
 
         INC (m2tom3_with_24.Used);
 (* CHECK^ This does not put anyting in Array[0].  Is this right? *)  
@@ -856,7 +858,8 @@ PROCEDURE PushAction (act: tList; voc: Vocabulary; actpos: PosType) =
     INC (StackIndex);
     IF StackElmtCount = 0 THEN
       StackElmtCount := InitStackCount;
-      StackArrayPtr := NEW (REF ARRAY OF tStackElmt, StackElmtCount);
+      StackArrayPtr := NEW (REF ARRAY OF tStackElmt, StackElmtCount+1);
+(* See note in Debug.SearchPathC about MakeArray. *) 
 (*WAS:MakeArray (StackArrayPtr,StackElmtCount,BYTESIZE(tStackElmt));*)
     ELSIF StackIndex > StackElmtCount THEN
       (*ExtendArray (StackArrayPtr,StackElmtCount,BYTESIZE(tStackElmt));*)
@@ -878,15 +881,16 @@ PROCEDURE PopAction (VAR act: tList; VAR voc: Vocabulary; VAR actpos: PosType): 
 
 BEGIN
   ProdElmtCount := InitProdCount;
-  ProdArrayPtr := NEW (REF ARRAY OF Word.T, ProdElmtCount);
+  ProdArrayPtr := NEW (REF ARRAY OF Word.T, ProdElmtCount+1);
+(* See note in Debug.SearchPathC about MakeArray. *) 
 (*WAS:  MakeArray (ProdArrayPtr, ProdElmtCount, BYTESIZE(Word.T));*)
 
   ItemElmtCount := InitItemCount;
-  ItemArrayPtr := NEW(REF ARRAY OF tItem, ItemElmtCount);
+  ItemArrayPtr := NEW(REF ARRAY OF tItem, ItemElmtCount+1);
 (*WAS:  MakeArray (ItemArrayPtr, ItemElmtCount, BYTESIZE(tItem));*)
 
   StateElmtCount := InitStateCount;
-  StateArrayPtr := NEW (REF ARRAY OF tState, StateElmtCount);
+  StateArrayPtr := NEW (REF ARRAY OF tState, StateElmtCount+1);
 (*WAS:  MakeArray (StateArrayPtr, StateElmtCount, BYTESIZE(tState));*)
 
   FOR i := FIRST(NonTerminal) TO LAST(NonTerminal) DO

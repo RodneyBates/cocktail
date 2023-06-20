@@ -57,6 +57,9 @@
 
 UNSAFE MODULE ArgCheck;
 
+IMPORT Stdio;
+IMPORT Wr;
+
 IMPORT Params;
 IMPORT Text;
 IMPORT Word;
@@ -89,7 +92,8 @@ FROM Strings    IMPORT  tString,        tStringIndex,   ArrayToString,
 FROM SysError   IMPORT  StatIsBad,      SysErrorMessageI;
 FROM System     IMPORT  GetArgument,    GetArgCount;
 
-FROM WriteTok   IMPORT  tLanguage,      Language,       SourceFileName;
+IMPORT WriteTok;
+FROM WriteTok   IMPORT  tLanguage,      Language;
 
 CONST
   eToManyArgs   = 21;
@@ -162,8 +166,9 @@ PROCEDURE ArgCheck() =
     ArgNo               : Word.T;
     ArgumentT           : TEXT;
     ArgumentA           : ARRAY [0..255] OF CHAR;
-    ArgString           : tString;
+    SourceFileNameS     : tString;
     file                : tFile;
+    ArgString           : tString;
     FileNameT           : TEXT;
     FileName            : ARRAY [0..255] OF CHAR;
     ArgCt               : INTEGER;
@@ -189,23 +194,12 @@ PROCEDURE ArgCheck() =
       IF Ch>= '0' AND Ch <= '9' THEN
         CaseLabels := StringToInt (ArgString);
         CaseFlag := TRUE;
-      ELSIF Ch # '-' THEN
+      ELSIF Ch # '-' THEN (* Not an option.  Must be input file name. *) 
         IF SourceFileIsOpen THEN
           ErrorMessageI (eToManyArgs, eError, NoPosition, eString, ADR (ArgString));
         ELSE
-          SourceFileName := ArgumentT;
-          TRY SourceFile := ReadOpenT (ArgumentT);
-          EXCEPT ELSE SourceFile := - 1; END; 
-          IF StatIsBad (SourceFile) THEN
-            SysErrorMessageI (SourceFile, eError, eString, ADR(ArgString));
-            SourceFile := StdInput;
-          ELSE
-            CheckReadOpenT (SourceFile, ArgumentT);
-            SourceFileIsOpen := TRUE;
-            StringToArray(ArgString, ArgumentA);
-            BeginFile (ArgumentA);
-            IF EndOfFile (SourceFile) THEN EXIT END; 
-          END;
+          WriteTok.SourceFileName := ArgumentT;
+          SourceFileNameS := ArgString;
         END;
           
       ELSIF Text.Equal (ArgumentT, cC) THEN
@@ -282,7 +276,28 @@ PROCEDURE ArgCheck() =
 
     (* ErrorTableT := ErrorTab; *)
     InsertLibPathT ((*VAR*) ErrorTableT);
-    
+
+    TRY SourceFile := ReadOpenT (WriteTok.SourceFileName);
+    EXCEPT ELSE SourceFile := - 1; END; 
+    IF StatIsBad (SourceFile) THEN
+      Wr . PutText ( Stdio . stderr , "Unable to open source file " );
+      Wr . PutText ( Stdio . stderr , WriteTok.SourceFileName );  
+      Wr . PutText
+        ( Stdio . stderr , ", reading from standard input instead." );  
+      Wr . PutText ( Stdio . stderr , Wr . EOL );
+      Wr . Flush ( Stdio . stderr ); 
+      SourceFile := StdInput;
+    ELSE
+      CheckReadOpenT (SourceFile, WriteTok.SourceFileName);
+      SourceFileIsOpen := TRUE;
+      StringToArray(SourceFileNameS, ArgumentA);
+      BeginFile (ArgumentA);
+(* YUCK: What a tangled mess of conversions among 3 different
+         representations of character strings!  All because I
+         am avoiding massive and pervasive rework from Modula-2
+         to Modula-3. *) 
+    END;
+
     IF SourceFile = StdInput THEN
       FileNameT := ShortHelpFile;
       InsertLibPathT (FileNameT);

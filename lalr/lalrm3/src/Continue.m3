@@ -41,7 +41,8 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Non
       prod : tProduction;
     BEGIN
       ContinuationCount := LastReadState+1;
-      Continuation := NEW (REF ARRAY OF TableElmt, ContinuationCount);
+      Continuation := NEW (REF ARRAY OF TableElmt, ContinuationCount+1);
+(* See note in Debug.SearchPathC about MakeArray. *) 
 (*WAS:MakeArray (Continuation,ContinuationCount,ElmtSize);*)
       Continuation^[0] := 0;
 
