@@ -87,7 +87,7 @@ VAR
   PROCEDURE MakeTerm (sym: tIdent; VAR ter: Terminal; VAR Error: TokenError; pos: PosType) =
   
   (* Fuege sym als NEUES Terminal in TokenTab mit vorgegebener Codierung
-     ter ein. Falls s bereits in der TokenTab steht, wird der alte Code
+     ter ein. Falls sym bereits in der TokenTab steht, wird der alte Code
      zurueckgeliefert und Error auf SymbolExists gesetzt.
      Error = CodeExists, falls der angegebene Code bereits vergeben ist . *)
 
@@ -99,7 +99,7 @@ VAR
       Error:= TokenError.SymbolExists;
       ter  := ExToInt[sym];
     ELSIF IntToEx[ter] # NoValue THEN
-      (* Es wurde einEintrag mit MakeDefTerm gemacht *)
+      (* Es wurde ein Eintrag mit MakeDefTerm gemacht *)
       Error := TokenError.CodeExists;
     ELSE
       ExToInt[sym]      := ter;
