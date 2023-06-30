@@ -42,7 +42,7 @@ TYPE
 
     tIndexList = RECORD
         Used    : INTEGER;
-        Array   : REF  ARRAY OF tIndex;
+        IlArray   : REF  ARRAY OF tIndex;
 (* TODO: replace Count by NUMBER ( Array^) *)
         Count   : INTEGER;
       END;

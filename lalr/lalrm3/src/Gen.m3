@@ -614,12 +614,12 @@ UNSAFE MODULE Gen;
         prod := ADR (ProdArrayPtr^[index]);
         WITH m2tom3_with_16=prod^.Reduce DO
           m2tom3_with_16.Count := InitReduceCount;
-          m2tom3_with_16.Array
+          m2tom3_with_16.IlArray
             := NEW (REF ARRAY OF tIndex, m2tom3_with_16.Count+1);
 (* See note in Debug.SearchPathC about MakeArray. *) 
-(*WAS:    MakeArray (m2tom3_with_16.Array, m2tom3_with_16.Count, BYTESIZE(tIndex));*)
+(*WAS:    MakeArray (m2tom3_with_16.IlArray, m2tom3_with_16.Count, BYTESIZE(tIndex));*)
           m2tom3_with_16.Used := 1;
-          m2tom3_with_16.Array^[1] := state; (* Reduce State *)
+          m2tom3_with_16.IlArray^[1] := state; (* Reduce State *)
         END;
         index := NextProdIndex(index);
       END;
@@ -652,9 +652,9 @@ UNSAFE MODULE Gen;
               WITH m2tom3_with_18=prod^.Reduce DO
                 INC (m2tom3_with_18.Used);
                 IF m2tom3_with_18.Used > m2tom3_with_18.Count THEN
-                  (*ExtendArray (m2tom3_with_18.Array,m2tom3_with_18.Count,BYTESIZE(tIndex));*)
+                  (*ExtendArray (m2tom3_with_18.IlArray,m2tom3_with_18.Count,BYTESIZE(tIndex));*)
                 END;
-                m2tom3_with_18.Array^[m2tom3_with_18.Used] := m2tom3_with_17.NewNumber;
+                m2tom3_with_18.IlArray^[m2tom3_with_18.Used] := m2tom3_with_17.NewNumber;
               END;
             END;
           END;

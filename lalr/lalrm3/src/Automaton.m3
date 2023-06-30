@@ -360,7 +360,7 @@ PROCEDURE UniqueState (VAR new: BOOLEAN): tStateIndex =
       (* Pruefe ob der State bereits vorhanden *)
 
       FOR i:=1 TO m2tom3_with_13.Used DO
-        IF AreEqualStates (StateIndex,m2tom3_with_13.Array^[i]) THEN
+        IF AreEqualStates (StateIndex,m2tom3_with_13.IlArray^[i]) THEN
           (* State ist bereits vorhanden *)
 
           (* Speicher freigeben *)
@@ -374,7 +374,7 @@ PROCEDURE UniqueState (VAR new: BOOLEAN): tStateIndex =
           (* bereits bekannten State zurueckgeben *)
 
           new := FALSE;
-          RETURN m2tom3_with_13.Array^[i];
+          RETURN m2tom3_with_13.IlArray^[i];
         END;
       END;
 
@@ -382,18 +382,18 @@ PROCEDURE UniqueState (VAR new: BOOLEAN): tStateIndex =
 
       i := m2tom3_with_13.Used;
       IF i = 0 THEN
-        m2tom3_with_13.Array := NEW ( REF ARRAY OF tIndex, InitHashListCount );
-        m2tom3_with_13.Count := NUMBER(m2tom3_with_13.Array^);
+        m2tom3_with_13.IlArray := NEW ( REF ARRAY OF tIndex, InitHashListCount );
+        m2tom3_with_13.Count := NUMBER(m2tom3_with_13.IlArray^);
    (* ELSIF i >= m2tom3_with_13.Count THEN
-        ExtendArray (m2tom3_with_13.Array,m2tom3_with_13.Count,BYTESIZE(tIndex));*)
+        ExtendArray (m2tom3_with_13.IlArray,m2tom3_with_13.Count,BYTESIZE(tIndex));*)
       ELSE 
         ExpArrays_tIndex.Expand
-          ((*VAR*)m2tom3_with_13.Array, i+2, i+6); 
-        m2tom3_with_13.Count := NUMBER(m2tom3_with_13.Array^);
+          ((*VAR*)m2tom3_with_13.IlArray, i+2, i+6); 
+        m2tom3_with_13.Count := NUMBER(m2tom3_with_13.IlArray^);
       END;
 
       INC (m2tom3_with_13.Used);
-      m2tom3_with_13.Array^[m2tom3_with_13.Used] := StateIndex;
+      m2tom3_with_13.IlArray^[m2tom3_with_13.Used] := StateIndex;
       new := TRUE;
       RETURN StateIndex;
     END;
@@ -900,7 +900,7 @@ BEGIN
   FOR i := FIRST(HashIndex) TO LAST(HashIndex) DO
     StateHashList[i].Used := 0;
     StateHashList[i].Count := 0;
-    StateHashList[i].Array := NIL;
+    StateHashList[i].IlArray := NIL;
   END;
 
   FOR i:= FIRST(Terminal) TO LAST (Terminal) DO

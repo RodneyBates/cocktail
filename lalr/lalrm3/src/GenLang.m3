@@ -52,9 +52,9 @@
 UNSAFE MODULE GenLang; (* Erzeugung von Modula2- oder C-Quelltexten *)
 
 FROM SYSTEM IMPORT M2LONGINT;
-FROM Automaton  IMPORT tIndex, tStateIndex, tProdIndex, tProduction, ProdIndex, ProdArrayPtr, NextProdIndex;
+FROM Automaton  IMPORT tStateIndex, tProdIndex, tProduction, ProdIndex
+                , ProdArrayPtr, NextProdIndex;
 FROM Compress   IMPORT NTableSize, TableSize;
-FROM DynArray   IMPORT ReleaseArray;
 FROM ArgCheck   IMPORT LineFlag;
 FROM Gen        IMPORT NonTermOffset, FirstTerminal, LastTerminal, FirstSymbol,
                         LastSymbol, FirstReadState, LastReadState, FirstReadTermState,
@@ -150,7 +150,6 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
       index: tProdIndex;
       prod: tProduction;
       maxProdIndex: tProdIndex;
-      u: M2LONGINT;
     BEGIN
       label := FirstReduceState;
       labels := 0;
@@ -188,21 +187,21 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
         WITH m2tom3_with_1=prod^.Reduce DO
           IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
             WriteT (f, "  | ");
-            WriteI (f, m2tom3_with_1.Array^[1], 0);
+            WriteI (f, m2tom3_with_1.IlArray^[1], 0);
           ELSE (* Language = C *)
             WriteT (f, "case ");
-            WriteI (f, m2tom3_with_1.Array^[1], 0);
+            WriteI (f, m2tom3_with_1.IlArray^[1], 0);
             WriteC (f, ':');
           END;
           IF NOT CaseFlag THEN
             FOR u := 2 TO m2tom3_with_1.Used DO
               IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
                 WriteC (f, ',');
-                WriteI (f, m2tom3_with_1.Array^[u], 0);
+                WriteI (f, m2tom3_with_1.IlArray^[u], 0);
               ELSE (* Language = C *)
                 WriteNl (f);
                 WriteT (f, "case ");
-                WriteI (f, m2tom3_with_1.Array^[u], 0);
+                WriteI (f, m2tom3_with_1.IlArray^[u], 0);
                 WriteC (f, ':');
               END;
             END;
@@ -264,8 +263,8 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
             END;
           END;
 
-          m2tom3_with_1.Array := NIL;
-(*WAS     ReleaseArray (m2tom3_with_1.Array, m2tom3_with_1.Count, BYTESIZE (tIndex));*)
+          m2tom3_with_1.IlArray := NIL;
+(*WAS     ReleaseArray (m2tom3_with_1.IlArray, m2tom3_with_1.Count, BYTESIZE (tIndex));*)
         END;
 
         (* semantische Aktion ausgeben *)
@@ -439,7 +438,6 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
     END WriteSemanticAction;
 
   PROCEDURE WriteProdComment (f: tFile; prod: tProduction) =
-    VAR i: tIndex;
     BEGIN
       IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
         WriteT (f, " (* ");
@@ -470,7 +468,6 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
      s: tString;
      sym: tIdent;
      error: TokenError;
-     i: Word.T;
     BEGIN
       sym := TokenToSymbol (t, error);
       GetString (sym, s);
@@ -505,7 +502,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
       WriteC (f, ' ');
     END WriteToken;
 
-  PROCEDURE WriteLong (f:tFile; Check:M2LONGINT) =
+  <*UNUSED*> PROCEDURE WriteLong (f:tFile; Check:M2LONGINT) =
     VAR
       i, j: M2LONGINT;
       d: Word.T;
