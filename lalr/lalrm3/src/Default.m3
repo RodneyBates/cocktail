@@ -29,7 +29,7 @@ FROM TokenTab	IMPORT Vocabulary;
   CONST NoState	 = 0;
 
   TYPE
-    tTrans  = UNTRACED BRANDED REF  tTran;		   (* Uebergange *)
+    tTrans  = REF  tTran;		   (* Uebergange *)
 
     tTran   = RECORD			   (* Uebergang*)
 		Voc   : Vocabulary;
@@ -107,7 +107,7 @@ FROM TokenTab	IMPORT Vocabulary;
       m2tom3_with_2.Transitions := NIL;
       FOR Voc := LastSymbol TO FirstSymbol BY -1 DO
 	IF TableLine [Voc] # NoState THEN
-	  Trans := Alloc (BYTESIZE (tTran));
+	  Trans := NEW(tTrans);
 	  Trans^.Voc   := Voc;
 	  Trans^.State := TableLine [Voc];
 	  Trans^.Next  := m2tom3_with_2.Transitions;
