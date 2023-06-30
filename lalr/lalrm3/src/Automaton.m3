@@ -647,7 +647,6 @@ debug := 0;
 (*WAS:  MakeArray (m2tom3_with_24.PilArray,m2tom3_with_24.Count,BYTESIZE(tProdListElmt));*)
 
         INC (m2tom3_with_24.Used);
-(* CHECK^ This does not put anyting in Array[0].  Is this right? *)  
         m2tom3_with_24.PilArray^[m2tom3_with_24.Used].Index := index; 
         m2tom3_with_24.PilArray^[m2tom3_with_24.Used].Value := value; 
       ELSE
@@ -656,7 +655,7 @@ debug := 0;
    which gave array bounds errors when Used=3, Count=4, and trying below to
    insert into Array[4].  Either the change below is needed, or the INC(Used)
    above needs to happen *after* storing into Array[Used].  My only theory
-   is that, in Modula-2, this array violation happended to be undetected
+   is that, in Modula-2, this array violation happened to be undetected
    and by luck, harmless.
 
 WAS:
@@ -668,8 +667,8 @@ WAS:
         i := m2tom3_with_24.Used;
         IF i+1 > LAST (m2tom3_with_24.PilArray^)
         THEN 
-          ExpandProdListArray ((*VAR*)m2tom3_with_24.PilArray,i+5);
-          m2tom3_with_24.Count := NUMBER(m2tom3_with_24.PilArray^);
+          ExpandProdListArray ((*VAR*)m2tom3_with_24.PilArray,i+6);
+          m2tom3_with_24.Count := LAST(m2tom3_with_24.PilArray^);
         END;
         WHILE (i > 0) AND (m2tom3_with_24.PilArray^[i].Value > value) DO
           m2tom3_with_24.PilArray^[i+1].Index := m2tom3_with_24.PilArray^[i].Index;

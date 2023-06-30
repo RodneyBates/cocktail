@@ -1,4 +1,4 @@
-g(* generate the parser *)
+(* generate the parser *)
 
 (* $Id: Gen.mi,v 2.6 1992/08/12 07:04:48 grosch rel $ *)
 
@@ -55,6 +55,8 @@ g(* generate the parser *)
 UNSAFE MODULE Gen;
 
   FROM SYSTEM IMPORT  SHORTINT;
+
+  IMPORT ExpArrays_tIndex;
 
   IMPORT IntSets; 
   FROM Actions IMPORT tActionMode, PutAction, WriteActions, ScannerName, ParserName;
