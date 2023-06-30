@@ -637,14 +637,14 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
         IF i = 0 THEN
           m2tom3_with_26.IilArray
             := NEW (REF ARRAY OF tIndex, m2tom3_with_26.Count+1);
-          m2tom3_with_26.Count := NUMBER (m2tom3_with_26.IilArray^);
+          m2tom3_with_26.Count := FIRST (m2tom3_with_26.IilArray^);
 (* See note in Debug.SearchPathC about MakeArray. *) 
 (*WAS:    MakeArray (m2tom3_with_26.IilArray,m2tom3_with_26.Count,BYTESIZE(tIndex));
         ELSIF m2tom3_with_26.Used >= m2tom3_with_26.Count THEN
           ExtendArray (m2tom3_with_26.IilArray,m2tom3_with_26.Count,BYTESIZE(tIndex));*)
         ELSE
-          ExpArrays_tItemIndex.Expand (m2tom3_with_26.IilArray, i+2, i+6);
-          m2tom3_with_26.Count := NUMBER (m2tom3_with_26.IilArray^);
+          ExpArrays_tItemIndex.Expand (m2tom3_with_26.IilArray, i+3, i+7);
+          m2tom3_with_26.Count := LAST(m2tom3_with_26.IilArray^);
         END;
         INC (m2tom3_with_26.Used);
         m2tom3_with_26.IilArray^[m2tom3_with_26.Used] := NT; 
@@ -677,7 +677,10 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
 (* See note in Debug.SearchPathC about MakeArray. *) 
 (*WAS:        MakeArray (Array,Count,BYTESIZE(tItemIndex));*)
             ELSE
-              (*ExtendArray (Array,Count,BYTESIZE(tItemIndex));*)
+(*WASExtendArray (Array,Count,BYTESIZE(tItemIndex));*)
+              ExpArrays_tItemIndex.Expand
+                ((*VAR*)Stack.IilArray, Stack.Count + 1 ); 
+              Stack.Count := LAST(Stack.IilArray^);
             END;
           END;
           Stack.IilArray^[Stack.Used] := Item;
