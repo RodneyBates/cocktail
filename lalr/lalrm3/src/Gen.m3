@@ -545,6 +545,7 @@ UNSAFE MODULE Gen;
     BEGIN
       LengthCount := ProdCount;
       Length := NEW (REF ARRAY OF TableElmt, LengthCount+1);
+      (* Element zero is unused -------------------------^ *)
 (* See note in Debug.SearchPathC about MakeArray. *) 
 (*WAS:MakeArray (Length,LengthCount,ElmtSize);*)
       index := 0;
@@ -564,6 +565,7 @@ UNSAFE MODULE Gen;
     BEGIN
       LeftHandSideCount := ProdCount;
       LeftHandSide := NEW (REF ARRAY OF TableElmt, LeftHandSideCount+1);
+      (* Element zero is unused -------------------------------------^ *)
 (* See note in Debug.SearchPathC about MakeArray. *) 
 (*WAS:MakeArray (LeftHandSide,LeftHandSideCount,TableElmt);*)
       index := 0;
@@ -706,15 +708,29 @@ PROCEDURE PutTables (TableFile: tFile) =
       IF InError THEN RETURN END;
       PutTable ((LastReadState + 1) * ElmtSize, ADR(Default^[0]));
       IF InError THEN RETURN END;
-      PutTable ((NTableSize - LastTerminal) * BYTESIZE (TableElmt), ADR (NNext^[LastTerminal + 1]));
+      PutTable
+        ((NTableSize - LastTerminal) * BYTESIZE (TableElmt)
+        , ADR (NNext^[LastTerminal + 1])
+        );
       IF InError THEN RETURN END;
-      PutTable ((LastReduceState - FirstReduceState + 1) * ElmtSize, ADR(Length^[0]));
+      PutTable
+        ((LastReduceState - FirstReduceState + 1) * ElmtSize
+        , ADR(Length^[1])
+        (* Length is 1-origin in lalr, but 0-origin in table file. *) 
+        );
       IF InError THEN RETURN END;
-      PutTable ((LastReduceState - FirstReduceState + 1) * ElmtSize, ADR(LeftHandSide^[0]));
+      PutTable
+        ((LastReduceState - FirstReduceState + 1) * ElmtSize
+        , ADR(LeftHandSide^[1])
+        (* LeftHandSide is 1-origin in lalr, but 0-origin in table file. *) 
+        );
       IF InError THEN RETURN END;
       PutTable ((LastReadState + 1) * ElmtSize, ADR(Continuation^[0]));
       IF InError THEN RETURN END;
-      PutTable ((LastReadNonTermState - FirstReadTermState + 1) * ElmtSize, ADR(FinalToProd^[0]));
+      PutTable
+        ((LastReadNonTermState - FirstReadTermState + 1) * ElmtSize
+        , ADR(FinalToProd^[0])
+        );
       IF InError THEN RETURN END;
 
       i := 0;
@@ -739,7 +755,11 @@ PROCEDURE PutNBase      (File: tFile) =
    BEGIN
       FOR i := 0 TO LastReadState DO
          WriteT (File, "& yyNComb [");
-         WriteI (File, LOOPHOLE (NBase^[i],SHORTINT) - LOOPHOLE (LastTerminal,SHORTINT) - 1, 0);
+         WriteI
+           (File
+           , LOOPHOLE (NBase^[i],SHORTINT) - LOOPHOLE (LastTerminal,SHORTINT) - 1
+           , 0
+           );
          WriteT (File, "],"); WriteNl (File);
       END;
    END PutNBase;

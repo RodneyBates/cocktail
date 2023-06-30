@@ -90,7 +90,7 @@ PROCEDURE CompressTableLine (State: tStateIndex; DefaultState: tStateIndex; VAR 
       StartSym  ,
       StopSym   ,
       PrevSym   : Vocabulary;
-   
+
    BEGIN
 
       Default^ [State] := DefaultState;

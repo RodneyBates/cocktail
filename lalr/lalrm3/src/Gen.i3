@@ -64,13 +64,13 @@ VAR
 
     ElmtSize : TableElmt;
 
-    Length : REF  ARRAY  OF TableElmt;
+    Length : REF ARRAY (*ProdNo, elmt [0] is unused. *) OF TableElmt;
     LengthCount : INTEGER;
-    LeftHandSide : REF  ARRAY  OF TableElmt;
+    LeftHandSide : REF ARRAY (*ProdNo, elmt [0] is unused. *) OF TableElmt;
     LeftHandSideCount : INTEGER;
-    Continuation : REF  ARRAY  OF TableElmt;
+    Continuation : REF ARRAY  OF TableElmt;
     ContinuationCount : INTEGER;
-    FinalToProd : REF  ARRAY OF TableElmt;
+    FinalToProd : REF ARRAY OF TableElmt;
     FinalToProdCount : INTEGER;
 
 PROCEDURE GenDefaultActions();
