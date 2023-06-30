@@ -63,9 +63,9 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Terminal,
 
   TYPE
     tItemPath = RECORD
-        count  : SHORTCARD;
-        max    : M2LONGINT;
-        path   : REF  ARRAY OF tItemIndex;
+        IpCount : SHORTCARD;
+        IpMax   : M2LONGINT;
+        IpPath  : REF ARRAY (*[1..*) OF tItemIndex;
       END;
     
     tProdPathElmt = RECORD
@@ -74,9 +74,10 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Terminal,
       END;
 
     tProdPath = RECORD
-        count : SHORTCARD;
-        max   : M2LONGINT;
-        path  : REF ARRAY OF tProdPathElmt;
+        PpCount : SHORTCARD;
+        PpMax   : M2LONGINT;
+(* Review: It appears PpCount and PpMax are always equal. *) 
+        PpPath  : REF ARRAY (*[1..*) OF tProdPathElmt;
       END;
 
     tItemChainElmt = RECORD
@@ -89,7 +90,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Terminal,
         level   : M2LONGINT;
         count   : M2LONGINT;
         max     : M2LONGINT;
-        chain   : REF  ARRAY OF tItemChainElmt;
+        chain   : REF ARRAY (*[1..*) OF tItemChainElmt;
       END;
 
   VAR
@@ -274,7 +275,7 @@ PROCEDURE DebugEnd() =
       UnRepPathC();
       T := IntSets.Empty();
 
-      i := PathC.path^[PathC.count];
+      i := PathC.IpPath^[PathC.IpCount];
       WHILE NOT IntSets.IsEmpty (cs) DO
         t := IntSets.ExtractArbitraryMember((*VAR*)cs);
         WITH m2tom3_with_7=ItemArrayPtr^[i] DO
@@ -307,8 +308,8 @@ PROCEDURE DebugEnd() =
                 WriteNl (dFile);
                 WriteNl (dFile);
 
-                PathB.path := NIL;
-(*WAS:          ReleaseArray (PathB.path,PathB.max,BYTESIZE(tItemIndex));*)
+                PathB.IpPath := NIL;
+(*WAS:          ReleaseArray (PathB.IpPath,PathB.max,BYTESIZE(tItemIndex));*)
                 EXIT;
 
               END;
@@ -319,8 +320,8 @@ PROCEDURE DebugEnd() =
       END;
       T  := NIL;
       cs  := NIL;
-      PathC.path := NIL;
-(*WAS:ReleaseArray (PathC.path,PathC.max,BYTESIZE(tItemIndex));*)
+      PathC.IpPath := NIL;
+(*WAS:ReleaseArray (PathC.IpPath,PathC.max,BYTESIZE(tItemIndex));*)
     END DebugRedItem;
 
 PROCEDURE Possible (Item: tItemIndex; t: Terminal) : BOOLEAN =
@@ -361,12 +362,12 @@ PROCEDURE Possible (Item: tItemIndex; t: Terminal) : BOOLEAN =
           CASE GetRep(Item) OF
           | tRep.TermRep=>
               IF t = m2tom3_with_13.Read THEN
-                  PathB.count := depth;
-                  PathB.max := depth;
-                  PathB.path := NEW (REF ARRAY OF tItemIndex, PathB.max+1);
+                  PathB.IpCount := depth;
+                  PathB.IpMax := depth;
+                  PathB.IpPath := NEW (REF ARRAY OF tItemIndex, PathB.IpMax+1);
 (* See note in SearchPathC about MakeArray. *) 
-(*WAS:            MakeArray (PathB.path,PathB.max,BYTESIZE(tItemIndex));*)
-                  PathB.path^[depth] := Item;
+(*WAS:            MakeArray (PathB.IpPath,PathB.IpMax,BYTESIZE(tItemIndex));*)
+                  PathB.IpPath^[depth] := Item;
                 reached := IntSets.Exclude (reached,Item);
                 RETURN triaer.yes;
               ELSE
@@ -386,7 +387,7 @@ PROCEDURE Possible (Item: tItemIndex; t: Terminal) : BOOLEAN =
                     IF production^.Left = nt THEN
                       CASE Poss (state,m2tom3_with_15.Prod,m2tom3_with_15.Pos,depth+1) OF
                       | triaer.yes=>  
-                         PathB.path^[depth] := Item;
+                         PathB.IpPath^[depth] := Item;
                          reached := IntSets.Exclude (reached,Item);
                          RETURN triaer.yes;
                       | triaer.no=>
@@ -491,9 +492,9 @@ PROCEDURE SearchPathC (VAR cs      : IntSets.T; maxdepth : Word.T; depth        
         END;
         s  := NIL;
         IF found THEN
-          PathC.count := depth;
-          PathC.max := depth;
-          PathC.path := NEW (REF ARRAY OF tItemIndex, PathC.max+1);
+          PathC.IpCount := depth;
+          PathC.IpMax := depth;
+          PathC.IpPath := NEW (REF ARRAY OF tItemIndex, PathC.IpMax+1);
 (* NOTE: There is some inconsistency about whether MakeArray gets the
          element count or max element number.  To avoid extensive vetting,
          I am just increasing the element count by one where MakeArray is
@@ -501,8 +502,8 @@ PROCEDURE SearchPathC (VAR cs      : IntSets.T; maxdepth : Word.T; depth        
          In at least this instance, the original Modula-2 version was
          one too low, causing RT errors in the Modula-3 version.  It probably
          originally just went over harmlessly. *) 
-(*WAS:    MakeArray (PathC.path,PathC.max,BYTESIZE(tItemIndex));*)
-          PathC.path^[depth] := Item;
+(*WAS:    MakeArray (PathC.IpPath,PathC.IpMax,BYTESIZE(tItemIndex));*)
+          PathC.IpPath^[depth] := Item;
         ELSIF depth < maxdepth THEN
           WITH m2tom3_with_25=ItemArrayPtr^[Item].Relation DO
             i := 1;
@@ -512,7 +513,7 @@ PROCEDURE SearchPathC (VAR cs      : IntSets.T; maxdepth : Word.T; depth        
               INC (i);
             END;
             IF found THEN
-              PathC.path^[depth] := Item;
+              PathC.IpPath^[depth] := Item;
             END;
           END;
         END;
@@ -530,8 +531,8 @@ PROCEDURE UnRepPathC() =
 
     BEGIN
       WITH m2tom3_with_27=PathC DO
-        FOR i:=1 TO m2tom3_with_27.count-1 DO
-          PathItem := m2tom3_with_27.path^[i];
+        FOR i:=1 TO m2tom3_with_27.IpCount-1 DO
+          PathItem := m2tom3_with_27.IpPath^[i];
           prod := ADR (ProdArrayPtr^[ItemArrayPtr^[PathItem].Prod]);
           PathVal := 0;
           FOR j := ItemArrayPtr^[PathItem].Pos+1 TO prod^.Len DO
@@ -553,7 +554,7 @@ PROCEDURE UnRepPathC() =
               END;
             END;
           END;
-          m2tom3_with_27.path^[i] := PathItem;
+          m2tom3_with_27.IpPath^[i] := PathItem;
         END;
       END;
     END UnRepPathC;
@@ -565,11 +566,11 @@ PROCEDURE WritePartA (VAR d: Word.T; N: NonTerminal) =
     BEGIN
       FindPathA (N);
       WITH m2tom3_with_30=PathA DO
-        FOR i:=1 TO m2tom3_with_30.count DO
+        FOR i:=1 TO m2tom3_with_30.PpCount DO
           WriteTab (d);
-          WriteProd (m2tom3_with_30.path^[i].Prod,m2tom3_with_30.path^[i].Pos,d);
+          WriteProd (m2tom3_with_30.PpPath^[i].Prod,m2tom3_with_30.PpPath^[i].Pos,d);
           WriteNl (dFile);
-          IF (d > MaxTabA) OR ((i = m2tom3_with_30.count) AND (d > InitTab)) THEN 
+          IF (d > MaxTabA) OR ((i = m2tom3_with_30.PpCount) AND (d > InitTab)) THEN 
             WriteTab(InitTab);
             FOR j:=InitTab+1 TO d DO
               WriteC (dFile,'.');
@@ -583,8 +584,8 @@ PROCEDURE WritePartA (VAR d: Word.T; N: NonTerminal) =
           END;
         END;
       END;
-      PathA.path := NIL; 
-(*WAS:ReleaseArray (PathA.path,PathA.max,BYTESIZE(tProdPathElmt));*)
+      PathA.PpPath := NIL; 
+(*WAS:ReleaseArray (PathA.PpPath,PathA.max,BYTESIZE(tProdPathElmt));*)
     END WritePartA;
 
 PROCEDURE FindPathA (N: NonTerminal) =
@@ -613,12 +614,12 @@ PROCEDURE FindPathA (N: NonTerminal) =
     BEGIN
       IF From = To THEN
         WITH m2tom3_with_31=PathA DO
-          m2tom3_with_31.count := depth;
-          m2tom3_with_31.max    := depth;
-          m2tom3_with_31.path
-            := NEW (REF ARRAY OF tProdPathElmt, m2tom3_with_31.max+1);
+          m2tom3_with_31.PpCount := depth;
+          m2tom3_with_31.PpMax    := depth;
+          m2tom3_with_31.PpPath
+            := NEW (REF ARRAY OF tProdPathElmt, m2tom3_with_31.PpMax+1);
 (* See note in SearchPathC about MakeArray. *) 
-(*WAS:    MakeArray (m2tom3_with_31.path,m2tom3_with_31.max,BYTESIZE(tProdPathElmt));*)
+(*WAS:    MakeArray (m2tom3_with_31.PpPath,m2tom3_with_31.PpMax,BYTESIZE(tProdPathElmt));*)
           found := TRUE;
         END;
       ELSIF depth < maxdepth THEN
@@ -652,11 +653,11 @@ PROCEDURE FindPathA (N: NonTerminal) =
                     
                     (* Pfad festhalten *)
 
-                    PathA.path^[depth+1].Prod := prodindex;
+                    PathA.PpPath^[depth+1].Prod := prodindex;
 
                     (* Position vor dem Nichtterminal angeben *)
 
-                    PathA.path^[depth+1].Pos := pos-1;
+                    PathA.PpPath^[depth+1].Pos := pos-1;
 
                     RETURN;
                   END;
@@ -680,7 +681,7 @@ PROCEDURE WritePartB (VAR d: Word.T; I: tItemIndex) =
     BEGIN
       p := ItemArrayPtr^[I].Prod;
       l := ItemArrayPtr^[I].Pos-1;
-      l1 := ItemArrayPtr^[PathB.path^[1]].Pos;
+      l1 := ItemArrayPtr^[PathB.IpPath^[1]].Pos;
       d1 := 0;
       WriteTab (d);
 
@@ -702,7 +703,7 @@ PROCEDURE WritePartB (VAR d: Word.T; I: tItemIndex) =
       WriteNl (dFile);
 
       WITH m2tom3_with_36=PathB DO
-        FOR i:=2 TO m2tom3_with_36.count DO
+        FOR i:=2 TO m2tom3_with_36.IpCount DO
           IF ((d+d1+1) > MaxTabB) AND (d1>1) THEN 
             WriteTab(d);
             WriteT (dFile,": ");
@@ -716,8 +717,8 @@ PROCEDURE WritePartB (VAR d: Word.T; I: tItemIndex) =
             WriteNl (dFile);
             d1 := 1;
           END;
-          p := ItemArrayPtr^[m2tom3_with_36.path^[i]].Prod;
-          l := ItemArrayPtr^[m2tom3_with_36.path^[i]].Pos;
+          p := ItemArrayPtr^[m2tom3_with_36.IpPath^[i]].Prod;
+          l := ItemArrayPtr^[m2tom3_with_36.IpPath^[i]].Pos;
           WriteTab (d);
           WriteC (dFile,':');
           WriteTab (d1);
@@ -738,7 +739,7 @@ PROCEDURE WritePartC (VAR d: Word.T; I: tItemIndex; t: Terminal) =
       d1 : Word.T;
     BEGIN
       WITH m2tom3_with_37=PathC DO
-        FOR i:=m2tom3_with_37.count-1 TO 1 BY -1 DO
+        FOR i:=m2tom3_with_37.IpCount-1 TO 1 BY -1 DO
           IF d > MaxTabC THEN 
             WriteTab(InitTab);
             FOR j:=InitTab+1 TO d DO
@@ -751,8 +752,8 @@ PROCEDURE WritePartC (VAR d: Word.T; I: tItemIndex; t: Terminal) =
             WriteC (dFile,':');
             WriteNl (dFile);
           END;
-          p := ItemArrayPtr^[m2tom3_with_37.path^[i]].Prod;
-          l := ItemArrayPtr^[m2tom3_with_37.path^[i]].Pos;
+          p := ItemArrayPtr^[m2tom3_with_37.IpPath^[i]].Prod;
+          l := ItemArrayPtr^[m2tom3_with_37.IpPath^[i]].Pos;
           WriteTab (d);
           WriteProd (p,l,d);
           WriteNl (dFile);
@@ -837,9 +838,9 @@ PROCEDURE WritePartD
                 FindPathD (m2tom3_with_41.Left,State);
 
                 WITH m2tom3_with_42=PathD DO
-                  FOR i:=1 TO m2tom3_with_42.count - 1 DO
+                  FOR i:=1 TO m2tom3_with_42.PpCount - 1 DO
                     WriteTab (d);
-                    WriteProd (m2tom3_with_42.path^[i].Prod,m2tom3_with_42.path^[i].Pos,d);
+                    WriteProd (m2tom3_with_42.PpPath^[i].Prod,m2tom3_with_42.PpPath^[i].Pos,d);
                     WriteNl (dFile);
                     IF d > MaxTabD THEN 
                       WriteTab(InitTab);
@@ -855,8 +856,8 @@ PROCEDURE WritePartD
                     END;
                   END;
                 END;
-                PathD.path := NIL;
-(*WAS:          ReleaseArray (PathD.path,PathD.max,BYTESIZE(tProdPathElmt));*)
+                PathD.PpPath := NIL;
+(*WAS:          ReleaseArray (PathD.PpPath,PathD.PpMax,BYTESIZE(tProdPathElmt));*)
 
                 WriteTab (d);
                 WriteProd (m2tom3_with_40.Prod,0,d);
@@ -1057,19 +1058,19 @@ PROCEDURE FindPathD (NT: NonTerminal; EndState: tStateIndex) =
       (* Chain in Path uebertragen *)
    
       WITH m2tom3_with_57=PathD DO
-        m2tom3_with_57.count := Depth;
-        m2tom3_with_57.max   := Depth;
-        m2tom3_with_57.path
-          := NEW (REF ARRAY OF tProdPathElmt, m2tom3_with_57.max+1);
+        m2tom3_with_57.PpCount := Depth;
+        m2tom3_with_57.PpMax   := Depth;
+        m2tom3_with_57.PpPath
+          := NEW (REF ARRAY OF tProdPathElmt, m2tom3_with_57.PpMax+1);
 (* See note in SearchPathC about MakeArray. *) 
-(*WAS:  MakeArray (m2tom3_with_57.path, m2tom3_with_57.max, BYTESIZE (tProdPathElmt));*)
+(*WAS:  MakeArray (m2tom3_with_57.PpPath, m2tom3_with_57.PpMax, BYTESIZE (tProdPathElmt));*)
       END;
 
       m2tom3_with_56.level := last;
       WHILE Depth > 0 DO
         I := m2tom3_with_56.chain^ [m2tom3_with_56.level].Item;
-        PathD.path^ [Depth].Prod := ItemArrayPtr^[I].Prod;
-        PathD.path^ [Depth].Pos  := ItemArrayPtr^[I].Pos;
+        PathD.PpPath^ [Depth].Prod := ItemArrayPtr^[I].Prod;
+        PathD.PpPath^ [Depth].Pos  := ItemArrayPtr^[I].Pos;
         DEC (Depth);
         m2tom3_with_56.level := m2tom3_with_56.chain^[m2tom3_with_56.level].Last;
       END;
