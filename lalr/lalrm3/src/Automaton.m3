@@ -382,14 +382,15 @@ PROCEDURE UniqueState (VAR new: BOOLEAN): tStateIndex =
 
       i := m2tom3_with_13.Used;
       IF i = 0 THEN
-        m2tom3_with_13.IlArray := NEW ( REF ARRAY OF tIndex, InitHashListCount );
-        m2tom3_with_13.Count := NUMBER(m2tom3_with_13.IlArray^);
+        m2tom3_with_13.IlArray
+          := NEW ( REF ARRAY OF tIndex, InitHashListCount + 1 );
+        m2tom3_with_13.Count := LAST(m2tom3_with_13.IlArray^);
    (* ELSIF i >= m2tom3_with_13.Count THEN
         ExtendArray (m2tom3_with_13.IlArray,m2tom3_with_13.Count,BYTESIZE(tIndex));*)
       ELSE 
         ExpArrays_tIndex.Expand
-          ((*VAR*)m2tom3_with_13.IlArray, i+2, i+6); 
-        m2tom3_with_13.Count := NUMBER(m2tom3_with_13.IlArray^);
+          ((*VAR*)m2tom3_with_13.IlArray, i+3, i+7); 
+        m2tom3_with_13.Count := LAST(m2tom3_with_13.IlArray^);
       END;
 
       INC (m2tom3_with_13.Used);

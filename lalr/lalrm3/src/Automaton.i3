@@ -42,14 +42,14 @@ TYPE
 
     tIndexList = RECORD
         Used      : INTEGER;
-        IlArray   : REF  ARRAY OF tIndex;
+        IlArray   : REF ARRAY (* 1..*) OF tIndex;
 (* TODO: replace Count by NUMBER ( Array^) *)
         Count     : INTEGER;
       END;
 
     tItemIndexList = RECORD
         Used     : INTEGER;
-        IilArray : REF  ARRAY OF tItemIndex;
+        IilArray : REF ARRAY (* 1..*) OF tItemIndex;
         Count    : INTEGER;
       END;
 
@@ -58,7 +58,7 @@ TYPE
         Value   : INTEGER;
       END;
 
-    tProdListArrayRef = REF ARRAY OF tProdListElmt;
+    tProdListArrayRef = REF ARRAY (* 1..*) OF tProdListElmt;
 
     tProdIndexList = RECORD
         Used     : INTEGER;

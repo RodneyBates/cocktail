@@ -1,4 +1,4 @@
-(* generate the parser *)
+g(* generate the parser *)
 
 (* $Id: Gen.mi,v 2.6 1992/08/12 07:04:48 grosch rel $ *)
 
@@ -652,7 +652,11 @@ UNSAFE MODULE Gen;
               WITH m2tom3_with_18=prod^.Reduce DO
                 INC (m2tom3_with_18.Used);
                 IF m2tom3_with_18.Used > m2tom3_with_18.Count THEN
-                  (*ExtendArray (m2tom3_with_18.IlArray,m2tom3_with_18.Count,BYTESIZE(tIndex));*)
+                  (*WAS:ExtendArray (m2tom3_with_18.IlArray,m2tom3_with_18.Count,BYTESIZE(tIndex));*)
+                  ExpArrays_tIndex.Expand
+                    ((*VAR*)m2tom3_with_18.IlArray, m2tom3_with_18.Count + 1); 
+                  m2tom3_with_18.Count := LAST(m2tom3_with_18.IlArray^);
+                  
                 END;
                 m2tom3_with_18.IlArray^[m2tom3_with_18.Used] := m2tom3_with_17.NewNumber;
               END;
