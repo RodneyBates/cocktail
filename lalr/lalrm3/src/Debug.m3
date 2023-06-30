@@ -631,7 +631,7 @@ PROCEDURE FindPathA (N: NonTerminal) =
             
             (* Betrachte eine einzelne Produktion *)
 
-            prodindex := m2tom3_with_32.Array^[i].Index;
+            prodindex := m2tom3_with_32.PilArray^[i].Index;
             prod := ADR (ProdArrayPtr^[prodindex]);
             WITH m2tom3_with_33=prod^ DO
               FOR pos := 1 TO m2tom3_with_33.Len DO

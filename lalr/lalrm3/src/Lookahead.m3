@@ -101,7 +101,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
 
             (* Auswahl der einzelnen Produktion *)
 
-            prodADR := ADR(ProdArrayPtr^[m2tom3_with_1.Array^[pn].Index]);
+            prodADR := ADR(ProdArrayPtr^[m2tom3_with_1.PilArray^[pn].Index]);
             prod := LOOPHOLE (prodADR, tProduction);
             WITH m2tom3_with_2=prod^ DO
 

@@ -174,7 +174,7 @@ PROCEDURE MakeFirstState (): tStateIndex =
     NextState();
     INC (StateArrayPtr^[StateIndex].Size);
 
-    pi := ProdList[StartSymbol].Array^[1].Index;
+    pi := ProdList[StartSymbol].PilArray^[1].Index;
     prod := ADR (ProdArrayPtr^[pi]);
     read := prod^.Right [1];
 
@@ -314,7 +314,7 @@ PROCEDURE Closure (Symbol: NonTerminal) =
             
             (* Fuege ein Item hinzu, falls dies noch nicht vorhanden *)
 
-            pr := m2tom3_with_5.Array^[i].Index;
+            pr := m2tom3_with_5.PilArray^[i].Index;
             p := ADR (ProdArrayPtr^[pr]);
 
             IF NOT IntSets.IsElement (p^.ProdNo, ProdSet) THEN
@@ -640,15 +640,15 @@ debug := 0;
     WITH m2tom3_with_24=ProdList[prod^.Left] DO
       IF m2tom3_with_24.Used = 0 THEN
         m2tom3_with_24.Count := InitListCount;        
-        m2tom3_with_24.Array
+        m2tom3_with_24.PilArray
           := NEW (REF ARRAY OF tProdListElmt, InitListCount+1);
 (* See note in Debug.SearchPathC about MakeArray. *) 
-(*WAS:  MakeArray (m2tom3_with_24.Array,m2tom3_with_24.Count,BYTESIZE(tProdListElmt));*)
+(*WAS:  MakeArray (m2tom3_with_24.PilArray,m2tom3_with_24.Count,BYTESIZE(tProdListElmt));*)
 
         INC (m2tom3_with_24.Used);
 (* CHECK^ This does not put anyting in Array[0].  Is this right? *)  
-        m2tom3_with_24.Array^[m2tom3_with_24.Used].Index := index; 
-        m2tom3_with_24.Array^[m2tom3_with_24.Used].Value := value; 
+        m2tom3_with_24.PilArray^[m2tom3_with_24.Used].Index := index; 
+        m2tom3_with_24.PilArray^[m2tom3_with_24.Used].Value := value; 
       ELSE
 (* Check: this used to say: 
         IF m2tom3_with_24.Used >= m2tom3_with_24.Count THEN
@@ -660,25 +660,25 @@ debug := 0;
 
 WAS:
         IF m2tom3_with_24.Used+1 >= m2tom3_with_24.Count THEN
-          ExtendArray (m2tom3_with_24.Array,m2tom3_with_24.Count,BYTESIZE(tProdListElmt));
+          ExtendArray (m2tom3_with_24.PilArray,m2tom3_with_24.Count,BYTESIZE(tProdListElmt));
         END;
 *)
         (* laengere Produktionen nach hinten verschieben *)
         i := m2tom3_with_24.Used;
-        IF i+1 > LAST (m2tom3_with_24.Array^)
+        IF i+1 > LAST (m2tom3_with_24.PilArray^)
         THEN 
-          ExpandProdListArray ((*VAR*)m2tom3_with_24.Array,i+5);
-          m2tom3_with_24.Count := NUMBER(m2tom3_with_24.Array^);
+          ExpandProdListArray ((*VAR*)m2tom3_with_24.PilArray,i+5);
+          m2tom3_with_24.Count := NUMBER(m2tom3_with_24.PilArray^);
         END;
-        WHILE (i > 0) AND (m2tom3_with_24.Array^[i].Value > value) DO
-          m2tom3_with_24.Array^[i+1].Index := m2tom3_with_24.Array^[i].Index;
-          m2tom3_with_24.Array^[i+1].Value := m2tom3_with_24.Array^[i].Value;
+        WHILE (i > 0) AND (m2tom3_with_24.PilArray^[i].Value > value) DO
+          m2tom3_with_24.PilArray^[i+1].Index := m2tom3_with_24.PilArray^[i].Index;
+          m2tom3_with_24.PilArray^[i+1].Value := m2tom3_with_24.PilArray^[i].Value;
           DEC (i);
         END;
         INC (i);
         (* neue Produktion eintragen *)
-        m2tom3_with_24.Array^[i].Index := index;
-        m2tom3_with_24.Array^[i].Value := value;
+        m2tom3_with_24.PilArray^[i].Index := index;
+        m2tom3_with_24.PilArray^[i].Value := value;
         INC (m2tom3_with_24.Used);
       END;
     END;

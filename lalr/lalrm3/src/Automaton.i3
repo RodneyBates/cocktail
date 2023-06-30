@@ -41,16 +41,16 @@ TYPE
     tIndex      = CARDINAL;
 
     tIndexList = RECORD
-        Used    : INTEGER;
+        Used      : INTEGER;
         IlArray   : REF  ARRAY OF tIndex;
 (* TODO: replace Count by NUMBER ( Array^) *)
-        Count   : INTEGER;
+        Count     : INTEGER;
       END;
 
     tItemIndexList = RECORD
-        Used    : INTEGER;
-        IilArray   : REF  ARRAY OF tItemIndex;
-        Count   : INTEGER;
+        Used     : INTEGER;
+        IilArray : REF  ARRAY OF tItemIndex;
+        Count    : INTEGER;
       END;
 
     tProdListElmt = RECORD
@@ -61,10 +61,10 @@ TYPE
     tProdListArrayRef = REF ARRAY OF tProdListElmt;
 
     tProdIndexList = RECORD
-        Used    : INTEGER;
-        Array   : tProdListArrayRef;
+        Used     : INTEGER;
+        PilArray : tProdListArrayRef;
 (* TODO: replace Count by NUMBER ( Array^) *)
-        Count   : INTEGER;
+        Count    : INTEGER;
       END;
 
     tAss = {right,left,none,nonassoc};

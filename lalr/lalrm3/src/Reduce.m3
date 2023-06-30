@@ -138,7 +138,7 @@
 
             (* waehle aktuelle Produktion aus *)
 
-            prodADR := ADR(ProdArrayPtr^[m2tom3_with_1.Array^[pn].Index]);
+            prodADR := ADR(ProdArrayPtr^[m2tom3_with_1.PilArray^[pn].Index]);
             prod := LOOPHOLE (prodADR, tProduction);
             WITH m2tom3_with_2=prod^ DO
 
@@ -234,7 +234,7 @@
 
             (* Auswahl der einzelnen Produktion *)
 
-            prodADR := ADR(ProdArrayPtr^[m2tom3_with_4.Array^[pn].Index]);
+            prodADR := ADR(ProdArrayPtr^[m2tom3_with_4.PilArray^[pn].Index]);
             prod := LOOPHOLE (prodADR, tProduction);
             WITH m2tom3_with_5=prod^ DO
 
