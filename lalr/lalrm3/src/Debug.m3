@@ -148,7 +148,6 @@ PROCEDURE NewLine() =
 PROCEDURE WriteItem (Item: tItemIndex; t: Terminal) =
     VAR
       length : Word.T;
-      i : tIndex;
       p : tProduction;
     BEGIN
       WITH m2tom3_with_1=ItemArrayPtr^[Item] DO
@@ -184,8 +183,6 @@ PROCEDURE WriteItem (Item: tItemIndex; t: Terminal) =
     END WriteItem;
 
 PROCEDURE PrintItemSets ( )  = 
-  VAR state : M2LONGINT;
-  VAR item : tItemIndex; 
   BEGIN
     FOR state := 1 TO StateIndex
     DO
@@ -227,7 +224,6 @@ PROCEDURE DebugEnd() =
   (* wird fuer jeden inkonsitenten Zustand ausgefuehrt *)
 
     VAR
-      Item : tItemIndex;
       s : IntSets.T;
       EI: IntSets.T;          (* Explained Items *)
     BEGIN
@@ -339,7 +335,6 @@ PROCEDURE Possible (Item: tItemIndex; t: Terminal) : BOOLEAN =
       VAR
         res : triaer;
         nt  : NonTerminal;
-        item : tItemIndex;
         Item : tItemIndex;
         production : tProduction;
       BEGIN
@@ -470,7 +465,7 @@ PROCEDURE GetRep (Item: tItemIndex) : tRep =
           i := 1;
           u := m2tom3_with_23.Used;
           WHILE (i <= u) AND (NOT found) DO
-            SearchPathC (cs,maxdepth,0,m2tom3_with_23.Array^[i],found);
+            SearchPathC (cs,maxdepth,0,m2tom3_with_23.IilArray^[i],found);
             INC (i);
           END;
         END;
@@ -513,7 +508,7 @@ PROCEDURE SearchPathC (VAR cs      : IntSets.T; maxdepth : Word.T; depth        
             i := 1;
             u := m2tom3_with_25.Used;
             WHILE (i <= u) AND (NOT found) DO
-              SearchPathC (cs,maxdepth,depth,m2tom3_with_25.Array^[i],found);
+              SearchPathC (cs,maxdepth,depth,m2tom3_with_25.IilArray^[i],found);
               INC (i);
             END;
             IF found THEN
@@ -527,8 +522,7 @@ PROCEDURE SearchPathC (VAR cs      : IntSets.T; maxdepth : Word.T; depth        
 PROCEDURE UnRepPathC() =
     VAR
       State : tStateIndex;
-      PathItem, Item : tItemIndex;
-      i,j : Word.T;
+      PathItem : tItemIndex;
       prod : tProduction;
       PathVal,val : tIndex;
 
@@ -568,7 +562,6 @@ PROCEDURE WritePartA (VAR d: Word.T; N: NonTerminal) =
   
   (* Drucke den Trace vom Startsymbol zum Nichtterminal N *)
 
-    VAR i,j : Word.T;
     BEGIN
       FindPathA (N);
       WITH m2tom3_with_30=PathA DO
@@ -616,8 +609,7 @@ PROCEDURE FindPathA (N: NonTerminal) =
     VAR
       prod : tProduction;
       prodindex : tProdIndex;
-      pos : tIndex;
-      i,u : tIndex;
+      u : tIndex;
     BEGIN
       IF From = To THEN
         WITH m2tom3_with_31=PathA DO
@@ -682,7 +674,6 @@ PROCEDURE WritePartB (VAR d: Word.T; I: tItemIndex) =
       l : tIndex;
       l1 : tIndex;
       length : Word.T;
-      i,j : Word.T;
       d1 : Word.T;
       prodADR : (*tProduction*) ADDRESS;
       prod : tProduction;
@@ -741,7 +732,6 @@ PROCEDURE WritePartB (VAR d: Word.T; I: tItemIndex) =
 
 PROCEDURE WritePartC (VAR d: Word.T; I: tItemIndex; t: Terminal) =
     VAR
-      i,j : Word.T;
       p : tProdIndex;
       l : Word.T;
       prod : tProduction;
@@ -1090,7 +1080,6 @@ PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: Word.T) =
     VAR
       prodADR : (*tProduction*) ADDRESS;
       prod : tProduction;
-      i : tIndex;
       length  : Word.T;
     BEGIN
       prodADR := ADR(ProdArrayPtr^[p]);
@@ -1115,7 +1104,6 @@ PROCEDURE WriteVoc (voc: Vocabulary; VAR length: Word.T) =
       sym : tIdent;
       str : tString;
       err : TokenError;
-      i : Word.T;
     BEGIN
       sym := TokenToSymbol (voc,err);
       GetString (sym,str);
@@ -1137,7 +1125,6 @@ PROCEDURE VocLength (voc: Vocabulary): Word.T =
     END VocLength;
     
 PROCEDURE WriteTab (d: Word.T) =
-    VAR i : Word.T;
     BEGIN
       FOR i := 1 TO d DO
         WriteC (dFile,' ');

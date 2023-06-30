@@ -378,7 +378,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
         WITH m2tom3_with_13=m2tom3_with_12.Relation DO
           u := m2tom3_with_13.Used;
           FOR ArrayIndex := 1 TO u DO
-            yIndex := m2tom3_with_13.Array^[ArrayIndex];
+            yIndex := m2tom3_with_13.IilArray^[ArrayIndex];
 
             (* if Ny = 0 then call Traverse y *)
 
@@ -572,7 +572,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
             WITH m2tom3_with_24=m2tom3_with_23.Relation DO
               u := m2tom3_with_24.Used;
               FOR Index := 1 TO u DO
-                lookbackindex := m2tom3_with_24.Array^[Index];
+                lookbackindex := m2tom3_with_24.IilArray^[Index];
                 
                 (* fuege Follow(lookback) hinzu *)
 
@@ -628,26 +628,26 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
 
         u := m2tom3_with_26.Used;
         FOR i := 1 TO u DO
-          IF m2tom3_with_26.Array^[i] = NT THEN RETURN; END;
+          IF m2tom3_with_26.IilArray^[i] = NT THEN RETURN; END;
         END;
         
         (* eventuell Speicher beschaffen *)
 
         i := m2tom3_with_26.Used;
         IF i = 0 THEN
-          m2tom3_with_26.Array
+          m2tom3_with_26.IilArray
             := NEW (REF ARRAY OF tIndex, m2tom3_with_26.Count+1);
-          m2tom3_with_26.Count := NUMBER (m2tom3_with_26.Array^);
+          m2tom3_with_26.Count := NUMBER (m2tom3_with_26.IilArray^);
 (* See note in Debug.SearchPathC about MakeArray. *) 
-(*WAS:    MakeArray (m2tom3_with_26.Array,m2tom3_with_26.Count,BYTESIZE(tIndex));
+(*WAS:    MakeArray (m2tom3_with_26.IilArray,m2tom3_with_26.Count,BYTESIZE(tIndex));
         ELSIF m2tom3_with_26.Used >= m2tom3_with_26.Count THEN
-          ExtendArray (m2tom3_with_26.Array,m2tom3_with_26.Count,BYTESIZE(tIndex));*)
+          ExtendArray (m2tom3_with_26.IilArray,m2tom3_with_26.Count,BYTESIZE(tIndex));*)
         ELSE
-          ExpArrays_tItemIndex.Expand (m2tom3_with_26.Array, i+2, i+6);
-          m2tom3_with_26.Count := NUMBER (m2tom3_with_26.Array^);
+          ExpArrays_tItemIndex.Expand (m2tom3_with_26.IilArray, i+2, i+6);
+          m2tom3_with_26.Count := NUMBER (m2tom3_with_26.IilArray^);
         END;
         INC (m2tom3_with_26.Used);
-        m2tom3_with_26.Array^[m2tom3_with_26.Used] := NT; 
+        m2tom3_with_26.IilArray^[m2tom3_with_26.Used] := NT; 
       END;
     END PutInRelation;
 
@@ -673,14 +673,14 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
           IF Stack.Used > Stack.Count THEN
             IF Stack.Count = 0 THEN
               Stack.Count := InitItemStackCount;
-              Stack.Array := NEW (REF ARRAY OF tItemIndex, Stack.Count+1);
+              Stack.IilArray := NEW (REF ARRAY OF tItemIndex, Stack.Count+1);
 (* See note in Debug.SearchPathC about MakeArray. *) 
 (*WAS:        MakeArray (Array,Count,BYTESIZE(tItemIndex));*)
             ELSE
               (*ExtendArray (Array,Count,BYTESIZE(tItemIndex));*)
             END;
           END;
-          Stack.Array^[Stack.Used] := Item;
+          Stack.IilArray^[Stack.Used] := Item;
         END;
       END PushItem;
 
@@ -691,7 +691,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
           IF Stack.Used < 1 THEN
             CrashT ("PopItem on empty Stack");
           END;
-          Item := Stack.Array^[Stack.Used];
+          Item := Stack.IilArray^[Stack.Used];
           DEC (Stack.Used);
           RETURN Item;
         END;
@@ -700,7 +700,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
     PROCEDURE TopItem ():tItemIndex =
       BEGIN
         WITH m2tom3_with_29=Stack DO
-          RETURN Stack.Array^[Stack.Used];
+          RETURN Stack.IilArray^[Stack.Used];
         END;
       END TopItem;
 

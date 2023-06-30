@@ -49,7 +49,7 @@ TYPE
 
     tItemIndexList = RECORD
         Used    : INTEGER;
-        Array   : REF  ARRAY OF tItemIndex;
+        IilArray   : REF  ARRAY OF tItemIndex;
         Count   : INTEGER;
       END;
 
