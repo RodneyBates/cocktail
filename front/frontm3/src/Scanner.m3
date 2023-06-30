@@ -1083,6 +1083,21 @@ PROCEDURE BeginFile (READONLY FileName: ARRAY OF CHAR) =
       IF yySourceFile < 0 THEN yyErrorMessage (5); END;
    END BeginFile;
 
+(* This awaits the creation of Source.BeginSourceT, in several different 
+   Source modules. *) 
+(*
+PROCEDURE BeginFileT (FileName: TEXT) =
+   BEGIN
+      IF yyStateStack^ [0] = yyDNoState THEN    (* have tables been read in ? *)
+         yyGetTables();
+         yyStateStack^ [0] := yyDefaultState;   (* stack underflow sentinel *)
+      END;
+      yyInitialize();
+      yySourceFile := Source.BeginSourceT (FileNameT);
+      IF yySourceFile < 0 THEN yyErrorMessage (5); END;
+   END BeginFileT;
+*)
+
 PROCEDURE yyInitialize() =
    BEGIN
       IF yyFileStackPtr >= yyFileStackSize THEN yyErrorMessage (3); END;
