@@ -54,7 +54,7 @@
 
 UNSAFE MODULE Gen;
 
-  FROM SYSTEM IMPORT M2LONGINT, SHORTINT;
+  FROM SYSTEM IMPORT  SHORTINT;
 
   IMPORT IntSets; 
   FROM Actions IMPORT tActionMode, PutAction, WriteActions, ScannerName, ParserName;
@@ -62,7 +62,6 @@ UNSAFE MODULE Gen;
   FROM ArgCheck IMPORT MakeDef; 
 
   FROM Automaton IMPORT
-    Infinite,
     tStateKind,
     tRep,
     tIndex,
@@ -103,21 +102,18 @@ UNSAFE MODULE Gen;
     GetNSortState,
     GetDefaultTableLine;
 
-  FROM DynArray IMPORT MakeArray, ExtendArray, ReleaseArray;
   FROM FrontErrors   IMPORT eString, eError;
   FROM Final    IMPORT MakeFinalToProd;
   FROM General  IMPORT Min;
   FROM GenLang  IMPORT WriteConstants, WriteReduceCode;
-  FROM ReuseIO       IMPORT StdOutput, EndOfFile, WriteOpenT, WriteClose, WriteC, WriteT,
-    WriteI, WriteCard, WriteNl;
+  FROM ReuseIO  IMPORT StdOutput, EndOfFile, WriteOpenT, WriteClose, WriteC,
+                WriteT, WriteI, WriteNl;
   
   FROM Lists    IMPORT MakeList, tList;
   IMPORT Word, Lists;
-  FROM Sets     IMPORT tSet, MakeSet, ReleaseSet, Extract, Assign, IsEmpty;
   IMPORT Strings; (* Length *)
   FROM StringMem        IMPORT PutString;
   FROM Strings  IMPORT Char, tString, TextToString, Append, ReadL, WriteL, SubString;
-  FROM Idents   IMPORT tIdent, GetString;
   FROM SysError IMPORT StatIsBad, SysErrorMessageI;
   
   IMPORT System; (* Close *)
@@ -130,11 +126,9 @@ UNSAFE MODULE Gen;
     MAXTerm,
     PosType,
     TokenType,
-    TokenError,
     Vocabulary,
     Terminal,
-    GetTokenType,
-    TokenToSymbol;
+    GetTokenType;
 
   IMPORT WriteTok;
   FROM WriteTok IMPORT tLanguage, Language;
@@ -186,7 +180,7 @@ UNSAFE MODULE Gen;
   PROCEDURE GenCode (Pars: tFile; Def: tFile) =
     VAR
       out  : tFile;
-      line, rest, String1, String2: tString;
+      line, rest, String1 : tString;
       N    : INTEGER;
     BEGIN
       FindKind();
@@ -288,8 +282,7 @@ UNSAFE MODULE Gen;
 
   PROCEDURE FindKind() = (* Zustaende klassifizieren und mit einer neuen Nummer versehen *)
     VAR
-      maxState,
-      state : tStateIndex;
+      maxState : tStateIndex;
       prod : tProduction;
       item : tItemIndex;
       RepCount : Word.T;
@@ -339,7 +332,7 @@ UNSAFE MODULE Gen;
 
   PROCEDURE MakeNumbers() =
   VAR
-    maxState, state : tStateIndex;
+    maxState : tStateIndex;
     prodADR : (*tProduction*) ADDRESS;
     prod : tProduction;
     remember : tStateIndex;
@@ -415,8 +408,6 @@ UNSAFE MODULE Gen;
   PROCEDURE MakeTable() =
     VAR
       maxState : tStateIndex;
-      state    : tStateIndex;
-      index    : tStateIndex;
       NewNum   : tStateIndex;
       DefaultState  : tStateIndex;
     BEGIN
@@ -481,7 +472,6 @@ UNSAFE MODULE Gen;
   PROCEDURE InitTableLine() =
     VAR
       state : tStateIndex;
-      symbol : Vocabulary;
     BEGIN
       FOR symbol := FirstSymbol TO LastSymbol DO
         TableLine[symbol] := NoState;
@@ -492,7 +482,6 @@ UNSAFE MODULE Gen;
     VAR
       RedState : tStateIndex;
       maxState : tStateIndex;
-      item : tItemIndex;
       prodADR : (*tProduction*) ADDRESS;
       prod : tProduction;
       Look : IntSets.T;
@@ -541,7 +530,7 @@ UNSAFE MODULE Gen;
     VAR
       prodADR : (*tProduction*) ADDRESS;
       prod : tProduction;
-      index,prodno: tProdIndex;
+      index : tProdIndex;
     BEGIN
       LengthCount := ProdCount;
       Length := NEW (REF ARRAY OF TableElmt, LengthCount+1);
@@ -561,7 +550,7 @@ UNSAFE MODULE Gen;
     VAR
       prodADR : (*tProduction*) ADDRESS;
       prod : tProduction;
-      index,prodno: tProdIndex;
+      index : tProdIndex;
     BEGIN
       LeftHandSideCount := ProdCount;
       LeftHandSide := NEW (REF ARRAY OF TableElmt, LeftHandSideCount+1);
@@ -613,7 +602,6 @@ UNSAFE MODULE Gen;
       prod  : tProduction;
       maxState,state : tStateIndex;
       maxProdIndex : tProdIndex;
-      u : M2LONGINT;
       item : tItemIndex;
     BEGIN
       (* Felder fuer Statelisten initialisieren *)
@@ -742,7 +730,6 @@ PROCEDURE PutTables (TableFile: tFile) =
    END PutTables;
 
 PROCEDURE PutBase       (File: tFile) =
-   VAR i: tStateIndex;
    BEGIN
       FOR i := 0 TO LastReadState DO
          WriteT (File, "& yyTComb [");
@@ -751,7 +738,6 @@ PROCEDURE PutBase       (File: tFile) =
    END PutBase;
 
 PROCEDURE PutNBase      (File: tFile) =
-   VAR i: tStateIndex;
    BEGIN
       FOR i := 0 TO LastReadState DO
          WriteT (File, "& yyNComb [");
@@ -765,7 +751,6 @@ PROCEDURE PutNBase      (File: tFile) =
    END PutNBase;
 
 PROCEDURE PutDefault    (File: tFile) =
-   VAR i: tStateIndex;
    BEGIN
       FOR i := 0 TO LastReadState DO
          WriteI (File, Default^[i], 0); WriteC (File, ','); WriteNl (File);
@@ -773,7 +758,6 @@ PROCEDURE PutDefault    (File: tFile) =
    END PutDefault;
 
 PROCEDURE PutControl    (File: tFile) =
-   VAR i: Word.T;
    BEGIN
       FOR i := 0 TO TableSize DO
          WriteC (File, '{');
@@ -783,7 +767,6 @@ PROCEDURE PutControl    (File: tFile) =
    END PutControl;
 
 PROCEDURE PutNNext      (File: tFile) =
-   VAR i: tStateIndex;
    BEGIN
       FOR i := LastTerminal + 1 TO NTableSize DO
          WriteI (File, NNext^[i], 0); WriteC (File, ','); WriteNl (File);
@@ -791,7 +774,6 @@ PROCEDURE PutNNext      (File: tFile) =
    END PutNNext;
 
 PROCEDURE PutLength     (File: tFile) =
-   VAR i: tStateIndex;
    BEGIN
       FOR i := 1 TO ProdCount DO
          WriteI (File, Length^[i], 0); WriteC (File, ','); WriteNl (File);
@@ -799,7 +781,6 @@ PROCEDURE PutLength     (File: tFile) =
    END PutLength;
 
 PROCEDURE PutLeftHandSide       (File: tFile) =
-   VAR i: tStateIndex;
    BEGIN
       FOR i := 1 TO ProdCount DO
          WriteI (File, LeftHandSide^[i], 0); WriteC (File, ','); WriteNl (File);
@@ -807,7 +788,6 @@ PROCEDURE PutLeftHandSide       (File: tFile) =
    END PutLeftHandSide;
 
 PROCEDURE PutContinuation       (File: tFile) =
-   VAR i: tStateIndex;
    BEGIN
       FOR i := 0 TO LastReadState DO
          WriteI (File, Continuation^[i], 0); WriteC (File, ','); WriteNl (File);
@@ -815,7 +795,6 @@ PROCEDURE PutContinuation       (File: tFile) =
    END PutContinuation;
 
 PROCEDURE PutFinalToProd        (File: tFile) =
-   VAR i: tStateIndex;
    BEGIN
       FOR i := FirstReadTermState TO LastReadNonTermState DO
         
