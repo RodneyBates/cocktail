@@ -65,7 +65,8 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Terminal,
     tItemPath = RECORD
         IpCount : SHORTCARD;
         IpMax   : M2LONGINT;
-        IpPath  : REF ARRAY (*[1..*) OF tItemIndex;
+        IpPath  : REF ARRAY (*elmt [0] is unused*) OF tItemIndex;
+     (* ^See NOTE on 1-origin dynamic-sized arrays in Automaton.i3. *)
       END;
     
     tProdPathElmt = RECORD
@@ -77,7 +78,8 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Terminal,
         PpCount : SHORTCARD;
         PpMax   : M2LONGINT;
 (* Review: It appears PpCount and PpMax are always equal. *) 
-        PpPath  : REF ARRAY (*[1..*) OF tProdPathElmt;
+        PpPath  : REF ARRAY (*elmt [0] is unused*) OF tProdPathElmt;
+     (* ^See NOTE on 1-origin dynamic-sized arrays in Automaton.i3. *)
       END;
 
     tItemChainElmt = RECORD
@@ -90,7 +92,8 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Terminal,
         level   : M2LONGINT;
         IcCount   : M2LONGINT(*Occuplied.*);
         IcMax     : M2LONGINT (*Allocated LAST.*);
-        IcChain   : REF ARRAY (*[1..*) OF tItemChainElmt;
+        IcChain   : REF ARRAY (*elmt [0] is unused*) OF tItemChainElmt;
+    (* ^See NOTE on 1-origin dynamic-sized arrays in Automaton.i3. *)
       END;
 
   VAR

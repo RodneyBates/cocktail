@@ -65,8 +65,10 @@ VAR
     ElmtSize : TableElmt;
 
     Length : REF ARRAY (*ProdNo, elmt [0] is unused. *) OF TableElmt;
+    (* ^See NOTE on 1-origin dynamic-sized arrays in Automaton.i3. *)
     LengthCount : INTEGER;
     LeftHandSide : REF ARRAY (*ProdNo, elmt [0] is unused. *) OF TableElmt;
+    (* ^See NOTE on 1-origin dynamic-sized arrays in Automaton.i3. *)
     LeftHandSideCount : INTEGER;
     Continuation : REF ARRAY  OF TableElmt;
     ContinuationCount : INTEGER;

@@ -40,16 +40,35 @@ TYPE
     tProdIndex  = (*SHORTCARD*) [0..Infinite];
     tIndex      = CARDINAL;
 
+(* NOTE on 1-origin dynamic-sized arrays:
+   The Modula-2 version has its own heap allocator, which it
+   uses to allocate dynamically-sized arrays.  That just returns
+   a pointer to a chunk of memory, which the caller then (in
+   Modula-3 terminology) LOOPHOLES into a pointer to an overlarge,
+   fixed array.  Several such array types are declared with lower
+   bound of zero.  Since Modula-3 heap-allocated open arrays always
+   have lower bound of zero,, this requires special treatment:
+   1. Allocate one more element than in the Modula-2 version.
+   2. When writing to the table file, start with element 1.
+
+   This includes: IlArray, IilArray, and PilArray in the interface.
+   IpPath, PpPath, and IcChain in Debug.m3.
+   Length and LeftHandSide in Gen.i3.
+*) 
+
+
     tIndexList = RECORD
         Used      : INTEGER;
-        IlArray   : REF ARRAY (* 1..*) OF tIndex;
+        IlArray   : REF ARRAY (*elmt [0] is unused*) OF tIndex;
+     (* ^See NOTE above  on 1-origin dynamic-sized arrays. *)
 (* TODO: replace Count by NUMBER ( Array^) *)
         Count     : INTEGER;
       END;
 
     tItemIndexList = RECORD
         Used     : INTEGER;
-        IilArray : REF ARRAY (* 1..*) OF tItemIndex;
+        IilArray : REF ARRAY (*elmt [0] is unused*) OF tItemIndex;
+     (* ^See NOTE above  on 1-origin dynamic-sized arrays. *)
         Count    : INTEGER;
       END;
 
@@ -58,11 +77,12 @@ TYPE
         Value   : INTEGER;
       END;
 
-    tProdListArrayRef = REF ARRAY (* 1..*) OF tProdListElmt;
+    tProdListArrayRef = REF ARRAY (*elmt [0] is unused*) OF tProdListElmt;
 
     tProdIndexList = RECORD
         Used     : INTEGER;
         PilArray : tProdListArrayRef;
+     (* ^See NOTE above  on 1-origin dynamic-sized arrays. *)
 (* TODO: replace Count by NUMBER ( Array^) *)
         Count    : INTEGER;
       END;
