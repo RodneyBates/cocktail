@@ -46,7 +46,7 @@ TYPE
    a pointer to a chunk of memory, which the caller then (in
    Modula-3 terminology) LOOPHOLES into a pointer to an overlarge,
    fixed array.  Several such array types are declared with lower
-   bound of zero.  Since Modula-3 heap-allocated open arrays always
+   bound of one.  Since Modula-3 heap-allocated open arrays always
    have lower bound of zero,, this requires special treatment:
    1. Allocate one more element than in the Modula-2 version.
    2. When writing to the table file, start with element 1.
