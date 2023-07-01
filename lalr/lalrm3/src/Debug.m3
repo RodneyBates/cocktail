@@ -88,9 +88,9 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Terminal,
     tItemChain = RECORD
         reached : IntSets.T;
         level   : M2LONGINT;
-        count   : M2LONGINT;
-        max     : M2LONGINT;
-        chain   : REF ARRAY (*[1..*) OF tItemChainElmt;
+        IcCount   : M2LONGINT(*Occuplied.*);
+        IcMax     : M2LONGINT (*Allocated LAST.*);
+        IcChain   : REF ARRAY (*[1..*) OF tItemChainElmt;
       END;
 
   VAR
@@ -813,9 +813,8 @@ PROCEDURE WritePartC (VAR d: Word.T; I: tItemIndex; t: Terminal) =
 PROCEDURE WritePartD
   (dist: Word.T; State: tStateIndex; t: Terminal; RedItem: tItemIndex; EI: IntSets.T) =
   VAR
-      Item : tItemIndex;
       prod : tProduction;
-      i,j,l   : Word.T;
+      l : Word.T;
       d : Word.T;
       RedProd : tProduction;
   BEGIN
@@ -939,13 +938,24 @@ PROCEDURE MakeChainD() =
         (* Item in Kette eintragen *)
 
         WITH m2tom3_with_49=ChainD DO
-          INC (m2tom3_with_49.count);
-          IF m2tom3_with_49.count > m2tom3_with_49.max THEN
-            (*ExtendArray (m2tom3_with_49.chain, m2tom3_with_49.max, BYTESIZE (tItemChainElmt));*)
+          INC (m2tom3_with_49.IcCount);
+  (* WAS: IF m2tom3_with_49.IcCount > m2tom3_with_49.IcMax THEN
+            (*ExtendArray (m2tom3_with_49.IcChain, m2tom3_with_49.IcMax, BYTESIZE (tItemChainElmt));*)
           END;
-          m2tom3_with_49.chain^ [m2tom3_with_49.count].Last := Last;
-          m2tom3_with_49.chain^ [m2tom3_with_49.count].Item := Item;
-          m2tom3_with_49.reached := IntSets.Include (m2tom3_with_49.reached, Item);
+  *)
+       (* ExpArrays_tItemChainElmt.Expand
+(* TODO:  ^Instantiate and import this. This will be a bit painful,
+           because tItemChainElmt & any stuff it transitively uses
+           will have to be pullout out into an instantiating interface.
+*) 
+            ((*VAR*)m2tom3_with_49.IcChain, m2tom3_with_49.IcCount); 
+          m2tom3_with_49.IcMax := LAST(m2tom3_with_49.IcChain^);
+       *) 
+
+          m2tom3_with_49.IcChain^ [m2tom3_with_49.IcCount].Last := Last;
+          m2tom3_with_49.IcChain^ [m2tom3_with_49.IcCount].Item := Item;
+          m2tom3_with_49.reached
+            := IntSets.Include (m2tom3_with_49.reached, Item);
         END;
 
         (* Punkt nach rechts schieben *)
@@ -967,25 +977,25 @@ PROCEDURE MakeChainD() =
     (* Chain initialisieren *)
 
     WITH m2tom3_with_50=ChainD DO
-      m2tom3_with_50.max := InitChainLength;
-      m2tom3_with_50.count := 0;
+      m2tom3_with_50.IcMax := InitChainLength;
+      m2tom3_with_50.IcCount := 0;
       m2tom3_with_50.level := 0;
-      m2tom3_with_50.chain
-        := NEW (REF ARRAY OF tItemChainElmt, m2tom3_with_50.max+1);
+      m2tom3_with_50.IcChain
+        := NEW (REF ARRAY OF tItemChainElmt, InitChainLength+1);
 (* See note in SearchPathC about MakeArray. *) 
-(*WAS:MakeArray (m2tom3_with_50.chain, m2tom3_with_50.max, BYTESIZE (tItemChainElmt));*)
+(*WAS:MakeArray (m2tom3_with_50.IcChain, m2tom3_with_50.IcMax, BYTESIZE (tItemChainElmt));*)
       m2tom3_with_50.reached:= IntSets.Empty();
       PutInChain (1, 0);
 
       LOOP 
         WITH m2tom3_with_51=ChainD DO
-          LastCount := m2tom3_with_51.count;
+          LastCount := m2tom3_with_51.IcCount;
 
           IF m2tom3_with_51.level = LastCount THEN EXIT END;
 
           WHILE m2tom3_with_51.level < LastCount DO
             INC (m2tom3_with_51.level);
-            Item := m2tom3_with_51.chain^ [m2tom3_with_51.level].Item;
+            Item := m2tom3_with_51.IcChain^ [m2tom3_with_51.level].Item;
 
             (* Falls Nichtterminal nach dem Punkt steht, wird
                weiterverfolgt *)
@@ -1025,7 +1035,7 @@ PROCEDURE FindPathD (NT: NonTerminal; EndState: tStateIndex) =
 
     (* evtl. (d.h. beim ersten mal) Kette aufbauen *)
 
-    IF ChainD.max = 0 THEN
+    IF ChainD.IcChain = NIL THEN
       MakeChainD();
     END;
 
@@ -1036,7 +1046,7 @@ PROCEDURE FindPathD (NT: NonTerminal; EndState: tStateIndex) =
       last := 0;
       LOOP
         INC (last);
-        I := m2tom3_with_56.chain^ [last].Item;
+        I := m2tom3_with_56.IcChain^ [last].Item;
         IF (ItemArrayPtr^[I].Number = EndState) THEN
           prod := ADR (ProdArrayPtr^[ItemArrayPtr^[I].Prod]);
           IF NT = prod^.Left THEN
@@ -1052,7 +1062,7 @@ PROCEDURE FindPathD (NT: NonTerminal; EndState: tStateIndex) =
 
       WHILE m2tom3_with_56.level # 0 DO
         INC (Depth);
-        m2tom3_with_56.level := m2tom3_with_56.chain^ [m2tom3_with_56.level].Last;
+        m2tom3_with_56.level := m2tom3_with_56.IcChain^ [m2tom3_with_56.level].Last;
       END;
 
       (* Chain in Path uebertragen *)
@@ -1068,11 +1078,11 @@ PROCEDURE FindPathD (NT: NonTerminal; EndState: tStateIndex) =
 
       m2tom3_with_56.level := last;
       WHILE Depth > 0 DO
-        I := m2tom3_with_56.chain^ [m2tom3_with_56.level].Item;
+        I := m2tom3_with_56.IcChain^ [m2tom3_with_56.level].Item;
         PathD.PpPath^ [Depth].Prod := ItemArrayPtr^[I].Prod;
         PathD.PpPath^ [Depth].Pos  := ItemArrayPtr^[I].Pos;
         DEC (Depth);
-        m2tom3_with_56.level := m2tom3_with_56.chain^[m2tom3_with_56.level].Last;
+        m2tom3_with_56.level := m2tom3_with_56.IcChain^[m2tom3_with_56.level].Last;
       END;
     END;
   END FindPathD;
@@ -1135,6 +1145,6 @@ PROCEDURE WriteTab (d: Word.T) =
 BEGIN
   NoTrace := FALSE;
   Fast := FALSE;
-  ChainD.max := 0;
+  ChainD.IcChain := NIL;
 END Debug.
 
