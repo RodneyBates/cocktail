@@ -39,14 +39,6 @@ CONST
    OpenParseTable       = 6     ;
    ReadParseTable       = 7     ;
 
-   Fatal                = 1     ;       (* error classes        *)
-   Restriction          = 2     ;
-   Error                = 3     ;
-   Warning              = 4     ;
-   Repair               = 5     ;
-   Note                 = 6     ;
-   Information          = 7     ;
-
 CONST   (* info classes *)
   eInteger      =       1; (* UNTRACED ... *) 
   eShort        =       2;
@@ -62,6 +54,19 @@ CONST   (* info classes *)
   eTokSet       =       12; (* <: REFANY *) 
   eText         =       13; (* <: REFANY *) 
 
+(* These constants and the identically-numbered redundant ones below
+   are used mixedly in front and lalr, including the lalr Parser skeleton.
+   There could be lots of places required to unravel this. 
+*)
+CONST (* error classes *)
+   Fatal                = 1     ;       
+   Restriction          = 2     ;
+   Error                = 3     ;
+   Warning              = 4     ;
+   Repair               = 5     ;
+   Note                 = 6     ;
+   Information          = 7     ;
+
 CONST   (* error classes *)
   eFatal        =       1;
   eRestriction  =       2;
@@ -71,14 +76,15 @@ CONST   (* error classes *)
   eNote         =       6;
   eInformation  =       7;
 
+CONST MaxErrorClass     = 7;
+TYPE ErrorClassSet      = SET OF [0 .. MaxErrorClass];
+
 CONST
   SysOffset     =       100;
   eInternal     =       15;
 
 TYPE tReportMode        = {eImmediate, eNoListing, eListing};
 
-CONST MaxErrorClass     = 7;
-TYPE ErrorClassSet      = SET OF [0 .. MaxErrorClass];
 
 VAR ErrorCount  : ARRAY [0..MaxErrorClass] OF SHORTCARD;
 

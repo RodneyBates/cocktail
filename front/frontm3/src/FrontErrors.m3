@@ -1,4 +1,3 @@
-(* handle and log errors *)
 
 (* $Id: Errors.mi,v 2.4 1992/08/07 15:13:51 grosch rel $ *)
 
@@ -38,7 +37,7 @@ IMPORT Wr;
 FROM SYSTEM IMPORT SHORTCARD, M2LONGINT;
 FROM    ReuseIO         IMPORT  tFile,          StdError,       WriteC, 
                                 WriteNl,        WriteS,         WriteI,
-                                WriteT,
+                                WriteT,         WriteFlush,
                                 WriteLong,      WriteB,         WriteR,
                                 ReadOpenT,      ReadClose,      EndOfFile,
                                 CloseIO;
@@ -77,6 +76,36 @@ VAR
   ErrorCodeRef  : ARRAY [0..MaxCode]  OF tStringRef;
   ErrorCountRef : ARRAY [0..MaxErrorClass] OF tStringRef;
 
+PROCEDURE ClassImage ( ErrorClass : Word . T ) : TEXT =
+  BEGIN
+    CASE ErrorClass OF 
+    | 1 => RETURN "Fatal";
+    | 2 => RETURN "Restriction";
+    | 3 => RETURN "Error";
+    | 4 => RETURN "Warning";
+    | 5 => RETURN "Repair";
+    | 6 => RETURN "Note";
+    | 7 => RETURN "Information";
+    ELSE RETURN "<UnknownErrorClass>";
+    END (*CASE*)
+  END ClassImage;
+
+PROCEDURE CodeImage ( ErrorCode : Word . T ) : TEXT =
+  BEGIN
+    CASE ErrorCode OF
+    | 0 => RETURN "NoText";
+    | 1 => RETURN "SyntaxError";
+    | 2 => RETURN "ExpectedTokens";
+    | 3 => RETURN "RestartPoint";
+    | 4 => RETURN "TokenInserted";
+    | 5 => RETURN "WrongParseTable";
+    | 6 => RETURN "OpenParseTable";
+    | 7 => RETURN "ReadParseTable";
+    ELSE RETURN "<UnknownErrorCode>";
+    END (*CASE*)
+  END CodeImage;
+
+
 (*EXPORTED:*)
 PROCEDURE ErrorMessage  (ErrorCode, ErrorClass: Word.T; Position: tPosition) =
    BEGIN
@@ -96,6 +125,7 @@ PROCEDURE ErrorMessageI (ErrorCode, ErrorClass: Word.T; Position: tPosition;
           WriteErrorMessage (ErrorCode, ErrorClass, Position.Line, Position.Column);
           WriteInfo (InfoClass, Info);
           WriteNl (StdError);
+          WriteFlush (StdError);
         ELSE
           KeepInfo (InfoClass, Info);
           PutError (ErrorCode, ErrorClass, Position.Line, Position.Column, InfoClass, Info);
@@ -119,6 +149,7 @@ PROCEDURE ErrorMessageTraced
             (ErrorCode, ErrorClass, Position.Line, Position.Column);
           WriteInfoTraced (InfoClass, InfoTraced := InfoTraced);
           WriteNl (StdError);
+          WriteFlush (StdError);
         ELSE
           PutError
             (ErrorCode, ErrorClass, Position.Line, Position.Column,
@@ -160,6 +191,7 @@ PROCEDURE BeginErrors() =
       WriteT (StdError, "Fatal error: cannot open ");
       WriteT (StdError, ErrorTableT);
       WriteNl (StdError);
+      WriteFlush (StdError);
       RETURN;
     END;
 
@@ -225,6 +257,8 @@ PROCEDURE CloseErrors () =
         ELSE WriteInfo (InfoClass, Info);
         END;
         WriteNl (StdError);
+        WriteFlush (StdError);
+
      END;
 
      FOR i := 0 TO MaxErrorClass DO
@@ -243,6 +277,7 @@ PROCEDURE CloseErrors () =
        END;
      END; 
      WriteNl (StdError);
+     WriteFlush (StdError);
    END CloseErrors;
 
 PROCEDURE WriteErrorMessage (ErrorCode, ErrorClass, Line, Column: Word.T) =
@@ -256,7 +291,10 @@ PROCEDURE WriteErrorMessage (ErrorCode, ErrorClass, Line, Column: Word.T) =
         WriteI (StdError, Column, 2);
         WriteT (StdError, ": ");
       END;
-
+      
+      WriteT ( StdError, ClassImage ( ErrorClass ) );
+      WriteT ( StdError, " " );
+(*
       IF (ErrorClass > MaxErrorClass) OR (ErrorClass < 0) THEN
         WriteT (StdError, "Error class: ");
         WriteI (StdError, ErrorClass, 1);
@@ -269,7 +307,10 @@ PROCEDURE WriteErrorMessage (ErrorCode, ErrorClass, Line, Column: Word.T) =
           WriteString (StdError, r);
         END;
       END;
-
+*)
+      WriteT ( StdError, CodeImage ( ErrorCode ) );
+      WriteT ( StdError, " " );
+(*
       IF (ErrorCode > MaxCode) OR (ErrorCode < 0) THEN
         IF ErrorCode >= SysOffset THEN
           WriteT (StdError, " system error code: ");
@@ -292,6 +333,7 @@ PROCEDURE WriteErrorMessage (ErrorCode, ErrorClass, Line, Column: Word.T) =
           WriteString (StdError, r);
         END;
       END;
+*) 
    END WriteErrorMessage;
 
 PROCEDURE KeepInfo  (InfoClass: Word.T; VAR Info: ADDRESS) =
