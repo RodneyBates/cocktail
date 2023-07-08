@@ -735,78 +735,229 @@ PROCEDURE PutTables (TableFile: tFile) =
       END;
    END PutTables;
 
+CONST TableIndent = "         ";
+
+PROCEDURE AlignValue (File: tFile; ElmtNo , UpCt : INTEGER ) = 
+  BEGIN
+    IF ElmtNo = 0
+    THEN
+      WriteT (File, TableIndent);
+      WriteT (File, "  ")
+    ELSIF ElmtNo MOD UpCt = 0
+    THEN
+      WriteNl (File);
+      WriteT (File, TableIndent);
+      WriteT (File, ", ")
+    ELSE
+      WriteT (File, " , ")
+    END (*IF*) 
+  END AlignValue; 
+
 PROCEDURE PutBase       (File: tFile) =
    BEGIN
-      FOR i := 0 TO LastReadState DO
-         WriteT (File, "& yyTComb [");
-         WriteI (File, Base^[i], 0); WriteT (File, "],"); WriteNl (File);
-      END;
+      IF Language = tLanguage.Modula3
+      THEN 
+        FOR i := 0 TO LastReadState DO
+           AlignValue ( File, i, 2 );
+           WriteT (File, "(*"); WriteI (File, i, 4); WriteT (File, "*) "); 
+           WriteT (File, "ADR (yyTComb [");
+           WriteI (File, Base^[i], 4); WriteT (File, "])"); 
+        END;
+        WriteNl (File);
+      ELSIF Language = tLanguage.C
+      THEN 
+        FOR i := 0 TO LastReadState DO
+           WriteT (File, "& yyTComb [");
+           WriteI (File, Base^[i], 0); WriteT (File, "],"); WriteNl (File);
+        END;
+      END; 
    END PutBase;
 
 PROCEDURE PutNBase      (File: tFile) =
    BEGIN
-      FOR i := 0 TO LastReadState DO
-         WriteT (File, "& yyNComb [");
-         WriteI
-           (File
-           , LOOPHOLE (NBase^[i],SHORTINT) - LOOPHOLE (LastTerminal,SHORTINT) - 1
-           , 0
-           );
-         WriteT (File, "],"); WriteNl (File);
-      END;
+      IF Language = tLanguage.Modula3
+      THEN
+        FOR i := 0 TO LastReadState DO
+           AlignValue ( File, i, 2 );
+           WriteT (File, "(*"); WriteI (File, i, 4); WriteT (File, "*) "); 
+           WriteT (File, "ADR (yyNComb [");
+           WriteI (File, NBase^[i]+LastTerminal+1, 4);
+           (* Here, NBase^ has origin zero (it's heap-allocated, open).
+              In M3 parser, yyNComb array is fixed with  origin
+              LastTerminal+1.
+           *) 
+           WriteT (File, "])");
+        END;
+        WriteNl (File);
+      ELSIF Language = tLanguage.C
+      THEN 
+        FOR i := 0 TO LastReadState DO
+           WriteT (File, "& yyNComb [");
+           WriteI (File , NBase^[i] - LastTerminal - 1 , 0);
+           (* In C parser, yyNComb array is 0-origin. *) 
+           WriteT (File, "],"); WriteNl (File);
+        END;
+      END; 
    END PutNBase;
 
 PROCEDURE PutDefault    (File: tFile) =
    BEGIN
-      FOR i := 0 TO LastReadState DO
-         WriteI (File, Default^[i], 0); WriteC (File, ','); WriteNl (File);
-      END;
+      IF Language = tLanguage.Modula3
+      THEN
+        FOR i := 0 TO LastReadState DO
+           AlignValue ( File, i, 4 );
+           WriteT (File, "(*"); WriteI (File, i, 4); WriteT (File, "*) "); 
+           WriteI (File, Default^[i], 4); 
+        END;
+        WriteNl (File);
+      ELSIF Language = tLanguage.C
+      THEN 
+        FOR i := 0 TO LastReadState DO
+           WriteI (File, Default^[i], 0); WriteC (File, ','); WriteNl (File);
+        END;
+      END; 
    END PutDefault;
 
 PROCEDURE PutControl    (File: tFile) =
    BEGIN
-      FOR i := 0 TO TableSize DO
-         WriteC (File, '{');
-         WriteI (File, Control^[i].Check, 0); WriteT (File, ", ");
-         WriteI (File, Control^[i].Next , 0); WriteT (File, "},"); WriteNl (File);
-      END;
+      IF Language = tLanguage.Modula3
+      THEN
+        FOR i := 0 TO TableSize DO
+           AlignValue ( File, i, 2 );
+           WriteT (File, "(*"); WriteI (File, i, 4); WriteT (File, "*) "); 
+           WriteT (File, "yyTCombType {");
+           WriteI (File, Control^[i].Check, 4); 
+           WriteT (File, ", ");
+           WriteI (File, Control^[i].Next , 4); 
+           WriteT (File, "}"); 
+        END;
+        WriteNl (File);
+      ELSIF Language = tLanguage.C
+      THEN 
+        FOR i := 0 TO TableSize DO
+           WriteC (File, '{');
+           WriteI (File, Control^[i].Check, 0); WriteT (File, ", ");
+           WriteI (File, Control^[i].Next , 0); WriteT (File, "},"); WriteNl (File);
+        END;
+      END; 
    END PutControl;
 
-PROCEDURE PutNNext      (File: tFile) =
+PROCEDURE PutNNext      (File: tFile) = 
+   VAR j: INTEGER;
    BEGIN
-      FOR i := LastTerminal + 1 TO NTableSize DO
-         WriteI (File, NNext^[i], 0); WriteC (File, ','); WriteNl (File);
-      END;
+      IF Language = tLanguage.Modula3
+      THEN
+        j := 0; 
+        FOR i := LastTerminal + 1 TO NTableSize DO
+           AlignValue ( File, j , 3);
+           WriteT (File, "(*NT:"); WriteI (File, i, 4); 
+           WriteT (File, "*) "); 
+           INC (j);
+           WriteI (File, NNext^[i], 4); 
+        END;
+        WriteNl (File);
+      ELSIF Language = tLanguage.C
+      THEN 
+        FOR i := LastTerminal + 1 TO NTableSize DO
+           WriteI (File, NNext^[i], 0); WriteC (File, ','); 
+        END;
+      END; 
    END PutNNext;
 
 PROCEDURE PutLength     (File: tFile) =
+   VAR j: INTEGER;
    BEGIN
-      FOR i := 1 TO ProdCount DO
-         WriteI (File, Length^[i], 0); WriteC (File, ','); WriteNl (File);
-      END;
+      IF Language = tLanguage.Modula3
+      THEN
+        j := 0;
+        FOR i := 1 TO ProdCount DO
+           AlignValue ( File, j , 3 );
+           WriteT (File, "(*State:");
+           WriteI (File, i-1+FirstReduceState, 4);
+           (* Here, Length^ has origin zero (it's heap-allocated, open),
+              but element zero is unused.  Element 1 is for FirstReduceState.
+              In the M3 parser, yyLength has lower bound yyFirstReduceState. *)
+           WriteT (File, "*) "); 
+           WriteI (File, Length^[i], 4); 
+           INC (j);
+        END;
+        WriteNl (File);
+      ELSIF Language = tLanguage.C
+      THEN 
+        FOR i := 1 TO ProdCount DO
+           WriteI (File, Length^[i], 0); WriteC (File, ','); 
+        END;
+      END; 
    END PutLength;
 
 PROCEDURE PutLeftHandSide       (File: tFile) =
+   VAR j: INTEGER;
    BEGIN
-      FOR i := 1 TO ProdCount DO
-         WriteI (File, LeftHandSide^[i], 0); WriteC (File, ','); WriteNl (File);
-      END;
+      IF Language = tLanguage.Modula3
+      THEN
+        j := 0;
+        FOR i := 1 TO ProdCount DO
+           AlignValue ( File, j , 3 );
+           WriteT (File, "(*State:");
+           WriteI (File, i-1+FirstReduceState, 4);
+           (* Here, LeftHandSize^ has origin zero (it's heap-allocated, open),
+              but element zero is unused.  Element 1 is for FirstReduceState.
+              In the M3 parser, yyLeftHandSide has lower bound
+              yyFirstReduceState. *) 
+           WriteT (File, "*) "); 
+           WriteI (File, LeftHandSide^[i], 4);
+           INC (j);
+        END;
+        WriteNl (File);
+      ELSIF Language = tLanguage.C
+      THEN 
+        FOR i := 1 TO ProdCount DO
+           WriteI (File, LeftHandSide^[i], 0); WriteC (File, ',');
+        END;
+      END; 
    END PutLeftHandSide;
 
 PROCEDURE PutContinuation       (File: tFile) =
    BEGIN
-      FOR i := 0 TO LastReadState DO
-         WriteI (File, Continuation^[i], 0); WriteC (File, ','); WriteNl (File);
-      END;
+      IF Language = tLanguage.Modula3
+      THEN 
+        FOR i := 0 TO LastReadState DO
+           AlignValue ( File, i, 3 );
+           WriteT (File, "(*State:"); WriteI (File, i, 4); WriteT (File, "*) ");
+           WriteI (File, Continuation^[i], 4); 
+        END;
+        WriteNl (File);
+      ELSIF Language = tLanguage.C
+      THEN 
+        FOR i := 0 TO LastReadState DO
+           WriteI (File, Continuation^[i], 0); WriteC (File, ','); WriteNl (File);
+        END;
+      END; 
    END PutContinuation;
 
 PROCEDURE PutFinalToProd        (File: tFile) =
+   VAR j: INTEGER; 
    BEGIN
-      FOR i := FirstReadTermState TO LastReadNonTermState DO
-        
-         WriteI (File, FinalToProd^[i - FirstReadTermState], 0);
-         WriteC (File, ','); WriteNl (File);
-      END;
+      IF Language = tLanguage.Modula3
+      THEN 
+        j := 0;
+        FOR i := FirstReadTermState TO LastReadNonTermState DO
+           AlignValue ( File, j , 2 );
+           WriteT (File, "(*State:");
+           WriteI (File, i, 4); 
+           WriteT (File, ")*) "); 
+           INC (j);
+           WriteI (File, FinalToProd^[i - FirstReadTermState], 4);
+        END;
+        WriteNl (File);
+      ELSIF Language = tLanguage.C
+      THEN 
+        FOR i := FirstReadTermState TO LastReadNonTermState DO
+
+           WriteI (File, FinalToProd^[i - FirstReadTermState], 0);
+           WriteC (File, ','); WriteNl (File);
+        END;
+      END; 
    END PutFinalToProd;
 
 (* +++ 

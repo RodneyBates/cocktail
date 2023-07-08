@@ -82,15 +82,61 @@ TYPE
    yyAttributeStackType = REF  ARRAY OF tParsAttribute;
 
 VAR
-   yyTBasePtr           : ARRAY [0 .. yyLastReadState] OF yyTCombTypePtr;
-   yyNBasePtr           : ARRAY [0 .. yyLastReadState] OF yyNCombTypePtr;
-   yyDefault            : ARRAY [0 .. yyLastReadState] OF yyReadRangePacked;
-   yyTComb              : ARRAY yyTCombRangePacked OF yyTCombType;
-   yyNComb              : ARRAY yyNCombRangePacked OF yyNCombType;
-   yyLength             : ARRAY yyReduceRangePacked OF yyTableElmt;
-   yyLeftHandSide       : ARRAY yyReduceRangePacked OF yySymbolRangePacked;
-   yyContinuation       : ARRAY [0 .. yyLastReadState] OF yySymbolRangePacked;
-   yyFinalToProd        : ARRAY yyReadReduceRangePacked OF yyReduceRangePacked;
+   yyTBasePtr
+     := ARRAY [0 .. yyLastReadState] OF yyTCombTypePtr
+         {
+$P
+         };
+         
+   yyNBasePtr
+     := ARRAY [0 .. yyLastReadState] OF yyNCombTypePtr
+         {
+$Q
+         };
+         
+   yyDefault
+     := ARRAY [0 .. yyLastReadState] OF [ 0 .. yyLastReadState ]
+         {
+$D
+         };
+         
+   yyTComb
+     := ARRAY yyTCombRangePacked OF yyTCombType
+         {
+$M
+         };
+         
+   yyNComb 
+     := ARRAY yyNCombRangePacked OF yyNCombType
+         {
+$N
+         };
+         
+   yyLength
+     := ARRAY yyReduceRangePacked OF yyTableElmt
+         {
+$K
+         };
+         
+   yyLeftHandSide
+     := ARRAY yyReduceRangePacked OF yySymbolRangePacked
+         {
+$H
+         };
+         
+   yyContinuation
+     := ARRAY [0 .. yyLastReadState] OF yySymbolRangePacked
+         {
+$O
+         };
+         
+   yyFinalToProd
+     := ARRAY yyReadReduceRangePacked OF yyReduceRangePacked
+         {
+$F
+         }; 
+
+VAR
    yyIsInitialized      : BOOLEAN;
    yyTableFile          : System.tFile;
    
@@ -673,10 +719,10 @@ PROCEDURE yyGetTables()
       END;
       System.Close (yyTableFile);
 
-      FOR StateF := 1 TO yyLastReadState DO
+      FOR StateF := 0 TO yyLastReadState DO
          yyTBasePtr [StateF] := ADR (yyTComb [TBase [StateF]]);
       END;
-      FOR StateF := 1 TO yyLastReadState DO
+      FOR StateF := 0 TO yyLastReadState DO
          yyNBasePtr [StateF] := ADR (yyNComb [NBase [StateF]]);
       END;
    END yyGetTables;
@@ -717,7 +763,7 @@ $@ PROCEDURE Begin@ ()=
 $B    (* BEGIN section is inserted here *)
       IF NOT yyIsInitialized THEN
          yyIsInitialized := TRUE;
-         yyGetTables();
+      (* yyGetTables(); *)
       END;
 $@  END Begin@;
 
