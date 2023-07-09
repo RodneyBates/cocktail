@@ -19,7 +19,7 @@
 
 INTERFACE  Strings;
 
-IMPORT Word;
+IMPORT Word; 
 
 FROM ReuseIO IMPORT tFile;
 
