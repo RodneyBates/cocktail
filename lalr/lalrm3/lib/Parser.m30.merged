@@ -1,12 +1,17 @@
-(* Derived from: ** $Id: Parser.mi,v 2.8 1992/08/12 06:54:05 grosch rel $ *)
-(* Skeleton parser for Cocktail lalr. *)
-(* Modified Rodney M. Bates. Various times. rodney.m.bates@acm.org*)
-(* Beginning 3-2023: 
-    3-2023 Add generation of Module-3 code. 
-    Further changes in https://github.com/RodneyBates/cocktail
-*) 
 
-(* Parser.m3. *) 
+$Z(* Parser.m30. *) 
+$Z
+$Z(* Skeleton parser in Modula-3, for Cocktail lalr. *)
+$Z(* Derived from: ** $Id: Parser.mi,v 2.8 1992/08/12 06:54:05 grosch rel $ *)
+$Z(* Skeleton parser in Modula-3, for Cocktail lalr. *)
+$Z(* Modified Rodney M. Bates. Various times. rodney.m.bates@acm.org*)
+$Z(* Beginning 3-2023: 
+$Z    3-2023 Add generation of Module-3 code. 
+$Z    Further changes in https://github.com/RodneyBates/cocktail
+$Z*)
+$Z
+$Z Lines like this, begining with "$Z", are omitted from the generated parser.
+
 
 $@ UNSAFE MODULE @;
 (*^ BEWARE! lalr loses this character. *) 
@@ -279,8 +284,8 @@ $@                      $.Attribute.Position, FrontErrors.eText, yyText
                         yyState := yyFinalToProd [yyState];
                      END (* IF *) ;
                      INC (yyStackPtr);
-                     yyAttributeStack^ [yyStackPtr].Scan := yyRepairAttribute;
                      yyStateStack^     [yyStackPtr] := yyState;
+                     yyAttributeStack^ [yyStackPtr].Scan := yyRepairAttribute;
                   END (* IF *) ;
                   IF yyState >= yyFirstFinalState 
                   THEN (* final state ? *)
@@ -305,6 +310,7 @@ $@             yyAttributeStack^ [yyStackPtr].Scan := $.Attribute;
 $@             yyTerminal := $.GetToken ();
                yyIsRepairing := FALSE;
 $X             yyState := yyFinalToProd [yyState]; (* reducing case label ct. *)
+$Y             yyStateStack^ [yyStackPtr] := yyState (*ParserDebug*);
             END (* IF *) ;
 
             LOOP (* Through successive reductions *)
@@ -322,15 +328,19 @@ $R            (* Code for Reductions is inserted here *)
                yyState := yyNCombPtr^;
                INC (yyStackPtr);
                yyAttributeStack^ [yyStackPtr] := yySynAttribute;
+$Y             yyAttributeStack^ [yyStackPtr].Scan.SaTok := yyNonterminal;
+$Y          (* ^This requires that tScanAttribute have field 'SaTok'. *)
                IF yyState < yyFirstFinalState 
                THEN (* read nonterminal ? *)
                  EXIT 
                END (* IF *) ; 
 $X             yyState := yyFinalToProd [yyState]; (* reducing case label ct. *)
+$Y             yyStateStack^ [yyStackPtr] := yyState (*ParserDebug*);
             END (* LOOP *) ;
 
          ELSE (* read *)
             INC (yyStackPtr);
+$Y          yyStateStack^ [yyStackPtr] := yyState (*ParserDebug*);
 $@          yyAttributeStack^ [yyStackPtr].Scan := $.Attribute;
 $@          yyTerminal := $.GetToken ();
             yyIsRepairing := FALSE;
@@ -373,7 +383,8 @@ $@         $.Attribute.Position, FrontErrors.eText, TokenText);
             END;
          END;
       END;
-      FrontErrors.ErrorMessageI (FrontErrors.ExpectedTokens, FrontErrors.Information,
+      FrontErrors.ErrorMessageI
+        (FrontErrors.ExpectedTokens, FrontErrors.Information,
 $@      $.Attribute.Position, FrontErrors.eString, ADR (ContinueString));
       ContinueSet := NIL;
 
@@ -426,7 +437,7 @@ PROCEDURE IsContinuation (
       StackSize         : INTEGER       ;
       StackPtr          : yyStackPtrType): BOOLEAN =
    VAR
-      State             : yyStackPtrType;
+      State             : yyStateRange;
       Nonterminal       : yySymbolRange;
       Stack             : yyStackType;
    BEGIN
@@ -460,16 +471,19 @@ PROCEDURE IsContinuation (
             END;
 
             State := Next (Stack^ [StackPtr], Nonterminal);
+            (* Ensure Stack has room for at least 2 elements. *)
             IF StackPtr >= StackSize THEN
               ExpandStateStack
                 (Stack, MAX (NUMBER ( Stack ^ ) * 2 , StackPtr + 2 ) );
               StackSize := NUMBER (Stack^); 
             END;
+$Y          Stack^ [StackPtr] := State (*ParserDebug*);
             INC (StackPtr);
             IF State < yyFirstFinalState
             THEN EXIT;
             END; (* read nonterminal ? *)
             State := yyFinalToProd [State]; (* read nonterminal reduce *)
+$Y          Stack^ [StackPtr] := State (*ParserDebug*);
          END;
       END;
     END IsContinuation;
@@ -488,7 +502,7 @@ PROCEDURE ComputeRestartPoints (
       VAR RestartSet    : IntSets.T     ) =
    VAR
       Stack             : yyStackType;
-      State             : yyStackPtrType;
+      State             : yyStateRange;
       Nonterminal       : yySymbolRange;
       ContinueSet       : IntSets.T;
    BEGIN
@@ -502,6 +516,7 @@ PROCEDURE ComputeRestartPoints (
       State := Stack^ [StackPtr];
 
       LOOP
+         (* Ensure Stack has room for at least 2 elements. *)
          IF StackPtr >= StackSize THEN
             ExpandStateStack
               (Stack, MAX (NUMBER (Stack ^) * 2 , StackPtr + 2 ) );
@@ -516,6 +531,7 @@ PROCEDURE ComputeRestartPoints (
             IF State <= yyLastReadTermState THEN (* read terminal reduce ? *)
                INC (StackPtr);
                State := yyFinalToProd [State];
+$Y             Stack^ [StackPtr] := State (*ParserDebug*);
             END;
 
             LOOP (* reduce *)
@@ -534,7 +550,7 @@ PROCEDURE ComputeRestartPoints (
                THEN EXIT;
                END; (* read nonterminal ? *)
                State := yyFinalToProd [State]; (* read nonterminal reduce *)
-            END;
+            END (*LOOP*);
          ELSE (* read *)
             INC (StackPtr);
          END;
