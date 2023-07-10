@@ -73,7 +73,7 @@ FROM Default    IMPORT  NoDefault;
 FROM FrontErrors     IMPORT  eError,         eString,
                         ErrorMessageI,  tReportMode,    SetReportMode,
                         CloseErrors, ErrorTableT;
-FROM Gen        IMPORT  CaseFlag,       CaseLabels;
+FROM Gen        IMPORT  CaseFlag,       CaseLabels, ParserTrace;
 FROM Idents     IMPORT  tIdent, NoIdent, WriteIdent, GetString, GetText;
 FROM ReuseIO         IMPORT  tFile,          StdInput,       StdOutput,
                         ReadOpen, ReadOpenT, WriteOpen, WriteOpenT, ReadClose,
@@ -154,6 +154,7 @@ CONST
   cTest         = "-t";
   cItemSets     = "-k";
   cLib          = "-L";
+  cParserTrace  = "-D";
 
 VAR cLibLen := Text.Length(cLib);
 
@@ -183,6 +184,7 @@ PROCEDURE ArgCheck() =
     MakeScan := FALSE;
     MakeParsDrv := FALSE;
     ItemSets := FALSE;
+    SetReportMode (tReportMode.eImmediate);
 
     ArgCt := GetArgCount ();
     ArgNo := 1;
@@ -239,6 +241,8 @@ PROCEDURE ArgCheck() =
         ItemSets := TRUE;
       ELSIF Text.Equal (ArgumentT, cLine) THEN
         LineFlag := TRUE;
+      ELSIF Text.Equal (ArgumentT, cParserTrace) THEN
+        ParserTrace := TRUE;
       ELSIF Text.Equal (ArgumentT, cNoTrace) THEN
         NoTrace := TRUE;
       ELSIF Text.Equal (ArgumentT, cNoDefault) THEN

@@ -40,6 +40,7 @@ TYPE
 
 VAR
     Trace : BOOLEAN;
+    ParserTrace : BOOLEAN;
     CaseFlag : BOOLEAN;
     CaseLabels : INTEGER;
 

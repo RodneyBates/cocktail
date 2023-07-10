@@ -253,6 +253,21 @@ UNSAFE MODULE Gen;
           | 'H' => PutLeftHandSide      (out);
           | 'O' => PutContinuation      (out);
           | 'F' => PutFinalToProd       (out);
+          | 'Y' =>
+             IF ParserTrace
+             THEN (* Blank out the $Y and copy the rest. *)
+                WriteC (out, ' '); 
+                WriteC (out, ' ');
+                Strings.SubString
+                  ( line
+                  , from := 3
+                  , to := Strings.Length(line)
+                  , (*OUT*) s2 := rest
+                  );
+                WriteL (out,rest);
+          (* ELSE omit this line. *) 
+             END;
+          | 'Z' => (* Omit this line. *) 
           | '@' => ExpandLine (out, line);
           END;
         ELSE
@@ -1036,6 +1051,7 @@ PROCEDURE PutFinalToProd        (File: tFile) =
 BEGIN
   ElmtSize      := BYTESIZE (TableElmt);
   Trace         := FALSE;
+  ParserTrace   := FALSE;
   CaseFlag      := FALSE;
 END Gen.
 
