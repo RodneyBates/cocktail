@@ -28,7 +28,8 @@
 
   IMPORT Word;
   FROM FrontErrors IMPORT
-    eWarning, eError, eIdent, ErrorMessage, ErrorMessageI;
+    eWarning, eError, eIdent, ErrorMessage, ErrorMessageI,
+    NotReach, NoProd, NotTerm;
 
   FROM Sets IMPORT
     tSet,
@@ -59,11 +60,6 @@
   
   FROM Idents IMPORT
     tIdent;
-
-  CONST
-    eNotReach   = 47;
-    eNoProd     = 46;
-    eNotTerm    = 45;
 
   PROCEDURE TestReduced() =
 
@@ -171,7 +167,7 @@
            (NOT IntSets.IsElement (voc, reached)) THEN
           GetTokenPos   (voc,pos);
           sym := TokenToSymbol (voc,error);
-          ErrorMessageI (eNotReach, eWarning, pos,eIdent, ADR (sym));
+          ErrorMessageI (NotReach, eWarning, pos,eIdent, ADR (sym));
         END;
       END;
 
@@ -180,7 +176,7 @@
            (NOT IntSets.IsElement (voc, reached)) THEN
           GetTokenPos   (voc,pos);
           sym := TokenToSymbol (voc,error);
-          ErrorMessageI (eNotReach, eWarning, pos, eIdent, ADR (sym));
+          ErrorMessageI (NotReach, eWarning, pos, eIdent, ADR (sym));
 
           (* nichtereichbare Nichtterminal sind toetlich *)
           reach := FALSE;
@@ -312,9 +308,9 @@
           GetTokenPos   (nt,pos);
           sym := TokenToSymbol (nt,error);
           IF ProdList[nt].Used = 0 THEN
-            ErrorMessageI (eNoProd, kind, pos, eIdent, ADR (sym));
+            ErrorMessageI (NoProd, kind, pos, eIdent, ADR (sym));
           ELSE
-            ErrorMessageI (eNotTerm, kind, pos, eIdent, ADR (sym));
+            ErrorMessageI (NotTerm, kind, pos, eIdent, ADR (sym));
           END;
         UNTIL IntSets.IsEmpty (todo);
       END;

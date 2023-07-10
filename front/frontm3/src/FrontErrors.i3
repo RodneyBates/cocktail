@@ -38,6 +38,10 @@ CONST
    WrongParseTable      = 5     ;
    OpenParseTable       = 6     ;
    ReadParseTable       = 7     ;
+   NotReach             = 8;
+   NoProd               = 9;
+   NotTerm              = 10;
+
 
 CONST   (* info classes *)
   eInteger      =       1; (* UNTRACED ... *) 

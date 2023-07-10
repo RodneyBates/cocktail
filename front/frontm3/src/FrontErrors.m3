@@ -29,6 +29,7 @@
 
  UNSAFE MODULE FrontErrors;
 
+IMPORT Fmt;
 IMPORT IntSets;
 IMPORT Thread;
 IMPORT Word;
@@ -79,29 +80,32 @@ VAR
 PROCEDURE ClassImage ( ErrorClass : Word . T ) : TEXT =
   BEGIN
     CASE ErrorClass OF 
-    | 1 => RETURN "Fatal";
-    | 2 => RETURN "Restriction";
-    | 3 => RETURN "Error";
-    | 4 => RETURN "Warning";
-    | 5 => RETURN "Repair";
-    | 6 => RETURN "Note";
-    | 7 => RETURN "Information";
-    ELSE RETURN "<UnknownErrorClass>";
+    | Fatal => RETURN "Fatal";
+    | Restriction => RETURN "Restriction";
+    | Error => RETURN "Error";
+    | Warning => RETURN "Warning";
+    | Repair => RETURN "Repair";
+    | Note => RETURN "Note";
+    | Information => RETURN "Information";
+    ELSE RETURN "UnknownErrorClass: "& Fmt.Int (ErrorClass);
     END (*CASE*)
   END ClassImage;
 
 PROCEDURE CodeImage ( ErrorCode : Word . T ) : TEXT =
   BEGIN
     CASE ErrorCode OF
-    | 0 => RETURN "NoText";
-    | 1 => RETURN "SyntaxError";
-    | 2 => RETURN "ExpectedTokens";
-    | 3 => RETURN "RestartPoint";
-    | 4 => RETURN "TokenInserted";
-    | 5 => RETURN "WrongParseTable";
-    | 6 => RETURN "OpenParseTable";
-    | 7 => RETURN "ReadParseTable";
-    ELSE RETURN "<UnknownErrorCode>";
+    | NoText => RETURN "NoText";
+    | SyntaxError => RETURN "SyntaxError";
+    | ExpectedTokens => RETURN "ExpectedTokens";
+    | RestartPoint => RETURN "RestartPoint";
+    | TokenInserted => RETURN "TokenInserted";
+    | WrongParseTable => RETURN "WrongParseTable";
+    | OpenParseTable => RETURN "OpenParseTable";
+    | ReadParseTable => RETURN "ReadParseTable";
+    | NotReach  => RETURN "NotReachable";
+    | NoProd    => RETURN "NoProduction";
+    | NotTerm   => RETURN "NotATerminal";
+    ELSE RETURN "UnknownErrorCode: " & Fmt.Int (ErrorCode);
     END (*CASE*)
   END CodeImage;
 
