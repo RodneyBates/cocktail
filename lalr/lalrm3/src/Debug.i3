@@ -28,11 +28,12 @@
 
 UNSAFE INTERFACE  Debug;
 
+IMPORT Word;
+
 FROM ReuseIO IMPORT tFile;
-FROM Sets IMPORT tSet;
 IMPORT IntSets;
-FROM Automaton IMPORT tItemIndex, tStateIndex;
-FROM TokenTab IMPORT Terminal;
+FROM Automaton IMPORT tItemIndex, tStateIndex, tProdIndex, tIndex;
+FROM TokenTab IMPORT Terminal, Vocabulary;
 
 TYPE tConflict = {ShRed, RedRed, ShRedRed};
 
@@ -44,7 +45,12 @@ PROCEDURE DebugHead     (State: tStateIndex);
 PROCEDURE DebugState    (State: tStateIndex; VAR Set: IntSets.T);
 PROCEDURE DebugEnd();
 
-PROCEDURE PrintItemSets ( ) ; 
+PROCEDURE WriteItemSets ( ) ; 
+PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: Word.T);
+PROCEDURE WriteTable();
+PROCEDURE WriteProdLength();
+PROCEDURE WriteLeftHandSide();
+PROCEDURE WriteVoc (voc: Vocabulary; length: Word.T := 1);
     
 (* Erzeuge Zusatzinformation zum Zustand 'State' mit Konfliktmenge 'Set' *)
 

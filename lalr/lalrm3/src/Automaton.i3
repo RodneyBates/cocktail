@@ -24,7 +24,7 @@
    Rodney M. Bates, rodney.m.bates@acm.org *) 
 
 UNSAFE INTERFACE  Automaton;
-  
+
 IMPORT Word;
 FROM Lists      IMPORT tList;
 FROM SYSTEM     IMPORT SHORTCARD;
@@ -47,7 +47,7 @@ TYPE
    Modula-3 terminology) LOOPHOLES into a pointer to an overlarge,
    fixed array.  Several such array types are declared with lower
    bound of one.  Since Modula-3 heap-allocated open arrays always
-   have lower bound of zero,, this requires special treatment:
+   have lower bound of zero, this requires special treatment:
    1. Allocate one more element than in the Modula-2 version.
    2. When writing to the table file, start with element 1.
 
@@ -170,6 +170,8 @@ VAR
     OperArray   : ARRAY Terminal OF tOper;
     StartSymbol : NonTerminal;        (* neues Startsymbol, das nur in
                                             einer Regel auftritt *)
+
+PROCEDURE ItemRepImage ( READONLY Item: tItem ): TEXT;
 
 PROCEDURE InitAutomaton();
 

@@ -142,6 +142,8 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
       END;
     END WriteConstants;
 
+  CONST ReducePrefix = "              "; 
+
   PROCEDURE WriteReduceCode (f:tFile) = (* Ausgabe des Codes fuer die Reduktionen *)
     VAR
       label: tStateIndex;
@@ -160,6 +162,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
         INC (label, CaseLabels);
         OpenCase (f, label);
       ELSIF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
+        WriteT (f, ReducePrefix);
         WriteT  (f, "CASE yyState OF");
         WriteNl (f);
       ELSE (* Language = C *)
@@ -186,7 +189,8 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
 
         WITH m2tom3_with_1=prod^.Reduce DO
           IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
-            WriteT (f, "  | ");
+            WriteT (f, ReducePrefix);
+            WriteT (f, "| ");
             WriteI (f, m2tom3_with_1.IlArray^[1], 0);
           ELSE (* Language = C *)
             WriteT (f, "case ");
@@ -214,10 +218,13 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
 
           IF index = 0 THEN   (* Endzustand *)
             IF Language = tLanguage.Modula3 THEN
+              WriteT (f, ReducePrefix);
               WriteT (f, "  yyStateStack := NIL;");
               WriteNl (f);
+              WriteT (f, ReducePrefix);
               WriteT (f, "  yyAttributeStack := NIL;");
               WriteNl (f);
+              WriteT (f, ReducePrefix);
               WriteT (f, "  RETURN yyErrorCount;");
               WriteNl (f);
             ELSIF Language = tLanguage.Modula2 THEN
@@ -237,11 +244,13 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
             END;
           ELSE
             IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
+              WriteT (f, ReducePrefix);
               IF prod^.Len # 0 
               THEN 
                 WriteT (f, "  DEC (yyStackPtr, ");
                 WriteI (f, prod^.Len, 0);
                 WriteT (f, "); ");
+              ELSE WriteT (f, "  ");
               END (* IF *) ;  
               WriteT (f, "yyNonterminal := ");
               WriteI (f, prod^.Left-NonTermOffset, 0);
@@ -279,7 +288,8 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
       IF CaseLabels > 0 THEN
         CloseCase (f, cases);
       ELSIF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
-        WriteT  (f, "END;");
+        WriteT (f, ReducePrefix);
+        WriteT  (f, "END (*CASE*);");
         WriteNl (f);
       ELSE (* Language = C *)
         WriteC  (f, '}');
@@ -290,6 +300,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
   PROCEDURE OpenCase (f: tFile; label: tStateIndex) =
     BEGIN
       IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
+        WriteT (f, ReducePrefix);
         WriteT  (f, "CASE yyState OF");
         WriteNl (f);
       ELSE (* Language = C *)
@@ -306,6 +317,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
   PROCEDURE NextCase (f: tFile; label: tStateIndex) =
     BEGIN
       IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
+        WriteT (f, ReducePrefix);
         WriteT  (f, "ELSE CASE yyState OF");
         WriteNl (f);
       ELSE (* Language = C *)
@@ -324,7 +336,8 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
     BEGIN
       IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
         WHILE cases > 0 DO
-          WriteT  (f, "END; (* additional CASE *)");
+          WriteT (f, ReducePrefix);
+          WriteT  (f, "END (* additional CASE *);");
           WriteNl (f);
           DEC (cases);
         END;
@@ -346,7 +359,8 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
     BEGIN
       IF pos.Line # 0 THEN
         IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
-          WriteT (f, "(* line ");
+          WriteT (f, ReducePrefix);
+          WriteT (f, "  (* line ");
           WriteI (f, pos.Line, 0);
           WriteT (f, " of \"");
           WriteT (f, SourceFileName);
@@ -379,7 +393,9 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
         Tail (a);
         IF IsEmpty (a) THEN DEC (i2); END;
         IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) 
-        THEN WriteT (f, "  "); 
+        THEN
+          WriteT (f, ReducePrefix);
+          WriteT (f, "  "); 
         END;
         i := i1;
         WHILE i <= i2 DO
@@ -440,7 +456,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
   PROCEDURE WriteProdComment (f: tFile; prod: tProduction) =
     BEGIN
       IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
-        WriteT (f, " (* ");
+        WriteT (f, "(* ");
       ELSE (* Language = C *)
         WriteT (f, " /* ");
       END;

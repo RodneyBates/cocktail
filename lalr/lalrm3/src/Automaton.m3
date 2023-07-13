@@ -37,7 +37,9 @@
  UNSAFE MODULE Automaton;
 
 FROM SYSTEM IMPORT M2LONGINT;
+IMPORT Fmt; 
 IMPORT Word;
+
 FROM Continue   IMPORT Value, ValueNonterms;
 FROM DynArray   IMPORT MakeArray, ExtendArray;
 FROM FrontErrors     IMPORT eFatal, eError, eWarning, eInformation, eIdent, eString,
@@ -149,6 +151,23 @@ PROCEDURE ExpandProdListArray
       LOldArrayRef := NIL (* GC bait *);
     END; 
   END ExpandProdListArray;
+
+PROCEDURE ItemRepImage ( READONLY Item: tItem ): TEXT =
+  VAR LR, LResult: TEXT; 
+  BEGIN
+    CASE Item.Rep OF
+    | tRep.NoRep
+    => LR := Fmt.Int (Item.RepNo)
+    | tRep.TermRep
+    => LR := "Term"
+    | tRep.NonTermRep
+    =>  LR := "Nonterm" 
+    | tRep.RedRep
+    => LR := "Reduce"
+    END; 
+    LResult := "(" & LR & ")";
+    RETURN LResult;
+  END ItemRepImage; 
 
 PROCEDURE InitAutomaton() =
 

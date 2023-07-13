@@ -1,4 +1,4 @@
-(* compute debugging information *)
+
 
 (* 2001-02-15, Rodney M. Bates Added PrintItemSets. *) 
 
@@ -35,19 +35,26 @@
 
 UNSAFE MODULE Debug;
 
+IMPORT Fmt;
 IMPORT Word;
 FROM SYSTEM IMPORT M2LONGINT, SHORTCARD;
 FROM Automaton  IMPORT tAss, tRep, tItem, tState, tIndex, tProduction, Infinite,
-                        StartSymbol, ProdList, StateArrayPtr, tStateIndex, StateIndex,
-                        ItemArrayPtr, tItemIndex, ItemIndex, ProdArrayPtr, tProdIndex;
+                        StartSymbol, ProdList, StateArrayPtr, tStateIndex,
+                        StateIndex, ProdCount, ProdIndex,
+                        ItemArrayPtr, tItemIndex, ItemIndex, ProdArrayPtr,
+                        tProdIndex, ItemRepImage;
 FROM Continue   IMPORT Value;
 FROM DynArray   IMPORT ExtendArray, MakeArray, ReleaseArray;
-FROM ReuseIO         IMPORT tFile, WriteC, WriteT, WriteI, WriteNl;
+FROM Gen IMPORT tTableLine, LeftHandSide, ProdLength, NonTermOffset,
+                LastTerminal, FirstReduceState, LastReduceState,
+                NoState, FirstSymbol, LastSymbol, LastReadState, MakeTableLine;
+FROM ReuseIO    IMPORT tFile, WriteC, WriteT, WriteI, WriteCard, WriteNl;
 (*FROM Sets       IMPORT tSet, Extract, Include, Exclude, MakeSet, ReleaseSet,
                         Assign, Intersection, IsElement, IsEmpty;
                         *)
 IMPORT IntSets;
-FROM Strings    IMPORT Length, Char, tString;
+IMPORT Strings;
+FROM Strings    IMPORT Char, tString;
 FROM Idents     IMPORT tIdent, GetString;
 
 FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Terminal,
@@ -157,6 +164,8 @@ PROCEDURE WriteItem (Item: tItemIndex; t: Terminal) =
       WITH m2tom3_with_1=ItemArrayPtr^[Item] DO
         p := ADR (ProdArrayPtr^[m2tom3_with_1.Prod]);
         WriteVoc (p^.Left,length);
+        WriteT (dFile," ");
+        WriteT (dFile,ItemRepImage(m2tom3_with_1));
         WriteT (dFile," -> ");
         length := 0;
         WITH m2tom3_with_2=p^ DO
@@ -186,7 +195,7 @@ PROCEDURE WriteItem (Item: tItemIndex; t: Terminal) =
       END;
     END WriteItem;
 
-PROCEDURE PrintItemSets ( )  = 
+PROCEDURE WriteItemSets ( )  = 
   BEGIN
     FOR state := 1 TO StateIndex
     DO
@@ -203,7 +212,7 @@ PROCEDURE PrintItemSets ( )  =
       WriteNl (dFile);
       WriteNl (dFile);
     END 
-  END PrintItemSets;
+  END WriteItemSets;
     
 PROCEDURE DebugHead (State: tStateIndex) =
     BEGIN
@@ -1090,6 +1099,18 @@ PROCEDURE FindPathD (NT: NonTerminal; EndState: tStateIndex) =
     END;
   END FindPathD;
 
+PROCEDURE ReduceStateImage (state: tStateIndex) : TEXT =
+  VAR LStateImage, LProdImage, LResult: TEXT;
+  BEGIN
+    LStateImage := "S" & Fmt.Int(state);
+    IF state >= FirstReduceState AND state <= LastReduceState
+    THEN LProdImage := ",P" & Fmt . Int (state-FirstReduceState+1);
+    ELSE LProdImage := ""
+    END;
+    LResult := "(" & LStateImage & LProdImage & ")";
+    RETURN LResult; 
+  END ReduceStateImage; 
+
 PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: Word.T) =
     VAR
       prodADR : (*tProduction*) ADDRESS;
@@ -1113,7 +1134,82 @@ PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: Word.T) =
       END;
     END WriteProd;
 
-PROCEDURE WriteVoc (voc: Vocabulary; VAR length: Word.T) =
+  PROCEDURE WriteTable()=
+  (* Alle Uebergaenge. *) 
+    VAR maxState, state, NewNum : tStateIndex;
+    VAR LTableLine: tTableLine;
+    BEGIN
+      WriteT (dFile,"***** Table ***** ");
+      WriteNl (dFile);
+      maxState := StateIndex;
+      FOR state := 1 TO maxState DO
+      (* InitTableLine();*)
+        NewNum := MakeTableLine (state, (*OUT*)LTableLine);
+        IF NewNum <= LastReadState THEN
+          WriteTableLine (NewNum, LTableLine);
+        END;
+      END;
+    END WriteTable;
+
+  PROCEDURE WriteTableLine (state:tStateIndex; READONLY TableLine: tTableLine)=
+  (* Uebergaenge von ein Zustand. *)
+    VAR
+      nextstate : tStateIndex;
+      symbol : Vocabulary;
+    BEGIN
+      WriteT (dFile,"State ");
+      WriteCard (dFile,state,1);
+      WriteC (dFile,':');
+      FOR symbol := FirstSymbol TO LastSymbol DO
+        nextstate := TableLine [symbol];
+        IF nextstate # NoState THEN
+          WriteT (dFile," (");
+          IF symbol > LastTerminal THEN
+            WriteVoc (symbol+NonTermOffset); (* ??? *)
+          ELSE
+            WriteVoc (symbol);
+          END;
+          WriteC (dFile,',');
+          WriteT (dFile, ReduceStateImage (nextstate));
+          WriteC (dFile,')');
+        END;
+      END;
+      WriteNl (dFile);
+    END WriteTableLine;
+
+  PROCEDURE WriteProdLength()=
+  (* Laenge von Produktionen. *)
+    VAR prodno : tProdIndex;
+    BEGIN
+      WriteT (dFile,"***** Length ***** ");
+      WriteNl (dFile);
+      FOR prodno := 1 TO ProdCount DO
+        WriteT (dFile,"Length (");
+        WriteCard (dFile,prodno,1);
+        WriteT (dFile,") = ");
+        WriteCard (dFile,ProdLength^[prodno],1);
+        WriteNl (dFile);
+      END;
+      WriteNl (dFile);
+    END WriteProdLength;
+
+  PROCEDURE WriteLeftHandSide()=
+  (* Linke Seite der Produktionen. *)
+    VAR prodno : tProdIndex;
+    BEGIN
+      WriteT (dFile,"***** LeftHandSide ***** ");
+      WriteNl (dFile);
+      FOR prodno := 1 TO ProdCount DO
+        WriteT (dFile,"LeftHandSide (");
+        WriteCard (dFile,prodno,1);
+        WriteT (dFile,") = ");
+        WriteVoc (LeftHandSide^[prodno]);
+        WriteNl (dFile);
+      END;
+      WriteNl (dFile);
+    END WriteLeftHandSide;
+    
+PROCEDURE WriteVoc (voc: Vocabulary; length: Word.T := 1) =
     VAR
       sym : tIdent;
       str : tString;
@@ -1121,7 +1217,7 @@ PROCEDURE WriteVoc (voc: Vocabulary; VAR length: Word.T) =
     BEGIN
       sym := TokenToSymbol (voc,err);
       GetString (sym,str);
-      length := Length (str);
+      length := Strings.Length (str);
       FOR i := 1 TO length DO
         WriteC (dFile,Char (str, i));
       END;
@@ -1135,7 +1231,7 @@ PROCEDURE VocLength (voc: Vocabulary): Word.T =
     BEGIN
       sym := TokenToSymbol (voc,err);
       GetString (sym,str);
-      RETURN Length (str);
+      RETURN Strings.Length (str);
     END VocLength;
     
 PROCEDURE WriteTab (d: Word.T) =

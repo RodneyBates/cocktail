@@ -1,4 +1,3 @@
-
 (* 2001-02-15, Rodney M. Bates. 
    1) changes to open _Debug file properly. Apparently this
       was bitrot for a string literal not getting a null byte
@@ -63,7 +62,10 @@ FROM Automaton  IMPORT Infinite, tAss, tRep, tIndex, tProduction, ProdArrayPtr,
 FROM Debug      IMPORT dFile, tConflict, DebugHead, DebugState, DebugEnd, InformIgnored,
                         InformLowPri, InformRightAss, InformLeftAss, InformKept,
                         InformConflict, NewLine;
-FROM Debug      IMPORT ItemSets, PrintItemSets;
+FROM Debug      IMPORT ItemSets, WriteItemSets, WriteVoc, WriteProd,
+                       WriteProdLength, WriteLeftHandSide, WriteTable;
+
+
 FROM FrontErrors     IMPORT eInternal, eInformation, eWarning, eError, eFatal, eString,
                         eShort, eTokSet, ErrorMessageI, ErrorMessageTraced,
                         CrashT;
@@ -114,6 +116,7 @@ FROM TokenTab   IMPORT MAXTerm, Terminal, Prio, TokenToSymbol, TokenError;
       Error    : BOOLEAN;
       string   : tString;
     BEGIN
+      ok := TRUE;
       Error := FALSE;
       SymbolSet := IntSets . Empty ( );
       ConflictSet := IntSets . Empty ( );
@@ -180,15 +183,11 @@ FROM TokenTab   IMPORT MAXTerm, Terminal, Prio, TokenToSymbol, TokenError;
           END;
         END;
       END;
-
+      
+      ok := NOT Error;
       TempSet := NIL;
       ConflictSet := NIL;
       SymbolSet := NIL;
-      IF ItemSets THEN PrintItemSets ( ) END ; 
-      ok := NOT Error;
-      IF Verbose THEN
-        WriteClose (dFile);
-      END;
     END CheckForConflicts;
 
 PROCEDURE RepairConflict (state: tStateIndex; VAR ConflictSet: IntSets.T) =
