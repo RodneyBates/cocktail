@@ -95,16 +95,16 @@ PROCEDURE CodeImage ( ErrorCode : Word . T ) : TEXT =
   BEGIN
     CASE ErrorCode OF
     | NoText => RETURN "NoText";
-    | SyntaxError => RETURN "SyntaxError";
-    | ExpectedTokens => RETURN "ExpectedTokens";
-    | RestartPoint => RETURN "RestartPoint";
-    | TokenInserted => RETURN "TokenInserted";
-    | WrongParseTable => RETURN "WrongParseTable";
-    | OpenParseTable => RETURN "OpenParseTable";
-    | ReadParseTable => RETURN "ReadParseTable";
-    | NotReach  => RETURN "NotReachable";
-    | NoProd    => RETURN "NoProduction";
-    | NotTerm   => RETURN "NotATerminal";
+    | SyntaxError => RETURN "Syntax error";
+    | ExpectedTokens => RETURN "Expected tokens:";
+    | RestartPoint => RETURN "Restart point:";
+    | TokenInserted => RETURN "Token inserted:";
+    | WrongParseTable => RETURN "Wrong parse table";
+    | OpenParseTable => RETURN "While opening parse table";
+    | ReadParseTable => RETURN "While reading parse table";
+    | NotReach  => RETURN "Token is not reachable:";
+    | NoProd    => RETURN "Has no production:";
+    | NotTerm   => RETURN "Token is nonterminating:";
     ELSE RETURN "UnknownErrorCode: " & Fmt.Int (ErrorCode);
     END (*CASE*)
   END CodeImage;
