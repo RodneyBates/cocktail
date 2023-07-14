@@ -222,7 +222,7 @@ UNSAFE MODULE Gen;
            TextToString (FileNameT, String1);
            SysErrorMessageI (out, eError, eString, ADR (String1));
          ELSE
-           PutTables (out);
+           WriteTablesFile (out);
            System.Close (out);
          END;
       END;
@@ -262,6 +262,7 @@ UNSAFE MODULE Gen;
              IF ParserTrace
              THEN (* Blank out the $Y and copy the rest. *)
                 WriteC (out, ' '); 
+                WriteC (out, ' ');
                 WriteC (out, ' ');
                 Strings.SubString
                   ( line
@@ -712,11 +713,11 @@ UNSAFE MODULE Gen;
       END;
     END PrepareReduceCode;
 
-PROCEDURE PutTables (TableFile: tFile) =
+PROCEDURE WriteTablesFile (TableFile: tFile) =
   VAR InError           : BOOLEAN;
       BlockSize , i     : Word.T;
 
-    PROCEDURE PutTable (Length: TableElmt; Address: ADDRESS) =
+    PROCEDURE WriteOneTable (Length: TableElmt; Address: ADDRESS) =
        VAR
           N     : INTEGER;
           string: tString;
@@ -735,37 +736,37 @@ PROCEDURE PutTables (TableFile: tFile) =
             InError := TRUE;
             RETURN;
           END;
-       END PutTable;
+       END WriteOneTable;
 
    BEGIN
       BlockSize := 64000 DIV BYTESIZE (ControlType);
       InError := FALSE;
-      PutTable ((LastReadState + 1) * ElmtSize, ADR(Base^[0]));
+      WriteOneTable ((LastReadState + 1) * ElmtSize, ADR(Base^[0]));
       IF InError THEN RETURN END;
-      PutTable ((LastReadState + 1) * ElmtSize, ADR(NBase^[0]));
+      WriteOneTable ((LastReadState + 1) * ElmtSize, ADR(NBase^[0]));
       IF InError THEN RETURN END;
-      PutTable ((LastReadState + 1) * ElmtSize, ADR(Default^[0]));
+      WriteOneTable ((LastReadState + 1) * ElmtSize, ADR(Default^[0]));
       IF InError THEN RETURN END;
-      PutTable
+      WriteOneTable
         ((NTableSize - LastTerminal) * BYTESIZE (TableElmt)
         , ADR (NNext^[LastTerminal + 1])
         );
       IF InError THEN RETURN END;
-      PutTable
+      WriteOneTable
         ((LastReduceState - FirstReduceState + 1) * ElmtSize
         , ADR(ProdLength^[1])
         (* Length is 1-origin in lalr, but 0-origin in table file. *) 
         );
       IF InError THEN RETURN END;
-      PutTable
+      WriteOneTable
         ((LastReduceState - FirstReduceState + 1) * ElmtSize
         , ADR(LeftHandSide^[1])
         (* LeftHandSide is 1-origin in lalr, but 0-origin in table file. *) 
         );
       IF InError THEN RETURN END;
-      PutTable ((LastReadState + 1) * ElmtSize, ADR(Continuation^[0]));
+      WriteOneTable ((LastReadState + 1) * ElmtSize, ADR(Continuation^[0]));
       IF InError THEN RETURN END;
-      PutTable
+      WriteOneTable
         ((LastReadNonTermState - FirstReadTermState + 1) * ElmtSize
         , ADR(FinalToProd^[0])
         );
@@ -773,11 +774,14 @@ PROCEDURE PutTables (TableFile: tFile) =
 
       i := 0;
       WHILE i <= TableSize DO
-         PutTable (Min (BlockSize, TableSize + 1 - i) * BYTESIZE (ControlType), ADR (Control^[i]));
+         WriteOneTable
+           (Min (BlockSize, TableSize + 1 - i) * BYTESIZE (ControlType)
+           , ADR (Control^[i])
+           );
          IF InError THEN RETURN END;
          INC (i, BlockSize);
       END;
-   END PutTables;
+   END WriteTablesFile;
 
 CONST TableIndent = "         ";
 

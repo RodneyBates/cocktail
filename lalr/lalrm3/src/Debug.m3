@@ -1109,7 +1109,11 @@ PROCEDURE ReduceStateImage (state: tStateIndex) : TEXT =
     END;
     LResult := "(" & LStateImage & LProdImage & ")";
     RETURN LResult; 
-  END ReduceStateImage; 
+  END ReduceStateImage;
+
+PROCEDURE WriteProdList ( ) =
+  BEGIN
+  END WriteProdList;
 
 PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: Word.T) =
     VAR
@@ -1165,7 +1169,7 @@ PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: Word.T) =
         IF nextstate # NoState THEN
           WriteT (dFile," (");
           IF symbol > LastTerminal THEN
-            WriteVoc (symbol+NonTermOffset); (* ??? *)
+            WriteVoc (symbol+NonTermOffset); 
           ELSE
             WriteVoc (symbol);
           END;
@@ -1203,7 +1207,7 @@ PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: Word.T) =
         WriteT (dFile,"LeftHandSide (");
         WriteCard (dFile,prodno,1);
         WriteT (dFile,") = ");
-        WriteVoc (LeftHandSide^[prodno]);
+        WriteVoc (LeftHandSide^[prodno]+NonTermOffset);
         WriteNl (dFile);
       END;
       WriteNl (dFile);

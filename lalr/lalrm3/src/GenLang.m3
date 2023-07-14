@@ -52,6 +52,8 @@
 UNSAFE MODULE GenLang; (* Erzeugung von Modula2- oder C-Quelltexten *)
 
 FROM SYSTEM IMPORT M2LONGINT;
+IMPORT Fmt;
+
 FROM Automaton  IMPORT tStateIndex, tProdIndex, tProduction, ProdIndex
                 , ProdArrayPtr, NextProdIndex;
 FROM Compress   IMPORT NTableSize, TableSize;
@@ -144,7 +146,8 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
 
   CONST ReducePrefix = "              "; 
 
-  PROCEDURE WriteReduceCode (f:tFile) = (* Ausgabe des Codes fuer die Reduktionen *)
+  PROCEDURE WriteReduceCode (f:tFile) =
+    (* Ausgabe des Codes fuer die Reduktionen *)
     VAR
       label: tStateIndex;
       labels: INTEGER;
@@ -161,7 +164,8 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
       IF CaseLabels > 0 THEN
         INC (label, CaseLabels);
         OpenCase (f, label);
-      ELSIF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
+      ELSIF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2)
+      THEN
         WriteT (f, ReducePrefix);
         WriteT  (f, "CASE yyState OF");
         WriteNl (f);
@@ -188,7 +192,8 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
         (* States ausgeben *)
 
         WITH m2tom3_with_1=prod^.Reduce DO
-          IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
+          IF Language = tLanguage.Modula3 OR Language = tLanguage.Modula2
+          THEN
             WriteT (f, ReducePrefix);
             WriteT (f, "| ");
             WriteI (f, m2tom3_with_1.IlArray^[1], 0);
@@ -199,7 +204,8 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
           END;
           IF NOT CaseFlag THEN
             FOR u := 2 TO m2tom3_with_1.Used DO
-              IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
+              IF Language = tLanguage.Modula3 OR Language = tLanguage.Modula2
+              THEN
                 WriteC (f, ',');
                 WriteI (f, m2tom3_with_1.IlArray^[u], 0);
               ELSE (* Language = C *)
@@ -242,8 +248,9 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
               WriteT (f, "  return yyErrorCount;");
               WriteNl (f);
             END;
-          ELSE
-            IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
+          ELSE (* Not the stop reduction. *) 
+            IF Language = tLanguage.Modula3 OR Language = tLanguage.Modula2
+            THEN
               WriteT (f, ReducePrefix);
               IF prod^.Len # 0 
               THEN 
@@ -455,14 +462,20 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
 
   PROCEDURE WriteProdComment (f: tFile; prod: tProduction) =
     BEGIN
-      IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
+      IF Language = tLanguage.Modula3 OR Language = tLanguage.Modula2 THEN
         WriteT (f, "(* ");
       ELSE (* Language = C *)
         WriteT (f, " /* ");
       END;
 
       WITH m2tom3_with_2=prod^ DO
+        WriteT (f, "P");
+        WriteT (f, Fmt.Int(m2tom3_with_2.ProdNo));
+        WriteT (f, " ");
         WriteToken (f, m2tom3_with_2.Left);
+        WriteT (f, "(");
+        WriteT (f, Fmt.Int(m2tom3_with_2.Left-NonTermOffset));
+        WriteT (f, ")");
         WriteT (f, ": ");
         FOR i := 1 TO m2tom3_with_2.Len DO
           WriteToken (f, m2tom3_with_2.Right[i]);
@@ -470,7 +483,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
         WriteC (f, '.');
       END;
 
-      IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
+      IF Language = tLanguage.Modula3 OR Language = tLanguage.Modula2 THEN
         WriteT (f, "*)");
         WriteNl (f);
       ELSE (* Language = C *)
@@ -488,7 +501,9 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
       sym := TokenToSymbol (t, error);
       GetString (sym, s);
       WriteC (f, Char (s, 1));
-      IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
+      IF Language = tLanguage.Modula3 OR Language = tLanguage.Modula2 
+      THEN 
+        (* Remove opening and closing comment delimiters? *) 
         FOR i := 2 TO Length (s) DO
           IF Char (s, i) = ')' THEN
             IF Char (s, i-1) = '*' THEN
@@ -502,6 +517,7 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
           WriteC (f, Char (s, i));
         END;
       ELSE (* Language = C *)
+        (* Remove opening and closing comment delimiters? *) 
         FOR i := 2 TO Length (s) DO
           IF Char (s, i) = '/' THEN
             IF Char (s, i-1) = '*' THEN

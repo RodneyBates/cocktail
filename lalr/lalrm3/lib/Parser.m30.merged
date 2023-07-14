@@ -62,6 +62,9 @@ CONST yyTableElmtBits = BITSIZE ( yyTableElmt );
    *)
 CONST
    yyFirstFinalState    = yyFirstReadTermState;
+   (* ^Any action that does a reduce, i.e., readTermReduce, readNTReduce,
+       or simple Reduce.  These are are actions, not true item-set states.
+   *) 
    yyLastState          = yyLastReduceState;
 
 TYPE
@@ -234,7 +237,7 @@ $@    yyTerminal        := $.GetToken ();
                     a sequence of reduces
               or b) One read
            *)  
-         (* Push state stack. *) 
+         (* Make room and push (true) state onto state stack. *) 
          IF yyStackPtr >= yyStackLAST 
          THEN
             yyStateStackSize
@@ -244,7 +247,7 @@ $@    yyTerminal        := $.GetToken ();
             yyStackLAST
               := LAST ( yyStateStack ^ ) (* Of yyAttributeStack too. *);
          END (* IF *) ;
-         yyStateStack^ [yyStackPtr] := yyState;
+         yyStateStack^ [yyStackPtr] := (*State*)yyState;
 
          LOOP (* Through all continuation pushes, plus compute the state
                  after that. This loop also goes through the default state
@@ -252,24 +255,24 @@ $@    yyTerminal        := $.GetToken ();
             (* SPEC State := Next (State, Terminal); terminal transition *)
             
             yyTCombPtr := LOOPHOLE 
-                            ( LOOPHOLE ( yyTBasePtr [yyState] ,INTEGER) 
+                            ( LOOPHOLE ( yyTBasePtr [(*State*)yyState] ,INTEGER) 
                               + yyTerminal * BYTESIZE (yyTCombType)
                             , yyTCombTypePtr
                             );
-            IF yyTCombPtr^.Check = yyState 
+            IF yyTCombPtr^.Check = (*State*)yyState 
             THEN
-               yyState := yyTCombPtr^.Next;
+               (*Either*)yyState := yyTCombPtr^.Next;
                EXIT;
             END (* IF *) ;
-            yyState := yyDefault [yyState];
+            (*State*)yyState := yyDefault [(*State*)yyState];
 
             IF yyState = yyNoState 
             THEN (* syntax error *)
-               yyState := yyStateStack^ [yyStackPtr];
+               (*State*)yyState := yyStateStack^ [yyStackPtr];
                IF yyIsRepairing 
                THEN (* repair *)
                   yyRepairToken := yyContinuation [yyState];
-                  yyState := Next (yyState, yyRepairToken);
+                  (*Either*)yyState := Next (yyState, yyRepairToken);
                   IF yyState <= yyLastReadTermState 
                   THEN (* read or read terminal reduce ? *)
 $@                   $.ErrorAttribute 
@@ -281,7 +284,7 @@ $@                      $.Attribute.Position, FrontErrors.eText, yyText
                        );
                      IF yyState >= yyFirstFinalState 
                      THEN (* avoid second push *)
-                        yyState := yyFinalToProd [yyState];
+                        (*Reduce*)yyState := yyFinalToProd [(*Action*)yyState];
                      END (* IF *) ;
                      INC (yyStackPtr);
                      yyStateStack^     [yyStackPtr] := yyState;
@@ -302,15 +305,15 @@ $@                      $.Attribute.Position, FrontErrors.eText, yyText
          END (* LOOP *) ;
 
          IF yyState >= yyFirstFinalState 
-         THEN (* final state ? *)
+         THEN (* Action *)
             IF yyState <= yyLastReadTermState (* read terminal reduce ? *) 
             THEN (* First do the read terminal. *)
                INC (yyStackPtr);
 $@             yyAttributeStack^ [yyStackPtr].Scan := $.Attribute;
 $@             yyTerminal := $.GetToken ();
                yyIsRepairing := FALSE;
-$X             yyState := yyFinalToProd [yyState]; (* reducing case label ct. *)
-$Y             yyStateStack^ [yyStackPtr] := yyState (*ParserDebug*);
+$X             (*Reduce*)yyState := yyFinalToProd [yyState](* reducing case label ct. *);
+$Y             yyStateStack^ [yyStackPtr] := (*Reduce*)yyState (*ParserDebug*);
             END (* IF *) ;
 
             LOOP (* Through successive reductions *)
@@ -319,8 +322,9 @@ $R             (* Code for Reductions is inserted here *)
                (* Here, a reduction has been done.  yyStackPtr has been
                   decremented by the RHS length, yyNonterminal has been set to
                   the LHS NT of the reduced-by production, and  Semantic
-                  actions have been performed,.  Now do a nonterminal read
-                  transition on yyStateStack^ [yyStackPtr] and yyNonterminal.
+                  actions have been performed.  Now do a nonterminal read
+                  transition on yyStateStack^ [yyStackPtr] (* A state*)
+                  and yyNonterminal.
                *) 
 
                (* SPEC yyState 
@@ -329,25 +333,26 @@ $R             (* Code for Reductions is inserted here *)
                  := LOOPHOLE 
                       ( LOOPHOLE
                           ( yyNBasePtr [yyStateStack^ [yyStackPtr]], INTEGER )
-                        + yyNonterminal * BYTESIZE (yyNCombType) 
+                          + (yyNonterminal-(yyLastTerminal+1))
+                            * BYTESIZE (yyNCombType) 
                       , yyNCombTypePtr
                       );
-               yyState := yyNCombPtr^;
+               (*Either*)yyState := yyNCombPtr^;
                INC (yyStackPtr);
                yyAttributeStack^ [yyStackPtr] := yySynAttribute;
 $Y             yyAttributeStack^ [yyStackPtr].Scan.SaTok := yyNonterminal;
 $Y          (* ^This requires that tScanAttribute have field 'SaTok'. *)
-$Y             yyStateStack^ [yyStackPtr] := yyState (*ParserDebug*);
-               IF yyState < yyFirstFinalState 
-               THEN (* read nonterminal ? *)
+$Y             yyStateStack^ [yyStackPtr] := (*Either*)yyState (*ParserDebug*);
+               IF yyState < yyFirstFinalState (* read nonterminal? *) 
+               THEN (* A state. *)
                  EXIT 
                END (* IF *) ; 
-$X             yyState := yyFinalToProd [yyState]; (* reducing case label ct. *)
+$X             (*Reduce*)yyState := yyFinalToProd [yyState]; (* reducing case label ct. *)
             END (* LOOP *) ;
 
-         ELSE (* read *)
+         ELSE (* Read NT. *)
             INC (yyStackPtr);
-$Y          yyStateStack^ [yyStackPtr] := yyState (*ParserDebug*);
+$Y          yyStateStack^ [yyStackPtr] := (*State*)yyState (*ParserDebug*);
 $@           yyAttributeStack^ [yyStackPtr].Scan := $.Attribute;
 $@           yyTerminal := $.GetToken ();
             yyIsRepairing := FALSE;
@@ -591,7 +596,8 @@ PROCEDURE Next
         NCombPtr 
           := LOOPHOLE 
                ( LOOPHOLE (yyNBasePtr [State],INTEGER) 
-                 + Symbol * BYTESIZE (yyNCombType)
+                 + Symbol-(yyLastTerminal+1)
+                   * BYTESIZE (yyNCombType)
                ,yyNCombTypePtr);
         RETURN NCombPtr^;
       END;
