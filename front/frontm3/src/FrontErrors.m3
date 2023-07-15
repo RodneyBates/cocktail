@@ -105,6 +105,18 @@ PROCEDURE CodeImage ( ErrorCode : Word . T ) : TEXT =
     | NotReach  => RETURN "Token is not reachable:";
     | NoProd    => RETURN "Has no production:";
     | NotTerm   => RETURN "Token is nonterminating:";
+
+    | eState          => RETURN "in state ";
+    | eReadRed        => RETURN "Shift-reduce conflict on ";
+    | eRedRed         => RETURN "Reduce conflict on "; 
+    | eReadRedRed     => RETURN "Shift-reduce-reduce conflict on ";
+    | eRepReadRed     => RETURN "Repaired shift-reduce conflict on ";
+    | eRepRedRed      => RETURN "Repaired reduce conflict on ";
+    | eRepReadRedRed  => RETURN "Repaired shift-reduce-reduce conflict on ";
+    | eARepReadRed    => RETURN "Assoc. repaired shift-reduce conflict on ";
+    | eARepRedRed     => RETURN "Assoc. repaired reduce conflict on ";
+    | eARepReadRedRed => RETURN "Assoc. repaired shift-reduce-reduce conflict on ";
+
     ELSE RETURN "UnknownErrorCode: " & Fmt.Int (ErrorCode);
     END (*CASE*)
   END CodeImage;

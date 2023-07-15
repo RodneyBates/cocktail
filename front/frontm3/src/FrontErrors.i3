@@ -43,6 +43,18 @@ CONST
    NotTerm              = 10;
 
 
+(* Error codes from lalr Check. *)
+    eState              = 70;
+    eReadRed            = 71;
+    eRedRed             = 72;
+    eReadRedRed         = 73;
+    eRepReadRed         = 74;
+    eRepRedRed          = 75;
+    eRepReadRedRed      = 76;
+    eARepReadRed        = 77;
+    eARepRedRed         = 78;
+    eARepReadRedRed     = 79;
+
 CONST   (* info classes *)
   eInteger      =       1; (* UNTRACED ... *) 
   eShort        =       2;

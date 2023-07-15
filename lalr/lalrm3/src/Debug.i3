@@ -50,7 +50,7 @@ PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: Word.T);
 PROCEDURE WriteTable();
 PROCEDURE WriteProdLength();
 PROCEDURE WriteLeftHandSide();
-PROCEDURE WriteVoc (voc: Vocabulary; length: Word.T := 1);
+PROCEDURE WriteVoc (voc: Vocabulary; VAR (*OUT*)length: Word.T);
     
 (* Erzeuge Zusatzinformation zum Zustand 'State' mit Konfliktmenge 'Set' *)
 

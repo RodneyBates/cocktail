@@ -1160,6 +1160,7 @@ PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: Word.T) =
     VAR
       nextstate : tStateIndex;
       symbol : Vocabulary;
+      length: Word.T;
     BEGIN
       WriteT (dFile,"State ");
       WriteCard (dFile,state,1);
@@ -1169,9 +1170,9 @@ PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: Word.T) =
         IF nextstate # NoState THEN
           WriteT (dFile," (");
           IF symbol > LastTerminal THEN
-            WriteVoc (symbol+NonTermOffset); 
+            WriteVoc (symbol+NonTermOffset,(*OUT*)length); 
           ELSE
-            WriteVoc (symbol);
+            WriteVoc (symbol,(*OUT*)length);
           END;
           WriteC (dFile,',');
           WriteT (dFile, ReduceStateImage (nextstate));
@@ -1200,6 +1201,7 @@ PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: Word.T) =
   PROCEDURE WriteLeftHandSide()=
   (* Linke Seite der Produktionen. *)
     VAR prodno : tProdIndex;
+    VAR length: Word.T;
     BEGIN
       WriteT (dFile,"***** LeftHandSide ***** ");
       WriteNl (dFile);
@@ -1207,13 +1209,13 @@ PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: Word.T) =
         WriteT (dFile,"LeftHandSide (");
         WriteCard (dFile,prodno,1);
         WriteT (dFile,") = ");
-        WriteVoc (LeftHandSide^[prodno]+NonTermOffset);
+        WriteVoc (LeftHandSide^[prodno]+NonTermOffset,(*OUT*)length);
         WriteNl (dFile);
       END;
       WriteNl (dFile);
     END WriteLeftHandSide;
     
-PROCEDURE WriteVoc (voc: Vocabulary; length: Word.T := 1) =
+PROCEDURE WriteVoc (voc: Vocabulary; VAR (*OUT*)length: Word.T) =
     VAR
       sym : tIdent;
       str : tString;

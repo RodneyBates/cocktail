@@ -80,18 +80,10 @@ FROM SysError   IMPORT StatIsBad, SysErrorMessageI;
 FROM Positions  IMPORT NoPosition;
 FROM TokenTab   IMPORT MAXTerm, Terminal, Prio, TokenToSymbol, TokenError;
 
-  CONST
-    eState              = 70;
-    eReadRed            = 71;
-    eRedRed             = 72;
-    eReadRedRed         = 73;
-    eRepReadRed         = 74;
-    eRepRedRed          = 75;
-    eRepReadRedRed      = 76;
-    eARepReadRed        = 77;
-    eARepRedRed         = 78;
-    eARepReadRedRed     = 79;
-
+FROM FrontErrors IMPORT eState, eReadRed, eRedRed, eReadRedRed, eRepReadRed,
+                        eRepRedRed, eRepReadRedRed, eARepReadRed, eARepRedRed,
+                        eARepReadRedRed;
+CONST 
     DevNull     = "/dev/null";
     DEBUG       = "_Debug";
 
