@@ -1,0 +1,662 @@
+
+$Z(* Parser.m30. *) 
+$Z
+$Z(* Skeleton parser in Modula-3, for Cocktail lalr. *)
+$Z(* Derived from: ** $Id: Parser.mi,v 2.8 1992/08/12 06:54:05 grosch rel $ *)
+$Z(* Skeleton parser in Modula-3, for Cocktail lalr. *)
+$Z(* Modified Rodney M. Bates. Various times. rodney.m.bates@acm.org*)
+$Z(* Beginning 3-2023: 
+$Z    3-2023 Add generation of Module-3 code. 
+$Z    Further changes in https://github.com/RodneyBates/cocktail
+$Z*)
+$Z
+$Z Lines like this, begining with "$Z", are omitted from the generated parser.
+
+
+$@ UNSAFE MODULE @;
+(*^ BEWARE! lalr loses this character. *) 
+
+$@ IMPORT $;
+
+IMPORT Fmt, OSError, Rd, Thread, Text, Word, Wr;
+
+IMPORT Positions, FrontErrors, Strings, IntSets, System;
+
+IMPORT Errors (* From Reusem3. *);
+
+$G (* GLOBAL section is inserted here *)
+
+CONST
+   yyInitStackSize      = 100;
+   yyStackExpansionFactor = 2.0;
+   yyNoState            = 0;
+
+$T (* Table Constants are inserted here *)
+
+TYPE
+   M2SHORTCARD = [ 0 .. 16_FFFF ];
+   yyTableElmt = M2SHORTCARD;
+CONST yyTableElmtBits = BITSIZE ( yyTableElmt );
+
+   (* The conversion to Modula-3 is very fragile, in part due to the
+      use of unsafe address arithmetic.
+      On the one hand, some types, in some contexts, need to be
+      subranges (particularly, as fixed array subscript types),
+      and other times, need to have the same size as in Modula-2, to avoid
+      undermining various unsafe address arithmetic.  Modula-3 infers
+      its own sizes from subranges, except for fields and elements when
+      BITS FOR is used.  But assignments involving scalars with BIT FOR
+      types present problems and even CM3 code generator failures.
+
+      So if it is a BITS FOR type, its name ends in "Packed", otherwise
+      not, the relevant ones ending in "Range".
+
+      Additionally, CM3 has code generator failures assigning between two
+      BIT FOR types, at times.  Actual cases where this has happened are
+      replaced by two-step copies with an intermediate, unpacked temporary.
+  
+      These BITS FOR types must occupy exactly a Modula2-SHORTCARD, when used
+      as elements or fields, but must their have subrange bounds when
+      used as array subscript types. There a few places where a scalar
+      of one of these also must occupy exactly a Modula2-SHORTCARD. 
+   *)
+CONST
+   yyFirstFinalState    = yyFirstReadTermState;
+   (* ^Any action that does a reduce, i.e., readTermReduce, readNTReduce,
+       or simple Reduce.  These are are actions, not true item-set states.
+   *) 
+   yyLastState          = yyLastReduceState;
+
+TYPE
+   yyTCombRangePacked      = BITS yyTableElmtBits FOR [0 .. yyTableMax];
+   yyNCombRangePacked      = BITS yyTableElmtBits
+                             FOR [yyLastTerminal + 1 .. yyNTableMax];
+   yyStateRange            = [0 .. yyLastState];
+   yyStateRangePacked      = BITS yyTableElmtBits FOR yyStateRange;
+   yyReadRange             = [yyFirstReadState .. yyLastReadState];
+   yyReadRangePacked       = BITS yyTableElmtBits FOR yyReadRange;
+   yyReadReduceRangePacked = BITS yyTableElmtBits
+                             FOR [yyFirstReadTermState .. yyLastReadNontermState];
+   yyReduceRangePacked     = BITS yyTableElmtBits
+                             FOR [yyFirstReduceState .. yyLastReduceState];
+   yySymbolRange           = [yyFirstSymbol .. yyLastSymbol];
+   yySymbolRangePacked     = BITS yyTableElmtBits FOR yySymbolRange;
+   yyTCombType          = RECORD Check, Next: yyStateRangePacked; END;
+   yyNCombType          = yyStateRangePacked;
+   yyTCombTypePtr       = UNTRACED BRANDED REF  yyTCombType;
+   yyNCombTypePtr       = UNTRACED BRANDED REF  yyNCombType;
+   yyStackPtrType       = BITS yyTableElmtBits FOR yyTableElmt;
+   yyStackType          = REF  ARRAY OF yyStateRangePacked;
+   yyAttributeStackType = REF  ARRAY OF tParsAttribute;
+
+VAR
+   yyTBasePtr
+     (* Subscripted by a state-number action, uses in combination
+        with a terminal to find the new action after shifting
+        the terminal in this state.
+     *) 
+     := ARRAY [0 .. yyLastReadState] OF yyTCombTypePtr
+         {
+$P
+         };
+         
+   yyNBasePtr
+     (* Subscripted by a state-number action, used in combination
+        with a nonterminal to find the new action after shifting
+        the nonterminal in this state.
+     *) 
+     := ARRAY [0 .. yyLastReadState] OF yyNCombTypePtr
+         {
+$Q
+         };
+         
+   yyDefault
+     := ARRAY [0 .. yyLastReadState] OF [ 0 .. yyLastReadState ]
+         {
+$D
+         };
+         
+   yyTComb
+     := ARRAY yyTCombRangePacked OF yyTCombType
+         {
+$M
+         };
+         
+   yyNComb 
+     (* This bounds range is arbitrary, unjustified, and confusing.
+        It has nothing to do with states, actions, symbols, or anything
+        else.  It is just a space for interspersed actions.  Moreover,
+        during use, its elements are accessed only by unsafe pointers to
+        to them, from elements of yyNBasePtr, not by subscripts, for a bit
+        of speed.  It would make the most sense to start it at zero, like
+        yyTComb.  But that would require care to make consistent changes.
+     *) 
+     := ARRAY yyNCombRangePacked OF yyNCombType
+         {
+$N
+         };
+         
+   yyLength
+     (* Subscripted by a reduce action, maps to LHS length of the
+        production to reduce by. A<a> is a reduce action number.
+        P<p> is the correponding production number.
+     *)
+     := ARRAY yyReduceRangePacked OF yyTableElmt
+         {
+$K
+         };
+         
+   yyLeftHandSide
+     (* Subscripted by a reduce action, maps to LHS NT of the
+        of production to reduce by.  A<a> is a reduce action number.
+        P<p> is the correponding production number.
+     *)
+     := ARRAY yyReduceRangePacked OF yySymbolRangePacked
+         {
+$H
+         };
+         
+   yyContinuation
+     := ARRAY [0 .. yyLastReadState] OF yySymbolRangePacked
+         {
+$O
+         };
+         
+   yyFinalToProd
+     (* Subscripted by a read-reduce action, maps to the reduce
+        action to take after the read.
+     *) 
+     := ARRAY yyReadReduceRangePacked OF yyReduceRangePacked
+         {
+$F
+         }; 
+
+VAR
+   yyIsInitialized      : BOOLEAN;
+   yyTableFile          : System.tFile;
+   
+(* Copied in from Parser.m30.orig: *) 
+    PROCEDURE ExpandStateStack ( VAR Stack : yyStackType ; ToSize : INTEGER ) =
+
+      VAR LOldStack : yyStackType;
+      VAR LStackNumber : INTEGER; 
+      BEGIN
+        LStackNumber := NUMBER ( Stack ^ );
+        IF LStackNumber < ToSize
+        THEN
+          LOldStack := Stack; 
+          Stack := NEW ( yyStackType , ToSize );
+          SUBARRAY ( Stack ^ , 0 , LStackNumber ) := LOldStack ^;
+          LOldStack := NIL; 
+        END;
+      END ExpandStateStack; 
+
+    PROCEDURE ExpandAttributeStack
+      ( VAR Stack : yyAttributeStackType ; ToSize : INTEGER ) =
+
+      VAR LOldStack : yyAttributeStackType;
+      VAR LStackNumber : INTEGER; 
+      BEGIN
+        LStackNumber := NUMBER ( Stack ^ );
+        IF LStackNumber < ToSize
+        THEN
+          LOldStack := Stack; 
+          Stack := NEW ( yyAttributeStackType , ToSize );
+          SUBARRAY ( Stack ^ , 0 , LStackNumber ) := LOldStack ^;
+          LOldStack := NIL; 
+        END; 
+      END ExpandAttributeStack; 
+(* END From Parser.m30.orig: *) 
+
+(*EXPORTED*)
+PROCEDURE TokenName (Token: INTEGER; VAR Name: TEXT) =
+   BEGIN
+      CASE Token OF
+$W      (* token names are inserted here *)
+      ELSE Name := "" 
+      END;
+   END TokenName;
+
+(*EXPORTED*)
+$@ PROCEDURE @ (): CARDINAL =
+$L (* LOCAL section is inserted here *)
+   VAR
+      yyState           : yyStateRange;
+      (* NOTE: "yyState" and other occurrences of "State" are misleading.
+               they are, in general, parsing *actions*, only the low range
+               up to yyLastReadState (a constant inserted by the generator)
+               being truly states.  These correspond to item sets, and as
+               actions, meaning read (it will be a terminal) and enter
+               new state yyState.  Higher ranges are read-terminal-reduce,
+               read-nonterminal-reduce, and just reduce actions.
+               Deconfusing this terminology would require extensive and
+               error-prone work.
+      *) 
+      yyTerminal        : yySymbolRange;
+      yyNonterminal     : yySymbolRange;        (* left-hand side symbol *)
+      yyStackPtr        : yyStackPtrType;
+      yyStackLAST       : INTEGER;
+      yyStateStackSize  : INTEGER;
+      yyAttrStackSize := yyStateStackSize; 
+      (* yyStackPtr, yyStackLAST, and yyStateStackSize always apply equally
+         to yyStateStack and yyAttributeStack. *)
+      yyStateStack      : yyStackType;
+      yyAttributeStack  : yyAttributeStackType;
+      yySynAttribute    : tParsAttribute;       (* synthesized attribute *)
+$@    yyRepairAttribute : $.tScanAttribute;
+      yyRepairToken     : yySymbolRange;
+      yyTCombPtr        : yyTCombTypePtr;
+      yyNCombPtr        : yyNCombTypePtr;
+      yyIsRepairing     : BOOLEAN;
+      yyErrorCount      : CARDINAL;
+      yyText            : TEXT; 
+      yyTokenStringxxx     : TEXT (*ARRAY [0..127] OF CHAR*);
+
+$@  BEGIN (* @ *) 
+$@    Begin@ ();
+      yyState           := yyStartState;
+$@    yyTerminal        := $.GetToken ();
+      yyStateStackSize  := yyInitStackSize;
+      yyAttrStackSize   := yyInitStackSize;
+      yyStateStack := NEW ( yyStackType , yyStateStackSize );
+      yyAttributeStack := NEW ( yyAttributeStackType , yyStateStackSize ); 
+      yyStackLAST := LAST ( yyStateStack ^ ) (* Of yyAttributeStack too. *);
+      yyStackPtr        := 0;
+      yyErrorCount      := 0;
+      yyIsRepairing     := FALSE;
+
+      LOOP (* Through parsing actions. One iteration does:
+              1) Any token deletions called for by an error.
+              2) Any continuation token insertions called for 
+                 after an error.
+              3) Either: 
+                 a) Possibly one read-reduce followed by 
+                    a sequence of reduces
+              or b) One read
+           *)  
+         (* Make room and push (true) state onto state stack. *) 
+         IF yyStackPtr >= yyStackLAST 
+         THEN
+            yyStateStackSize
+              := MAX ( NUMBER ( yyStateStack ^ ) * 2 , yyStackPtr + 2 ); 
+            ExpandStateStack ( yyStateStack , yyStateStackSize ); 
+            ExpandAttributeStack ( yyAttributeStack , yyStateStackSize );
+            yyStackLAST
+              := LAST ( yyStateStack ^ ) (* Of yyAttributeStack too. *);
+         END (* IF *) ;
+         yyStateStack^ [yyStackPtr] := (*State*)yyState;
+
+         LOOP (* Through all continuation pushes, plus compute the state
+                 after that. This loop also goes through the default state
+                 computations. *) 
+            (* SPEC State := Next (State, Terminal); terminal transition *)
+            
+            yyTCombPtr := LOOPHOLE 
+                            ( LOOPHOLE ( yyTBasePtr [(*State*)yyState] ,INTEGER) 
+                              + yyTerminal * BYTESIZE (yyTCombType)
+                            , yyTCombTypePtr
+                            );
+            IF yyTCombPtr^.Check = (*State*)yyState 
+            THEN
+               (*Either*)yyState := yyTCombPtr^.Next;
+               EXIT;
+            END (* IF *) ;
+            (*State*)yyState := yyDefault [(*State*)yyState];
+
+            IF yyState = yyNoState 
+            THEN (* syntax error *)
+               (*State*)yyState := yyStateStack^ [yyStackPtr];
+               IF yyIsRepairing 
+               THEN (* repair *)
+                  yyRepairToken := yyContinuation [yyState];
+                  (*Either*)yyState := Next (yyState, yyRepairToken);
+                  IF yyState <= yyLastReadTermState 
+                  THEN (* read or read terminal reduce ? *)
+$@                   $.ErrorAttribute 
+                       (yyRepairToken, yyRepairAttribute);
+                     TokenName (yyRepairToken, yyText);
+                     FrontErrors.ErrorMessageTraced
+                       (FrontErrors.TokenInserted, FrontErrors.Repair,
+$@                      $.Attribute.Position, FrontErrors.eText, yyText 
+                       );
+                     IF yyState >= yyFirstFinalState 
+                     THEN (* avoid second push *)
+                        (*Reduce*)yyState := yyFinalToProd [(*Action*)yyState];
+                     END (* IF *) ;
+                     INC (yyStackPtr);
+                     yyStateStack^     [yyStackPtr] := yyState;
+                     yyAttributeStack^ [yyStackPtr].Scan := yyRepairAttribute;
+                  END (* IF *) ;
+                  IF yyState >= yyFirstFinalState 
+                  THEN (* final state ? *)
+                    EXIT;
+                  END (* IF *) ;
+               ELSE (* report and recover *)
+                  INC (yyErrorCount);
+                  ErrorRecovery 
+                    (yyTerminal, yyStateStack,
+                     NUMBER ( yyStateStack ^ ), yyStackPtr);
+                  yyIsRepairing := TRUE;
+               END (* IF *) ;
+            END (* IF *) ;
+         END (* LOOP *) ;
+
+         IF yyState >= yyFirstFinalState 
+         THEN (* Action *)
+            IF yyState <= yyLastReadTermState (* read terminal reduce ? *) 
+            THEN (* First do the read terminal. *)
+               INC (yyStackPtr);
+$@             yyAttributeStack^ [yyStackPtr].Scan := $.Attribute;
+$@             yyTerminal := $.GetToken ();
+               yyIsRepairing := FALSE;
+$X             (*Reduce*)yyState := yyFinalToProd [yyState](* reducing case label ct. *);
+$Y             yyStateStack^ [yyStackPtr] := (*Reduce*)yyState (*ParserDebug*);
+            END (* IF *) ;
+
+            LOOP (* Through successive reductions *)
+$R             (* Code for Reductions is inserted here *)
+
+               (* Here, a reduction has been done.  yyStackPtr has been
+                  decremented by the RHS length, yyNonterminal has been set to
+                  the LHS NT of the reduced-by production, and  Semantic
+                  actions have been performed.  Now do a nonterminal read
+                  transition on yyStateStack^ [yyStackPtr] (* A state*)
+                  and yyNonterminal.
+               *) 
+
+               (* SPEC yyState 
+                    := Next (Top (), yyNonterminal); nonterminal transition *)
+               yyNCombPtr 
+                 := LOOPHOLE 
+                      ( LOOPHOLE
+                          ( yyNBasePtr [yyStateStack^ [yyStackPtr]], INTEGER )
+                          + (yyNonterminal-(yyLastTerminal+1))
+                            * BYTESIZE (yyNCombType) 
+                      , yyNCombTypePtr
+                      );
+               (*Either*)yyState := yyNCombPtr^;
+               INC (yyStackPtr);
+               yyAttributeStack^ [yyStackPtr] := yySynAttribute;
+$Y             yyAttributeStack^ [yyStackPtr].Scan.SaTok := yyNonterminal;
+$Y          (* ^This requires that tScanAttribute have field 'SaTok'. *)
+$Y             yyStateStack^ [yyStackPtr] := (*Either*)yyState (*ParserDebug*);
+               IF yyState < yyFirstFinalState (* read nonterminal? *) 
+               THEN (* A state. *)
+                 EXIT 
+               END (* IF *) ; 
+$X             (*Reduce*)yyState := yyFinalToProd [yyState]; (* reducing case label ct. *)
+            END (* LOOP *) ;
+
+         ELSE (* Read NT. *)
+            INC (yyStackPtr);
+$Y          yyStateStack^ [yyStackPtr] := (*State*)yyState (*ParserDebug*);
+$@           yyAttributeStack^ [yyStackPtr].Scan := $.Attribute;
+$@           yyTerminal := $.GetToken ();
+            yyIsRepairing := FALSE;
+         END (* IF *);
+      END (* LOOP *) ;
+$@  END @;
+
+PROCEDURE ErrorRecovery (
+      VAR Terminal      : yySymbolRange ;
+          StateStack    : yyStackType   ;
+          StackSize     : INTEGER       ;
+          StackPtr      : yyStackPtrType) =
+   VAR
+      TokensSkipped     : BOOLEAN;
+      ContinueSet       : IntSets . T;
+      RestartSet        : IntSets . T;
+      Token             : yySymbolRange;
+      TokenArray        : ARRAY [0..127] OF CHAR;
+      TokenText         : TEXT;
+      TokenString       : Strings.tString;
+      ContinueString    : Strings.tString;
+   BEGIN
+   (* 1. report the error *)
+         TokenName ( Terminal , TokenText );
+         FrontErrors.ErrorMessageTraced
+           (FrontErrors.SyntaxError, FrontErrors.Error, 
+$@         $.Attribute.Position, FrontErrors.eText, TokenText);
+
+   (* 2. report the set of expected terminal symbols *)
+      ContinueSet:= IntSets . Empty ( ); 
+      ComputeContinuation (StateStack, StackSize, StackPtr, ContinueSet);
+      Strings.AssignEmpty (ContinueString);
+      FOR Token := IntSets.Minimum (ContinueSet) TO IntSets.Maximum (ContinueSet) DO
+         IF IntSets.IsElement (Token, ContinueSet) THEN
+            TokenName (Token, TokenText);
+            Strings.TextToString (TokenText, TokenString);
+            IF (Strings.Length (ContinueString) + Strings.Length (TokenString) + 1 <= Strings.cMaxStrLength) THEN
+               Strings.Concatenate (ContinueString, TokenString);
+               Strings.Append (ContinueString, ' ');
+            END;
+         END;
+      END;
+      FrontErrors.ErrorMessageI
+        (FrontErrors.ExpectedTokens, FrontErrors.Information,
+$@      $.Attribute.Position, FrontErrors.eString, ADR (ContinueString));
+      ContinueSet := NIL;
+
+   (* 3. compute the set of terminal symbols for restart of the parse *)
+      RestartSet := IntSets . Empty ( );
+      ComputeRestartPoints (StateStack, StackSize, StackPtr, RestartSet);
+
+   (* 4. skip terminal symbols until a restart point is reached *)
+      TokensSkipped := FALSE;
+      WHILE NOT IntSets.IsElement (Terminal, RestartSet) DO
+$@      Terminal := $.GetToken ();
+        TokensSkipped := TRUE;
+      END;
+      RestartSet := NIL;
+
+   (* 5. report the restart point *)
+      IF TokensSkipped THEN
+$@      FrontErrors.ErrorMessage (FrontErrors.RestartPoint, FrontErrors.Information, $.Attribute.Position);
+      END;
+   END ErrorRecovery;
+
+(*
+   compute the set of terminal symbols that can be accepted (read)
+   in a given stack configuration (eventually after reduce actions)
+*)
+
+PROCEDURE ComputeContinuation (
+          Stack         : yyStackType   ;
+          StackSize     : INTEGER       ;
+          StackPtr      : yyStackPtrType;
+      VAR ContinueSet   : IntSets . T     ) =
+   VAR Terminal         : yySymbolRange;
+   BEGIN
+      ContinueSet:= IntSets . Empty ( );
+      FOR Terminal := yyFirstTerminal TO yyLastTerminal DO
+         IF IsContinuation (Terminal, Stack, StackSize, StackPtr) THEN
+            ContinueSet := IntSets . Include ( ContinueSet , Terminal )
+         END;
+      END;
+   END ComputeContinuation;
+
+(*
+   check whether a given terminal symbol can be accepted (read)
+   in a certain stack configuration (eventually after reduce actions)
+*)
+
+PROCEDURE IsContinuation (
+      Terminal          : yySymbolRange ;
+      ParseStack        : yyStackType   ;
+      StackSize         : INTEGER       ;
+      StackPtr          : yyStackPtrType): BOOLEAN =
+   VAR
+      State             : yyStateRange;
+      Nonterminal       : yySymbolRange;
+      Stack             : yyStackType;
+   BEGIN
+      Stack := NEW (yyStackType, StackSize);
+      FOR RStackPtr := 0 TO StackPtr DO
+         (* Making this assignment directly crashes CM3: *)
+         State := ParseStack^ [RStackPtr];
+         Stack^ [RStackPtr] := State
+      END;
+      State := Stack^ [StackPtr];
+      LOOP
+         Stack^ [StackPtr] := State;
+         State := Next (State, Terminal);
+         IF State = yyNoState THEN
+            Stack := NIL;
+            RETURN FALSE;
+         END;
+         IF State <= yyLastReadTermState (* read or read terminal reduce ? *)
+         THEN
+            Stack := NIL;
+            RETURN TRUE;
+         END;
+         
+         LOOP (* reduce *)
+            IF State =  yyStopState THEN
+               Stack := NIL; 
+               RETURN TRUE;
+            ELSE 
+               DEC (StackPtr, yyLength [State]);
+               Nonterminal := yyLeftHandSide [State];
+            END;
+
+            State := Next (Stack^ [StackPtr], Nonterminal);
+            (* Ensure Stack has room for at least 2 elements. *)
+            IF StackPtr >= StackSize THEN
+              ExpandStateStack
+                (Stack, MAX (NUMBER ( Stack ^ ) * 2 , StackPtr + 2 ) );
+              StackSize := NUMBER (Stack^); 
+            END;
+$Y          Stack^ [StackPtr] := State (*ParserDebug*);
+            INC (StackPtr);
+            IF State < yyFirstFinalState
+            THEN EXIT;
+            END; (* read nonterminal ? *)
+            State := yyFinalToProd [State]; (* read nonterminal reduce *)
+$Y          Stack^ [StackPtr] := State (*ParserDebug*);
+         END;
+      END;
+    END IsContinuation;
+(*
+   compute a set of terminal symbols that can be used to restart
+   parsing in a given stack configuration. we simulate parsing until
+   end of file using a suffix program synthesized by the function
+   Continuation. All symbols acceptable in the states reached during
+   the simulation can be used to restart parsing.
+*)
+
+PROCEDURE ComputeRestartPoints (
+          ParseStack    : yyStackType   ;
+          StackSize     : INTEGER       ;
+          StackPtr      : yyStackPtrType;
+      VAR RestartSet    : IntSets.T     ) =
+   VAR
+      Stack             : yyStackType;
+      State             : yyStateRange;
+      Nonterminal       : yySymbolRange;
+      ContinueSet       : IntSets.T;
+   BEGIN
+      Stack := NEW (yyStackType, StackSize);
+      FOR RStackPtr := 0 TO StackPtr DO
+         (* Making this assignment directly crashes CM3: *)
+         State:= ParseStack^ [RStackPtr];
+         Stack^ [RStackPtr] := State;
+      END;
+      ContinueSet := IntSets . Empty ( );
+      State := Stack^ [StackPtr];
+
+      LOOP
+         (* Ensure Stack has room for at least 2 elements. *)
+         IF StackPtr >= StackSize THEN
+            ExpandStateStack
+              (Stack, MAX (NUMBER (Stack ^) * 2 , StackPtr + 2 ) );
+            StackSize := NUMBER (Stack^); 
+         END;
+         Stack^ [StackPtr] := State;
+         ComputeContinuation (Stack, StackSize, StackPtr, ContinueSet);
+         RestartSet := IntSets.Union (RestartSet, ContinueSet);
+         State := Next (State, yyContinuation [State]);
+
+          IF State >= yyFirstFinalState THEN (* final state ? *)
+            IF State <= yyLastReadTermState THEN (* read terminal reduce ? *)
+               INC (StackPtr);
+               State := yyFinalToProd [State];
+$Y             Stack^ [StackPtr] := State (*ParserDebug*);
+            END;
+
+            LOOP (* reduce *)
+               IF State = yyStopState THEN
+                  Stack := NIL;
+                  ContinueSet := NIL;
+                  RETURN;
+               ELSE 
+                  DEC (StackPtr, yyLength [State]);
+                  Nonterminal := yyLeftHandSide [State];
+               END;
+
+               State := Next (Stack^ [StackPtr], Nonterminal);
+               INC (StackPtr);
+               IF State < yyFirstFinalState
+               THEN EXIT;
+               END; (* read nonterminal ? *)
+               State := yyFinalToProd [State]; (* read nonterminal reduce *)
+            END (*LOOP*);
+         ELSE (* read *)
+            INC (StackPtr);
+         END;
+      END;
+   END ComputeRestartPoints;
+
+(* access the parse table:   Next : State x Symbol -> State *)
+
+PROCEDURE Next
+   (State: yyStateRange; Symbol: yySymbolRange)
+   : yyStateRange =
+   VAR
+      TCombPtr          : yyTCombTypePtr;
+      NCombPtr          : yyNCombTypePtr;
+   BEGIN
+      IF Symbol <= yyLastTerminal THEN
+         LOOP
+            TCombPtr 
+              := LOOPHOLE 
+                   ( LOOPHOLE (yyTBasePtr [State],INTEGER) 
+                     + Symbol * BYTESIZE (yyTCombType)
+                   ,yyTCombTypePtr);
+            IF TCombPtr^.Check # State THEN
+               State := yyDefault [State];
+               IF State = yyNoState THEN RETURN yyNoState; END;
+            ELSE
+               RETURN TCombPtr^.Next;
+            END;
+         END;
+      ELSE
+        NCombPtr 
+          := LOOPHOLE 
+               ( LOOPHOLE (yyNBasePtr [State],INTEGER) 
+                 + (Symbol-(yyLastTerminal+1))
+                   * BYTESIZE (yyNCombType)
+               ,yyNCombTypePtr);
+        RETURN NCombPtr^;
+      END;
+   END Next;
+   
+$@ PROCEDURE Begin@ ()=
+   BEGIN
+$B    (* BEGIN section is inserted here *)
+      IF NOT yyIsInitialized THEN
+         yyIsInitialized := TRUE;
+      END;
+$@  END Begin@;
+
+(*EXPORTED*)
+$@ PROCEDURE Close@ ()=
+   BEGIN
+$C      (* CLOSE section is inserted here *)
+$@  END Close@;
+
+BEGIN
+    <*ASSERT BYTESIZE (yyTableElmt) = 2 *>
+    yyIsInitialized := FALSE;
+$@    ParsTabName := "@.Tab";
+$@ END @.
+
