@@ -91,12 +91,20 @@ TYPE
 
 VAR
    yyTBasePtr
+     (* Subscripted by a state-number action, uses in combination
+        with a terminal to find the new action after shifting
+        the terminal in this state.
+     *) 
      := ARRAY [0 .. yyLastReadState] OF yyTCombTypePtr
          {
 $P
          };
          
    yyNBasePtr
+     (* Subscripted by a state-number action, used in combination
+        with a nonterminal to find the new action after shifting
+        the nonterminal in this state.
+     *) 
      := ARRAY [0 .. yyLastReadState] OF yyNCombTypePtr
          {
 $Q
@@ -115,18 +123,34 @@ $M
          };
          
    yyNComb 
+     (* This bounds range is arbitrary, unjustified, and confusing.
+        It has nothing to do with states, actions, symbols, or anything
+        else.  It is just a space for interspersed actions.  Moreover,
+        during use, its elements are accessed only by unsafe pointers to
+        to them, from elements of yyNBasePtr, not by subscripts, for a bit
+        of speed.  It would make the most sense to start it at zero, like
+        yyTComb.  But that would require care to make consistent changes.
+     *) 
      := ARRAY yyNCombRangePacked OF yyNCombType
          {
 $N
          };
          
    yyLength
+     (* Subscripted by a reduce action, maps to LHS length of the
+        production to reduce by. A<a> is a reduce action number.
+        P<p> is the correponding production number.
+     *)
      := ARRAY yyReduceRangePacked OF yyTableElmt
          {
 $K
          };
          
    yyLeftHandSide
+     (* Subscripted by a reduce action, maps to LHS NT of the
+        of production to reduce by.  A<a> is a reduce action number.
+        P<p> is the correponding production number.
+     *)
      := ARRAY yyReduceRangePacked OF yySymbolRangePacked
          {
 $H
@@ -139,6 +163,9 @@ $O
          };
          
    yyFinalToProd
+     (* Subscripted by a read-reduce action, maps to the reduce
+        action to take after the read.
+     *) 
      := ARRAY yyReadReduceRangePacked OF yyReduceRangePacked
          {
 $F
@@ -596,7 +623,7 @@ PROCEDURE Next
         NCombPtr 
           := LOOPHOLE 
                ( LOOPHOLE (yyNBasePtr [State],INTEGER) 
-                 + Symbol-(yyLastTerminal+1)
+                 + (Symbol-(yyLastTerminal+1))
                    * BYTESIZE (yyNCombType)
                ,yyNCombTypePtr);
         RETURN NCombPtr^;
