@@ -2,8 +2,12 @@
 $Z(* Parser.m30. *) 
 $Z
 $Z(* Skeleton parser in Modula-3, for Cocktail lalr. *)
+$Z
+$Z(* This version is for stock uses of lalr in various projects.
+$Z   It uses various Cocktail library packages, e.g., FrontErrors. 
+$Z*)
+$Z
 $Z(* Derived from: ** $Id: Parser.mi,v 2.8 1992/08/12 06:54:05 grosch rel $ *)
-$Z(* Skeleton parser in Modula-3, for Cocktail lalr. *)
 $Z(* Modified Rodney M. Bates. Various times. rodney.m.bates@acm.org*)
 $Z(* Beginning 3-2023: 
 $Z    3-2023 Add generation of Module-3 code. 
