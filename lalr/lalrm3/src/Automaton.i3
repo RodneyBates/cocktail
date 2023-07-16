@@ -171,7 +171,7 @@ VAR
     StartSymbol : NonTerminal;        (* neues Startsymbol, das nur in
                                             einer Regel auftritt *)
 
-PROCEDURE ItemRepImage ( READONLY Item: tItem ): TEXT;
+PROCEDURE ItemRepImage ( READONLY Item: tItem; FirstItem: tItemIndex ): TEXT;
 
 PROCEDURE InitAutomaton();
 

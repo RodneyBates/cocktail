@@ -45,8 +45,11 @@ PROCEDURE DebugHead     (State: tStateIndex);
 PROCEDURE DebugState    (State: tStateIndex; VAR Set: IntSets.T);
 PROCEDURE DebugEnd();
 
-PROCEDURE WriteItemSets ( ) ; 
-PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: Word.T);
+PROCEDURE WriteNTs ( ); 
+PROCEDURE WriteItemSets ( ); 
+PROCEDURE WriteProdList ( );
+PROCEDURE WriteProd
+  (p: tProdIndex; l: tIndex; VAR d: Word.T; WithNo := FALSE);
 PROCEDURE WriteTable();
 PROCEDURE WriteProdLength();
 PROCEDURE WriteLeftHandSide();

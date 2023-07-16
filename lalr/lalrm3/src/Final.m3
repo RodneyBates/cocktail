@@ -64,19 +64,19 @@ UNSAFE MODULE Final;
 
       maxState := StateIndex;
       FOR state := 1 TO maxState DO
-      WITH m2tom3_with_1=StateArrayPtr^[state] DO
+        WITH m2tom3_with_1=StateArrayPtr^[state] DO
 
-        (* Final Zustaende *)
+          (* Final Zustaende *)
 
-        IF (* ((Kind = sTerm) OR (Kind = sNonterm)) AND *)
-           (FirstReadTermState <= m2tom3_with_1.NewNumber) AND
-           (m2tom3_with_1.NewNumber <= LastReadNonTermState) THEN
+          IF (* ((Kind = sTerm) OR (Kind = sNonterm)) AND *)
+             (FirstReadTermState <= m2tom3_with_1.NewNumber) AND
+             (m2tom3_with_1.NewNumber <= LastReadNonTermState) THEN
 
-          prod := ADR (ProdArrayPtr^[ItemArrayPtr^[m2tom3_with_1.Items].Prod]);
-          FinalToProd^[m2tom3_with_1.NewNumber-FirstReadTermState] := prod^.ProdNo + ReduceOffset;
+            prod := ADR (ProdArrayPtr^[ItemArrayPtr^[m2tom3_with_1.Items].Prod]);
+            FinalToProd^[m2tom3_with_1.NewNumber-FirstReadTermState] := prod^.ProdNo + ReduceOffset;
+          END;
+
         END;
-
-      END;
       END;
 
     END MakeFinalToProd;

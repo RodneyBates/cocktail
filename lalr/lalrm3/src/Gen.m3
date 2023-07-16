@@ -133,7 +133,7 @@ UNSAFE MODULE Gen;
     GetTokenType;
 
   FROM Debug IMPORT
-       dFile, WriteProdLength, WriteLeftHandSide, WriteItemSets, WriteTable,
+       dFile, WriteItemSets, WriteTable, WriteNTs, WriteProdList,
        ItemSets;
   FROM Check IMPORT Verbose;
 
@@ -305,8 +305,8 @@ UNSAFE MODULE Gen;
 (* TODO: Give this option a more accurate name. *) 
       IF ItemSets
       THEN
-        WriteProdLength ( ) ;
-        WriteLeftHandSide ( );
+        WriteNTs ( );
+        WriteProdList ( ); 
         WriteItemSets ( );
         WriteTable ( );
       END ;
@@ -802,6 +802,7 @@ PROCEDURE AlignValue (File: tFile; ElmtNo , UpCt : INTEGER ) =
   END AlignValue; 
 
 PROCEDURE PutBase       (File: tFile) =
+   (* This array is named yyTBase in the generated parser. *)
    BEGIN
       IF Language = tLanguage.Modula3
       THEN 
@@ -822,6 +823,7 @@ PROCEDURE PutBase       (File: tFile) =
    END PutBase;
 
 PROCEDURE PutNBase      (File: tFile) =
+   (* This array is named yyNBasePtr in the generated parser. *)
    BEGIN
       IF Language = tLanguage.Modula3
       THEN
@@ -849,6 +851,7 @@ PROCEDURE PutNBase      (File: tFile) =
    END PutNBase;
 
 PROCEDURE PutDefault    (File: tFile) =
+   (* This array is named yyDefault in the generated parser. *)
    BEGIN
       IF Language = tLanguage.Modula3
       THEN
@@ -867,6 +870,7 @@ PROCEDURE PutDefault    (File: tFile) =
    END PutDefault;
 
 PROCEDURE PutControl    (File: tFile) =
+   (* This array is named yyTComb in the generated parser. *)
    BEGIN
       IF Language = tLanguage.Modula3
       THEN
@@ -893,12 +897,13 @@ PROCEDURE PutControl    (File: tFile) =
 PROCEDURE PutNNext      (File: tFile) = 
    VAR j: INTEGER;
    BEGIN
+   (* This array is named yyNComb in the generated parser. *)
       IF Language = tLanguage.Modula3
       THEN
         j := 0; 
         FOR i := LastTerminal + 1 TO NTableSize DO
-           AlignValue ( File, j , 3);
-           WriteT (File, "(*NT:"); WriteI (File, i, 4); 
+           AlignValue ( File, j , 4);
+           WriteT (File, "(*"); WriteI (File, i, 4); 
            WriteT (File, "*) "); 
            INC (j);
            WriteI (File, NNext^[i], 4); 
@@ -913,6 +918,7 @@ PROCEDURE PutNNext      (File: tFile) =
    END PutNNext;
 
 PROCEDURE PutProdLength     (File: tFile) =
+   (* This array is named yyLength in the generated parser. *)
    VAR j: INTEGER;
    BEGIN
       IF Language = tLanguage.Modula3
@@ -920,12 +926,16 @@ PROCEDURE PutProdLength     (File: tFile) =
         j := 0;
         FOR i := 1 TO ProdCount DO
            AlignValue ( File, j , 3 );
-           WriteT (File, "(*State:");
+           WriteT (File, "(*A");
            WriteI (File, i-1+FirstReduceState, 4);
            (* Here, ProdLength^ has origin zero (it's heap-allocated, open),
-              but element zero is unused.  Element 1 is for FirstReduceState.
-              In the M3 parser, yyLength has lower bound yyFirstReduceState. *)
-           WriteT (File, "*) "); 
+              but element zero is unused.  Subscripts are production numbers.
+              Element 1 is for FirstReduceState.
+              In the M3 parser, array yyLength has lower bound
+              yyFirstReduceState, and its value comes from element 1 here. *)
+           WriteT (File, "(P"); 
+           WriteI (File, i, 4);
+           WriteT (File, ")*) "); 
            WriteI (File, ProdLength^[i], 4); 
            INC (j);
         END;
@@ -939,6 +949,7 @@ PROCEDURE PutProdLength     (File: tFile) =
    END PutProdLength;
 
 PROCEDURE PutLeftHandSide       (File: tFile) =
+   (* This array is named yyLeftHandSide in the generated parser. *)
    VAR j: INTEGER;
    BEGIN
       IF Language = tLanguage.Modula3
@@ -946,13 +957,16 @@ PROCEDURE PutLeftHandSide       (File: tFile) =
         j := 0;
         FOR i := 1 TO ProdCount DO
            AlignValue ( File, j , 3 );
-           WriteT (File, "(*State:");
+           WriteT (File, "(*A");
            WriteI (File, i-1+FirstReduceState, 4);
            (* Here, LeftHandSize^ has origin zero (it's heap-allocated, open),
-              but element zero is unused.  Element 1 is for FirstReduceState.
+              but element zero is unused.  Subscripts are production numbers.
+              Element 1 is for FirstReduceState.
               In the M3 parser, yyLeftHandSide has lower bound
-              yyFirstReduceState. *) 
-           WriteT (File, "*) "); 
+              yyFirstReduceState, and its value comes from element 1 here. *) 
+           WriteT (File, "(P"); 
+           WriteI (File, i, 4);
+           WriteT (File, ")*) "); 
            WriteI (File, LeftHandSide^[i], 4);
            INC (j);
         END;
@@ -966,12 +980,13 @@ PROCEDURE PutLeftHandSide       (File: tFile) =
    END PutLeftHandSide;
 
 PROCEDURE PutContinuation       (File: tFile) =
+   (* This array is named yyContinuation in the generated parser. *)
    BEGIN
       IF Language = tLanguage.Modula3
       THEN 
         FOR i := 0 TO LastReadState DO
            AlignValue ( File, i, 3 );
-           WriteT (File, "(*State:"); WriteI (File, i, 4); WriteT (File, "*) ");
+           WriteT (File, "(*:"); WriteI (File, i, 4); WriteT (File, "*) ");
            WriteI (File, Continuation^[i], 4); 
         END;
         WriteNl (File);
@@ -984,24 +999,29 @@ PROCEDURE PutContinuation       (File: tFile) =
    END PutContinuation;
 
 PROCEDURE PutFinalToProd        (File: tFile) =
-   VAR j: INTEGER; 
+   (* This array is named yyFinalToProd in the generated parser. *)
+   VAR j: INTEGER;
+   VAR LReduceAction: tStateIndex;
    BEGIN
       IF Language = tLanguage.Modula3
       THEN 
         j := 0;
         FOR i := FirstReadTermState TO LastReadNonTermState DO
            AlignValue ( File, j , 2 );
-           WriteT (File, "(*State:");
+           WriteT (File, "(*RR:");
            WriteI (File, i, 4); 
            WriteT (File, ")*) "); 
            INC (j);
-           WriteI (File, FinalToProd^[i - FirstReadTermState], 4);
+           LReduceAction := FinalToProd^[i - FirstReadTermState];
+           WriteI (File, LReduceAction, 4);
+           WriteT (File, " (*P");
+           WriteI (File, LReduceAction - FirstReduceState, 1); 
+           WriteT (File, "*)"); 
         END;
         WriteNl (File);
       ELSIF Language = tLanguage.C
-      THEN 
+      THEN (* Not very helpful to humans. *) 
         FOR i := FirstReadTermState TO LastReadNonTermState DO
-
            WriteI (File, FinalToProd^[i - FirstReadTermState], 0);
            WriteC (File, ','); WriteNl (File);
         END;

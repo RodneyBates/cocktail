@@ -62,8 +62,7 @@ FROM Automaton  IMPORT Infinite, tAss, tRep, tIndex, tProduction, ProdArrayPtr,
 FROM Debug      IMPORT dFile, tConflict, DebugHead, DebugState, DebugEnd, InformIgnored,
                         InformLowPri, InformRightAss, InformLeftAss, InformKept,
                         InformConflict, NewLine;
-FROM Debug      IMPORT ItemSets, WriteItemSets, WriteVoc, WriteProd,
-                       WriteProdLength, WriteLeftHandSide, WriteTable;
+FROM Debug      IMPORT ItemSets, WriteItemSets, WriteVoc, WriteProd;
 
 
 FROM FrontErrors     IMPORT eInternal, eInformation, eWarning, eError, eFatal, eString,

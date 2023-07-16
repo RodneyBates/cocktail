@@ -152,12 +152,14 @@ PROCEDURE ExpandProdListArray
     END; 
   END ExpandProdListArray;
 
-PROCEDURE ItemRepImage ( READONLY Item: tItem ): TEXT =
+PROCEDURE ItemRepImage ( READONLY Item: tItem; FirstItem: tItemIndex ): TEXT =
   VAR LR, LResult: TEXT; 
   BEGIN
     CASE Item.Rep OF
     | tRep.NoRep
-    => LR := Fmt.Int (Item.RepNo)
+    => LR := Fmt.Int (Item.RepNo-FirstItem)
+(* This could be wrong if indirect caller had no FirstItem value and
+   passed zero, actually meaning unknown. *) 
     | tRep.TermRep
     => LR := "Term"
     | tRep.NonTermRep

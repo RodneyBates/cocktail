@@ -47,7 +47,8 @@ FROM Continue   IMPORT Value;
 FROM DynArray   IMPORT ExtendArray, MakeArray, ReleaseArray;
 FROM Gen IMPORT tTableLine, LeftHandSide, ProdLength, NonTermOffset,
                 LastTerminal, FirstReduceState, LastReduceState,
-                NoState, FirstSymbol, LastSymbol, LastReadState, MakeTableLine;
+                NoState, FirstSymbol, LastSymbol, LastReadState,
+                FirstReadTermState, MakeTableLine, FinalToProd;
 FROM ReuseIO    IMPORT tFile, WriteC, WriteT, WriteI, WriteCard, WriteNl;
 (*FROM Sets       IMPORT tSet, Extract, Include, Exclude, MakeSet, ReleaseSet,
                         Assign, Intersection, IsElement, IsEmpty;
@@ -113,31 +114,31 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Terminal,
 PROCEDURE InformIgnored (Item: tItemIndex; t: Terminal) =
     BEGIN
       WriteT (dFile,"ignored                 ");
-      WriteItem (Item,t);
+      WriteItem (Item,0,t);
     END InformIgnored;
 
 PROCEDURE InformLowPri (Item: tItemIndex; t: Terminal) =
     BEGIN
       WriteT (dFile,"ignored (precedence)    ");
-      WriteItem (Item,t);
+      WriteItem (Item,0,t);
     END InformLowPri;
 
 PROCEDURE InformRightAss (Item: tItemIndex; t: Terminal) =
     BEGIN
       WriteT (dFile,"ignored (associativity) ");
-      WriteItem (Item,t);
+      WriteItem (Item,0,t);
     END InformRightAss;
 
 PROCEDURE InformLeftAss (Item: tItemIndex; t: Terminal) =
     BEGIN
       WriteT (dFile,"ignored (associativity) ");
-      WriteItem (Item,t);
+      WriteItem (Item,0,t);
     END InformLeftAss;
 
 PROCEDURE InformKept (Item: tItemIndex; t: Terminal) =
     BEGIN
       WriteT (dFile,"retained                ");
-      WriteItem (Item,t);
+      WriteItem (Item,0,t);
     END InformKept;
 
 PROCEDURE InformConflict (kind: tConflict) =
@@ -155,17 +156,39 @@ PROCEDURE NewLine() =
     BEGIN
       WriteNl (dFile);
     END NewLine;
+
+CONST DotChar = '\xB0' (* Iso Latin-1, small circle. *);
+
+PROCEDURE WriteNTs ( ) =
+
+  VAR length: INTEGER;
+  BEGIN
+    WriteT (dFile, "****** Nonterminals ******" );
+    WriteNl (dFile);
+    WriteNl (dFile);
+    FOR RNT := LastTerminal+1 TO LastSymbol
+    DO
+      WriteVoc (RNT+NonTermOffset,(*OUT*)length); 
+      WriteT (dFile, " = " );
+      WriteT (dFile, Fmt . Int ( RNT ) );
+      WriteNl (dFile);
+    END (*FOR*); 
+    WriteNl (dFile);
+  END WriteNTs;
     
-PROCEDURE WriteItem (Item: tItemIndex; t: Terminal) =
+PROCEDURE WriteItem (Item, FirstItem: tItemIndex; t: Terminal) =
     VAR
       length : Word.T;
       p : tProduction;
     BEGIN
       WITH m2tom3_with_1=ItemArrayPtr^[Item] DO
         p := ADR (ProdArrayPtr^[m2tom3_with_1.Prod]);
+        WriteT (dFile,"    P");
+        WriteT (dFile, Fmt.Int(p^.ProdNo)); 
+        WriteT (dFile," ");
         WriteVoc (p^.Left,length);
         WriteT (dFile," ");
-        WriteT (dFile,ItemRepImage(m2tom3_with_1));
+        WriteT (dFile,ItemRepImage(m2tom3_with_1, FirstItem));
         WriteT (dFile," -> ");
         length := 0;
         WITH m2tom3_with_2=p^ DO
@@ -173,12 +196,12 @@ PROCEDURE WriteItem (Item: tItemIndex; t: Terminal) =
             WriteT (dFile,"-Epsilon-.");
           ELSE
             IF m2tom3_with_1.Pos = 0 THEN
-              WriteC (dFile,'.');
+              WriteC (dFile, DotChar);
             END;
             FOR i:=1 TO m2tom3_with_2.Len DO
               WriteVoc (m2tom3_with_2.Right[i],length);
               IF m2tom3_with_1.Pos = i THEN
-                WriteC (dFile,'.');
+                WriteC (dFile, DotChar);
               ELSE
                 WriteC (dFile,' ');
               END;
@@ -195,23 +218,27 @@ PROCEDURE WriteItem (Item: tItemIndex; t: Terminal) =
       END;
     END WriteItem;
 
-PROCEDURE WriteItemSets ( )  = 
-  BEGIN
+PROCEDURE WriteItemSets ( )  =
+  VAR L1stItem: tItemIndex;
+ BEGIN
+    WriteT (dFile, "****** Item sets ******" );
+    WriteNl (dFile);
+    WriteNl (dFile);
     FOR state := 1 TO StateIndex
     DO
       WriteT (dFile,"State ");
       WriteI (dFile,state,1);
       WriteT (dFile," = { ");    
       WriteNl (dFile);
-      FOR item := StateArrayPtr^[state].Items 
-          TO StateArrayPtr^[state].Items + StateArrayPtr^[state].Size - 1
+      L1stItem := StateArrayPtr^[state].Items; 
+      FOR item := L1stItem TO L1stItem + StateArrayPtr^[state].Size - 1
       DO
-        WriteItem ( item , MINTerm )
+        WriteItem ( item , L1stItem , MINTerm )
       END;
       WriteT (dFile," } ");   
       WriteNl (dFile);
       WriteNl (dFile);
-    END 
+    END (*FOR*); 
   END WriteItemSets;
     
 PROCEDURE DebugHead (State: tStateIndex) =
@@ -1099,23 +1126,41 @@ PROCEDURE FindPathD (NT: NonTerminal; EndState: tStateIndex) =
     END;
   END FindPathD;
 
-PROCEDURE ReduceStateImage (state: tStateIndex) : TEXT =
-  VAR LStateImage, LProdImage, LResult: TEXT;
+PROCEDURE ActionImage (action: tStateIndex) : TEXT =
+  VAR LActionImage, LProdImage, LResult: TEXT;
+  VAR LProdNo: INTEGER;
+  VAR LReduceAction: tStateIndex;
   BEGIN
-    LStateImage := "S" & Fmt.Int(state);
-    IF state >= FirstReduceState AND state <= LastReduceState
-    THEN LProdImage := ",P" & Fmt . Int (state-FirstReduceState+1);
+    LActionImage := "A" & Fmt.Int(action);
+    IF action >= FirstReduceState 
+    THEN LProdImage := ",P" & Fmt . Int (action-FirstReduceState+1);
+    ELSIF action >= FirstReadTermState 
+    THEN
+      LReduceAction := FinalToProd^[action - FirstReadTermState];
+      LProdNo := LReduceAction - FirstReduceState+1; 
+      LProdImage := ",P" & Fmt . Int (LProdNo);
     ELSE LProdImage := ""
     END;
-    LResult := "(" & LStateImage & LProdImage & ")";
+    LResult := "(" & LActionImage & LProdImage & ")";
     RETURN LResult; 
-  END ReduceStateImage;
+  END ActionImage;
 
 PROCEDURE WriteProdList ( ) =
+  VAR d: INTEGER;
   BEGIN
-  END WriteProdList;
 
-PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: Word.T) =
+
+RETURN;
+    WriteT (dFile,"***** Productions ***** ");
+    WriteNl (dFile);
+    WriteNl (dFile);
+    FOR RPNo := 1 TO ProdCount
+    DO WriteProd (RPNo, 1, (*VAR*) d, WithNo := TRUE);
+    END (*FOR*);
+  END WriteProdList;
+  
+PROCEDURE WriteProd
+  (p: tProdIndex; l: tIndex; VAR d: Word.T; WithNo := FALSE) =
     VAR
       prodADR : (*tProduction*) ADDRESS;
       prod : tProduction;
@@ -1124,6 +1169,10 @@ PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: Word.T) =
       prodADR := ADR(ProdArrayPtr^[p]);
       prod := LOOPHOLE (prodADR, tProduction);
       WITH m2tom3_with_59=prod^ DO
+        IF WithNo THEN
+          WriteT (dFile, Fmt.Int(m2tom3_with_59.ProdNo));
+          WriteT (dFile,": ");
+        END; 
         IF m2tom3_with_59.Len = 0 THEN
           WriteT (dFile,"-Epsilon-");
         ELSE
@@ -1143,7 +1192,15 @@ PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: Word.T) =
     VAR maxState, state, NewNum : tStateIndex;
     VAR LTableLine: tTableLine;
     BEGIN
-      WriteT (dFile,"***** Table ***** ");
+      WriteT (dFile,"***** Transition Table ***** ");
+      WriteNl (dFile);
+      WriteT (dFile,"  A<a> is action number.");
+      WriteNl (dFile);
+      WriteT
+        (dFile
+        ,"  P<p> is corresponding production number, if shift-reduce or shift."
+        );
+      WriteNl (dFile);
       WriteNl (dFile);
       maxState := StateIndex;
       FOR state := 1 TO maxState DO
@@ -1153,6 +1210,7 @@ PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: Word.T) =
           WriteTableLine (NewNum, LTableLine);
         END;
       END;
+      WriteNl (dFile);
     END WriteTable;
 
   PROCEDURE WriteTableLine (state:tStateIndex; READONLY TableLine: tTableLine)=
@@ -1174,14 +1232,17 @@ PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: Word.T) =
           ELSE
             WriteVoc (symbol,(*OUT*)length);
           END;
-          WriteC (dFile,',');
-          WriteT (dFile, ReduceStateImage (nextstate));
+          WriteT (dFile,"->");
+          WriteT (dFile, ActionImage (nextstate));
           WriteC (dFile,')');
         END;
       END;
       WriteNl (dFile);
     END WriteTableLine;
 
+(* This function duplicates Gen.PutProdLength, which puts a human
+   readable array constructor into the generated parser.
+*) 
   PROCEDURE WriteProdLength()=
   (* Laenge von Produktionen. *)
     VAR prodno : tProdIndex;
@@ -1198,6 +1259,9 @@ PROCEDURE WriteProd (p: tProdIndex; l: tIndex; VAR d: Word.T) =
       WriteNl (dFile);
     END WriteProdLength;
 
+(* This function duplicates Gen.PutLeftHandSide, which puts a human
+   readable array constructor into the generated parser.
+*) 
   PROCEDURE WriteLeftHandSide()=
   (* Linke Seite der Produktionen. *)
     VAR prodno : tProdIndex;

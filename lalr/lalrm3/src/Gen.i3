@@ -74,6 +74,7 @@ VAR
     Continuation : REF ARRAY  OF TableElmt;
     ContinuationCount : INTEGER;
     FinalToProd : REF ARRAY OF TableElmt;
+    (* ^Element [0] is for FirstReadTermState. *)  
     FinalToProdCount : INTEGER;
 
 PROCEDURE GenDefaultActions();
