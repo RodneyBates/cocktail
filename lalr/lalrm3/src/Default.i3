@@ -32,8 +32,7 @@ VAR NoDefault : BOOLEAN;
 
 
   PROCEDURE PutInDefaultList 
-    (    ReadState : tStateIndex;
-     VAR TableLine : tTableLine);  (* read only *)
+    ( ReadState : tStateIndex; READONLY TableLine : tTableLine);
 
   (* Eintragen der in TableLine enthaltenen Zeile in die Datenstruktur *)
 
