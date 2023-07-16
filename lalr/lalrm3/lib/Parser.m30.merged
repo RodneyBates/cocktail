@@ -175,7 +175,7 @@ VAR
    yyIsInitialized      : BOOLEAN;
    yyTableFile          : System.tFile;
    
-(* From Parser.m30.orig: *) 
+(* Copied in from Parser.m30.orig: *) 
     PROCEDURE ExpandStateStack ( VAR Stack : yyStackType ; ToSize : INTEGER ) =
 
       VAR LOldStack : yyStackType;
@@ -222,6 +222,16 @@ $@ PROCEDURE @ (): CARDINAL =
 $L (* LOCAL section is inserted here *)
    VAR
       yyState           : yyStateRange;
+      (* NOTE: "yyState" and other occurrences of "State" are misleading.
+               they are, in general, parsing *actions*, only the low range
+               up to yyLastReadState (a constant inserted by the generator)
+               being truly states.  These correspond to item sets, and as
+               actions, meaning read (it will be a terminal) and enter
+               new state yyState.  Higher ranges are read-terminal-reduce,
+               read-nonterminal-reduce, and just reduce actions.
+               Deconfusing this terminology would require extensive and
+               error-prone work.
+      *) 
       yyTerminal        : yySymbolRange;
       yyNonterminal     : yySymbolRange;        (* left-hand side symbol *)
       yyStackPtr        : yyStackPtrType;
