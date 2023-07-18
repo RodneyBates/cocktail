@@ -1,5 +1,5 @@
 
-$Z(* Parser.m30. *) 
+$Z(* Parser.m30.forlalr. *) 
 $Z
 $Z(* Skeleton parser in Modula-3, for Cocktail lalr. *)
 $Z

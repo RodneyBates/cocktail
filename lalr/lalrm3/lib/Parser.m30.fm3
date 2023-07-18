@@ -314,11 +314,11 @@ $@    yyTerminal        := $.GetToken ();
                IF yyIsRepairing 
                THEN (* repair *)
                   yyRepairToken := yyContinuation [yyState];
-                  (*Either*)yyState := Next (yyState, yyRepairToken);
+                  yyState (*Any action*) := Next (yyState, yyRepairToken);
                   IF yyState <= yyLastReadTermState 
                   THEN (* read or read terminal reduce ? *)
 $@                   $.ErrorAttribute 
-                       (yyRepairToken, yyRepairAttribute);
+                       (yyRepairToken, (*OUT*)yyRepairAttribute);
                      TokenName (yyRepairToken, yyText);
                      FrontErrors.ErrorMessageTraced
                        (FrontErrors.TokenInserted, FrontErrors.Repair,
@@ -326,17 +326,22 @@ $@                      $.Attribute.Position, FrontErrors.eText, yyText
                        );
                      IF yyState >= yyFirstFinalState 
                      THEN (* avoid second push *)
-                        (*Reduce*)yyState := yyFinalToProd [(*Action*)yyState];
+                        yyState (*Reduce*) := yyFinalToProd [(*Action*)yyState];
                      END (* IF *) ;
                      INC (yyStackPtr);
-                     yyStateStack^     [yyStackPtr] := yyState;
-                     yyAttributeStack^ [yyStackPtr].Scan := yyRepairAttribute;
+                     yyStateStack^ [yyStackPtr] := yyState;
+                     WITH WParsAttr = yyAttributeStack^ [yyStackPtr]
+                     DO 
+                       WParsAttr.Scan := yyRepairAttribute;
+                       WParsAttr.PaUnnestStackPtr := UnnestStackPtr;
+                       PushUnnestStk (WParsAttr.Scan);
+                     END (*WITH*)
                   END (* IF *) ;
                   IF yyState >= yyFirstFinalState 
                   THEN (* final state ? *)
                     EXIT;
                   END (* IF *) ;
-               ELSE (* report and recover *)
+               ELSE (* Report and start recovery. *)
                   INC (yyErrorCount);
                   ErrorRecovery 
                     (yyTerminal, yyStateStack,
@@ -350,10 +355,27 @@ $@                      $.Attribute.Position, FrontErrors.eText, yyText
          THEN (* Action *)
             IF yyState <= yyLastReadTermState (* read terminal reduce ? *) 
             THEN (* First do the read terminal. *)
-               INC (yyStackPtr);
-$@             yyAttributeStack^ [yyStackPtr].Scan := $.Attribute;
-$@             yyTerminal := $.GetToken ();
+              INC (yyStackPtr);
+              (* Is there such a thing as a read-reduce action where the
+                 reduce is by an empty production?  And so are all the
+                 subsequent reduces? If so, it is important to store into
+                 the two stacks, which will not be overlaid by reduces.
+              *)
+$Y            yyStateStack^ [yyStackPtr]
+$Y              := yyState (*Read terminal reduce action*) (*ParserDebug*);
+$Y            (* ^Not a true state.  Should be overlaid very soon.  But if
+$Y                not, due to empty reduces, this will be the wrong value
+$Y                in the state stack. *)
+              WITH WParsAttr = yyAttributeStack^ [yyStackPtr]
+              DO
+$Y              WParsAttr := ParsAttrNull; 
+$@               WParsAttr.Scan := $.Attribute;
+                WParsAttr.PaUnnestStackPtr := UnnestStackPtr;
+                PushUnnestStk (WParsAttr.Scan);
+              END (*WITH*);
+$@            yyTerminal := $.GetToken ();
                yyIsRepairing := FALSE;
+
 $X             (*Reduce*)yyState := yyFinalToProd [yyState](* reducing case label ct. *);
 $Y             yyStateStack^ [yyStackPtr] := (*Reduce*)yyState (*ParserDebug*);
             END (* IF *) ;
@@ -363,9 +385,10 @@ $R             (* Code for Reductions is inserted here *)
 
                (* Here, a reduction has been done.  yyStackPtr has been
                   decremented by the RHS length, yyNonterminal has been set to
-                  the LHS NT of the reduced-by production, and  Semantic
-                  actions have been performed.  Now do a nonterminal read
-                  transition on yyStateStack^ [yyStackPtr] (* A state*)
+                  the LHS NT of the reduced-by production (but has not been
+                  pushed), and any Semantic actions have been performed,
+                  which will have set yySynAttribute.  Now do a nonterminal
+                  read transition on yyStateStack^ [yyStackPtr] (* A state*)
                   and yyNonterminal.
                *) 
 
@@ -379,23 +402,34 @@ $R             (* Code for Reductions is inserted here *)
                             * BYTESIZE (yyNCombType) 
                       , yyNCombTypePtr
                       );
-               (*Either*)yyState := yyNCombPtr^;
+               (*Any action*)yyState := yyNCombPtr^;
                INC (yyStackPtr);
-               yyAttributeStack^ [yyStackPtr] := yySynAttribute;
-$Y             yyAttributeStack^ [yyStackPtr].Scan.SaTok := yyNonterminal;
-$Y          (* ^This requires that tScanAttribute have field 'SaTok'. *)
-$Y             yyStateStack^ [yyStackPtr] := (*Either*)yyState (*ParserDebug*);
+               WITH WParsAttr = yyAttributeStack^ [yyStackPtr]
+               DO 
+                 WParsAttr := yySynAttribute;
+                 WParsAttr . PaUnnestStackPtr := UnnestStackPtr;
+$Y               WParsAttr.Scan.SaTok := yyNonterminal;
+$Y            (* ^This requires that tScanAttribute have field 'SaTok'. *)
+               END (*WITH*)
+               PushUnnestItk (yyNonterminal);
+$Y             yyStateStack^ [yyStackPtr]
+$Y               := yyState (* Not necessarily a state ) (*ParserDebug*);
                IF yyState < yyFirstFinalState (* read nonterminal? *) 
-               THEN (* A state. *)
+               THEN (* A true state. *)
                  EXIT 
                END (* IF *) ; 
 $X             (*Reduce*)yyState := yyFinalToProd [yyState]; (* reducing case label ct. *)
             END (* LOOP *) ;
 
-         ELSE (* Read NT. *)
+         ELSE (* Read Terminal. *)
             INC (yyStackPtr);
-$Y          yyStateStack^ [yyStackPtr] := (*State*)yyState (*ParserDebug*);
-$@           yyAttributeStack^ [yyStackPtr].Scan := $.Attribute;
+$Y          yyStateStack^ [yyStackPtr] := yyState (*A state*) (*ParserDebug*);
+            WITH WParsAttr = yyAttributeStack^ [yyStackPtr]
+            DO
+$@             WParsAttr.Scan := $.Attribute;
+              WParsAttr.PaUnnestStackPtr := UnnestStackPtr;
+              PushUnnestStk (WParsAttr.Scan);
+            END (*WITH*);
 $@           yyTerminal := $.GetToken ();
             yyIsRepairing := FALSE;
          END (* IF *);
