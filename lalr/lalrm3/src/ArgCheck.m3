@@ -62,6 +62,7 @@ IMPORT Wr;
 
 IMPORT Params;
 IMPORT Text;
+IMPORT TextWr;
 IMPORT Word;
 FROM Actions    IMPORT  ScannerName,    ParserName;
 FROM Character  IMPORT  IsEqual,        Assign;
@@ -504,6 +505,24 @@ PROCEDURE CopyFile (In, Out: tFile) =
       END;
     END;
   END CopyFile;
+
+(*EXPORTED:*)
+PROCEDURE ArgListAsText ( ) : TEXT
+
+  = VAR LWrT : Wr . T
+  ; VAR LResult : TEXT 
+
+  ; BEGIN
+      LWrT := TextWr . New ( )
+    ; Wr . PutText ( LWrT , Params . Get ( 0 ) ) 
+    ; FOR RArgNo := 1 TO Params . Count - 1
+      DO
+        Wr . PutChar ( LWrT , ' ' )
+      ; Wr . PutText ( LWrT , Params . Get ( RArgNo ) ) 
+      END (*FOR*) 
+    ; LResult := TextWr . ToText ( LWrT )
+    ; RETURN LResult 
+    END ArgListAsText; 
 
 BEGIN
   LineFlag      := FALSE;

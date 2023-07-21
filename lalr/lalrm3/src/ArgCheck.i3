@@ -46,6 +46,7 @@ PROCEDURE GenerateSupport();
 PROCEDURE MakeFileNameT (Name: tIdent; DefaultT, ExtT: TEXT): TEXT;
 PROCEDURE ExpandLine (Out: tFile; READONLY Line: tString);
 PROCEDURE CopyFile (In, Out: tFile);
+PROCEDURE ArgListAsText ( ) : TEXT;
 
 END ArgCheck.
 
