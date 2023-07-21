@@ -3,8 +3,15 @@ $Z(* Parser.m30. *)
 $Z
 $Z(* Skeleton parser in Modula-3, for Cocktail lalr. *)
 $Z
+$Z Lines like this, begining with "$Z", are omitted from the generated parser.
+$Z
 $Z(* This version contains modifications specific to the
 $Z   FM3 Modula-3 compiler, e.g., FM3's error messages.
+$Z
+$Z   Shifts copy the curent unnest stack pointer into the shifted parse
+$Z   attribute field PaUnnestStackLen.  Empty reduces do the same into
+$Z   the shifted LHS nonterminal's parse attribute.  Other reduces copy
+$Z   it from the leftmost RHS token into the shifted nonterminal. 
 $Z*)
 $Z
 $Z(* Derived from: ** $Id: Parser.mi,v 2.8 1992/08/12 06:54:05 grosch rel $ *)
@@ -15,11 +22,10 @@ $Z    3-2023 Add generation of Module-3 code.
 $Z    Further changes in https://github.com/RodneyBates/cocktail
 $Z*)
 $Z
-$Z Lines like this, begining with "$Z", are omitted from the generated parser.
 
 
 $@ UNSAFE MODULE @;
-(*^ BEWARE! lalr loses this character. *) 
+$Z (*^ BEWARE! lalr loses the character ater $@. *) 
 
 $@ IMPORT $;
 
@@ -240,6 +246,7 @@ $L (* LOCAL section is inserted here *)
       yyTerminal        : yySymbolRange;
       yyNonterminal     : yySymbolRange;        (* left-hand side symbol *)
       yyStackPtr        : yyStackPtrType;
+      yyPrereduceStackPtr : yyStackPtrType;
       yyStackLAST       : INTEGER;
       yyStateStackSize  : INTEGER;
       yyAttrStackSize := yyStateStackSize; 
@@ -279,7 +286,7 @@ $@    yyTerminal        := $.GetToken ();
                     a sequence of reduces
               or b) One read
            *)  
-         (* Make room and push (true) state onto state stack. *) 
+         (* Make room and push true state onto state stack. *) 
          IF yyStackPtr >= yyStackLAST 
          THEN
             yyStateStackSize
@@ -291,19 +298,19 @@ $@    yyTerminal        := $.GetToken ();
          END (* IF *) ;
          yyStateStack^ [yyStackPtr] := (*State*)yyState;
 
-         LOOP (* Through all continuation pushes, plus compute the state
+         LOOP (* Through all continuation shifts, plus compute the state
                  after that. This loop also goes through the default state
                  computations. *) 
             (* SPEC State := Next (State, Terminal); terminal transition *)
             
             yyTCombPtr := LOOPHOLE 
-                            ( LOOPHOLE ( yyTBasePtr [(*State*)yyState] ,INTEGER) 
+                            ( LOOPHOLE ( yyTBasePtr [yyState (*State*)] ,INTEGER) 
                               + yyTerminal * BYTESIZE (yyTCombType)
                             , yyTCombTypePtr
                             );
             IF yyTCombPtr^.Check = (*State*)yyState 
             THEN
-               (*Either*)yyState := yyTCombPtr^.Next;
+               yyState := yyTCombPtr^.Next;
                EXIT;
             END (* IF *) ;
             (*State*)yyState := yyDefault [(*State*)yyState];
@@ -333,8 +340,8 @@ $@                      $.Attribute.Position, FrontErrors.eText, yyText
                      WITH WParsAttr = yyAttributeStack^ [yyStackPtr]
                      DO 
                        WParsAttr.Scan := yyRepairAttribute;
-                       WParsAttr.PaUnnestStackPtr := UnnestStackPtr;
-                       PushUnnestStk (WParsAttr.Scan);
+                       WParsAttr.PaUnnestStackLen := UnnestStackLen ( );
+                       PushUnnestStk (WParsAttr.Scan.SaTok);
                      END (*WITH*)
                   END (* IF *) ;
                   IF yyState >= yyFirstFinalState 
@@ -370,8 +377,8 @@ $Y                in the state stack. *)
               DO
 $Y              WParsAttr := ParsAttrNull; 
 $@               WParsAttr.Scan := $.Attribute;
-                WParsAttr.PaUnnestStackPtr := UnnestStackPtr;
-                PushUnnestStk (WParsAttr.Scan);
+                WParsAttr.PaUnnestStackLen := UnnestStackLen ( );
+                PushUnnestStk (WParsAttr.Scan.SaTok);
               END (*WITH*);
 $@            yyTerminal := $.GetToken ();
                yyIsRepairing := FALSE;
@@ -381,6 +388,7 @@ $Y             yyStateStack^ [yyStackPtr] := (*Reduce*)yyState (*ParserDebug*);
             END (* IF *) ;
 
             LOOP (* Through successive reductions *)
+               yyPrereduceStackPtr := yyStackPtr; 
 $R             (* Code for Reductions is inserted here *)
 
                (* Here, a reduction has been done.  yyStackPtr has been
@@ -405,15 +413,21 @@ $R             (* Code for Reductions is inserted here *)
                (*Any action*)yyState := yyNCombPtr^;
                INC (yyStackPtr);
                WITH WParsAttr = yyAttributeStack^ [yyStackPtr]
-               DO 
+               DO
                  WParsAttr := yySynAttribute;
-                 WParsAttr . PaUnnestStackPtr := UnnestStackPtr;
+             (* BEWARE: The below will overlay PaUnnestStackLen, replacing
+                        anything reduce semantic actions have put there. *) 
+                 IF yyStackPtr - 1 = yyPrereduceStackPtr (* Empty reduction *)
+                 THEN WParsAttr . PaUnnestStackLen := UnnestStackLen ( ) ;
+                 ELSE WParsAttr . PaUnnestStackLen
+                        := WParsAttr . PaUnnestStackLen;
+                 END (*IF*); 
 $Y               WParsAttr.Scan.SaTok := yyNonterminal;
 $Y            (* ^This requires that tScanAttribute have field 'SaTok'. *)
-               END (*WITH*)
-               PushUnnestItk (yyNonterminal);
+               END (*WITH*);
+               PushUnnest (yyNonterminal);
 $Y             yyStateStack^ [yyStackPtr]
-$Y               := yyState (* Not necessarily a state ) (*ParserDebug*);
+$Y               := yyState (* Not necessarily a state*) (*ParserDebug*);
                IF yyState < yyFirstFinalState (* read nonterminal? *) 
                THEN (* A true state. *)
                  EXIT 
@@ -427,8 +441,8 @@ $Y          yyStateStack^ [yyStackPtr] := yyState (*A state*) (*ParserDebug*);
             WITH WParsAttr = yyAttributeStack^ [yyStackPtr]
             DO
 $@             WParsAttr.Scan := $.Attribute;
-              WParsAttr.PaUnnestStackPtr := UnnestStackPtr;
-              PushUnnestStk (WParsAttr.Scan);
+              WParsAttr.PaUnnestStackLen := UnnestStackLen ( );
+              PushUnnestStk (WParsAttr.Scan.SaTok);
             END (*WITH*);
 $@           yyTerminal := $.GetToken ();
             yyIsRepairing := FALSE;
@@ -565,8 +579,8 @@ PROCEDURE IsContinuation (
                 (Stack, MAX (NUMBER ( Stack ^ ) * 2 , StackPtr + 2 ) );
               StackSize := NUMBER (Stack^); 
             END;
-$Y          Stack^ [StackPtr] := State (*ParserDebug*);
             INC (StackPtr);
+$Y          Stack^ [StackPtr] := State (*ParserDebug*);
             IF State < yyFirstFinalState
             THEN EXIT;
             END; (* read nonterminal ? *)
