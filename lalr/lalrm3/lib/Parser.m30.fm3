@@ -326,7 +326,7 @@ $@    yyTerminal        := $.GetToken ();
                   THEN (* read or read terminal reduce ? *)
 $@                   $.ErrorAttribute 
                        (yyRepairToken, (*OUT*)yyRepairAttribute);
-                     TokenName (yyRepairToken, yyText);
+                     TokenName (yyRepairToken, (*OUT*) yyText);
                      FrontErrors.ErrorMessageTraced
                        (FrontErrors.TokenInserted, FrontErrors.Repair,
 $@                      $.Attribute.Position, FrontErrors.eText, yyText 
@@ -425,7 +425,6 @@ $R             (* Code for Reductions is inserted here *)
 $Y               WParsAttr.Scan.SaTok := yyNonterminal;
 $Y            (* ^This requires that tScanAttribute have field 'SaTok'. *)
                END (*WITH*);
-               PushUnnest (yyNonterminal);
 $Y             yyStateStack^ [yyStackPtr]
 $Y               := yyState (* Not necessarily a state*) (*ParserDebug*);
                IF yyState < yyFirstFinalState (* read nonterminal? *) 
@@ -466,7 +465,7 @@ PROCEDURE ErrorRecovery (
       ContinueString    : Strings.tString;
    BEGIN
    (* 1. report the error *)
-         TokenName ( Terminal , TokenText );
+         TokenName ( Terminal , (*OUT*) TokenText );
          FrontErrors.ErrorMessageTraced
            (FrontErrors.SyntaxError, FrontErrors.Error, 
 $@         $.Attribute.Position, FrontErrors.eText, TokenText);
@@ -477,7 +476,7 @@ $@         $.Attribute.Position, FrontErrors.eText, TokenText);
       Strings.AssignEmpty (ContinueString);
       FOR Token := IntSets.Minimum (ContinueSet) TO IntSets.Maximum (ContinueSet) DO
          IF IntSets.IsElement (Token, ContinueSet) THEN
-            TokenName (Token, TokenText);
+            TokenName (Token, (*OUT*) TokenText);
             Strings.TextToString (TokenText, TokenString);
             IF (Strings.Length (ContinueString) + Strings.Length (TokenString) + 1 <= Strings.cMaxStrLength) THEN
                Strings.Concatenate (ContinueString, TokenString);
