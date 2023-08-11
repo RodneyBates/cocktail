@@ -72,7 +72,7 @@ FROM Idents     IMPORT tIdent, GetString;
 
 FROM TokenTab   IMPORT PosType, TokenError, Vocabulary, TokenToSymbol;
 FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
-FROM FrontErrors IMPORT ErrorMessage, eError, eOffRHS;
+FROM FrontErrors IMPORT ErrorMessage, eError, eWarning, eZeroAttr, eOffRHS;
 
   PROCEDURE WriteConstants (f: tFile) = (* Ausgabe der Konstanten *)
     BEGIN
@@ -444,8 +444,13 @@ FROM FrontErrors IMPORT ErrorMessage, eError, eOffRHS;
               IF negative OR (AttrIndex <= len) THEN
                 IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
                   WriteT (f, "yyAttributeStack^[yyStackPtr");
-                  IF negative THEN WriteC (f, '-'); ELSE WriteC (f, '+'); END;
-                  WriteI (f, AttrIndex, 0);
+                  IF AttrIndex = 0 
+                  THEN 
+                    ErrorMessage (eZeroAttr, eWarning, pos);
+                  ELSE
+                    IF negative THEN WriteC (f, '-'); ELSE WriteC (f, '+'); END;
+                    WriteI (f, AttrIndex, 0);
+                  END; 
                   WriteC (f, ']');
                 ELSE (* Language = C *)
                   WriteT (f, "yyAttrStackPtr [");

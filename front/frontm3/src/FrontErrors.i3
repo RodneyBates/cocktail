@@ -63,6 +63,7 @@ CONST
     eARepRedRed         = 78;
     eARepReadRedRed     = 79;
     eOffRHS             = 80;
+    eZeroAttr           = 81;
 
 CONST   (* info classes *)
   eInteger      =       1; (* UNTRACED ... *) 

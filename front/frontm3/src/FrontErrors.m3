@@ -124,6 +124,7 @@ PROCEDURE CodeImage ( ErrorCode : Word . T ) : TEXT =
     | eARepRedRed     => RETURN "Assoc. repaired reduce conflict on ";
     | eARepReadRedRed => RETURN "Assoc. repaired shift-reduce-reduce conflict on ";
     | eOffRHS         => RETURN "Attribute is beyond end of RHS.";
+    | eZeroAttr       => RETURN "Attribute is left of RHS.";
 
     ELSE RETURN "UnknownErrorCode: " & Fmt.Int (ErrorCode);
     END (*CASE*)
