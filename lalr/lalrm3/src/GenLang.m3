@@ -413,12 +413,13 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
             Delimiter := c;
             WriteC (f, c);
             REPEAT
-              c := Char (s, i); INC (i);
+              c := Char (s, i); 
+              INC (i);
               WriteC (f, c);
               IF (Language = tLanguage.C) AND (c = '\\') THEN
                 WriteC (f, Char (s, i)); INC (i);
               END;
-            UNTIL c = Delimiter;
+            UNTIL i > i2 OR c = Delimiter;
           ELSIF c = '$' THEN                            (* evtl. Attribute *)
             IF (i <= i2) AND (Char (s, i) = '$') THEN
               WriteT (f, "yySynAttribute");
