@@ -106,6 +106,13 @@ PROCEDURE CodeImage ( ErrorCode : Word . T ) : TEXT =
     | NoProd    => RETURN "Has no production:";
     | NotTerm   => RETURN "Token is nonterminating:";
 
+    (* Errors from Front Scanner, (generated from input.rex). *) 
+    | eEolString    => RETURN "End of line in string.";
+    | eUnClAction   => RETURN "Unclosed action.";
+    | eUnClComment  => RETURN "Unclosed comment.";
+    | eUnClString   => RETURN "Unclosed string.";
+    | eCharIgnored  => RETURN "Invalid character, ignored: ";
+
     | eState          => RETURN "in state ";
     | eReadRed        => RETURN "Shift-reduce conflict on ";
     | eRedRed         => RETURN "Reduce conflict on "; 

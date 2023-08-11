@@ -97,12 +97,8 @@ FROM Errors     IMPORT eWarning, eError, eCharacter, eString,
                        ErrorMessage, ErrorMessageI;
 FROM Positions  IMPORT tPosition;
 
-CONST
-  eCharIgnored  = 10;
-  eEolString    = 11;
-  eUnClAction   = 12;
-  eUnClComment  = 13;
-  eUnClString   = 14;
+FROM FrontErrors IMPORT 
+  eEolString, eUnClAction, eUnClComment, eUnClString, eCharIgnored;
 
   SymNull       =  0;
   SymEqual      =  1;

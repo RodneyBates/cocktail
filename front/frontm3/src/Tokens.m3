@@ -1,4 +1,4 @@
-(* handle token section *)
+ (* handle token section *)
 
 (* $Id: Tokens.mi,v 2.2 1992/08/07 15:13:51 grosch rel $ *)
 
@@ -165,7 +165,7 @@ FROM Positions	IMPORT NoPosition;
 	  ErrorT ("CompleteDeclarations: token does not exists");
 	ELSIF Error = TokenError.CodeExists THEN
 	  ErrorT ("CompleteDeclarations: token already complete");
-	ELSIF Error = TokenError.NotTerm  THEN
+	ELSIF Error = TokenError.NonTerminal  THEN
 	  ErrorT ("CompleteDeclarations: token is nonterminal");
 	END;
       END;

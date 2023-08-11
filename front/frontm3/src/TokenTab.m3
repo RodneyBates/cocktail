@@ -146,7 +146,7 @@ VAR
     ELSIF ExToInt[sym] # DefValue THEN
       (* Symbol schon vollstaendig eingetragen *)
       IF GetTokenType(ExToInt[sym]) = TokenType.NonTerm THEN
-        Error := TokenError.NotTerm;
+        Error := TokenError.NonTerminal;
       ELSE
         Error := TokenError.CodeExists;
       END;

@@ -49,7 +49,8 @@ FROM Positions	IMPORT tPosition;
     Vocabulary	= (*SHORTCARD*) [0..cMAXNonTerm+2];
     Terminal	= (*SHORTCARD*) [0..cMAXTerm];
     Prio	= SHORTCARD;
-    TokenError	= {NoError, SymbolExists, CodeExists, OutOfRange, NotExists,NoIntCode,NotTerm};
+    TokenError	= {NoError, SymbolExists, CodeExists, OutOfRange, NotExists,
+                   NoIntCode,NonTerminal};
 
 PROCEDURE MakeTerm (sym: tIdent; VAR ter: Terminal; VAR Error: TokenError; pos: PosType);
   

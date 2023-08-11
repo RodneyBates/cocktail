@@ -42,6 +42,14 @@ CONST
    NoProd               = 9;
    NotTerm              = 10;
 
+(* Error codes from front scanner, from input.rex. *) 
+   eEolString    = 11;
+   eUnClAction   = 12;
+   eUnClComment  = 13;
+   eUnClString   = 14;
+   eCharIgnored  = 15;
+
+
 
 (* Error codes from lalr Check. *)
     eState              = 70;
