@@ -8,8 +8,8 @@ $Z
 $Z(* This version contains modifications specific to the
 $Z   FM3 Modula-3 compiler, e.g., FM3's error messages.
 $Z
-$Z   Shifts copy the curent unnest stack pointer into the shifted parse
-$Z   attribute field PaUnnestStackLen.  Empty reduces do the same into
+$Z   Shifts copy the current unnest stack pointer into the shifted parse
+$Z   attribute field .PaUnnestCoord.  Empty reduces do the same into
 $Z   the shifted LHS nonterminal's parse attribute.  Other reduces copy
 $Z   it from the leftmost RHS token into the shifted nonterminal. 
 $Z*)
@@ -25,7 +25,7 @@ $Z
 
 
 $@ UNSAFE MODULE @;
-$Z (*^ BEWARE! lalr loses the character ater $@. *) 
+$Z (*^ BEWARE! lalr loses the single character after $@. *) 
 
 $@ IMPORT $;
 
@@ -35,18 +35,28 @@ IMPORT Positions, FrontErrors, Strings, IntSets, System;
 
 IMPORT Errors (* From Reusem3. *);
 
+$Z(* PROCEDURE UnnestCoord ( ) : LONGINT
+$Z   PROCEDURE PushUnnestStk ( : tParsAttribute )
+$Z   ParsAttrNull
+$Z   need to imported unqualified In the GLOBAL section of the .lalr file. *)
+
+(* Global insertions from the .lalr file: *)
 $G (* GLOBAL section is inserted here *)
+(* End of global insertions from the .lalr file: *) 
 
 CONST
    yyInitStackSize      = 100;
    yyStackExpansionFactor = 2.0;
    yyNoState            = 0;
 
-$T (* Table Constants are inserted here *)
+(* Lalr-generated constants: *) 
+$T (* lalr-generated table Constants are inserted here *)
+(* End of lalr-generated constants: *) 
 
 TYPE
    M2SHORTCARD = [ 0 .. 16_FFFF ];
    yyTableElmt = M2SHORTCARD;
+   
 CONST yyTableElmtBits = BITSIZE ( yyTableElmt );
 
    (* The conversion to Modula-3 is very fragile, in part due to the
@@ -228,10 +238,23 @@ $W      (* token names are inserted here *)
       END;
    END TokenName;
 
+(* NOTE regarding the parser's default setting of the PaUnnestCoord field:
+   A shift, including an error repair insertion, copies the current unnest
+   stack pointer into .PaUnnestCoord.  For a reduce, and if the semantic
+   action doesn't set PaUnnestCoord, then the parser sets it to a default.
+   If the RHS is empty, this is the current unnest stack pointer.  If the
+   reduce is nonempty, this is a copy from the leftmost RHS's attribute.
+*) 
+
 (*EXPORTED*)
 $@ PROCEDURE @ (): CARDINAL =
+
+   (* Declarations from the LOCAL section of the .lalr file: *) 
 $L (* LOCAL section is inserted here *)
+   (* End of declarations from the LOCAL section of the .lalr file: *)
+   
    VAR
+      yyOldUnnestCoord  : LONGINT; 
       yyState           : yyStateRange;
       (* NOTE: "yyState" and other occurrences of "State" are misleading.
                they are, in general, parsing *actions*, only the low range
@@ -254,7 +277,8 @@ $L (* LOCAL section is inserted here *)
          to yyStateStack and yyAttributeStack. *)
       yyStateStack      : yyStackType;
       yyAttributeStack  : yyAttributeStackType;
-      yySynAttribute    : tParsAttribute;       (* synthesized attribute *)
+      yySynAttribute    : tParsAttribute;
+        (* ^Synthesized attribute, by .lalr-provided semantic actions. *)
 $@    yyRepairAttribute : $.tScanAttribute;
       yyRepairToken     : yySymbolRange;
       yyTCombPtr        : yyTCombTypePtr;
@@ -263,6 +287,7 @@ $@    yyRepairAttribute : $.tScanAttribute;
       yyErrorCount      : CARDINAL;
       yyText            : TEXT; 
       yyTokenStringxxx     : TEXT (*ARRAY [0..127] OF CHAR*);
+      (* ^For use in a debugger. *) 
 
 $@  BEGIN (* @ *) 
 $@    Begin@ ();
@@ -340,7 +365,7 @@ $@                      $.Attribute.Position, FrontErrors.eText, yyText
                      WITH WParsAttr = yyAttributeStack^ [yyStackPtr]
                      DO 
                        WParsAttr.Scan := yyRepairAttribute;
-                       WParsAttr.PaUnnestStackLen := UnnestStackLen ( );
+                       WParsAttr.PaUnnestCoord := UnnestCoord ( );
                        PushUnnestStk (WParsAttr);
                      END (*WITH*)
                   END (* IF *) ;
@@ -377,7 +402,7 @@ $Y                in the state stack. *)
               DO
 $Y              WParsAttr := ParsAttrNull; 
 $@               WParsAttr.Scan := $.Attribute;
-                WParsAttr.PaUnnestStackLen := UnnestStackLen ( );
+                WParsAttr.PaUnnestCoord := UnnestCoord ( );
                 PushUnnestStk (WParsAttr);
               END (*WITH*);
 $@            yyTerminal := $.GetToken ();
@@ -388,10 +413,14 @@ $Y             yyStateStack^ [yyStackPtr] := (*Reduce*)yyState (*ParserDebug*);
             END (* IF *) ;
 
             LOOP (* Through successive reductions *)
-               yyPrereduceStackPtr := yyStackPtr; 
-$R             (* Code for Reductions is inserted here *)
+               yyPrereduceStackPtr := yyStackPtr;
+               yySynAttribute := ParsAttrNull; 
 
-               (* Here, a reduction has been done.  yyStackPtr has been
+             (* Inserted semantic action code from the .lalr file: **)
+$R             (* Code for Reductions is inserted here *)
+             (* End of inserted emantic action code from the .lalr file: **)
+
+               (* Here, a reduction has been partially done.  yyStackPtr has been
                   decremented by the RHS length, yyNonterminal has been set to
                   the LHS NT of the reduced-by production (but has not been
                   pushed), and any Semantic actions have been performed,
@@ -411,17 +440,18 @@ $R             (* Code for Reductions is inserted here *)
                       , yyNCombTypePtr
                       );
                (*Any action*)yyState := yyNCombPtr^;
-               INC (yyStackPtr);
+               INC (yyStackPtr) (* To push new LHS. *);
                WITH WParsAttr = yyAttributeStack^ [yyStackPtr]
                DO
+                 yyOldUnnestCoord := WParsAttr . PaUnnestCoord; 
                  WParsAttr := yySynAttribute;
-             (* BEWARE: The below will overlay PaUnnestStackLen, replacing
-                        anything reduce semantic actions have put there. *) 
-                 IF yyStackPtr - 1 = yyPrereduceStackPtr (* Empty reduction *)
-                 THEN WParsAttr . PaUnnestStackLen := UnnestStackLen ( ) ;
-                 ELSE WParsAttr . PaUnnestStackLen
-                        := WParsAttr . PaUnnestStackLen;
-                 END (*IF*); 
+                 IF yySynAttribute . PaUnnestCoord = ParsAttrNull . PaUnnestCoord 
+                 THEN (* Semantic actions didn't set it. *) 
+                   IF yyStackPtr = yyPrereduceStackPtr + 1 (* Empty reduction *)
+                   THEN WParsAttr . PaUnnestCoord := UnnestCoord ( );
+                   ELSE WParsAttr . PaUnnestCoord := yyOldUnnestCoord;
+                   END (*IF*);
+                 END (*IF*);
 $Y               WParsAttr.Scan.SaTok := yyNonterminal;
 $Y            (* ^This requires that tScanAttribute have field 'SaTok'. *)
                END (*WITH*);
@@ -440,7 +470,7 @@ $Y          yyStateStack^ [yyStackPtr] := yyState (*A state*) (*ParserDebug*);
             WITH WParsAttr = yyAttributeStack^ [yyStackPtr]
             DO
 $@             WParsAttr.Scan := $.Attribute;
-              WParsAttr.PaUnnestStackLen := UnnestStackLen ( );
+              WParsAttr.PaUnnestCoord := UnnestCoord ( );
               PushUnnestStk (WParsAttr);
             END (*WITH*);
 $@           yyTerminal := $.GetToken ();
