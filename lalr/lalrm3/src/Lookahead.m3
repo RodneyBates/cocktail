@@ -636,8 +636,10 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
         i := m2tom3_with_26.Used;
         IF i = 0 THEN
           m2tom3_with_26.IilArray
-            := NEW (REF ARRAY OF tIndex, m2tom3_with_26.Count+1);
-          m2tom3_with_26.Count := FIRST (m2tom3_with_26.IilArray^);
+            := NEW (REF ARRAY OF tIndex, m2tom3_with_26.Count+2);
+(* ^This array is filled starting at 1, and here, Count was once zero, resulting in a
+   bounds error right below, even after allocating Count+1 elements. *) 
+          m2tom3_with_26.Count := NUMBER (m2tom3_with_26.IilArray^);
 (* See note in Debug.SearchPathC about MakeArray. *) 
 (*WAS:    MakeArray (m2tom3_with_26.IilArray,m2tom3_with_26.Count,BYTESIZE(tIndex));
         ELSIF m2tom3_with_26.Used >= m2tom3_with_26.Count THEN
