@@ -51,7 +51,7 @@ CONST
 
 
 
-(* Error codes from lalr Check. *)
+(* Error codes from lalr. *)
     eState              = 70;
     eReadRed            = 71;
     eRedRed             = 72;
@@ -62,6 +62,7 @@ CONST
     eARepReadRed        = 77;
     eARepRedRed         = 78;
     eARepReadRedRed     = 79;
+    eOffRHS             = 80;
 
 CONST   (* info classes *)
   eInteger      =       1; (* UNTRACED ... *) 

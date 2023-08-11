@@ -123,6 +123,7 @@ PROCEDURE CodeImage ( ErrorCode : Word . T ) : TEXT =
     | eARepReadRed    => RETURN "Assoc. repaired shift-reduce conflict on ";
     | eARepRedRed     => RETURN "Assoc. repaired reduce conflict on ";
     | eARepReadRedRed => RETURN "Assoc. repaired shift-reduce-reduce conflict on ";
+    | eOffRHS         => RETURN "Attribute is beyond end of RHS.";
 
     ELSE RETURN "UnknownErrorCode: " & Fmt.Int (ErrorCode);
     END (*CASE*)

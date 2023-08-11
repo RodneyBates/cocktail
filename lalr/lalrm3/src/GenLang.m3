@@ -72,6 +72,7 @@ FROM Idents     IMPORT tIdent, GetString;
 
 FROM TokenTab   IMPORT PosType, TokenError, Vocabulary, TokenToSymbol;
 FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
+FROM FrontErrors IMPORT ErrorMessage, eError, eOffRHS;
 
   PROCEDURE WriteConstants (f: tFile) = (* Ausgabe der Konstanten *)
     BEGIN
@@ -435,6 +436,10 @@ FROM WriteTok   IMPORT tLanguage, Language, SourceFileName;
               WHILE (i <= i2) AND (Char (s, i) >= '0') AND (Char (s, i) <= '9') DO
                 AttrIndex := (AttrIndex * 10) + (ORD (Char (s, i)) - ORD('0'));
                 INC (i);
+              END;
+              IF NOT negative AND AttrIndex > len THEN 
+                ErrorMessage (eOffRHS, eError, pos);
+                AttrIndex := len; 
               END;
               IF negative OR (AttrIndex <= len) THEN
                 IF (Language = tLanguage.Modula3) OR (Language = tLanguage.Modula2) THEN
