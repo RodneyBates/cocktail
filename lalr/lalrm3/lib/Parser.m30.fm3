@@ -518,7 +518,8 @@ PROCEDURE QuoteAndFillOnLine ( FragText : TEXT ) =
       THEN
         Wr.PutText ( yyErrMsgWrT, FM3Messages.NLIndent);
         yyMsgLineLen := FM3Messages.IndentLen;
-      ELSE
+      ELSIF yyMsgLineLen > FM3Messages.IndentLen
+      THEN 
         Wr.PutChar (yyErrMsgWrT , ' ');
         INC ( yyMsgLineLen );
       END (*IF*);
