@@ -253,12 +253,16 @@ FROM FrontErrors IMPORT ErrorMessage, eError, eWarning, eZeroAttr, eOffRHS;
             IF Language = tLanguage.Modula3 OR Language = tLanguage.Modula2
             THEN
               WriteT (f, ReducePrefix);
-              IF prod^.Len # 0 
-              THEN 
+              IF prod^.Len = 0 
+              THEN
+                WriteT (f, "  yyAttributeStack [ yyStackPtr + 1 ] . Scan . Position");
+                WriteNl (f);
+                WriteT (f, "    := FM3Scanner . Attribute . Position; ");
+                WriteNl (f);
+              ELSE 
                 WriteT (f, "  DEC (yyStackPtr, ");
                 WriteI (f, prod^.Len, 0);
                 WriteT (f, "); ");
-              ELSE WriteT (f, "  ");
               END (* IF *) ;  
               WriteT (f, "yyNonterminal := ");
               WriteI (f, prod^.Left-NonTermOffset, 0);
