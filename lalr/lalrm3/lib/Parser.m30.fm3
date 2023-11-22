@@ -8,7 +8,7 @@ $Z
 $Z(* This version contains modifications specific to the
 $Z   FM3 Modula-3 compiler, e.g., FM3's FM3messages.
 $Z
-$Z   Shifts copy the current unnest stack pointer into the shifted parse
+$Z   Shift actions copy the current unnest stack pointer into the shifted parse
 $Z   attribute field .PaUnnestCoord.  Empty reduces do the same into
 $Z   the shifted LHS nonterminal's parse attribute.  Other reduces copy
 $Z   it from the leftmost RHS token into the shifted nonterminal. 
@@ -251,6 +251,7 @@ $W      (* token names are inserted here *)
    action doesn't set PaUnnestCoord, then the parser sets it to a default.
    If the RHS is empty, this is the current unnest stack pointer.  If the
    reduce is nonempty, this is a copy from the leftmost RHS's attribute.
+   How confusing, but it preserves a bit of lalr's original parsing speed.
 *) 
 
 (*EXPORTED*)
@@ -264,7 +265,7 @@ $L (* LOCAL section is inserted here *)
       yyOldUnnestCoord  : LONGINT; 
       yyState           : yyStateRange;
       (* NOTE: "yyState" and other occurrences of "State" are misleading.
-               they are, in general, parsing *actions*, only the low range
+               They are, in general, parsing *actions*, only the low range
                up to yyLastReadState (a constant inserted by the generator)
                being truly states.  These correspond to item sets, and as
                actions, they mean read (it will be a terminal) and enter
@@ -274,7 +275,10 @@ $L (* LOCAL section is inserted here *)
                error-prone work.
       *) 
       yyTerminal        : yySymbolRange;
-      yyNonterminal     : yySymbolRange;        (* left-hand side symbol *)
+      yyNonterminal     : yySymbolRange;
+        (* ^LHS NT to be pushed as result of a reduction.*)
+$@    yyNTPos           : $.tPosition (* Position for yyNonterminal. *) ;  
+
       yyStackPtr        : yyStackPtrType;
       yyPrereduceStackPtr : yyStackPtrType;
       yyStackLAST       : INTEGER;
@@ -378,7 +382,7 @@ $@                   $.ErrorAttribute
                      DO 
                        WParsAttr.Scan := yyRepairAttribute;
                        WParsAttr.PaUnnestCoord := UnnestCoord ( );
-                       PushUnnestStk (WParsAttr);
+(*                     PushUnnestStk (WParsAttr); *)
                      END (*WITH*)
                   END (* IF *) ;
                   IF yyState >= yyFirstFinalState 
@@ -415,7 +419,7 @@ $Y                in the state stack. *)
 $Y              WParsAttr := ParsAttrNull; 
 $@               WParsAttr.Scan := $.Attribute;
                 WParsAttr.PaUnnestCoord := UnnestCoord ( );
-                PushUnnestStk (WParsAttr);
+(*              PushUnnestStk (WParsAttr); *) 
               END (*WITH*);
 $@            yyTerminal := $.GetToken ();
               IF yyRepairsInserted >= 0
@@ -459,7 +463,12 @@ $R             (* Code for Reductions is inserted here *)
                (*Any action*)yyState := yyNCombPtr^;
                INC (yyStackPtr) (* To push new LHS. *);
                WITH WParsAttr = yyAttributeStack^ [yyStackPtr]
+                    (* Tho' already popped by lalr-generated reduce action, this
+                       is still present and may have a meaningful Position. *)
                DO
+$Y               yyNTPos := WParsAttr . Scan . Position (* Parser debug.*) ;
+$Y               (* ^Either from LM symbol of RHS, or, if empty RHS, was set to
+$Y                  the scanner's position by lalr-generated code. *) 
                  yyOldUnnestCoord := WParsAttr . PaUnnestCoord; 
                  WParsAttr := yySynAttribute;
                  IF yySynAttribute . PaUnnestCoord = ParsAttrNull . PaUnnestCoord 
@@ -471,6 +480,7 @@ $R             (* Code for Reductions is inserted here *)
                  END (*IF*);
 $Y               WParsAttr.Scan.SaTok := yyNonterminal;
 $Y            (* ^This requires that tScanAttribute have field 'SaTok'. *)
+$Y               WParsAttr . Scan . Position := yyNTPos (* Parser debug.*) ;
                END (*WITH*);
 $Y             yyStateStack^ [yyStackPtr]
 $Y               := yyState (* Not necessarily a state*) (*ParserDebug*);
@@ -488,7 +498,7 @@ $Y          yyStateStack^ [yyStackPtr] := yyState (*A state*) (*ParserDebug*);
             DO
 $@             WParsAttr.Scan := $.Attribute;
               WParsAttr.PaUnnestCoord := UnnestCoord ( );
-              PushUnnestStk (WParsAttr);
+(*            PushUnnestStk (WParsAttr); *)
             END (*WITH*);
 $@           yyTerminal := $.GetToken ();
              IF yyRepairsInserted >= 0
