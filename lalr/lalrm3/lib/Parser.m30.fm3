@@ -66,14 +66,14 @@ CONST yyTableElmtBits = BITSIZE ( yyTableElmt );
       and other times, need to have the same size as in Modula-2, to avoid
       undermining various unsafe address arithmetic.  Modula-3 infers
       its own sizes from subranges, except for fields and elements when
-      BITS FOR is used.  But assignments involving scalars with BIT FOR
+      BITS FOR is used.  But assignments involving scalars with BITS FOR
       types present problems and even CM3 code generator failures.
 
       So if it is a BITS FOR type, its name ends in "Packed", otherwise
       not, the relevant ones ending in "Range".
 
       Additionally, CM3 has code generator failures assigning between two
-      BIT FOR types, at times.  Actual cases where this has happened are
+      BITS FOR types, at times.  Actual cases where this has happened are
       replaced by two-step copies with an intermediate, unpacked temporary.
   
       These BITS FOR types must occupy exactly a Modula2-SHORTCARD, when used
@@ -249,8 +249,9 @@ $W      (* token names are inserted here *)
    A shift, including an error repair insertion, copies the current unnest
    stack pointer into .PaUnnestCoord.  For a reduce, and if the semantic
    action doesn't set PaUnnestCoord, then the parser sets it to a default.
-   If the RHS is empty, this is the current unnest stack pointer.  If the
-   reduce is nonempty, this is a copy from the leftmost RHS's attribute.
+   If the RHS is empty, this is the current unnest stack pointer, as it
+   is before the reduce semantic actions are performed.  If the reduce
+   is nonempty, this is a copy from the leftmost RHS's attribute.
    How confusing, but it preserves a bit of lalr's original parsing speed.
 *) 
 
@@ -262,8 +263,9 @@ $L (* LOCAL section is inserted here *)
    (* End of declarations from the LOCAL section of the .lalr file: *)
    
    VAR
-      yyOldUnnestCoord  : LONGINT; 
-      yyState           : yyStateRange;
+      yyRHSUnnestCoord        : LONGINT; 
+      yyPrereduceUnnestCoord  : LONGINT; 
+      yyState                 : yyStateRange;
       (* NOTE: "yyState" and other occurrences of "State" are misleading.
                They are, in general, parsing *actions*, only the low range
                up to yyLastReadState (a constant inserted by the generator)
@@ -423,7 +425,7 @@ $@               WParsAttr.Scan := $.Attribute;
               END (*WITH*);
 $@            yyTerminal := $.GetToken ();
               IF yyRepairsInserted >= 0
-              (* ^0 => repair's been happening, tho' with no insertions. *) 
+              (* ^0 => repairs been happening, tho' with no insertions. *) 
               THEN (* Finished with a repair. *) 
                  EmitSyntErrMsg ( );
                  yyRepairsInserted := - 1;
@@ -435,7 +437,8 @@ $Y             yyStateStack^ [yyStackPtr] := (*Reduce*)yyState (*ParserDebug*);
 
             LOOP (* Through successive reductions *)
                yyPrereduceStackPtr := yyStackPtr;
-               yySynAttribute := ParsAttrNull; 
+               yySynAttribute := ParsAttrNull;
+               yyPrereduceUnnestCoord := UnnestCoord ( );
 
              (* Inserted semantic action code from the .lalr file: **)
 $R             (* Code for Reductions is inserted here *)
@@ -469,13 +472,13 @@ $R             (* Code for Reductions is inserted here *)
 $Y               yyNTPos := WParsAttr . Scan . Position (* Parser debug.*) ;
 $Y               (* ^Either from LM symbol of RHS, or, if empty RHS, was set to
 $Y                  the scanner's position by lalr-generated code. *) 
-                 yyOldUnnestCoord := WParsAttr . PaUnnestCoord; 
+                 yyRHSUnnestCoord := WParsAttr . PaUnnestCoord; 
                  WParsAttr := yySynAttribute;
                  IF yySynAttribute . PaUnnestCoord = ParsAttrNull . PaUnnestCoord 
                  THEN (* Semantic actions didn't set it. *) 
                    IF yyStackPtr = yyPrereduceStackPtr + 1 (* Empty reduction *)
-                   THEN WParsAttr . PaUnnestCoord := UnnestCoord ( );
-                   ELSE WParsAttr . PaUnnestCoord := yyOldUnnestCoord;
+                   THEN WParsAttr . PaUnnestCoord := yyPrereduceUnnestCoord; 
+                   ELSE WParsAttr . PaUnnestCoord := yyRHSUnnestCoord;
                    END (*IF*);
                  END (*IF*);
 $Y               WParsAttr.Scan.SaTok := yyNonterminal;
