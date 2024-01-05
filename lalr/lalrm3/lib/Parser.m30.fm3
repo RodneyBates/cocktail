@@ -40,18 +40,26 @@ $Z   PROCEDURE PushUnnestStk ( : tParsAttribute )
 $Z   ParsAttrNull
 $Z   need to import unqualified In the GLOBAL section of the .lalr file. *)
 
-(* Global insertions from the .lalr file: *)
+(* -------------------------------------------------------------------------- *)
+                   (* Global insertions from the .lalr file: *)
+
 $G (* GLOBAL section is inserted here *)
-(* End of global insertions from the .lalr file: *) 
+
+               (* End of global insertions from the .lalr file: *) 
+(* -------------------------------------------------------------------------- *)
 
 CONST
    yyInitStackSize      = 100;
    yyStackExpansionFactor = 2.0;
    yyNoState            = 0;
 
-(* Lalr-generated constants: *) 
+(* -------------------------------------------------------------------------- *)
+                        (* Lalr-generated constants: *) 
+
 $T (* lalr-generated table Constants are inserted here *)
-(* End of lalr-generated constants: *) 
+
+                    (*  End of lalr-generated constants: *) 
+(* -------------------------------------------------------------------------- *)
 
 TYPE
    M2SHORTCARD = [ 0 .. 16_FFFF ];
@@ -112,7 +120,7 @@ TYPE
 
 VAR
    yyTBasePtr
-     (* Subscripted by a state-number action, uses in combination
+     (* Subscripted by a state-number action, used in combination
         with a terminal to find the new action after shifting
         the terminal in this state.
      *) 
@@ -148,7 +156,7 @@ $M
         It has nothing to do with states, actions, symbols, or anything
         else.  It is just a space for interspersed actions.  Moreover,
         during use, its elements are accessed only by unsafe pointers to
-        to them, from elements of yyNBasePtr, not by subscripts, for a bit
+        them, from elements of yyNBasePtr, not by subscripts, for a bit
         of speed.  It would make the most sense to start it at zero, like
         yyTComb.  But that would require care to make consistent changes.
      *) 
@@ -240,7 +248,11 @@ PROCEDURE TokenName (Token: INTEGER; VAR Name: TEXT) =
         expected token(s), and inserted token(s).
 *)
       CASE Token OF
+(* -------------------------------------------------------------------------- *)
+                          (* Lalr-generated token names. *) 
 $W      (* token names are inserted here *)
+                      (* End of lalr-generated token names. *) 
+(* -------------------------------------------------------------------------- *)
       ELSE Name := "" 
       END;
    END TokenName;
@@ -258,9 +270,13 @@ $W      (* token names are inserted here *)
 (*EXPORTED*)
 $@ PROCEDURE @ (): CARDINAL =
 
-   (* Declarations from the LOCAL section of the .lalr file: *) 
+(* -------------------------------------------------------------------------- *)
+            (* Declarations from the LOCAL section of the .lalr file: *)
+            
 $L (* LOCAL section is inserted here *)
-   (* End of declarations from the LOCAL section of the .lalr file: *)
+
+        (* End of declarations from the LOCAL section of the .lalr file: *)
+(* -------------------------------------------------------------------------- *)
    
    VAR
       yyRHSUnnestCoord        : LONGINT; 
@@ -440,17 +456,21 @@ $Y             yyStateStack^ [yyStackPtr] := (*Reduce*)yyState (*ParserDebug*);
                yySynAttribute := ParsAttrNull;
                yyPrereduceUnnestCoord := UnnestCoord ( );
 
-             (* Inserted semantic action code from the .lalr file: **)
+(* -------------------------------------------------------------------------- *)
+             (* Inserted semantic action code from the .lalr file: *)
+             
 $R             (* Code for Reductions is inserted here *)
-             (* End of inserted emantic action code from the .lalr file: **)
+
+          (* End of inserted semantic action code from the .lalr file: *)
+(* -------------------------------------------------------------------------- *)
 
                (* Here, a reduction has been partially done.  yyStackPtr has been
                   decremented by the RHS length, yyNonterminal has been set to
                   the LHS NT of the reduced-by production (but has not been
                   pushed), and any Semantic actions have been performed,
-                  which will have set yySynAttribute.  Now do a nonterminal
-                  read transition on yyStateStack^ [yyStackPtr] (* A state*)
-                  and yyNonterminal.
+                  which may have made assignments to yySynAttribute.  Now
+                  do a nonterminal read transition on
+                  yyStateStack^ [yyStackPtr] (* A state*) and yyNonterminal.
                *) 
 
                (* SPEC yyState 
@@ -464,6 +484,7 @@ $R             (* Code for Reductions is inserted here *)
                       , yyNCombTypePtr
                       );
                (*Any action*)yyState := yyNCombPtr^;
+               
                INC (yyStackPtr) (* To push new LHS. *);
                WITH WParsAttr = yyAttributeStack^ [yyStackPtr]
                     (* Tho' already popped by lalr-generated reduce action, this
