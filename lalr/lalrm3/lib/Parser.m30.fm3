@@ -18,7 +18,7 @@ $Z(* Derived from: ** $Id: Parser.mi,v 2.8 1992/08/12 06:54:05 grosch rel $ *)
 $Z(* Skeleton parser in Modula-3, for Cocktail lalr. *)
 $Z(* Modified Rodney M. Bates. Various times. rodney.m.bates@acm.org*)
 $Z(* Beginning 3-2023: 
-$Z    3-2023 Add generation of Module-3 code. 
+$Z    3-2023 Add generation of Modula-3 code. 
 $Z    Further changes in https://github.com/RodneyBates/cocktail
 $Z*)
 $Z
@@ -244,7 +244,7 @@ $@ yyErrorPos           : $.tPosition;
 PROCEDURE TokenName (Token: INTEGER; VAR Name: TEXT) =
    BEGIN
 (*TODO: Implement a version of this that returns, e.g. BEGIN
-        instead of StkReBegin.  Use it messages giving error token,
+        instead of StkRwBegin.  Use it in messages giving error token,
         expected token(s), and inserted token(s).
 *)
       CASE Token OF
@@ -464,9 +464,9 @@ $R             (* Code for Reductions is inserted here *)
           (* End of inserted semantic action code from the .lalr file: *)
 (* -------------------------------------------------------------------------- *)
 
-               (* Here, a reduction has been partially done.  yyStackPtr has been
-                  decremented by the RHS length, yyNonterminal has been set to
-                  the LHS NT of the reduced-by production (but has not been
+               (* Here, a reduction has been partially done.  yyStackPtr has
+                  been decremented by the RHS length, yyNonterminal has been set
+                  to the LHS NT of the reduced-by production (but has not been
                   pushed), and any Semantic actions have been performed,
                   which may have made assignments to yySynAttribute.  Now
                   do a nonterminal read transition on
@@ -504,7 +504,7 @@ $Y                  the scanner's position by lalr-generated code. *)
                  END (*IF*);
 $Y               WParsAttr.Scan.SaTok := yyNonterminal;
 $Y            (* ^This requires that tScanAttribute have field 'SaTok'. *)
-$Y               WParsAttr . Scan . Position := yyNTPos (* Parser debug.*) ;
+$Y               WParsAttr . Scan . Position := yyNTPos (* Parser debug.*) ; 
                END (*WITH*);
 $Y             yyStateStack^ [yyStackPtr]
 $Y               := yyState (* Not necessarily a state*) (*ParserDebug*);

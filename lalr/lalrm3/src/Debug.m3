@@ -67,7 +67,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Terminal,
     MaxTabB = 30;
     MaxTabC = 50;
     MaxTabD = 40;
-    InitChainLength = 500;
+    InitChainLength = 1000;
 
   TYPE
     tItemPath = RECORD
