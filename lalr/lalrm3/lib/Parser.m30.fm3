@@ -9,7 +9,7 @@ $Z(* This version contains modifications specific to the
 $Z   FM3 Modula-3 compiler, e.g., FM3's FM3messages.
 $Z
 $Z   Shift actions copy the current unnest stack pointer into the shifted parse
-$Z   attribute field .PaUnnestCoord.  Empty reduces do the same into
+$Z   attribute field .PaPass1Coord.  Empty reduces do the same into
 $Z   the shifted LHS nonterminal's parse attribute.  Other reduces copy
 $Z   it from the leftmost RHS token into the shifted nonterminal. 
 $Z*)
@@ -35,8 +35,8 @@ IMPORT Positions, Strings, IntSets, System;
 
 IMPORT FM3SharedUtils;
 
-$Z(* PROCEDURE UnnestCoord ( ) : LONGINT
-$Z   PROCEDURE PushUnnestStk ( : tParsAttribute )
+$Z(* PROCEDURE Coord ( ) : LONGINT
+$Z   PROCEDURE PutBwd_Attribute ( : tParsAttribute )
 $Z   ParsAttrNull
 $Z   need to import unqualified In the GLOBAL section of the .lalr file. *)
 
@@ -203,9 +203,6 @@ $F
 VAR
    yyIsInitialized      : BOOLEAN;
    yyTableFile          : System.tFile;
-   yyErrMsgWrT          : TextWr . T;
-$@ yyErrorPos           : $.tPosition;
-   yyMsgLineLen         : INTEGER;
    
 (* Copied in from Parser.m30.orig: *) 
     PROCEDURE ExpandStateStack ( VAR Stack : yyStackType ; ToSize : INTEGER ) =
@@ -257,10 +254,10 @@ $W      (* token names are inserted here *)
       END;
    END TokenName;
 
-(* NOTE regarding the parser's default setting of the PaUnnestCoord field:
+(* NOTE regarding the parser's default setting of the PaPass1Coord field:
    A shift, including an error repair insertion, copies the current unnest
-   stack pointer into .PaUnnestCoord.  For a reduce, and if the semantic
-   action doesn't set PaUnnestCoord, then the parser sets it to a default.
+   stack pointer into .PaPass1Coord.  For a reduce, and if the semantic
+   action doesn't set PaPass1Coord, then the parser sets it to a default.
    If the RHS is empty, this is the current unnest stack pointer, as it
    is before the reduce semantic actions are performed.  If the reduce
    is nonempty, this is a copy from the leftmost RHS's attribute.
@@ -279,8 +276,8 @@ $L (* LOCAL section is inserted here *)
 (* -------------------------------------------------------------------------- *)
    
    VAR
-      yyRHSUnnestCoord        : LONGINT; 
-      yyPrereduceUnnestCoord  : LONGINT; 
+      yyRHSCoord        : LONGINT; 
+      yyPrereduceCoord  : LONGINT; 
       yyState                 : yyStateRange;
       (* NOTE: "yyState" and other occurrences of "State" are misleading.
                They are, in general, parsing *actions*, only the low range
@@ -314,6 +311,9 @@ $@    yyRepairAttribute : $.tScanAttribute;
       yyNCombPtr        : yyNCombTypePtr;
       yyErrorCount      : CARDINAL;
       yyText            : TEXT; 
+$@    yyErrorPos        : $.tPosition;
+      yyErrMsgWrT       : TextWr . T;
+      yyMsgLineLen      : INTEGER;
       yyTokenStringxxx  : TEXT (*ARRAY [0..127] OF CHAR*);
       (* ^For use in a debugger. *) 
       yyRepairsInserted : INTEGER;
@@ -382,13 +382,15 @@ $@    yyTerminal        := $.GetToken ();
                   THEN (* read or read terminal reduce ? *)
 $@                   $.ErrorAttribute 
                          (yyRepairToken, (*OUT*)yyRepairAttribute);
-                     TokenName (yyRepairToken, (*OUT*) yyText);
                      IF yyRepairsInserted = 0 THEN 
                        Wr.PutText (yyErrMsgWrT, FM3Messages.NLIndent);
                        yyMsgLineLen := FM3Messages.IndentLen;
-                       AppendToLine ("Repair token(s) inserted: ");
+                       yyText := "Repair token(s) inserted: ";
+                       Wr.PutText (yyErrMsgWrT, yyText);
+                       INC (yyMsgLineLen, Text.Length (yyText))
                      END (*IF*);
-                     QuoteAndFillOnLine ( yyText );
+                     TokenName (yyRepairToken, (*OUT*) yyText);
+                     QuoteAndFillOnLine ( yyText , yyErrMsgWrT , yyMsgLineLen );
                      INC (yyRepairsInserted );
                      IF yyState >= yyFirstFinalState 
                      THEN (* avoid second push *)
@@ -399,8 +401,8 @@ $@                   $.ErrorAttribute
                      WITH WParsAttr = yyAttributeStack^ [yyStackPtr]
                      DO 
                        WParsAttr.Scan := yyRepairAttribute;
-                       WParsAttr.PaUnnestCoord := UnnestCoord ( );
-(*                     PushUnnestStk (WParsAttr); *)
+                       WParsAttr.PaPass1Coord := Coord ( );
+(*                     PutBwd_Attribute (WParsAttr); *)
                      END (*WITH*)
                   END (* IF *) ;
                   IF yyState >= yyFirstFinalState 
@@ -409,9 +411,12 @@ $@                   $.ErrorAttribute
                   END (* IF *) ;
                ELSE (* Report and start recovery. *)
                   INC (yyErrorCount);
+$@                yyErrorPos := $.Attribute.Position;
+                  yyErrMsgWrT := TextWr . New ( );
                   ErrorRecovery 
                     (yyTerminal, yyStateStack,
-                     NUMBER ( yyStateStack ^ ), yyStackPtr);
+                     NUMBER ( yyStateStack ^ ), yyStackPtr,
+                     yyErrMsgWrT , yyMsgLineLen );
                   yyRepairsInserted := 0;
                END (* IF *) ;
             END (* IF *) ;
@@ -436,15 +441,17 @@ $Y                in the state stack. *)
               DO
 $Y              WParsAttr := ParsAttrNull; 
 $@               WParsAttr.Scan := $.Attribute;
-                WParsAttr.PaUnnestCoord := UnnestCoord ( );
-(*              PushUnnestStk (WParsAttr); *) 
+                WParsAttr.PaPass1Coord := Coord ( );
+(*              PutBwd_Attribute (WParsAttr); *) 
               END (*WITH*);
 $@            yyTerminal := $.GetToken ();
               IF yyRepairsInserted >= 0
               (* ^0 => repairs been happening, tho' with no insertions. *) 
-              THEN (* Finished with a repair. *) 
-                 EmitSyntErrMsg ( );
-                 yyRepairsInserted := - 1;
+              THEN (* Finished with a repair. *)
+                FM3Messages.ErrorArr
+                  ( ARRAY OF REFANY { TextWr.ToText (yyErrMsgWrT) } , yyErrorPos );
+                yyErrMsgWrT := NIL; 
+                yyRepairsInserted := - 1;
               END (*IF*);
 
 $X             (*Reduce*)yyState := yyFinalToProd [yyState](* reducing case label ct. *);
@@ -454,7 +461,7 @@ $Y             yyStateStack^ [yyStackPtr] := (*Reduce*)yyState (*ParserDebug*);
             LOOP (* Through successive reductions *)
                yyPrereduceStackPtr := yyStackPtr;
                yySynAttribute := ParsAttrNull;
-               yyPrereduceUnnestCoord := UnnestCoord ( );
+               yyPrereduceCoord := Coord ( );
 
 (* -------------------------------------------------------------------------- *)
              (* Inserted semantic action code from the .lalr file: *)
@@ -493,13 +500,13 @@ $R             (* Code for Reductions is inserted here *)
 $Y               yyNTPos := WParsAttr . Scan . Position (* Parser debug.*) ;
 $Y               (* ^Either from LM symbol of RHS, or, if empty RHS, was set to
 $Y                  the scanner's position by lalr-generated code. *) 
-                 yyRHSUnnestCoord := WParsAttr . PaUnnestCoord; 
+                 yyRHSCoord := WParsAttr . PaPass1Coord; 
                  WParsAttr := yySynAttribute;
-                 IF yySynAttribute . PaUnnestCoord = ParsAttrNull . PaUnnestCoord 
+                 IF yySynAttribute . PaPass1Coord = ParsAttrNull . PaPass1Coord 
                  THEN (* Semantic actions didn't set it. *) 
                    IF yyStackPtr = yyPrereduceStackPtr + 1 (* Empty reduction *)
-                   THEN WParsAttr . PaUnnestCoord := yyPrereduceUnnestCoord; 
-                   ELSE WParsAttr . PaUnnestCoord := yyRHSUnnestCoord;
+                   THEN WParsAttr . PaPass1Coord := yyPrereduceCoord; 
+                   ELSE WParsAttr . PaPass1Coord := yyRHSCoord;
                    END (*IF*);
                  END (*IF*);
 $Y               WParsAttr.Scan.SaTok := yyNonterminal;
@@ -521,53 +528,52 @@ $Y          yyStateStack^ [yyStackPtr] := yyState (*A state*) (*ParserDebug*);
             WITH WParsAttr = yyAttributeStack^ [yyStackPtr]
             DO
 $@             WParsAttr.Scan := $.Attribute;
-              WParsAttr.PaUnnestCoord := UnnestCoord ( );
-(*            PushUnnestStk (WParsAttr); *)
+              WParsAttr.PaPass1Coord := Coord ( );
+(*            PutBwd_Attribute (WParsAttr); *)
             END (*WITH*);
 $@           yyTerminal := $.GetToken ();
              IF yyRepairsInserted >= 0
                 (* ^0 => repair's been happening, tho' with no insertions. *)
              THEN (* Finished with a repair. *)
-               EmitSyntErrMsg ( );
+               FM3Messages.ErrorArr
+                 ( ARRAY OF REFANY { TextWr.ToText (yyErrMsgWrT) } , yyErrorPos );
+               yyErrMsgWrT := NIL; 
                yyRepairsInserted := - 1;
              END (*IF*);
          END (* IF *);
       END (* LOOP *) ;
 $@  END @;
 
-PROCEDURE AppendToLine ( FragText : TEXT ) =
-   BEGIN
-      Wr.PutText (yyErrMsgWrT , FragText);
-      INC (yyMsgLineLen, Text.Length (FragText))
-   END AppendToLine;
-
-PROCEDURE QuoteAndFillOnLine ( FragText : TEXT ) =
+PROCEDURE QuoteAndFillOnLine
+   ( FragText : TEXT ; ErrMsgWrT : Wr . T ; VAR MsgLineLen : INTEGER ) =
    VAR FragLen : INTEGER;
    BEGIN
       FragLen := Text.Length (FragText);
-      IF yyMsgLineLen > FM3Messages.IndentLen
+      IF MsgLineLen > FM3Messages.IndentLen
          (* There's already a fragment on this line. *) 
-         AND yyMsgLineLen + FragLen + 2 (*For quotes.*)
+         AND MsgLineLen + FragLen + 2 (*For quotes.*)
              > FM3Messages.MsgLineLen (* Frag won't fit. *) 
       THEN
-        Wr.PutText ( yyErrMsgWrT, FM3Messages.NLIndent);
-        yyMsgLineLen := FM3Messages.IndentLen;
-      ELSIF yyMsgLineLen > FM3Messages.IndentLen
+        Wr.PutText ( ErrMsgWrT, FM3Messages.NLIndent);
+        MsgLineLen := FM3Messages.IndentLen;
+      ELSIF MsgLineLen > FM3Messages.IndentLen
       THEN 
-        Wr.PutChar (yyErrMsgWrT , ' ');
-        INC ( yyMsgLineLen );
+        Wr.PutChar ( ErrMsgWrT , ' ');
+        INC ( MsgLineLen );
       END (*IF*);
-      Wr.PutChar (yyErrMsgWrT , '\"');
-      Wr.PutText (yyErrMsgWrT , FragText);
-      Wr.PutText (yyErrMsgWrT , "\" ");
-      INC (yyMsgLineLen, FragLen + 2);
+      Wr.PutChar ( ErrMsgWrT , '\"');
+      Wr.PutText ( ErrMsgWrT , FragText);
+      Wr.PutText ( ErrMsgWrT , "\" ");
+      INC (MsgLineLen, FragLen + 2);
    END QuoteAndFillOnLine; 
 
 PROCEDURE ErrorRecovery (
       VAR Terminal      : yySymbolRange ;
           StateStack    : yyStackType   ;
           StackSize     : INTEGER       ;
-          StackPtr      : yyStackPtrType
+          StackPtr      : yyStackPtrType;
+          ErrMsgWrT     : Wr . T        ;
+      VAR MsgLineLen    : INTEGER 
     ) =
    VAR
       ContinueSet       : IntSets . T;
@@ -582,17 +588,16 @@ PROCEDURE ErrorRecovery (
       VAR TokenText : TEXT;
       BEGIN (*VisitTok*)
          TokenName (Elem, (*OUT*) TokenText);
-         QuoteAndFillOnLine (TokenText);
+         QuoteAndFillOnLine
+           ( TokenText , ErrMsgWrT , MsgLineLen );
       END VisitTok;
 
    BEGIN (* ErrorRecovery *)
    (* Start the error message. *) 
-$@    yyErrorPos := $.Attribute.Position;
-      yyErrMsgWrT := TextWr . New ( );
       TokenName ( Terminal , (*OUT*) TokenText );
-      Wr.PutText (yyErrMsgWrT , "Illegal token: \"");
-      Wr.PutText (yyErrMsgWrT , TokenText );
-      Wr.PutText (yyErrMsgWrT , "\"" );
+      Wr.PutText ( ErrMsgWrT , "Illegal token: \"");
+      Wr.PutText ( ErrMsgWrT , TokenText );
+      Wr.PutText ( ErrMsgWrT , "\"" );
 
    (* Append list of the set of expected terminal symbols. *)
       ComputeContinuation
@@ -601,15 +606,15 @@ $@    yyErrorPos := $.Attribute.Position;
       THEN (* Shouldn't happen. *) 
       ELSIF IntSets.Card(ContinueSet) = 1
       THEN
-         Wr.PutText ( yyErrMsgWrT, ", expecting \"");
+         Wr.PutText ( ErrMsgWrT, ", expecting \"");
          Token := IntSets . ArbitraryMember (ContinueSet);
          TokenName (Token, (*OUT*) TokenText);
-         Wr.PutText ( yyErrMsgWrT, TokenText);  
-         Wr.PutText ( yyErrMsgWrT, "\"");  
+         Wr.PutText ( ErrMsgWrT, TokenText);  
+         Wr.PutText ( ErrMsgWrT, "\"");  
       ELSE (* Expected set is plural. *)   
-         Wr.PutText ( yyErrMsgWrT, ", expecting one of:");
-         Wr.PutText ( yyErrMsgWrT, FM3Messages.NLIndent );
-         yyMsgLineLen := FM3Messages.IndentLen;
+         Wr.PutText ( ErrMsgWrT, ", expecting one of:");
+         Wr.PutText ( ErrMsgWrT, FM3Messages.NLIndent );
+         MsgLineLen := FM3Messages.IndentLen;
          IntSets . ForAllDo (ContinueSet, VisitTok);
       END (*IF*);
 
@@ -624,23 +629,14 @@ $@      Terminal := $.GetToken ();
       (* Append restart point, if any tokens were skipped. *) 
       IF TokensSkipped
       THEN
-         Wr.PutText (yyErrMsgWrT, FM3Messages.NLIndent);
-         Wr.PutText (yyErrMsgWrT , "Restarting parse at ");
-$@       FM3SharedUtils.PutPosImage ( yyErrMsgWrT , $.Attribute.Position );
+         Wr.PutText ( ErrMsgWrT, FM3Messages.NLIndent);
+         Wr.PutText ( ErrMsgWrT , "Restarting parse at ");
+$@       FM3SharedUtils.PutPosImage ( ErrMsgWrT , $.Attribute.Position );
       END (*IF*);
 
       ContinueSet := NIL;
       RestartSet := NIL;
    END ErrorRecovery;
-
-PROCEDURE EmitSyntErrMsg ( ) =
-   VAR ErrorMsgText : TEXT;
-   BEGIN 
-      ErrorMsgText := TextWr.ToText (yyErrMsgWrT);
-      FM3Messages.ErrorArr
-        ( ARRAY OF REFANY { ErrorMsgText } , yyErrorPos );
-      yyErrMsgWrT := NIL; 
-   END EmitSyntErrMsg;
 
 (*
    compute the set of terminal symbols that can be accepted (read)

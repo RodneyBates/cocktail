@@ -40,8 +40,8 @@ FROM General    IMPORT Max, Min;
 FROM TokenTab   IMPORT Vocabulary;
 
   CONST
-    InitTableMax = 1500;
-    InitNTableMax = 500;
+    InitTableMax = 5000;
+    InitNTableMax = 5000;
 
 PROCEDURE InitCompressTable() =
    VAR
