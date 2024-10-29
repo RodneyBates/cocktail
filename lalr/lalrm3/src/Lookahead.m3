@@ -681,7 +681,7 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Ter
             ELSE
 (*WASExtendArray (Array,Count,BYTESIZE(tItemIndex));*)
               ExpArrays_tItemIndex.Expand
-                ((*VAR*)Stack.IilArray, Stack.Count + 1 ); 
+                ((*VAR*)Stack.IilArray, Stack.Used + 10 ); 
               Stack.Count := LAST(Stack.IilArray^);
             END;
           END;
