@@ -27,7 +27,7 @@ FROM Automaton  IMPORT tIndex, Infinite, tProduction, tProdIndex, ProdArrayPtr,
                         StateArrayPtr, StateIndex, tRep, tItemIndex, ItemArrayPtr, ItemIndex;
 FROM DynArray   IMPORT MakeArray;
 FROM Gen        IMPORT ElmtSize, Continuation, ContinuationCount, LastReadState, TableElmt;
-FROM Sets       IMPORT Select;
+FROM Sets       IMPORT SelectIntSets;
 IMPORT IntSets; 
 
 FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, NonTerminal;
@@ -73,13 +73,14 @@ FROM TokenTab   IMPORT MINTerm, MAXTerm, MINNonTerm, MAXNonTerm, Vocabulary, Non
               END;
             END;
             INC (item);
-          END;
+          END (*LOOP*);
 
           WITH m2tom3_with_5=ItemArrayPtr^[BestItem] DO
             IF m2tom3_with_5.Rep = tRep.TermRep THEN
               Continuation^[m2tom3_with_1.NewNumber] := m2tom3_with_5.Read;
             ELSE        (* Waehle ein beliebiges Element aus *)
-              Continuation^[m2tom3_with_1.NewNumber] := IntSets.ArbitraryMember (m2tom3_with_5.Set);
+              Continuation^[m2tom3_with_1.NewNumber]
+                := SelectIntSets (m2tom3_with_5.Set);
             END;
           END;
         END;

@@ -13,6 +13,8 @@
 
  UNSAFE MODULE Sets;
 
+IMPORT IntSets; 
+
 FROM SYSTEM IMPORT M2LONGINT;
 FROM SYSTEM IMPORT SHORTCARD, BITSET;
 FROM General    IMPORT MinSHORTCARD, MaxSHORTCARD;
@@ -240,6 +242,17 @@ PROCEDURE Select (VAR Set: tSet): tElement =
       RETURN Minimum (Set);
    END Select;
     
+PROCEDURE SelectIntSets (Set : IntSets . T ): INTEGER =
+(* Works on an IntSet.T, but has the original semantics of Cocktail reuse
+   Sets.Select, which returns ambiguous zero from an empty set.
+*)
+   VAR LResult : INTEGER; 
+   BEGIN
+      LResult := IntSets . ArbitraryMember ( Set );
+      IF LResult = IntSets . NullElem THEN LResult := 0 END (*IF*) ;
+      RETURN LResult 
+   END SelectIntSets;
+    
 PROCEDURE Extract (VAR Set: tSet): tElement =
    VAR i : tElement;
    BEGIN
@@ -247,6 +260,17 @@ PROCEDURE Extract (VAR Set: tSet): tElement =
       Exclude (Set, i);
       RETURN i;
    END Extract;
+
+PROCEDURE ExtractIntSets (VAR Set : IntSets . T ) : INTEGER =
+(* Works on an IntSet.T, but has the original semantics of Cocktail reuse
+   Sets.Extract, which returns ambiguous zero from an empty set.
+*) 
+   VAR LResult : INTEGER; 
+   BEGIN
+      LResult := IntSets . ExtractArbitraryMember ( Set );
+      IF LResult = IntSets . NullElem THEN LResult := 0 END (*IF*) ;
+      RETURN LResult 
+   END ExtractIntSets;
 
 PROCEDURE IsSubset (Set1, Set2: tSet): BOOLEAN =
    VAR i : SHORTCARD;

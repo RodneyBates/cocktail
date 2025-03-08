@@ -3,6 +3,14 @@ import ("libm3")
 
 import("m2libs")
 
+interface("BitNoTable")
+module("UnsafeUtils")
+interface("IntForOrdSets")
+generic_module("OrdSets")
+build_generic_intf("IntSets","OrdSets",["IntForOrdSets"],VISIBLE)
+build_generic_impl("IntSets","OrdSets",[])
+
+
 % interface("Arguments")
 Module("Checks")
 Module("DynArray")

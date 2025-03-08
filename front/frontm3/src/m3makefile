@@ -4,12 +4,12 @@ import("libm3")
 import("m2libs")
 import("reusem3")
 
-interface("BitNoTable")
-module("UnsafeUtils")
-interface("IntForOrdSets")
-generic_module("OrdSets")
-build_generic_intf("IntSets","OrdSets",["IntForOrdSets"],VISIBLE)
-build_generic_impl("IntSets","OrdSets",[])
+%interface("BitNoTable")
+%module("UnsafeUtils")
+%interface("IntForOrdSets")
+%generic_module("OrdSets")
+%build_generic_intf("IntSets","OrdSets",["IntForOrdSets"],VISIBLE)
+%build_generic_impl("IntSets","OrdSets",[])
 
 module("Actions")
 module("Character")
@@ -18,7 +18,7 @@ module("FrontErrors") % There is a Errors.[im]3 in reusem3!!
 module("Limits")
 module("Listing")
 module("Oper")
-module("FrontPath") % There is a Path.[im]3 in libm,3.
+module("FrontPath") % There is a Path.[im]3 in libm3.
 module("Rules")
 module("SysError")
 module("Tokens")

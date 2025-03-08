@@ -31,6 +31,8 @@
 
 INTERFACE  Sets;
 
+IMPORT IntSets; 
+
 FROM SYSTEM IMPORT BITSET, SHORTCARD;
 FROM ReuseIO IMPORT tFile;
 
@@ -66,7 +68,15 @@ PROCEDURE Size		(VAR Set: tSet): tElement;
 PROCEDURE Minimum	(VAR Set: tSet): tElement;
 PROCEDURE Maximum	(VAR Set: tSet): tElement;
 PROCEDURE Select	(VAR Set: tSet): tElement;
+PROCEDURE SelectIntSets (Set : IntSets . T ): INTEGER;
+(* Works on an IntSet.T, but has the original semantics of Cocktail reuse
+   Sets.Select, which returns ambiguous zero from an empty set.
+*)
 PROCEDURE Extract	(VAR Set: tSet): tElement;
+PROCEDURE ExtractIntSets (VAR Set : IntSets . T ) : INTEGER;
+(* Works on an IntSet.T, but has the original semantics of Cocktail reuse
+   Sets.Extract, which returns ambiguous zero from an empty set.
+*) 
 PROCEDURE IsSubset	(Set1, Set2: tSet): BOOLEAN;
 PROCEDURE IsStrictSubset (Set1, Set2: tSet): BOOLEAN;
 PROCEDURE IsEqual	(VAR Set1, Set2: tSet): BOOLEAN;
