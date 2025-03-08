@@ -70,6 +70,7 @@ FROM FrontErrors     IMPORT eInternal, eInformation, eWarning, eError, eFatal, e
                         CrashT;
 FROM Idents     IMPORT tIdent;
 FROM ReuseIO         IMPORT WriteOpenT, WriteClose;
+IMPORT Sets;
 FROM Sets       IMPORT tSet, IsElement, IsEmpty, Include, Exclude, Extract, Union,
                         Intersection, Assign,  AssignEmpty, MakeSet, ReleaseSet;
 IMPORT IntSets;
@@ -217,7 +218,7 @@ PROCEDURE RepairConflict (state: tStateIndex; VAR ConflictSet: IntSets.T) =
 
       WITH m2tom3_with_7=StateArrayPtr^[state] DO
         WHILE NOT IntSets.IsEmpty (todo) DO
-          LookAhead := IntSets.ExtractArbitraryMember ((*VAR*)todo);
+          LookAhead := Sets.ExtractIntSets ((*VAR*)todo);
 
           OnlyOpers := TRUE;
           ReduceCount := 0;

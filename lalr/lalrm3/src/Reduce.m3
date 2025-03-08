@@ -25,6 +25,7 @@
  UNSAFE MODULE Reduce;
 
   IMPORT IntSets;
+  IMPORT Sets;
 
   IMPORT Word;
   FROM FrontErrors IMPORT
@@ -122,7 +123,7 @@
 
         (* waehle ein Nichtterminal zur Bearbeitung aus *)
 
-        nt := IntSets.ExtractArbitraryMember ((*VAR*)todo);
+        nt := Sets.ExtractIntSets ((*VAR*)todo);
         done := IntSets.Include (done, nt);
 
         WITH m2tom3_with_1=ProdList[nt] DO
@@ -295,7 +296,7 @@
       term := TRUE;
       IF NOT IntSets.IsEmpty (todo) THEN
         REPEAT 
-          nt := IntSets.ExtractArbitraryMember (todo);
+          nt := Sets.ExtractIntSets (todo);
 
           (* Ein ereichbares Nichtterminal, das nicht terminalisiserbar
              ist, fuehrt zum Abbruch *)

@@ -137,6 +137,7 @@ UNSAFE MODULE Gen;
        dFile, WriteItemSets, WriteTable, WriteNTs, WriteProdList,
        ItemSets;
   FROM Check IMPORT Verbose;
+  IMPORT Sets;
 
 
   IMPORT WriteTok;
@@ -579,7 +580,7 @@ UNSAFE MODULE Gen;
                   RedState := ReduceOffset + prod^.ProdNo;
                   Look := m2tom3_with_14.Set;
                   WHILE NOT IntSets.IsEmpty (Look) DO
-                    t := IntSets.ExtractArbitraryMember((*VAR*)Look);
+                    t := Sets.ExtractIntSets((*VAR*)Look);
                     <*ASSERT TableLine[t] = NoState *>
                     TableLine[t] := RedState;
                   END;

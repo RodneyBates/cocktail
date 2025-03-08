@@ -50,6 +50,7 @@ FROM Gen IMPORT tTableLine, LeftHandSide, ProdLength, NonTermOffset,
                 NoState, FirstSymbol, LastSymbol, LastReadState,
                 FirstReadTermState, MakeTableLine, FinalToProd;
 FROM ReuseIO    IMPORT tFile, WriteC, WriteT, WriteI, WriteCard, WriteNl;
+IMPORT Sets;
 (*FROM Sets       IMPORT tSet, Extract, Include, Exclude, MakeSet, ReleaseSet,
                         Assign, Intersection, IsElement, IsEmpty;
                         *)
@@ -316,7 +317,7 @@ PROCEDURE DebugEnd() =
 
       i := PathC.IpPath^[PathC.IpCount];
       WHILE NOT IntSets.IsEmpty (cs) DO
-        t := IntSets.ExtractArbitraryMember((*VAR*)cs);
+        t := Sets.ExtractIntSets((*VAR*)cs);
         WITH m2tom3_with_7=ItemArrayPtr^[i] DO
           WITH m2tom3_with_8=StateArrayPtr^[m2tom3_with_7.Next] DO
             I := m2tom3_with_8.Items;

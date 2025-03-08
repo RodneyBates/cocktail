@@ -24,6 +24,7 @@ UNSAFE MODULE LR;
     GotoSet,
     Goto;
   
+  IMPORT Sets;
   FROM Sets IMPORT
     tSet,
     MakeSet, ReleaseSet,
@@ -59,7 +60,7 @@ UNSAFE MODULE LR;
     g := IntSets.Empty();
     GotoSet (s,g);
     WHILE NOT IntSets.IsEmpty (g) DO
-      v := IntSets.ExtractArbitraryMember ((*(VAR*)g);
+      v := Sets.ExtractIntSets ((*(VAR*)g);
       t := Goto(s,v,n);
       IF n THEN
         ComputeNext (t);
