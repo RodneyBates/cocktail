@@ -10,7 +10,7 @@ $Z
 $Z(* Derived from: ** $Id: Parser.mi,v 2.8 1992/08/12 06:54:05 grosch rel $ *)
 $Z(* Modified Rodney M. Bates. Various times. rodney.m.bates@acm.org*)
 $Z(* Beginning 3-2023: 
-$Z    3-2023 Add generation of Module-3 code. 
+$Z    3-2023 Add generation of Modula-3 code. 
 $Z    Further changes in https://github.com/RodneyBates/cocktail
 $Z*)
 $Z
